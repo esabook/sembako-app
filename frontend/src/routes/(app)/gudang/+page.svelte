@@ -3,361 +3,591 @@
 	import { api } from '$lib/utils/api.js';
 	import Modal from '$lib/components/Modal.svelte';
 
-	type Barang = {
-		id: number; kode_barang: string; nama_barang: string;
-		harga_jual_eceran: number; harga_beli_terakhir: number;
-		stok_sekarang: number; stok_minimum: number;
-		nama_kategori: string | null; nama_satuan: string | null; singkatan_satuan: string | null;
-		is_active: boolean;
-	};
-	type Supplier = {
-		id: number; kode_supplier: string; nama_supplier: string;
-		kontak: string | null; terms_bayar: number; is_active: boolean;
-	};
+	type Barang = { id: number; kode_barang: string; nama_barang: string; harga_jual_eceran: number; harga_beli_terakhir: number; stok_sekarang: number; stok_minimum: number; nama_kategori: string | null; nama_satuan: string | null; singkatan_satuan: string | null; is_active: boolean; };
+	type Supplier = { id: number; kode_supplier: string; nama_supplier: string; kontak: string | null; terms_bayar: number; is_active: boolean; };
+	type StokItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; lokasi_rak: string | null; nama_kategori: string | null; singkatan_satuan: string | null; };
+	type MutasiItem = { id: number; tanggal: string; jenis: string; referensi_tipe: string | null; jumlah_perubahan: number; jumlah_sesudah: number; };
+	type BarangMasuk = { id: number; no_penerimaan: string; tanggal_terima: string; nama_supplier: string | null; no_faktur_supplier: string | null; total_nilai: number; };
+	type PORow = { id: number; no_po: string; tanggal_po: string; nama_supplier: string | null; status: string; total_nilai: number; };
+	type SuggestItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; harga_beli_terakhir: number; saran_pesan: number; };
 	type Kategori = { id: number; nama: string };
 	type Satuan = { id: number; nama: string; singkatan: string };
 
-	let tab = $state<'barang' | 'supplier'>('barang');
-	let barangList = $state<Barang[]>([]);
-	let supplierList = $state<Supplier[]>([]);
-	let kategoriList = $state<Kategori[]>([]);
-	let satuanList = $state<Satuan[]>([]);
+	let tab = $state<'stok' | 'terima' | 'po' | 'barang' | 'supplier'>('stok');
 	let query = $state('');
 	let loading = $state(false);
 	let error = $state('');
 
-	// Modal barang
+	let stokList = $state<StokItem[]>([]);
+	let mutasiList = $state<MutasiItem[]>([]);
+	let mutasiNama = $state('');
+	let showMutasi = $state(false);
+	let bmList = $state<BarangMasuk[]>([]);
+	let supplierList = $state<Supplier[]>([]);
+	let barangList = $state<Barang[]>([]);
+	let satuanList = $state<Satuan[]>([]);
+	let kategoriList = $state<Kategori[]>([]);
+	let poList = $state<PORow[]>([]);
+	let suggestList = $state<SuggestItem[]>([]);
+
+	let bmSupplier = $state('');
+	let bmNoFaktur = $state('');
+	let bmTerms = $state('');
+	let bmItems = $state<{ barang_id: number; nama_barang: string; kode: string; jumlah: string; harga: string; exp: string }[]>([]);
+	let bmSearchVal = $state('');
+	let bmSearchRes = $state<Barang[]>([]);
+	let bmLoading = $state(false);
+
+	let poSupplier = $state('');
+	let poEta = $state('');
+	let poItems = $state<{ barang_id: number; nama_barang: string; jumlah: string; harga_est: string }[]>([]);
+	let poShowForm = $state(false);
+	let poLoading = $state(false);
+	let poDetail = $state<PORow | null>(null);
+	let showPoDetail = $state(false);
+
 	let modalBarang = $state(false);
 	let editBarang = $state<Partial<Barang> | null>(null);
-	let formBarang = $state({ kode_barang: '', nama_barang: '', kategori_id: '', satuan_dasar_id: '',
-		harga_beli_terakhir: '', harga_jual_eceran: '', harga_jual_grosir: '', stok_minimum: '', lokasi_rak: '' });
+	let fb = $state({ kode_barang: '', nama_barang: '', kategori_id: '', satuan_dasar_id: '', harga_beli_terakhir: '', harga_jual_eceran: '', harga_jual_grosir: '', stok_minimum: '', lokasi_rak: '' });
 
-	// Modal supplier
 	let modalSupplier = $state(false);
 	let editSupplier = $state<Partial<Supplier> | null>(null);
-	let formSupplier = $state({ kode_supplier: '', nama_supplier: '', kontak: '', alamat: '', terms_bayar: '', limit_hutang: '' });
+	let fs = $state({ kode_supplier: '', nama_supplier: '', kontak: '', alamat: '', terms_bayar: '', limit_hutang: '' });
 
-	async function muatBarang() {
-		loading = true;
-		const res = await api.get<Barang[]>(`/barang?q=${query}`);
-		if (res.success) barangList = res.data;
-		loading = false;
-	}
-
-	async function muatSupplier() {
-		loading = true;
-		const res = await api.get<Supplier[]>(`/supplier?q=${query}`);
-		if (res.success) supplierList = res.data;
-		loading = false;
-	}
-
+	async function muatStok() { loading = true; const r = await api.get<StokItem[]>('/stok'); if (r.success) stokList = r.data; loading = false; }
+	async function muatBM() { loading = true; const r = await api.get<BarangMasuk[]>('/barang-masuk'); if (r.success) bmList = r.data; loading = false; }
+	async function muatPO() { loading = true; const r = await api.get<PORow[]>('/purchase-order'); if (r.success) poList = r.data; loading = false; }
+	async function muatSuggest() { const r = await api.get<SuggestItem[]>('/purchase-order/suggest/items'); if (r.success) suggestList = r.data; }
+	async function muatBarang(q = '') { const r = await api.get<Barang[]>(`/barang?q=${q}`); if (r.success) barangList = r.data; }
+	async function muatSupplier() { const r = await api.get<Supplier[]>('/supplier'); if (r.success) supplierList = r.data; }
 	async function muatMeta() {
-		const [k, s] = await Promise.all([
-			api.get<Kategori[]>('/barang/kategori'),
-			api.get<Satuan[]>('/barang/satuan'),
-		]);
+		const [k, s] = await Promise.all([api.get<Kategori[]>('/barang/kategori'), api.get<Satuan[]>('/barang/satuan')]);
 		if (k.success) kategoriList = k.data;
 		if (s.success) satuanList = s.data;
 	}
 
-	onMount(() => { muatBarang(); muatSupplier(); muatMeta(); });
+	onMount(() => { muatStok(); muatSupplier(); muatMeta(); muatBarang(); });
 
-	$effect(() => { query; tab === 'barang' ? muatBarang() : muatSupplier(); });
+	$effect(() => {
+		if (tab === 'stok') muatStok();
+		else if (tab === 'terima') muatBM();
+		else if (tab === 'po') { muatPO(); muatSuggest(); }
+		else if (tab === 'barang') muatBarang(query);
+	});
+
+	async function muatMutasi(id: number, nama: string) {
+		mutasiNama = nama;
+		const r = await api.get<MutasiItem[]>(`/stok/${id}/mutasi`);
+		if (r.success) { mutasiList = r.data; showMutasi = true; }
+	}
+
+	let bmTimer: ReturnType<typeof setTimeout>;
+	function cariBM(q: string) {
+		clearTimeout(bmTimer);
+		bmTimer = setTimeout(async () => {
+			if (!q.trim()) { bmSearchRes = []; return; }
+			const r = await api.get<Barang[]>(`/barang?q=${encodeURIComponent(q)}`);
+			if (r.success) bmSearchRes = r.data;
+		}, 200);
+	}
+
+	function tambahBM(br: Barang) {
+		if (bmItems.find((i) => i.barang_id === br.id)) return;
+		bmItems = [...bmItems, { barang_id: br.id, nama_barang: br.nama_barang, kode: br.kode_barang, jumlah: '1', harga: String(br.harga_beli_terakhir || ''), exp: '' }];
+		bmSearchVal = ''; bmSearchRes = [];
+	}
+
+	async function simpanBM() {
+		error = '';
+		if (!bmSupplier) { error = 'Pilih supplier'; return; }
+		if (!bmItems.length) { error = 'Tambah item barang'; return; }
+		bmLoading = true;
+		const r = await api.post('/barang-masuk', {
+			supplier_id: Number(bmSupplier), no_faktur_supplier: bmNoFaktur || undefined,
+			terms_bayar: bmTerms ? Number(bmTerms) : undefined,
+			items: bmItems.map((i) => ({ barang_id: i.barang_id, jumlah_terima: Number(i.jumlah), harga_beli: Number(i.harga), tgl_kadaluarsa: i.exp || undefined })),
+		});
+		bmLoading = false;
+		if (!r.success) { error = (r as { success: false; error: string }).error; return; }
+		bmSupplier = ''; bmNoFaktur = ''; bmTerms = ''; bmItems = [];
+		muatBM(); muatStok();
+	}
+
+	function isiDariSuggest() { poItems = suggestList.map((s) => ({ barang_id: s.id, nama_barang: s.nama_barang, jumlah: String(s.saran_pesan), harga_est: String(s.harga_beli_terakhir) })); }
+
+	async function simpanPO() {
+		error = '';
+		if (!poSupplier) { error = 'Pilih supplier'; return; }
+		if (!poItems.length) { error = 'Tambah item PO'; return; }
+		poLoading = true;
+		const r = await api.post('/purchase-order', {
+			supplier_id: Number(poSupplier), tanggal_estimasi_datang: poEta || undefined,
+			items: poItems.map((i) => ({ barang_id: i.barang_id, jumlah_pesan: Number(i.jumlah), harga_beli_estimasi: Number(i.harga_est) || 0 })),
+		});
+		poLoading = false;
+		if (!r.success) { error = (r as { success: false; error: string }).error; return; }
+		poSupplier = ''; poEta = ''; poItems = []; poShowForm = false; muatPO();
+	}
+
+	async function lihatPO(id: number) {
+		const r = await api.get<PORow>(`/purchase-order/${id}`);
+		if (r.success) { poDetail = r.data; showPoDetail = true; }
+	}
+
+	async function ubahStatusPO(id: number, status: string) {
+		await api.put(`/purchase-order/${id}/status`, { status });
+		muatPO();
+		if (poDetail?.id === id) poDetail = { ...poDetail, status };
+	}
 
 	function bukaFormBarang(item?: Barang) {
 		editBarang = item ?? null;
-		formBarang = {
-			kode_barang: item?.kode_barang ?? '',
-			nama_barang: item?.nama_barang ?? '',
-			kategori_id: String(item?.['kategori_id' as keyof Barang] ?? ''),
-			satuan_dasar_id: String(item?.['satuan_dasar_id' as keyof Barang] ?? ''),
+		fb = {
+			kode_barang: item?.kode_barang ?? '', nama_barang: item?.nama_barang ?? '',
+			kategori_id: String((item as Record<string, unknown>)?.['kategori_id'] ?? ''),
+			satuan_dasar_id: String((item as Record<string, unknown>)?.['satuan_dasar_id'] ?? ''),
 			harga_beli_terakhir: String(item?.harga_beli_terakhir ?? ''),
 			harga_jual_eceran: String(item?.harga_jual_eceran ?? ''),
-			harga_jual_grosir: String(item?.['harga_jual_grosir' as keyof Barang] ?? ''),
+			harga_jual_grosir: String((item as Record<string, unknown>)?.['harga_jual_grosir'] ?? ''),
 			stok_minimum: String(item?.stok_minimum ?? ''),
-			lokasi_rak: String(item?.['lokasi_rak' as keyof Barang] ?? ''),
+			lokasi_rak: String((item as Record<string, unknown>)?.['lokasi_rak'] ?? ''),
 		};
 		modalBarang = true;
 	}
 
 	async function simpanBarang() {
 		error = '';
-		const payload = {
-			kode_barang: formBarang.kode_barang,
-			nama_barang: formBarang.nama_barang,
-			kategori_id: formBarang.kategori_id ? Number(formBarang.kategori_id) : undefined,
-			satuan_dasar_id: formBarang.satuan_dasar_id ? Number(formBarang.satuan_dasar_id) : undefined,
-			harga_beli_terakhir: Number(formBarang.harga_beli_terakhir) || 0,
-			harga_jual_eceran: Number(formBarang.harga_jual_eceran) || 0,
-			harga_jual_grosir: Number(formBarang.harga_jual_grosir) || 0,
-			stok_minimum: Number(formBarang.stok_minimum) || 0,
-			lokasi_rak: formBarang.lokasi_rak || undefined,
-		};
-		const res = editBarang?.id
-			? await api.put(`/barang/${editBarang.id}`, payload)
-			: await api.post('/barang', payload);
-		if (!res.success) { error = (res as { success: false; error: string }).error; return; }
-		modalBarang = false;
-		muatBarang();
+		const p = { kode_barang: fb.kode_barang, nama_barang: fb.nama_barang, kategori_id: fb.kategori_id ? Number(fb.kategori_id) : undefined, satuan_dasar_id: fb.satuan_dasar_id ? Number(fb.satuan_dasar_id) : undefined, harga_beli_terakhir: Number(fb.harga_beli_terakhir) || 0, harga_jual_eceran: Number(fb.harga_jual_eceran) || 0, harga_jual_grosir: Number(fb.harga_jual_grosir) || 0, stok_minimum: Number(fb.stok_minimum) || 0, lokasi_rak: fb.lokasi_rak || undefined };
+		const r = editBarang?.id ? await api.put(`/barang/${editBarang.id}`, p) : await api.post('/barang', p);
+		if (!r.success) { error = (r as { success: false; error: string }).error; return; }
+		modalBarang = false; muatBarang(query);
 	}
 
-	async function hapusBarang(id: number) {
-		if (!confirm('Nonaktifkan barang ini?')) return;
-		await api.delete(`/barang/${id}`);
-		muatBarang();
-	}
+	async function hapusBarang(id: number) { if (!confirm('Nonaktifkan?')) return; await api.delete(`/barang/${id}`); muatBarang(query); }
 
 	function bukaFormSupplier(item?: Supplier) {
 		editSupplier = item ?? null;
-		formSupplier = {
-			kode_supplier: item?.kode_supplier ?? '',
-			nama_supplier: item?.nama_supplier ?? '',
-			kontak: item?.kontak ?? '',
-			alamat: '',
-			terms_bayar: String(item?.terms_bayar ?? ''),
-			limit_hutang: '',
-		};
+		fs = { kode_supplier: item?.kode_supplier ?? '', nama_supplier: item?.nama_supplier ?? '', kontak: item?.kontak ?? '', alamat: '', terms_bayar: String(item?.terms_bayar ?? ''), limit_hutang: '' };
 		modalSupplier = true;
 	}
 
 	async function simpanSupplier() {
 		error = '';
-		const payload = {
-			kode_supplier: formSupplier.kode_supplier,
-			nama_supplier: formSupplier.nama_supplier,
-			kontak: formSupplier.kontak || undefined,
-			alamat: formSupplier.alamat || undefined,
-			terms_bayar: Number(formSupplier.terms_bayar) || 0,
-			limit_hutang: Number(formSupplier.limit_hutang) || 0,
-		};
-		const res = editSupplier?.id
-			? await api.put(`/supplier/${editSupplier.id}`, payload)
-			: await api.post('/supplier', payload);
-		if (!res.success) { error = (res as { success: false; error: string }).error; return; }
-		modalSupplier = false;
-		muatSupplier();
+		const p = { kode_supplier: fs.kode_supplier, nama_supplier: fs.nama_supplier, kontak: fs.kontak || undefined, alamat: fs.alamat || undefined, terms_bayar: Number(fs.terms_bayar) || 0, limit_hutang: Number(fs.limit_hutang) || 0 };
+		const r = editSupplier?.id ? await api.put(`/supplier/${editSupplier.id}`, p) : await api.post('/supplier', p);
+		if (!r.success) { error = (r as { success: false; error: string }).error; return; }
+		modalSupplier = false; muatSupplier();
 	}
 
-	async function hapusSupplier(id: number) {
-		if (!confirm('Nonaktifkan supplier ini?')) return;
-		await api.delete(`/supplier/${id}`);
-		muatSupplier();
-	}
+	async function hapusSupplier(id: number) { if (!confirm('Nonaktifkan?')) return; await api.delete(`/supplier/${id}`); muatSupplier(); }
 
-	function rupiah(n: number) {
-		return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-	}
-
-	function statusStok(item: Barang) {
-		if (item.stok_sekarang <= 0) return { label: 'HABIS', color: 'var(--danger)' };
-		if (item.stok_sekarang <= item.stok_minimum) return { label: 'HAMPIR HABIS', color: 'var(--warn)' };
-		return { label: 'AMAN', color: 'var(--accent)' };
-	}
+	function rupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
+	function statusStok(item: { stok_sekarang: number; stok_minimum: number }) { if (item.stok_sekarang <= 0) return { label: 'HABIS', color: 'var(--danger)' }; if (item.stok_sekarang <= item.stok_minimum) return { label: 'HAMPIR HABIS', color: 'var(--warn)' }; return { label: 'AMAN', color: 'var(--accent)' }; }
+	const SPC: Record<string, string> = { draft: 'var(--text-dim)', dikirim: 'var(--info)', sebagian: 'var(--warn)', lunas: 'var(--accent)', batal: 'var(--danger)' };
+	const TABS = [{ id: 'stok', label: 'STOK' }, { id: 'terima', label: 'TERIMA BARANG' }, { id: 'po', label: 'PURCHASE ORDER' }, { id: 'barang', label: 'MASTER BARANG' }, { id: 'supplier', label: 'SUPPLIER' }] as const;
 </script>
 
-<div class="flex flex-col gap-4">
-	<!-- Header -->
-	<div class="flex items-center gap-4">
-		<div class="flex gap-1">
-			{#each ['barang', 'supplier'] as t}
-				<button
-					onclick={() => { tab = t as typeof tab; query = ''; }}
-					class="px-3 py-1 rounded text-sm"
-					style="{tab === t ? 'background:var(--surface2);color:var(--text)' : 'color:var(--text-dim)'}"
-				>{t.toUpperCase()}</button>
-			{/each}
-		</div>
-		<input
-			type="search"
-			placeholder="Cari..."
-			bind:value={query}
-			class="px-3 py-1 rounded border text-sm flex-1 max-w-xs outline-none"
-			style="background:var(--surface);border-color:var(--border);color:var(--text)"
-		/>
-		<button
-			onclick={() => tab === 'barang' ? bukaFormBarang() : bukaFormSupplier()}
-			class="px-3 py-1 rounded text-sm font-bold"
-			style="background:var(--accent);color:var(--bg)"
-		>+ Tambah</button>
-	</div>
-
-	<!-- Tabel Barang -->
-	{#if tab === 'barang'}
-		<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-			<table class="w-full text-sm">
-				<thead>
-					<tr style="background:var(--surface2);color:var(--text-dim)">
-						<th class="text-left px-3 py-2 font-medium">Kode</th>
-						<th class="text-left px-3 py-2 font-medium">Nama</th>
-						<th class="text-left px-3 py-2 font-medium">Kategori</th>
-						<th class="text-right px-3 py-2 font-medium">Stok</th>
-						<th class="text-left px-3 py-2 font-medium">Status</th>
-						<th class="text-right px-3 py-2 font-medium">Harga Jual</th>
-						<th class="px-3 py-2"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#if loading}
-						<tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-					{:else if barangList.length === 0}
-						<tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada data</td></tr>
-					{:else}
-						{#each barangList as item}
-							{@const stok = statusStok(item)}
-							<tr class="border-t" style="border-color:var(--border)">
-								<td class="px-3 py-2" style="color:var(--text-dim)">{item.kode_barang}</td>
-								<td class="px-3 py-2">{item.nama_barang}</td>
-								<td class="px-3 py-2" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
-								<td class="px-3 py-2 text-right">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
-								<td class="px-3 py-2">
-									<span class="text-xs font-bold" style="color:{stok.color}">{stok.label}</span>
-								</td>
-								<td class="px-3 py-2 text-right">{rupiah(item.harga_jual_eceran)}</td>
-								<td class="px-3 py-2 text-right">
-									<button onclick={() => bukaFormBarang(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-									<button onclick={() => hapusBarang(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
-								</td>
-							</tr>
-						{/each}
-					{/if}
-				</tbody>
-			</table>
-		</div>
-	{/if}
-
-	<!-- Tabel Supplier -->
-	{#if tab === 'supplier'}
-		<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-			<table class="w-full text-sm">
-				<thead>
-					<tr style="background:var(--surface2);color:var(--text-dim)">
-						<th class="text-left px-3 py-2 font-medium">Kode</th>
-						<th class="text-left px-3 py-2 font-medium">Nama</th>
-						<th class="text-left px-3 py-2 font-medium">Kontak</th>
-						<th class="text-right px-3 py-2 font-medium">Tempo (hari)</th>
-						<th class="px-3 py-2"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#if loading}
-						<tr><td colspan="5" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-					{:else if supplierList.length === 0}
-						<tr><td colspan="5" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada data</td></tr>
-					{:else}
-						{#each supplierList as item}
-							<tr class="border-t" style="border-color:var(--border)">
-								<td class="px-3 py-2" style="color:var(--text-dim)">{item.kode_supplier}</td>
-								<td class="px-3 py-2">{item.nama_supplier}</td>
-								<td class="px-3 py-2" style="color:var(--text-dim)">{item.kontak ?? '-'}</td>
-								<td class="px-3 py-2 text-right">{item.terms_bayar}</td>
-								<td class="px-3 py-2 text-right">
-									<button onclick={() => bukaFormSupplier(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-									<button onclick={() => hapusSupplier(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
-								</td>
-							</tr>
-						{/each}
-					{/if}
-				</tbody>
-			</table>
-		</div>
-	{/if}
+<div class="flex gap-1 mb-4 border-b" style="border-color:var(--border)">
+	{#each TABS as t}
+		<button onclick={() => { tab = t.id; query = ''; error = ''; }} class="px-3 py-2 text-xs font-bold border-b-2 -mb-px"
+			style="{tab === t.id ? 'border-color:var(--accent);color:var(--accent)' : 'border-color:transparent;color:var(--text-dim)'}">{t.label}</button>
+	{/each}
 </div>
 
-<!-- Modal Barang -->
+<!-- TAB STOK -->
+{#if tab === 'stok'}
+<div class="flex flex-col gap-3">
+	<div class="flex items-center gap-3">
+		<input type="search" placeholder="Filter nama..." bind:value={query} class="px-3 py-1 rounded border text-sm max-w-xs outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+		<span class="text-xs" style="color:var(--text-dim)">{stokList.length} barang aktif</span>
+	</div>
+	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+		<table class="w-full text-sm">
+			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
+				<th class="text-left px-3 py-2 font-medium">Kode</th>
+				<th class="text-left px-3 py-2 font-medium">Nama</th>
+				<th class="text-left px-3 py-2 font-medium">Kategori</th>
+				<th class="text-left px-3 py-2 font-medium">Rak</th>
+				<th class="text-right px-3 py-2 font-medium">Stok</th>
+				<th class="text-right px-3 py-2 font-medium">Min</th>
+				<th class="text-left px-3 py-2 font-medium">Status</th>
+				<th class="px-3 py-2"></th>
+			</tr></thead>
+			<tbody>
+				{#if loading}
+					<tr><td colspan="8" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
+				{:else}
+					{#each stokList.filter((s) => !query || s.nama_barang.toLowerCase().includes(query.toLowerCase()) || s.kode_barang.includes(query)) as item}
+						{@const st = statusStok(item)}
+						<tr class="border-t" style="border-color:var(--border)">
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
+							<td class="px-3 py-2">{item.nama_barang}</td>
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.lokasi_rak ?? '-'}</td>
+							<td class="px-3 py-2 text-right font-bold" style="color:{st.color}">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
+							<td class="px-3 py-2 text-right text-xs" style="color:var(--text-dim)">{item.stok_minimum}</td>
+							<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td>
+							<td class="px-3 py-2 text-right">
+								<button onclick={() => muatMutasi(item.id, item.nama_barang)} class="text-xs" style="color:var(--info)">Riwayat</button>
+							</td>
+						</tr>
+					{/each}
+				{/if}
+			</tbody>
+		</table>
+	</div>
+</div>
+{/if}
+
+<!-- TAB TERIMA BARANG -->
+{#if tab === 'terima'}
+<div class="flex gap-6">
+	<div class="flex-1 flex flex-col gap-4">
+		<h3 class="font-bold text-sm">Form Penerimaan Barang</h3>
+		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface);color:var(--danger)">{error}</p>{/if}
+		<div class="grid grid-cols-3 gap-3 text-sm">
+			<div class="flex flex-col gap-1">
+				<label for="bm-sup" class="text-xs" style="color:var(--text-dim)">SUPPLIER *</label>
+				<select id="bm-sup" bind:value={bmSupplier} class="px-2 py-1.5 rounded border outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+					<option value="">— pilih —</option>
+					{#each supplierList as s}<option value={s.id}>{s.nama_supplier}</option>{/each}
+				</select>
+			</div>
+			<div class="flex flex-col gap-1">
+				<label for="bm-faktur" class="text-xs" style="color:var(--text-dim)">NO FAKTUR</label>
+				<input id="bm-faktur" bind:value={bmNoFaktur} placeholder="opsional" class="px-2 py-1.5 rounded border outline-none text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+			</div>
+			<div class="flex flex-col gap-1">
+				<label for="bm-terms" class="text-xs" style="color:var(--text-dim)">TEMPO BAYAR (hari)</label>
+				<input id="bm-terms" type="number" min="0" bind:value={bmTerms} placeholder="dari supplier" class="px-2 py-1.5 rounded border outline-none text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+			</div>
+		</div>
+		<div class="relative">
+			<input type="text" placeholder="Cari / scan barang..." bind:value={bmSearchVal} oninput={() => cariBM(bmSearchVal)} class="w-full px-3 py-1.5 rounded border text-sm outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+			{#if bmSearchRes.length > 0}
+			<div class="absolute z-10 top-full left-0 right-0 mt-1 rounded border shadow-lg" style="background:var(--surface);border-color:var(--border)">
+				{#each bmSearchRes.slice(0, 6) as br}
+					<button onclick={() => tambahBM(br)} class="w-full text-left px-3 py-2 text-sm border-t flex justify-between" style="border-color:var(--border)">
+						<span>{br.kode_barang} — {br.nama_barang}</span>
+						<span class="text-xs" style="color:var(--text-dim)">stok {br.stok_sekarang}</span>
+					</button>
+				{/each}
+			</div>
+			{/if}
+		</div>
+		{#if bmItems.length > 0}
+		<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+			<table class="w-full text-sm">
+				<thead><tr style="background:var(--surface2);color:var(--text-dim)">
+					<th class="text-left px-3 py-2 font-medium">Barang</th>
+					<th class="text-right px-3 py-2 font-medium w-24">Jumlah</th>
+					<th class="text-right px-3 py-2 font-medium w-32">Harga Beli</th>
+					<th class="text-left px-3 py-2 font-medium w-32">Exp</th>
+					<th class="px-2 py-2 w-8"></th>
+				</tr></thead>
+				<tbody>
+					{#each bmItems as item, idx}
+					<tr class="border-t" style="border-color:var(--border)">
+						<td class="px-3 py-2"><div>{item.nama_barang}</div><div class="text-xs" style="color:var(--text-dim)">{item.kode}</div></td>
+						<td class="px-2 py-1 text-right"><input type="number" min="0.01" step="0.01" bind:value={item.jumlah} class="w-20 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
+						<td class="px-2 py-1 text-right"><input type="number" min="0" bind:value={item.harga} class="w-28 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
+						<td class="px-2 py-1"><input type="date" bind:value={item.exp} class="px-2 py-0.5 rounded border text-xs outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
+						<td class="px-2 text-center"><button onclick={() => bmItems = bmItems.filter((_, i) => i !== idx)} class="text-xs" style="color:var(--danger)">✕</button></td>
+					</tr>
+					{/each}
+					<tr class="border-t font-bold" style="border-color:var(--border);background:var(--surface2)">
+						<td colspan="2" class="px-3 py-2 text-right text-xs" style="color:var(--text-dim)">TOTAL</td>
+						<td class="px-3 py-2 text-right">{rupiah(bmItems.reduce((s, i) => s + Number(i.jumlah) * Number(i.harga), 0))}</td>
+						<td colspan="2"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<button onclick={simpanBM} disabled={bmLoading} class="self-end px-6 py-2 rounded font-bold text-sm disabled:opacity-40" style="background:var(--accent);color:var(--bg)">{bmLoading ? 'Menyimpan...' : 'Simpan & Tambah Stok'}</button>
+		{/if}
+	</div>
+	<div class="w-64 shrink-0">
+		<h3 class="font-bold text-sm mb-3">Riwayat Penerimaan</h3>
+		<div class="flex flex-col gap-2">
+			{#each bmList.slice(0, 10) as bm}
+			<div class="rounded border p-3 text-xs" style="background:var(--surface);border-color:var(--border)">
+				<div class="font-bold" style="color:var(--accent)">{bm.no_penerimaan}</div>
+				<div style="color:var(--text-dim)">{bm.nama_supplier ?? '-'} · {bm.tanggal_terima.slice(0, 10)}</div>
+				<div class="mt-1 font-bold">{rupiah(bm.total_nilai)}</div>
+			</div>
+			{/each}
+			{#if bmList.length === 0}<p class="text-xs" style="color:var(--text-dim)">Belum ada penerimaan</p>{/if}
+		</div>
+	</div>
+</div>
+{/if}
+
+<!-- TAB PURCHASE ORDER -->
+{#if tab === 'po'}
+<div class="flex flex-col gap-4">
+	<div class="flex items-center gap-3">
+		<h3 class="font-bold text-sm">Purchase Order</h3>
+		<button onclick={() => { poShowForm = !poShowForm; error = ''; }} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">{poShowForm ? '✕ Tutup' : '+ Buat PO'}</button>
+		{#if suggestList.length > 0}<span class="text-xs px-2 py-1 rounded" style="background:var(--surface);color:var(--warn)">⚠ {suggestList.length} stok kritis</span>{/if}
+	</div>
+	{#if poShowForm}
+	<div class="rounded border p-4" style="background:var(--surface);border-color:var(--border)">
+		{#if error}<p class="text-xs p-2 rounded mb-3" style="background:var(--surface2);color:var(--danger)">{error}</p>{/if}
+		<div class="grid grid-cols-3 gap-3 mb-3 text-sm">
+			<div class="flex flex-col gap-1">
+				<label for="po-sup" class="text-xs" style="color:var(--text-dim)">SUPPLIER *</label>
+				<select id="po-sup" bind:value={poSupplier} class="px-2 py-1.5 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+					<option value="">— pilih —</option>
+					{#each supplierList as s}<option value={s.id}>{s.nama_supplier}</option>{/each}
+				</select>
+			</div>
+			<div class="flex flex-col gap-1">
+				<label for="po-eta" class="text-xs" style="color:var(--text-dim)">EST. DATANG</label>
+				<input id="po-eta" type="date" bind:value={poEta} class="px-2 py-1.5 rounded border outline-none text-sm" style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+			</div>
+			<div class="flex items-end">
+				{#if suggestList.length > 0}
+				<button onclick={isiDariSuggest} class="px-3 py-1.5 rounded text-xs border" style="border-color:var(--warn);color:var(--warn)">Isi dari Stok Kritis ({suggestList.length})</button>
+				{/if}
+			</div>
+		</div>
+		{#if poItems.length > 0}
+		<div class="rounded border overflow-x-auto mb-3" style="border-color:var(--border)">
+			<table class="w-full text-sm">
+				<thead><tr style="background:var(--surface2);color:var(--text-dim)">
+					<th class="text-left px-3 py-2 font-medium">Barang</th>
+					<th class="text-right px-3 py-2 font-medium w-28">Jumlah Pesan</th>
+					<th class="text-right px-3 py-2 font-medium w-32">Harga Est.</th>
+					<th class="px-2 py-2 w-8"></th>
+				</tr></thead>
+				<tbody>
+					{#each poItems as item, idx}
+					<tr class="border-t" style="border-color:var(--border)">
+						<td class="px-3 py-2">{item.nama_barang}</td>
+						<td class="px-2 py-1 text-right"><input type="number" min="1" bind:value={item.jumlah} class="w-24 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
+						<td class="px-2 py-1 text-right"><input type="number" min="0" bind:value={item.harga_est} class="w-28 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
+						<td class="px-2 text-center"><button onclick={() => poItems = poItems.filter((_, i) => i !== idx)} class="text-xs" style="color:var(--danger)">✕</button></td>
+					</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+		{:else}
+		<p class="text-xs mb-3" style="color:var(--text-dim)">Klik "Isi dari Stok Kritis" atau tambah item manual.</p>
+		{/if}
+		<div class="flex justify-end gap-2">
+			<button onclick={() => poShowForm = false} class="px-3 py-1.5 rounded text-sm" style="color:var(--text-dim)">Batal</button>
+			<button onclick={simpanPO} disabled={poLoading} class="px-6 py-1.5 rounded text-sm font-bold disabled:opacity-40" style="background:var(--accent);color:var(--bg)">{poLoading ? 'Menyimpan...' : 'Buat PO'}</button>
+		</div>
+	</div>
+	{/if}
+	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+		<table class="w-full text-sm">
+			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
+				<th class="text-left px-3 py-2 font-medium">No PO</th>
+				<th class="text-left px-3 py-2 font-medium">Tanggal</th>
+				<th class="text-left px-3 py-2 font-medium">Supplier</th>
+				<th class="text-left px-3 py-2 font-medium">Status</th>
+				<th class="text-right px-3 py-2 font-medium">Total</th>
+				<th class="px-3 py-2"></th>
+			</tr></thead>
+			<tbody>
+				{#if loading}<tr><td colspan="6" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
+				{:else if poList.length === 0}<tr><td colspan="6" class="px-3 py-4 text-center" style="color:var(--text-dim)">Belum ada PO</td></tr>
+				{:else}
+					{#each poList as po}
+					<tr class="border-t" style="border-color:var(--border)">
+						<td class="px-3 py-2 font-mono text-xs">{po.no_po}</td>
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{po.tanggal_po}</td>
+						<td class="px-3 py-2">{po.nama_supplier ?? '-'}</td>
+						<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{SPC[po.status] ?? 'var(--text-dim)'}">{po.status.toUpperCase()}</span></td>
+						<td class="px-3 py-2 text-right">{rupiah(po.total_nilai)}</td>
+						<td class="px-3 py-2 text-right">
+							<button onclick={() => lihatPO(po.id)} class="text-xs mr-2" style="color:var(--info)">Detail</button>
+							{#if po.status === 'draft'}<button onclick={() => ubahStatusPO(po.id, 'dikirim')} class="text-xs" style="color:var(--warn)">Kirim</button>{/if}
+						</td>
+					</tr>
+					{/each}
+				{/if}
+			</tbody>
+		</table>
+	</div>
+</div>
+{/if}
+
+<!-- TAB MASTER BARANG -->
+{#if tab === 'barang'}
+<div class="flex flex-col gap-3">
+	<div class="flex items-center gap-3">
+		<input type="search" placeholder="Cari..." bind:value={query} oninput={() => muatBarang(query)} class="px-3 py-1 rounded border text-sm flex-1 max-w-xs outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+		<button onclick={() => bukaFormBarang()} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+	</div>
+	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+		<table class="w-full text-sm">
+			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
+				<th class="text-left px-3 py-2 font-medium">Kode</th>
+				<th class="text-left px-3 py-2 font-medium">Nama</th>
+				<th class="text-left px-3 py-2 font-medium">Kategori</th>
+				<th class="text-right px-3 py-2 font-medium">Stok</th>
+				<th class="text-left px-3 py-2 font-medium">Status</th>
+				<th class="text-right px-3 py-2 font-medium">Harga Jual</th>
+				<th class="px-3 py-2"></th>
+			</tr></thead>
+			<tbody>
+				{#if loading}<tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
+				{:else if barangList.length === 0}<tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada data</td></tr>
+				{:else}
+					{#each barangList as item}
+						{@const st = statusStok(item)}
+						<tr class="border-t" style="border-color:var(--border)">
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
+							<td class="px-3 py-2">{item.nama_barang}</td>
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
+							<td class="px-3 py-2 text-right">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
+							<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td>
+							<td class="px-3 py-2 text-right">{rupiah(item.harga_jual_eceran)}</td>
+							<td class="px-3 py-2 text-right">
+								<button onclick={() => bukaFormBarang(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
+								<button onclick={() => hapusBarang(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+							</td>
+						</tr>
+					{/each}
+				{/if}
+			</tbody>
+		</table>
+	</div>
+</div>
+{/if}
+
+<!-- TAB SUPPLIER -->
+{#if tab === 'supplier'}
+<div class="flex flex-col gap-3">
+	<div class="flex justify-end">
+		<button onclick={() => bukaFormSupplier()} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+	</div>
+	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+		<table class="w-full text-sm">
+			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
+				<th class="text-left px-3 py-2 font-medium">Kode</th>
+				<th class="text-left px-3 py-2 font-medium">Nama</th>
+				<th class="text-left px-3 py-2 font-medium">Kontak</th>
+				<th class="text-right px-3 py-2 font-medium">Tempo</th>
+				<th class="px-3 py-2"></th>
+			</tr></thead>
+			<tbody>
+				{#if supplierList.length === 0}<tr><td colspan="5" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada data</td></tr>
+				{:else}
+					{#each supplierList as item}
+					<tr class="border-t" style="border-color:var(--border)">
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_supplier}</td>
+						<td class="px-3 py-2">{item.nama_supplier}</td>
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kontak ?? '-'}</td>
+						<td class="px-3 py-2 text-right text-xs">{item.terms_bayar} hari</td>
+						<td class="px-3 py-2 text-right">
+							<button onclick={() => bukaFormSupplier(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
+							<button onclick={() => hapusSupplier(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+						</td>
+					</tr>
+					{/each}
+				{/if}
+			</tbody>
+		</table>
+	</div>
+</div>
+{/if}
+
+<!-- MODAL: Riwayat Mutasi -->
+<Modal bind:open={showMutasi} title="Riwayat Mutasi — {mutasiNama}">
+	{#snippet children()}
+	<div class="max-h-80 overflow-y-auto">
+		{#if mutasiList.length === 0}
+			<p class="text-sm text-center py-4" style="color:var(--text-dim)">Belum ada mutasi</p>
+		{:else}
+			<table class="w-full text-xs">
+				<thead><tr style="color:var(--text-dim)">
+					<th class="text-left py-1 font-medium">Tanggal</th>
+					<th class="text-left py-1 font-medium">Jenis</th>
+					<th class="text-right py-1 font-medium">Δ</th>
+					<th class="text-right py-1 font-medium">Sesudah</th>
+				</tr></thead>
+				<tbody>
+					{#each mutasiList as m}
+					<tr class="border-t" style="border-color:var(--border)">
+						<td class="py-1.5" style="color:var(--text-dim)">{m.tanggal.slice(0, 16)}</td>
+						<td class="py-1.5">{m.jenis}</td>
+						<td class="py-1.5 text-right font-bold" style="color:{m.jumlah_perubahan >= 0 ? 'var(--accent)' : 'var(--danger)'}">{m.jumlah_perubahan >= 0 ? '+' : ''}{m.jumlah_perubahan}</td>
+						<td class="py-1.5 text-right">{m.jumlah_sesudah}</td>
+					</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
+	</div>
+	{/snippet}
+</Modal>
+
+<!-- MODAL: Detail PO -->
+<Modal bind:open={showPoDetail} title="Detail PO — {poDetail?.no_po ?? ''}">
+	{#snippet children()}
+	{#if poDetail}
+	<div class="text-sm flex flex-col gap-3">
+		<div class="grid grid-cols-2 gap-2 text-xs" style="color:var(--text-dim)">
+			<div>Supplier: <span style="color:var(--text)">{poDetail.nama_supplier ?? '-'}</span></div>
+			<div>Status: <span class="font-bold" style="color:{SPC[poDetail.status]}">{poDetail.status.toUpperCase()}</span></div>
+			<div>Tanggal: <span style="color:var(--text)">{poDetail.tanggal_po}</span></div>
+			<div>Total: <span style="color:var(--text)">{rupiah(poDetail.total_nilai)}</span></div>
+		</div>
+		<div class="flex gap-2 flex-wrap">
+			{#each ['draft', 'dikirim', 'sebagian', 'lunas', 'batal'] as s}
+				{#if s !== poDetail.status}
+				<button onclick={() => ubahStatusPO(poDetail!.id, s)} class="px-2 py-1 rounded text-xs border" style="border-color:var(--border);color:{SPC[s]}">→ {s}</button>
+				{/if}
+			{/each}
+		</div>
+	</div>
+	{/if}
+	{/snippet}
+</Modal>
+
+<!-- MODAL: Form Barang -->
 <Modal bind:open={modalBarang} title={editBarang?.id ? 'Edit Barang' : 'Tambah Barang'}>
 	{#snippet children()}
 	<form onsubmit={(e) => { e.preventDefault(); simpanBarang(); }} class="flex flex-col gap-3 text-sm">
 		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{error}</p>{/if}
 		<div class="grid grid-cols-2 gap-3">
-			<div class="flex flex-col gap-1">
-				<label for="f1" style="color:var(--text-dim)" class="text-xs">KODE *</label>				<input id="f1" bind:value={formBarang.kode_barang} required class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f2" style="color:var(--text-dim)" class="text-xs">NAMA *</label>				<input id="f2" bind:value={formBarang.nama_barang} required class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f3" style="color:var(--text-dim)" class="text-xs">KATEGORI</label>				<select id="f3" bind:value={formBarang.kategori_id} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-					<option value="">— pilih —</option>
-					{#each kategoriList as k}<option value={k.id}>{k.nama}</option>{/each}
-				</select>
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f4" style="color:var(--text-dim)" class="text-xs">SATUAN</label>				<select id="f4" bind:value={formBarang.satuan_dasar_id} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-					<option value="">— pilih —</option>
-					{#each satuanList as s}<option value={s.id}>{s.nama} ({s.singkatan})</option>{/each}
-				</select>
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f5" style="color:var(--text-dim)" class="text-xs">HARGA BELI</label>				<input id="f5" type="number" min="0" bind:value={formBarang.harga_beli_terakhir} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f6" style="color:var(--text-dim)" class="text-xs">HARGA ECERAN</label>				<input id="f6" type="number" min="0" bind:value={formBarang.harga_jual_eceran} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f7" style="color:var(--text-dim)" class="text-xs">HARGA GROSIR</label>				<input id="f7" type="number" min="0" bind:value={formBarang.harga_jual_grosir} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f8" style="color:var(--text-dim)" class="text-xs">STOK MINIMUM</label>				<input id="f8" type="number" min="0" bind:value={formBarang.stok_minimum} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1 col-span-2">
-				<label for="f9" style="color:var(--text-dim)" class="text-xs">LOKASI RAK</label>				<input id="f9" bind:value={formBarang.lokasi_rak} placeholder="cth: A1, B3" class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
+			<div class="flex flex-col gap-1"><label for="fb-kode" class="text-xs" style="color:var(--text-dim)">KODE *</label><input id="fb-kode" bind:value={fb.kode_barang} required class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fb-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label><input id="fb-nama" bind:value={fb.nama_barang} required class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fb-hb" class="text-xs" style="color:var(--text-dim)">HARGA BELI</label><input id="fb-hb" type="number" min="0" bind:value={fb.harga_beli_terakhir} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fb-he" class="text-xs" style="color:var(--text-dim)">HARGA ECERAN</label><input id="fb-he" type="number" min="0" bind:value={fb.harga_jual_eceran} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fb-hg" class="text-xs" style="color:var(--text-dim)">HARGA GROSIR</label><input id="fb-hg" type="number" min="0" bind:value={fb.harga_jual_grosir} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fb-min" class="text-xs" style="color:var(--text-dim)">STOK MINIMUM</label><input id="fb-min" type="number" min="0" bind:value={fb.stok_minimum} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fb-kat" class="text-xs" style="color:var(--text-dim)">KATEGORI</label><select id="fb-kat" bind:value={fb.kategori_id} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)"><option value="">— pilih —</option>{#each kategoriList as k}<option value={k.id}>{k.nama}</option>{/each}</select></div>
+			<div class="flex flex-col gap-1"><label for="fb-sat" class="text-xs" style="color:var(--text-dim)">SATUAN</label><select id="fb-sat" bind:value={fb.satuan_dasar_id} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)"><option value="">— pilih —</option>{#each satuanList as s}<option value={s.id}>{s.nama}</option>{/each}</select></div>
+			<div class="flex flex-col gap-1 col-span-2"><label for="fb-rak" class="text-xs" style="color:var(--text-dim)">LOKASI RAK</label><input id="fb-rak" bind:value={fb.lokasi_rak} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
 		</div>
-		<div class="flex justify-end gap-2 mt-1">
-			<button type="button" onclick={() => modalBarang = false} class="px-3 py-1 rounded text-sm"
-				style="color:var(--text-dim)">Batal</button>
-			<button type="submit" class="px-3 py-1 rounded text-sm font-bold"
-				style="background:var(--accent);color:var(--bg)">Simpan</button>
+		<div class="flex justify-end gap-2">
+			<button type="button" onclick={() => modalBarang = false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
+			<button type="submit" class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
 		</div>
 	</form>
 	{/snippet}
 </Modal>
 
-<!-- Modal Supplier -->
+<!-- MODAL: Form Supplier -->
 <Modal bind:open={modalSupplier} title={editSupplier?.id ? 'Edit Supplier' : 'Tambah Supplier'}>
 	{#snippet children()}
 	<form onsubmit={(e) => { e.preventDefault(); simpanSupplier(); }} class="flex flex-col gap-3 text-sm">
 		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{error}</p>{/if}
 		<div class="grid grid-cols-2 gap-3">
-			<div class="flex flex-col gap-1">
-				<label for="f10" style="color:var(--text-dim)" class="text-xs">KODE *</label>				<input id="f10" bind:value={formSupplier.kode_supplier} required class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f11" style="color:var(--text-dim)" class="text-xs">NAMA *</label>				<input id="f11" bind:value={formSupplier.nama_supplier} required class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f12" style="color:var(--text-dim)" class="text-xs">KONTAK</label>				<input id="f12" bind:value={formSupplier.kontak} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="f13" style="color:var(--text-dim)" class="text-xs">TEMPO BAYAR (hari)</label>				<input id="f13" type="number" min="0" bind:value={formSupplier.terms_bayar} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1 col-span-2">
-				<label for="f14" style="color:var(--text-dim)" class="text-xs">ALAMAT</label>				<input id="f14" bind:value={formSupplier.alamat} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1 col-span-2">
-				<label for="f15" style="color:var(--text-dim)" class="text-xs">LIMIT HUTANG</label>				<input id="f15" type="number" min="0" bind:value={formSupplier.limit_hutang} class="px-2 py-1 rounded border outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
+			<div class="flex flex-col gap-1"><label for="fs-kode" class="text-xs" style="color:var(--text-dim)">KODE *</label><input id="fs-kode" bind:value={fs.kode_supplier} required class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fs-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label><input id="fs-nama" bind:value={fs.nama_supplier} required class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fs-kontak" class="text-xs" style="color:var(--text-dim)">KONTAK</label><input id="fs-kontak" bind:value={fs.kontak} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1"><label for="fs-terms" class="text-xs" style="color:var(--text-dim)">TEMPO (hari)</label><input id="fs-terms" type="number" min="0" bind:value={fs.terms_bayar} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
+			<div class="flex flex-col gap-1 col-span-2"><label for="fs-alamat" class="text-xs" style="color:var(--text-dim)">ALAMAT</label><input id="fs-alamat" bind:value={fs.alamat} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
 		</div>
-		<div class="flex justify-end gap-2 mt-1">
-			<button type="button" onclick={() => modalSupplier = false} class="px-3 py-1 rounded text-sm"
-				style="color:var(--text-dim)">Batal</button>
-			<button type="submit" class="px-3 py-1 rounded text-sm font-bold"
-				style="background:var(--accent);color:var(--bg)">Simpan</button>
+		<div class="flex justify-end gap-2">
+			<button type="button" onclick={() => modalSupplier = false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
+			<button type="submit" class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
 		</div>
 	</form>
 	{/snippet}
