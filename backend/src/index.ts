@@ -1,15 +1,27 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import { HTTPException } from 'hono/http-exception'
 import { authRouter } from './routes/auth.ts'
+import type { JWTPayload } from './routes/auth.ts'
 
-const app = new Hono()
+type Variables = { user: JWTPayload }
+
+const app = new Hono<{ Variables: Variables }>()
 
 app.use('*', logger())
 app.use('*', cors({
   origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
   credentials: true,
 }))
+
+app.onError((err, c) => {
+  if (err instanceof HTTPException) {
+    return c.json({ success: false, error: err.message }, err.status)
+  }
+  console.error(err)
+  return c.json({ success: false, error: 'Internal server error' }, 500)
+})
 
 app.get('/health', (c) => c.json({ success: true, data: { status: 'ok' } }))
 
