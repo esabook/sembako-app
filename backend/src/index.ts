@@ -6,6 +6,7 @@ import { authRouter } from './routes/auth.ts'
 import { barangRouter } from './routes/barang.ts'
 import { supplierRouter } from './routes/supplier.ts'
 import { pelangganRouter } from './routes/pelanggan.ts'
+import { kartuAnggotaRouter } from './routes/kartu_anggota.ts'
 import { karyawanRouter } from './routes/karyawan.ts'
 import { penjualanRouter } from './routes/penjualan.ts'
 import { stokRouter } from './routes/stok.ts'
@@ -44,6 +45,7 @@ app.route('/auth', authRouter)
 app.route('/barang', barangRouter)
 app.route('/supplier', supplierRouter)
 app.route('/pelanggan', pelangganRouter)
+app.route('/kartu-anggota', kartuAnggotaRouter)
 app.route('/karyawan', karyawanRouter)
 app.route('/penjualan', penjualanRouter)
 app.route('/stok', stokRouter)

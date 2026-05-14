@@ -36,6 +36,7 @@
 	const NAV = [
 		{ href: '/dashboard', label: 'Dashboard' },
 		{ href: '/kasir', label: 'Kasir' },
+		{ href: '/pelanggan', label: 'Pelanggan' },
 		{ href: '/gudang', label: 'Gudang' },
 		{ href: '/karyawan', label: 'Karyawan' },
 		{ href: '/keuangan', label: 'Keuangan' },

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import {
@@ -15,7 +15,13 @@
 		stok_sekarang: number; satuan_dasar_id: number | null;
 		singkatan_satuan: string | null;
 	};
-	type PelangganResult = { id: number; nama: string; saldo_piutang: number };
+	type PelangganResult = {
+		id: number; nama: string; saldo_piutang: number
+		gender: 'pria' | 'wanita' | null
+		no_kartu: string | null
+		tier: 'reguler' | 'silver' | 'gold' | null
+		diskon_member: number | null
+	};
 
 	let searchVal = $state('');
 	let searchResults = $state<BarangResult[]>([]);
@@ -198,8 +204,8 @@
 	onMount(() => {
 		window.addEventListener('keydown', onKeydown);
 		searchInputEl?.focus();
+		return () => window.removeEventListener('keydown', onKeydown);
 	});
-	onDestroy(() => window.removeEventListener('keydown', onKeydown));
 
 	// ── Helpers ───────────────────────────────────────────────────────────
 	function rupiah(n: number) {
@@ -355,29 +361,54 @@
 		<div class="rounded border p-3" style="background:var(--surface);border-color:var(--border)">
 			<p class="text-xs mb-2" style="color:var(--text-dim)">PELANGGAN</p>
 			{#if $pelangganDipilih}
-				<div class="flex items-center justify-between">
-					<span class="text-sm">{$pelangganDipilih.nama}</span>
-					<button onclick={() => pelangganDipilih.set(null)} class="text-xs" style="color:var(--danger)">✕</button>
+				<div class="flex items-start justify-between gap-1">
+					<div class="text-sm leading-snug">
+						<span style="color:var(--text)">{$pelangganDipilih.nama}</span>
+						{#if $pelangganDipilih.gender === 'pria'}
+							<span class="ml-1 text-xs" style="color:#40c4ff">♂</span>
+						{:else if $pelangganDipilih.gender === 'wanita'}
+							<span class="ml-1 text-xs" style="color:#ff80ab">♀</span>
+						{/if}
+						{#if $pelangganDipilih.no_kartu}
+							<div class="text-xs mt-0.5" style="color:var(--text-dim)">
+								<span class="font-mono" style="color:var(--accent)">{$pelangganDipilih.no_kartu}</span>
+								{#if $pelangganDipilih.diskon_member && $pelangganDipilih.diskon_member > 0}
+									<span class="ml-1.5" style="color:var(--accent)">−{$pelangganDipilih.diskon_member}%</span>
+								{/if}
+							</div>
+						{/if}
+					</div>
+					<button onclick={() => pelangganDipilih.set(null)} class="text-xs shrink-0" style="color:var(--danger)">✕</button>
 				</div>
 			{:else}
 				<div class="relative">
 					<input
 						type="text"
-						placeholder="Cari pelanggan..."
+						placeholder="Cari nama / HP / no. kartu..."
 						onfocus={() => muatPelanggan()}
 						oninput={(e) => muatPelanggan((e.target as HTMLInputElement).value)}
 						class="w-full px-2 py-1 rounded border text-sm outline-none"
 						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 					/>
 					{#if pelangganList.length > 0}
-						<div class="absolute z-10 top-full left-0 right-0 mt-1 rounded border max-h-40 overflow-y-auto"
+						<div class="absolute z-10 top-full left-0 right-0 mt-1 rounded border max-h-48 overflow-y-auto shadow-lg"
 							style="background:var(--surface);border-color:var(--border)">
 							{#each pelangganList as p}
 								<button
 									onclick={() => { pelangganDipilih.set(p); pelangganList = []; }}
-									class="w-full text-left px-3 py-2 text-sm border-t"
+									class="w-full text-left px-3 py-2 text-xs border-t"
 									style="border-color:var(--border)"
-								>{p.nama}</button>
+								>
+									<span class="font-medium text-sm" style="color:var(--text)">{p.nama}</span>
+									{#if p.gender === 'pria'}
+										<span class="ml-1" style="color:#40c4ff">♂</span>
+									{:else if p.gender === 'wanita'}
+										<span class="ml-1" style="color:#ff80ab">♀</span>
+									{/if}
+									{#if p.no_kartu}
+										<span class="ml-2 font-mono" style="color:var(--accent)">{p.no_kartu}</span>
+									{/if}
+								</button>
 							{/each}
 						</div>
 					{/if}

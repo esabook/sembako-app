@@ -1,0 +1,1 @@
+ALTER TABLE `pelanggan` ADD `gender` text;

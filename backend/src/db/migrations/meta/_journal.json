@@ -22,6 +22,27 @@
       "when": 1778779235120,
       "tag": "0002_youthful_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1778783240242,
+      "tag": "0003_smooth_mole_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1778784596892,
+      "tag": "0004_wandering_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1778786647979,
+      "tag": "0005_rainy_black_widow",
+      "breakpoints": true
     }
   ]
 }

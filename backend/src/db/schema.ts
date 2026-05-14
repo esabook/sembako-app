@@ -115,11 +115,23 @@ export const pelanggan = sqliteTable('pelanggan', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   kode_pelanggan: text('kode_pelanggan').notNull().unique(),
   nama: text('nama').notNull(),
+  gender: text('gender', { enum: ['pria', 'wanita'] }),
   tipe: text('tipe', { enum: ['eceran', 'grosir', 'langganan'] }).notNull().default('eceran'),
   kontak: text('kontak'),
   alamat: text('alamat'),
   limit_piutang: real('limit_piutang').notNull().default(0),
   saldo_piutang: real('saldo_piutang').notNull().default(0),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...timestamps,
+})
+
+export const kartu_anggota = sqliteTable('kartu_anggota', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  no_kartu: text('no_kartu').notNull().unique(), // 10 digit
+  tier: text('tier', { enum: ['reguler', 'silver', 'gold'] }).notNull().default('reguler'),
+  diskon_member: real('diskon_member').notNull().default(0), // persen
+  poin: integer('poin').notNull().default(0),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id), // null = belum di-assign
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   ...timestamps,
 })
