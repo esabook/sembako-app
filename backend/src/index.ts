@@ -3,6 +3,10 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { HTTPException } from 'hono/http-exception'
 import { authRouter } from './routes/auth.ts'
+import { barangRouter } from './routes/barang.ts'
+import { supplierRouter } from './routes/supplier.ts'
+import { pelangganRouter } from './routes/pelanggan.ts'
+import { karyawanRouter } from './routes/karyawan.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
 type Variables = { user: JWTPayload }
@@ -26,6 +30,10 @@ app.onError((err, c) => {
 app.get('/health', (c) => c.json({ success: true, data: { status: 'ok' } }))
 
 app.route('/auth', authRouter)
+app.route('/barang', barangRouter)
+app.route('/supplier', supplierRouter)
+app.route('/pelanggan', pelangganRouter)
+app.route('/karyawan', karyawanRouter)
 
 const PORT = Number(process.env.PORT ?? 3000)
 console.log(`Backend berjalan di http://localhost:${PORT}`)
