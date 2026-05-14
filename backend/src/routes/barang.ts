@@ -17,19 +17,19 @@ barangRouter.get('/kategori', async (c) => {
 })
 
 barangRouter.post('/kategori', requirePermission('stok.edit'), async (c) => {
-  const body = await c.req.json<{ nama: string }>()
+  const body = await c.req.json<{ nama: string; contoh?: string }>()
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama kategori wajib diisi' })
 
-  const row = db.insert(kategori).values({ nama: body.nama.trim() }).returning().get()
+  const row = db.insert(kategori).values({ nama: body.nama.trim(), contoh: body.contoh?.trim() || null }).returning().get()
   return c.json({ success: true, data: row }, 201)
 })
 
 barangRouter.put('/kategori/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const body = await c.req.json<{ nama: string }>()
+  const body = await c.req.json<{ nama: string; contoh?: string }>()
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama wajib diisi' })
 
-  const row = db.update(kategori).set({ nama: body.nama.trim() }).where(eq(kategori.id, id)).returning().get()
+  const row = db.update(kategori).set({ nama: body.nama.trim(), contoh: body.contoh?.trim() || null }).where(eq(kategori.id, id)).returning().get()
   if (!row) throw new HTTPException(404, { message: 'Kategori tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
@@ -50,7 +50,7 @@ barangRouter.get('/satuan', async (c) => {
 })
 
 barangRouter.post('/satuan', requirePermission('stok.edit'), async (c) => {
-  const body = await c.req.json<{ nama: string; singkatan: string }>()
+  const body = await c.req.json<{ nama: string; singkatan: string; contoh?: string }>()
   if (!body.nama?.trim() || !body.singkatan?.trim()) {
     throw new HTTPException(400, { message: 'Nama dan singkatan satuan wajib diisi' })
   }
@@ -58,18 +58,19 @@ barangRouter.post('/satuan', requirePermission('stok.edit'), async (c) => {
   const row = db.insert(satuan).values({
     nama: body.nama.trim(),
     singkatan: body.singkatan.trim(),
+    contoh: body.contoh?.trim() || null,
   }).returning().get()
   return c.json({ success: true, data: row }, 201)
 })
 
 barangRouter.put('/satuan/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const body = await c.req.json<{ nama: string; singkatan: string }>()
+  const body = await c.req.json<{ nama: string; singkatan: string; contoh?: string }>()
   if (!body.nama?.trim() || !body.singkatan?.trim()) {
     throw new HTTPException(400, { message: 'Nama dan singkatan wajib diisi' })
   }
 
-  const row = db.update(satuan).set({ nama: body.nama.trim(), singkatan: body.singkatan.trim() })
+  const row = db.update(satuan).set({ nama: body.nama.trim(), singkatan: body.singkatan.trim(), contoh: body.contoh?.trim() || null })
     .where(eq(satuan.id, id)).returning().get()
   if (!row) throw new HTTPException(404, { message: 'Satuan tidak ditemukan' })
   return c.json({ success: true, data: row })

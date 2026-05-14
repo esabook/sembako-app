@@ -8,6 +8,13 @@
       "when": 1778748266624,
       "tag": "0000_daily_blue_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778776435099,
+      "tag": "0001_whole_mandroid",
+      "breakpoints": true
     }
   ]
 }

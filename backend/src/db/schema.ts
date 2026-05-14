@@ -68,12 +68,14 @@ export const periode_laporan = sqliteTable('periode_laporan', {
 export const kategori = sqliteTable('kategori', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   nama: text('nama').notNull().unique(),
+  contoh: text('contoh'),
 })
 
 export const satuan = sqliteTable('satuan', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   nama: text('nama').notNull().unique(),
   singkatan: text('singkatan').notNull(),
+  contoh: text('contoh'),
 })
 
 export const barang = sqliteTable('barang', {
