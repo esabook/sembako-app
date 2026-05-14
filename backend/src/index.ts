@@ -14,6 +14,7 @@ import { purchaseOrderRouter } from './routes/purchase_order.ts'
 import { keuanganRouter } from './routes/keuangan.ts'
 import { laporanRouter } from './routes/laporan.ts'
 import { stokOpnameRouter } from './routes/stok_opname.ts'
+import { dashboardRouter } from './routes/dashboard.ts'
 import { absensiRouter } from './routes/absensi.ts'
 import { kasbonRouter } from './routes/kasbon.ts'
 import { penggajianRouter } from './routes/penggajian.ts'
@@ -51,6 +52,7 @@ app.route('/purchase-order', purchaseOrderRouter)
 app.route('/keuangan', keuanganRouter)
 app.route('/laporan', laporanRouter)
 app.route('/stok-opname', stokOpnameRouter)
+app.route('/dashboard', dashboardRouter)
 app.route('/absensi', absensiRouter)
 app.route('/kasbon', kasbonRouter)
 app.route('/penggajian', penggajianRouter)
