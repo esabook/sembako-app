@@ -1,0 +1,55 @@
+@import 'tailwindcss';
+
+/* ─── Font ─────────────────────────────────────── */
+:root {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ─── Tema Dark (default) ───────────────────────── */
+[data-theme='dark'] {
+  --bg: #0a0a0a;
+  --surface: #111111;
+  --surface2: #1a1a1a;
+  --border: #2a2a2a;
+  --text: #d4d4d4;
+  --text-dim: #666666;
+  --accent: #00e676;
+  --warn: #ffb300;
+  --danger: #ff5252;
+  --info: #40c4ff;
+}
+
+/* ─── Tema Light ────────────────────────────────── */
+[data-theme='light'] {
+  --bg: #f0f0f0;
+  --surface: #ffffff;
+  --surface2: #e8e8e8;
+  --border: #cccccc;
+  --text: #222222;
+  --text-dim: #888888;
+  --accent: #007a3d;
+  --warn: #b37800;
+  --danger: #c62828;
+  --info: #0077aa;
+}
+
+/* ─── Tema Eye Comfort ──────────────────────────── */
+[data-theme='eye'] {
+  --bg: #12100a;
+  --surface: #1c1a12;
+  --surface2: #252218;
+  --border: #35301f;
+  --text: #e8d9a0;
+  --text-dim: #7a6e45;
+  --accent: #d4a017;
+  --warn: #e07020;
+  --danger: #cc4444;
+  --info: #5aaccc;
+}
+
+/* ─── Base ──────────────────────────────────────── */
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
