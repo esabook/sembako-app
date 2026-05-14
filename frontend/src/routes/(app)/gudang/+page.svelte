@@ -18,7 +18,7 @@
 		items: { id: number; barang_id: number; kode_barang: string; nama_barang: string; nama_kategori: string | null; singkatan_satuan: string | null; lokasi_rak: string | null; stok_sistem: number; stok_fisik: number | null; selisih: number | null; alasan_selisih: string | null }[]
 	};
 
-	let tab = $state<'stok' | 'terima' | 'po' | 'opname' | 'barang' | 'supplier'>('stok');
+	let tab = $state<'stok' | 'terima' | 'po' | 'opname' | 'barang' | 'supplier' | 'pengaturan'>('stok');
 	let query = $state('');
 	let loading = $state(false);
 	let error = $state('');
@@ -231,7 +231,67 @@
 	function rupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
 	function statusStok(item: { stok_sekarang: number; stok_minimum: number }) { if (item.stok_sekarang <= 0) return { label: 'HABIS', color: 'var(--danger)' }; if (item.stok_sekarang <= item.stok_minimum) return { label: 'HAMPIR HABIS', color: 'var(--warn)' }; return { label: 'AMAN', color: 'var(--accent)' }; }
 	const SPC: Record<string, string> = { draft: 'var(--text-dim)', dikirim: 'var(--info)', sebagian: 'var(--warn)', lunas: 'var(--accent)', batal: 'var(--danger)' };
-	const TABS = [{ id: 'stok', label: 'STOK' }, { id: 'terima', label: 'TERIMA BARANG' }, { id: 'po', label: 'PURCHASE ORDER' }, { id: 'opname', label: 'STOK OPNAME' }, { id: 'barang', label: 'MASTER BARANG' }, { id: 'supplier', label: 'SUPPLIER' }] as const;
+	const TABS = [{ id: 'stok', label: 'STOK' }, { id: 'terima', label: 'TERIMA BARANG' }, { id: 'po', label: 'PURCHASE ORDER' }, { id: 'opname', label: 'STOK OPNAME' }, { id: 'barang', label: 'MASTER BARANG' }, { id: 'supplier', label: 'SUPPLIER' }, { id: 'pengaturan', label: 'PENGATURAN' }] as const;
+
+	// ── Pengaturan: Kategori & Satuan ─────────────────────────────────────────
+	let newKategori = $state('');
+	let editKategoriId = $state<number | null>(null);
+	let editKategoriNama = $state('');
+	let errorPengaturan = $state('');
+
+	let newSatuanNama = $state('');
+	let newSatuanSingkatan = $state('');
+	let editSatuanId = $state<number | null>(null);
+	let editSatuanNama = $state('');
+	let editSatuanSingkatan = $state('');
+
+	async function tambahKategori() {
+		errorPengaturan = '';
+		if (!newKategori.trim()) return;
+		const r = await api.post('/barang/kategori', { nama: newKategori.trim() });
+		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		newKategori = '';
+		muatMeta();
+	}
+
+	async function simpanEditKategori(id: number) {
+		errorPengaturan = '';
+		const r = await api.put(`/barang/kategori/${id}`, { nama: editKategoriNama.trim() });
+		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		editKategoriId = null;
+		muatMeta();
+	}
+
+	async function hapusKategori(id: number) {
+		errorPengaturan = '';
+		const r = await api.delete(`/barang/kategori/${id}`);
+		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		muatMeta();
+	}
+
+	async function tambahSatuan() {
+		errorPengaturan = '';
+		if (!newSatuanNama.trim() || !newSatuanSingkatan.trim()) return;
+		const r = await api.post('/barang/satuan', { nama: newSatuanNama.trim(), singkatan: newSatuanSingkatan.trim() });
+		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		newSatuanNama = ''; newSatuanSingkatan = '';
+		muatMeta();
+	}
+
+	async function simpanEditSatuan(id: number) {
+		errorPengaturan = '';
+		const r = await api.put(`/barang/satuan/${id}`, { nama: editSatuanNama.trim(), singkatan: editSatuanSingkatan.trim() });
+		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		editSatuanId = null;
+		muatMeta();
+	}
+
+	async function hapusSatuan(id: number) {
+		errorPengaturan = '';
+		const r = await api.delete(`/barang/satuan/${id}`);
+		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		muatMeta();
+	}
 </script>
 
 <div class="flex gap-1 mb-4 border-b" style="border-color:var(--border)">
@@ -691,6 +751,96 @@
 			</tbody>
 		</table>
 	</div>
+</div>
+{/if}
+
+<!-- TAB PENGATURAN -->
+{#if tab === 'pengaturan'}
+<div class="grid gap-5" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">
+
+	<!-- Kategori Barang -->
+	<div class="flex flex-col gap-3">
+		<h3 class="text-sm font-bold">Kategori Barang</h3>
+		{#if errorPengaturan}
+			<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{errorPengaturan}</p>
+		{/if}
+
+		<!-- Form tambah -->
+		<form onsubmit={(e) => { e.preventDefault(); tambahKategori() }} class="flex gap-2">
+			<input bind:value={newKategori} placeholder="Nama kategori baru..." required
+				class="flex-1 px-2 py-1 rounded border text-sm outline-none"
+				style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+			<button type="submit" class="px-3 py-1 rounded text-sm font-bold shrink-0"
+				style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+		</form>
+
+		<div class="rounded border" style="border-color:var(--border)">
+			{#if kategoriList.length === 0}
+				<p class="text-xs p-3 text-center" style="color:var(--text-dim)">Belum ada kategori</p>
+			{:else}
+				{#each kategoriList as item}
+					<div class="flex items-center gap-2 px-3 py-2 border-b last:border-0 text-sm"
+						style="border-color:var(--border)">
+						{#if editKategoriId === item.id}
+							<input bind:value={editKategoriNama} class="flex-1 px-2 py-0.5 rounded border text-sm outline-none"
+								style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+							<button onclick={() => simpanEditKategori(item.id)} class="text-xs" style="color:var(--accent)">Simpan</button>
+							<button onclick={() => editKategoriId = null} class="text-xs" style="color:var(--text-dim)">Batal</button>
+						{:else}
+							<span class="flex-1">{item.nama}</span>
+							<button onclick={() => { editKategoriId = item.id; editKategoriNama = item.nama; errorPengaturan = '' }}
+								class="text-xs" style="color:var(--info)">Edit</button>
+							<button onclick={() => hapusKategori(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
+						{/if}
+					</div>
+				{/each}
+			{/if}
+		</div>
+	</div>
+
+	<!-- Satuan Barang -->
+	<div class="flex flex-col gap-3">
+		<h3 class="text-sm font-bold">Satuan Barang</h3>
+
+		<!-- Form tambah -->
+		<form onsubmit={(e) => { e.preventDefault(); tambahSatuan() }} class="flex gap-2">
+			<input bind:value={newSatuanNama} placeholder="Nama (mis: Karton)" required
+				class="flex-1 px-2 py-1 rounded border text-sm outline-none"
+				style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+			<input bind:value={newSatuanSingkatan} placeholder="Singkat (Krt)" required
+				class="w-20 px-2 py-1 rounded border text-sm outline-none shrink-0"
+				style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+			<button type="submit" class="px-3 py-1 rounded text-sm font-bold shrink-0"
+				style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+		</form>
+
+		<div class="rounded border" style="border-color:var(--border)">
+			{#if satuanList.length === 0}
+				<p class="text-xs p-3 text-center" style="color:var(--text-dim)">Belum ada satuan</p>
+			{:else}
+				{#each satuanList as item}
+					<div class="flex items-center gap-2 px-3 py-2 border-b last:border-0 text-sm"
+						style="border-color:var(--border)">
+						{#if editSatuanId === item.id}
+							<input bind:value={editSatuanNama} class="flex-1 px-2 py-0.5 rounded border text-sm outline-none"
+								style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+							<input bind:value={editSatuanSingkatan} class="w-16 px-2 py-0.5 rounded border text-sm outline-none"
+								style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+							<button onclick={() => simpanEditSatuan(item.id)} class="text-xs" style="color:var(--accent)">Simpan</button>
+							<button onclick={() => editSatuanId = null} class="text-xs" style="color:var(--text-dim)">Batal</button>
+						{:else}
+							<span class="flex-1">{item.nama}</span>
+							<span class="text-xs px-1.5 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">{item.singkatan}</span>
+							<button onclick={() => { editSatuanId = item.id; editSatuanNama = item.nama; editSatuanSingkatan = item.singkatan; errorPengaturan = '' }}
+								class="text-xs" style="color:var(--info)">Edit</button>
+							<button onclick={() => hapusSatuan(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
+						{/if}
+					</div>
+				{/each}
+			{/if}
+		</div>
+	</div>
+
 </div>
 {/if}
 

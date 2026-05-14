@@ -24,6 +24,24 @@ barangRouter.post('/kategori', requirePermission('stok.edit'), async (c) => {
   return c.json({ success: true, data: row }, 201)
 })
 
+barangRouter.put('/kategori/:id', requirePermission('stok.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json<{ nama: string }>()
+  if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama wajib diisi' })
+
+  const row = db.update(kategori).set({ nama: body.nama.trim() }).where(eq(kategori.id, id)).returning().get()
+  if (!row) throw new HTTPException(404, { message: 'Kategori tidak ditemukan' })
+  return c.json({ success: true, data: row })
+})
+
+barangRouter.delete('/kategori/:id', requirePermission('stok.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const dipakai = db.select({ id: barang.id }).from(barang).where(eq(barang.kategori_id, id)).get()
+  if (dipakai) throw new HTTPException(400, { message: 'Kategori masih dipakai oleh barang' })
+  db.delete(kategori).where(eq(kategori.id, id)).run()
+  return c.json({ success: true, data: null })
+})
+
 // ── Satuan ────────────────────────────────────────────────────────────────
 
 barangRouter.get('/satuan', async (c) => {
@@ -42,6 +60,27 @@ barangRouter.post('/satuan', requirePermission('stok.edit'), async (c) => {
     singkatan: body.singkatan.trim(),
   }).returning().get()
   return c.json({ success: true, data: row }, 201)
+})
+
+barangRouter.put('/satuan/:id', requirePermission('stok.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json<{ nama: string; singkatan: string }>()
+  if (!body.nama?.trim() || !body.singkatan?.trim()) {
+    throw new HTTPException(400, { message: 'Nama dan singkatan wajib diisi' })
+  }
+
+  const row = db.update(satuan).set({ nama: body.nama.trim(), singkatan: body.singkatan.trim() })
+    .where(eq(satuan.id, id)).returning().get()
+  if (!row) throw new HTTPException(404, { message: 'Satuan tidak ditemukan' })
+  return c.json({ success: true, data: row })
+})
+
+barangRouter.delete('/satuan/:id', requirePermission('stok.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const dipakai = db.select({ id: barang.id }).from(barang).where(eq(barang.satuan_dasar_id, id)).get()
+  if (dipakai) throw new HTTPException(400, { message: 'Satuan masih dipakai oleh barang' })
+  db.delete(satuan).where(eq(satuan.id, id)).run()
+  return c.json({ success: true, data: null })
 })
 
 // ── Barang ────────────────────────────────────────────────────────────────
