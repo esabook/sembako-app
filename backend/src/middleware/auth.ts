@@ -39,6 +39,8 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'laporan.*',
     'karyawan.lihat',
     'absensi.semua',
+    'gaji.lihat',
+    'gaji.edit',
   ],
   pemilik: ['*'],
 }

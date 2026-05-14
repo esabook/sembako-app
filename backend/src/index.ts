@@ -14,6 +14,9 @@ import { purchaseOrderRouter } from './routes/purchase_order.ts'
 import { keuanganRouter } from './routes/keuangan.ts'
 import { laporanRouter } from './routes/laporan.ts'
 import { stokOpnameRouter } from './routes/stok_opname.ts'
+import { absensiRouter } from './routes/absensi.ts'
+import { kasbonRouter } from './routes/kasbon.ts'
+import { penggajianRouter } from './routes/penggajian.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
 type Variables = { user: JWTPayload }
@@ -48,6 +51,9 @@ app.route('/purchase-order', purchaseOrderRouter)
 app.route('/keuangan', keuanganRouter)
 app.route('/laporan', laporanRouter)
 app.route('/stok-opname', stokOpnameRouter)
+app.route('/absensi', absensiRouter)
+app.route('/kasbon', kasbonRouter)
+app.route('/penggajian', penggajianRouter)
 
 const PORT = Number(process.env.PORT ?? 3000)
 console.log(`Backend berjalan di http://localhost:${PORT}`)
