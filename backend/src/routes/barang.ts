@@ -36,10 +36,26 @@ barangRouter.put('/kategori/:id', requirePermission('stok.edit'), async (c) => {
 
 barangRouter.delete('/kategori/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
+  const item = db.select().from(kategori).where(eq(kategori.id, id)).get()
+  if (!item) throw new HTTPException(404, { message: 'Kategori tidak ditemukan' })
+  if (item.is_preset) throw new HTTPException(400, { message: 'Kategori bawaan tidak bisa dihapus' })
   const dipakai = db.select({ id: barang.id }).from(barang).where(eq(barang.kategori_id, id)).get()
   if (dipakai) throw new HTTPException(400, { message: 'Kategori masih dipakai oleh barang' })
   db.delete(kategori).where(eq(kategori.id, id)).run()
   return c.json({ success: true, data: null })
+})
+
+barangRouter.post('/kategori/import-preset', requirePermission('stok.edit'), async (c) => {
+  const body = await c.req.json<{ items: { nama: string; contoh?: string }[] }>()
+  let inserted = 0
+  for (const item of body.items) {
+    const existing = db.select({ id: kategori.id }).from(kategori).where(eq(kategori.nama, item.nama)).get()
+    if (!existing) {
+      db.insert(kategori).values({ nama: item.nama, contoh: item.contoh ?? null, is_preset: true }).run()
+      inserted++
+    }
+  }
+  return c.json({ success: true, data: { inserted } })
 })
 
 // ── Satuan ────────────────────────────────────────────────────────────────
@@ -78,10 +94,26 @@ barangRouter.put('/satuan/:id', requirePermission('stok.edit'), async (c) => {
 
 barangRouter.delete('/satuan/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
+  const item = db.select().from(satuan).where(eq(satuan.id, id)).get()
+  if (!item) throw new HTTPException(404, { message: 'Satuan tidak ditemukan' })
+  if (item.is_preset) throw new HTTPException(400, { message: 'Satuan bawaan tidak bisa dihapus' })
   const dipakai = db.select({ id: barang.id }).from(barang).where(eq(barang.satuan_dasar_id, id)).get()
   if (dipakai) throw new HTTPException(400, { message: 'Satuan masih dipakai oleh barang' })
   db.delete(satuan).where(eq(satuan.id, id)).run()
   return c.json({ success: true, data: null })
+})
+
+barangRouter.post('/satuan/import-preset', requirePermission('stok.edit'), async (c) => {
+  const body = await c.req.json<{ items: { nama: string; singkatan: string; contoh?: string }[] }>()
+  let inserted = 0
+  for (const item of body.items) {
+    const existing = db.select({ id: satuan.id }).from(satuan).where(eq(satuan.nama, item.nama)).get()
+    if (!existing) {
+      db.insert(satuan).values({ nama: item.nama, singkatan: item.singkatan, contoh: item.contoh ?? null, is_preset: true }).run()
+      inserted++
+    }
+  }
+  return c.json({ success: true, data: { inserted } })
 })
 
 // ── Barang ────────────────────────────────────────────────────────────────

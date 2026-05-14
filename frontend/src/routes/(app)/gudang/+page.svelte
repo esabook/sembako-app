@@ -10,8 +10,8 @@
 	type BarangMasuk = { id: number; no_penerimaan: string; tanggal_terima: string; nama_supplier: string | null; no_faktur_supplier: string | null; total_nilai: number; };
 	type PORow = { id: number; no_po: string; tanggal_po: string; nama_supplier: string | null; status: string; total_nilai: number; };
 	type SuggestItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; harga_beli_terakhir: number; saran_pesan: number; };
-	type Kategori = { id: number; nama: string; contoh: string | null };
-	type Satuan = { id: number; nama: string; singkatan: string; contoh: string | null };
+	type Kategori = { id: number; nama: string; contoh: string | null; is_preset: boolean };
+	type Satuan = { id: number; nama: string; singkatan: string; contoh: string | null; is_preset: boolean };
 
 	const PREDEFINED_KATEGORI: { nama: string; kode: string; contoh: string }[] = [
 		{ nama: 'Beras & Serealia',          kode: 'BERAS',  contoh: 'beras putih, beras merah, jagung pipil' },
@@ -118,6 +118,7 @@
 	let opnameAktif = $state<OpnameDetail | null>(null);
 	let opnameSaving = $state(false);
 	let opnameFilter = $state('');
+	let opnameItemSaving = $state<Set<number>>(new Set());
 
 	let bmSupplier = $state('');
 	let bmNoFaktur = $state('');
@@ -376,6 +377,31 @@
 		errorPengaturan = '';
 		const r = await api.delete(`/barang/satuan/${id}`);
 		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		muatMeta();
+	}
+
+	let importingPreset = $state(false);
+	async function importPresetKategori() {
+		importingPreset = true;
+		const r = await api.post('/barang/kategori/import-preset', {
+			items: PREDEFINED_KATEGORI.map((p) => ({ nama: p.nama, contoh: p.contoh })),
+		});
+		importingPreset = false;
+		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		const { inserted } = (r as { success: true; data: { inserted: number } }).data;
+		if (inserted === 0) errorPengaturan = 'Semua data bawaan sudah ada.';
+		muatMeta();
+	}
+
+	async function importPresetSatuan() {
+		importingPreset = true;
+		const r = await api.post('/barang/satuan/import-preset', {
+			items: PREDEFINED_SATUAN.map((p) => ({ nama: p.nama, singkatan: p.singkatan, contoh: p.contoh })),
+		});
+		importingPreset = false;
+		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
+		const { inserted } = (r as { success: true; data: { inserted: number } }).data;
+		if (inserted === 0) errorPengaturan = 'Semua data bawaan sudah ada.';
 		muatMeta();
 	}
 </script>
@@ -852,14 +878,23 @@
 
 	<!-- ── Kategori Barang ───────────────────────────────────────────────── -->
 	<div class="flex flex-col gap-3">
-		<div class="flex items-center justify-between gap-3">
+		<div class="flex items-center justify-between gap-3 flex-wrap">
 			<h3 class="text-sm font-bold">Kategori Barang</h3>
-			<button
-				onclick={() => showPredefinedKategori = !showPredefinedKategori}
-				class="text-xs px-2 py-1 rounded border"
-				style="border-color:var(--border);color:var(--text-dim)">
-				{showPredefinedKategori ? 'Sembunyikan' : 'Tampilkan'} Data Bawaan ({PREDEFINED_KATEGORI.length})
-			</button>
+			<div class="flex gap-2">
+				<button
+					onclick={importPresetKategori}
+					disabled={importingPreset}
+					class="text-xs px-2 py-1 rounded border disabled:opacity-50"
+					style="border-color:var(--accent);color:var(--accent)">
+					{importingPreset ? '...' : '↓ Import Data Bawaan ke DB'}
+				</button>
+				<button
+					onclick={() => showPredefinedKategori = !showPredefinedKategori}
+					class="text-xs px-2 py-1 rounded border"
+					style="border-color:var(--border);color:var(--text-dim)">
+					{showPredefinedKategori ? 'Sembunyikan' : 'Lihat'} Referensi ({PREDEFINED_KATEGORI.length})
+				</button>
+			</div>
 		</div>
 
 		<form onsubmit={(e) => { e.preventDefault(); tambahKategori() }} class="flex gap-2 flex-wrap">
@@ -905,20 +940,25 @@
 									<button onclick={() => editKategoriId = null} class="text-xs" style="color:var(--text-dim)">Batal</button>
 								</td>
 							{:else}
-								<td class="px-3 py-2">{item.nama}</td>
+								<td class="px-3 py-2">
+									{item.nama}
+									{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
+								</td>
 								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">—</td>
 								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
 								<td class="px-3 py-2 text-right whitespace-nowrap">
-									<button
-										onclick={() => { editKategoriId = item.id; editKategoriNama = item.nama; editKategoriContoh = item.contoh ?? ''; errorPengaturan = '' }}
-										title="Edit kategori"
-										class="inline-flex items-center justify-center w-6 h-6 rounded text-xs mr-1"
-										style="color:var(--info)">✎</button>
-									<button
-										onclick={() => hapusKategori(item.id)}
-										title="Hapus kategori"
-										class="inline-flex items-center justify-center w-6 h-6 rounded text-xs"
-										style="color:var(--danger)">✕</button>
+									{#if !item.is_preset}
+										<button
+											onclick={() => { editKategoriId = item.id; editKategoriNama = item.nama; editKategoriContoh = item.contoh ?? ''; errorPengaturan = '' }}
+											title="Edit kategori"
+											class="inline-flex items-center justify-center w-6 h-6 rounded text-xs mr-1"
+											style="color:var(--info)">✎</button>
+										<button
+											onclick={() => hapusKategori(item.id)}
+											title="Hapus kategori"
+											class="inline-flex items-center justify-center w-6 h-6 rounded text-xs"
+											style="color:var(--danger)">✕</button>
+									{/if}
 								</td>
 							{/if}
 						</tr>
@@ -944,14 +984,23 @@
 
 	<!-- ── Satuan Barang ─────────────────────────────────────────────────── -->
 	<div class="flex flex-col gap-3">
-		<div class="flex items-center justify-between gap-3">
+		<div class="flex items-center justify-between gap-3 flex-wrap">
 			<h3 class="text-sm font-bold">Satuan Barang</h3>
-			<button
-				onclick={() => showPredefinedSatuan = !showPredefinedSatuan}
-				class="text-xs px-2 py-1 rounded border"
-				style="border-color:var(--border);color:var(--text-dim)">
-				{showPredefinedSatuan ? 'Sembunyikan' : 'Tampilkan'} Data Bawaan ({PREDEFINED_SATUAN.length})
-			</button>
+			<div class="flex gap-2">
+				<button
+					onclick={importPresetSatuan}
+					disabled={importingPreset}
+					class="text-xs px-2 py-1 rounded border disabled:opacity-50"
+					style="border-color:var(--accent);color:var(--accent)">
+					{importingPreset ? '...' : '↓ Import Data Bawaan ke DB'}
+				</button>
+				<button
+					onclick={() => showPredefinedSatuan = !showPredefinedSatuan}
+					class="text-xs px-2 py-1 rounded border"
+					style="border-color:var(--border);color:var(--text-dim)">
+					{showPredefinedSatuan ? 'Sembunyikan' : 'Lihat'} Referensi ({PREDEFINED_SATUAN.length})
+				</button>
+			</div>
 		</div>
 
 		<form onsubmit={(e) => { e.preventDefault(); tambahSatuan() }} class="flex gap-2 flex-wrap">
@@ -1004,22 +1053,27 @@
 									<button onclick={() => editSatuanId = null} class="text-xs" style="color:var(--text-dim)">Batal</button>
 								</td>
 							{:else}
-								<td class="px-3 py-2">{item.nama}</td>
+								<td class="px-3 py-2">
+									{item.nama}
+									{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
+								</td>
 								<td class="px-3 py-2">
 									<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{item.singkatan}</span>
 								</td>
 								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
 								<td class="px-3 py-2 text-right whitespace-nowrap">
-									<button
-										onclick={() => { editSatuanId = item.id; editSatuanNama = item.nama; editSatuanSingkatan = item.singkatan; editSatuanContoh = item.contoh ?? ''; errorPengaturan = '' }}
-										title="Edit satuan"
-										class="inline-flex items-center justify-center w-6 h-6 rounded text-xs mr-1"
-										style="color:var(--info)">✎</button>
-									<button
-										onclick={() => hapusSatuan(item.id)}
-										title="Hapus satuan"
-										class="inline-flex items-center justify-center w-6 h-6 rounded text-xs"
-										style="color:var(--danger)">✕</button>
+									{#if !item.is_preset}
+										<button
+											onclick={() => { editSatuanId = item.id; editSatuanNama = item.nama; editSatuanSingkatan = item.singkatan; editSatuanContoh = item.contoh ?? ''; errorPengaturan = '' }}
+											title="Edit satuan"
+											class="inline-flex items-center justify-center w-6 h-6 rounded text-xs mr-1"
+											style="color:var(--info)">✎</button>
+										<button
+											onclick={() => hapusSatuan(item.id)}
+											title="Hapus satuan"
+											class="inline-flex items-center justify-center w-6 h-6 rounded text-xs"
+											style="color:var(--danger)">✕</button>
+									{/if}
 								</td>
 							{/if}
 						</tr>
@@ -1113,8 +1167,8 @@
 			<div class="flex flex-col gap-1"><label for="fb-he" class="text-xs" style="color:var(--text-dim)">HARGA ECERAN</label><input id="fb-he" type="number" min="0" bind:value={fb.harga_jual_eceran} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
 			<div class="flex flex-col gap-1"><label for="fb-hg" class="text-xs" style="color:var(--text-dim)">HARGA GROSIR</label><input id="fb-hg" type="number" min="0" bind:value={fb.harga_jual_grosir} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
 			<div class="flex flex-col gap-1"><label for="fb-min" class="text-xs" style="color:var(--text-dim)">STOK MINIMUM</label><input id="fb-min" type="number" min="0" bind:value={fb.stok_minimum} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
-			<div class="flex flex-col gap-1"><label for="fb-kat" class="text-xs" style="color:var(--text-dim)">KATEGORI</label><select id="fb-kat" bind:value={fb.kategori_id} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)"><option value="">— pilih —</option>{#each kategoriList as k}<option value={k.id}>{k.nama}</option>{/each}</select></div>
-			<div class="flex flex-col gap-1"><label for="fb-sat" class="text-xs" style="color:var(--text-dim)">SATUAN</label><select id="fb-sat" bind:value={fb.satuan_dasar_id} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)"><option value="">— pilih —</option>{#each satuanList as s}<option value={s.id}>{s.nama}</option>{/each}</select></div>
+			<div class="flex flex-col gap-1"><label for="fb-kat" class="text-xs" style="color:var(--text-dim)">KATEGORI</label><select id="fb-kat" bind:value={fb.kategori_id} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)"><option value="">— pilih —</option>{#each kategoriList as k}<option value={k.id}>{k.nama}{k.contoh ? ` — ${k.contoh}` : ''}</option>{/each}</select></div>
+			<div class="flex flex-col gap-1"><label for="fb-sat" class="text-xs" style="color:var(--text-dim)">SATUAN</label><select id="fb-sat" bind:value={fb.satuan_dasar_id} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)"><option value="">— pilih —</option>{#each satuanList as s}<option value={s.id}>{s.nama} ({s.singkatan}){s.contoh ? ` — ${s.contoh}` : ''}</option>{/each}</select></div>
 			<div class="flex flex-col gap-1 col-span-2"><label for="fb-rak" class="text-xs" style="color:var(--text-dim)">LOKASI RAK</label><input id="fb-rak" bind:value={fb.lokasi_rak} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
 		</div>
 		<div class="flex justify-end gap-2">

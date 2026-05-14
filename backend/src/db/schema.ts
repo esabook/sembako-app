@@ -69,6 +69,7 @@ export const kategori = sqliteTable('kategori', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   nama: text('nama').notNull().unique(),
   contoh: text('contoh'),
+  is_preset: integer('is_preset', { mode: 'boolean' }).notNull().default(false),
 })
 
 export const satuan = sqliteTable('satuan', {
@@ -76,6 +77,7 @@ export const satuan = sqliteTable('satuan', {
   nama: text('nama').notNull().unique(),
   singkatan: text('singkatan').notNull(),
   contoh: text('contoh'),
+  is_preset: integer('is_preset', { mode: 'boolean' }).notNull().default(false),
 })
 
 export const barang = sqliteTable('barang', {

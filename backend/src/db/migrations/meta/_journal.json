@@ -15,6 +15,13 @@
       "when": 1778776435099,
       "tag": "0001_whole_mandroid",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778779235120,
+      "tag": "0002_youthful_talon",
+      "breakpoints": true
     }
   ]
 }
