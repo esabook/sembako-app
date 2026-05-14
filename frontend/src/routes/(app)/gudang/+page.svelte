@@ -67,7 +67,8 @@
 	async function muatBM() { loading = true; const r = await api.get<BarangMasuk[]>('/barang-masuk'); if (r.success) bmList = r.data; loading = false; }
 	async function muatPO() { loading = true; const r = await api.get<PORow[]>('/purchase-order'); if (r.success) poList = r.data; loading = false; }
 	async function muatSuggest() { const r = await api.get<SuggestItem[]>('/purchase-order/suggest/items'); if (r.success) suggestList = r.data; }
-	async function muatBarang(q = '') { const r = await api.get<Barang[]>(`/barang?q=${q}`); if (r.success) barangList = r.data; }
+	let tampilNonAktif = $state(false);
+	async function muatBarang(q = '') { const r = await api.get<Barang[]>(`/barang?q=${q}${tampilNonAktif ? '&aktif=0' : ''}`); if (r.success) barangList = r.data; }
 	async function muatSupplier() { const r = await api.get<Supplier[]>('/supplier'); if (r.success) supplierList = r.data; }
 	async function muatOpname() { const r = await api.get<OpnameRow[]>('/stok-opname'); if (r.success) opnameList = r.data; }
 	async function muatOpnameAktif() {
@@ -602,8 +603,14 @@
 <!-- TAB MASTER BARANG -->
 {#if tab === 'barang'}
 <div class="flex flex-col gap-3">
-	<div class="flex items-center gap-3">
+	<div class="flex items-center gap-3 flex-wrap">
 		<input type="search" placeholder="Cari..." bind:value={query} oninput={() => muatBarang(query)} class="px-3 py-1 rounded border text-sm flex-1 max-w-xs outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+		<button
+			onclick={() => { tampilNonAktif = !tampilNonAktif; muatBarang(query) }}
+			class="px-3 py-1 rounded text-sm border"
+			style="{tampilNonAktif ? 'background:var(--surface2);color:var(--text);border-color:var(--warn)' : 'color:var(--text-dim);border-color:var(--border)'}">
+			{tampilNonAktif ? 'Sembunyikan Non-Aktif' : 'Tampilkan Non-Aktif'}
+		</button>
 		<button onclick={() => bukaFormBarang()} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
 	</div>
 	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
@@ -623,16 +630,23 @@
 				{:else}
 					{#each barangList as item}
 						{@const st = statusStok(item)}
-						<tr class="border-t" style="border-color:var(--border)">
+						<tr class="border-t" style="border-color:var(--border);opacity:{item.is_active ? 1 : 0.45}">
 							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
-							<td class="px-3 py-2">{item.nama_barang}</td>
+							<td class="px-3 py-2">
+								{item.nama_barang}
+								{#if !item.is_active}<span class="ml-1 text-xs" style="color:var(--text-dim)">[non-aktif]</span>{/if}
+							</td>
 							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
 							<td class="px-3 py-2 text-right">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
 							<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td>
 							<td class="px-3 py-2 text-right">{rupiah(item.harga_jual_eceran)}</td>
 							<td class="px-3 py-2 text-right">
-								<button onclick={() => bukaFormBarang(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-								<button onclick={() => hapusBarang(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+								{#if item.is_active}
+									<button onclick={() => bukaFormBarang(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
+									<button onclick={() => hapusBarang(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+								{:else}
+									<button onclick={async () => { await api.put(`/barang/${item.id}`, { is_active: true }); muatBarang(query) }} class="text-xs" style="color:var(--accent)">Aktifkan</button>
+								{/if}
 							</td>
 						</tr>
 					{/each}
