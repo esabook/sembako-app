@@ -752,6 +752,53 @@ FASE 5 — Polish
 
 ---
 
+## GIT COMMIT PATTERN
+
+### Format
+```
+<type>(<scope>): <deskripsi singkat>
+
+[body opsional — jelaskan WHY jika tidak obvious]
+```
+
+### Type
+```
+feat     → fitur baru
+fix      → perbaikan bug
+refactor → ubah kode tanpa tambah fitur / fix bug
+style    → perubahan UI/CSS saja, tanpa logika
+chore    → update config, dependency, script, tooling
+docs     → update CLAUDE.md, README, komentar
+db       → perubahan schema, migrasi, seed data
+```
+
+### Scope (opsional, sesuai modul)
+```
+auth, kasir, gudang, keuangan, laporan, karyawan,
+barang, supplier, pelanggan, dashboard, stok
+```
+
+### Aturan
+```
+1. Bahasa Indonesia, imperatif, huruf kecil semua
+2. Maksimal 72 karakter di baris pertama
+3. Body: jelaskan KENAPA berubah, bukan APA yang berubah
+4. Satu commit = satu perubahan logis
+5. Jangan commit: data.db, .env, uploads/
+6. Jangan tambah footer Co-Authored-By
+```
+
+### Contoh
+```
+feat(kasir): tambah shortcut keyboard F1-F12
+fix(stok): koreksi kalkulasi selisih saat opname
+db: tambah tabel histori_harga_jual dengan index barang_id
+refactor(auth): pisahkan validasi JWT ke fungsi terpisah
+chore: update drizzle-kit ke versi terbaru
+```
+
+---
+
 ## CATATAN TAMBAHAN
 
 ```
