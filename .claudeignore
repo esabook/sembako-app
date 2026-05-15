@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/.svelte-kit/
+frontend/build/
+
+# Database (binary)
+backend/data.db
+backend/data.db-wal
+backend/data.db-shm
+
+# Uploads (media files)
+backend/uploads/
+
+# Drizzle migration snapshots (generated, bukan source)
+backend/src/db/migrations/meta/
+
+# Lock files
+bun.lock
+package-lock.json
+
+# Logs
+*.log
+
+# Git internals
+.git/
+
+# OS
+.DS_Store
