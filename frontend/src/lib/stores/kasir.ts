@@ -33,7 +33,16 @@ export const subtotal = derived(keranjang, ($k) =>
   $k.reduce((s, i) => s + i.harga_jual * i.jumlah - i.diskon_item, 0)
 )
 
-export const total = derived(subtotal, ($s) => $s)
+// diskon_member (%) dari pelanggan dipotong dari subtotal
+export const diskonMember = derived(
+  [subtotal, pelangganDipilih],
+  ([$s, $p]) => $p?.diskon_member ? Math.round($s * $p.diskon_member / 100) : 0
+)
+
+export const total = derived(
+  [subtotal, diskonMember],
+  ([$s, $d]) => $s - $d
+)
 
 export const kembalian = derived(
   [total, nominalBayar, metodeBayar],

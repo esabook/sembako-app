@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, like, and, sql } from 'drizzle-orm'
+import { eq, like, and, or, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
 import { barang, kategori, satuan } from '../db/schema.ts'
@@ -147,7 +147,7 @@ barangRouter.get('/', async (c) => {
     .where(
       and(
         aktif ? eq(barang.is_active, true) : undefined,
-        q ? like(barang.nama_barang, `%${q}%`) : undefined,
+        q ? or(like(barang.nama_barang, `%${q}%`), like(barang.kode_barang, `%${q}%`)) : undefined,
       )
     )
     .all()

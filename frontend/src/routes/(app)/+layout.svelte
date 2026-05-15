@@ -79,7 +79,7 @@
 	</nav>
 
 	<!-- Konten -->
-	<main class="flex-1 p-4">
+	<main class="flex-1 p-4 flex flex-col min-h-0">
 		{@render children()}
 	</main>
 </div>
