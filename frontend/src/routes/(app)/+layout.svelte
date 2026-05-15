@@ -8,8 +8,8 @@
 
 	let { children } = $props();
 
-	const TEMA_LABELS: Record<Tema, string> = { dark: 'DARK', light: 'LIGHT', eye: 'EYE' };
-	const TEMA_URUTAN: Tema[] = ['dark', 'light', 'eye'];
+	const TEMA_LABELS: Record<Tema, string> = { dark: 'DARK', light: 'LIGHT', eye: 'EYE', bww: '☯', bwb: '☯' };
+	const TEMA_URUTAN: Tema[] = ['dark', 'light', 'eye', 'bww', 'bwb'];
 
 	function gantiTema() {
 		const idx = TEMA_URUTAN.indexOf($tema);

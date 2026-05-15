@@ -47,6 +47,34 @@
   --info: #5aaccc;
 }
 
+/* ─── Tema BW on White ──────────────────────────── */
+[data-theme='bww'] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface2: #eeeeee;
+  --border: #000000;
+  --text: #000000;
+  --text-dim: #555555;
+  --accent: #000000;
+  --warn: #333333;
+  --danger: #000000;
+  --info: #333333;
+}
+
+/* ─── Tema BW on Black ──────────────────────────── */
+[data-theme='bwb'] {
+  --bg: #000000;
+  --surface: #000000;
+  --surface2: #111111;
+  --border: #ffffff;
+  --text: #ffffff;
+  --text-dim: #aaaaaa;
+  --accent: #ffffff;
+  --warn: #cccccc;
+  --danger: #ffffff;
+  --info: #cccccc;
+}
+
 /* ─── Base ──────────────────────────────────────── */
 body {
   background-color: var(--bg);
