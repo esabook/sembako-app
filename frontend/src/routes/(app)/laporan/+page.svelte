@@ -164,7 +164,7 @@
       </div>
       <button
         onclick={muat}
-        style="padding:.35rem .8rem; background:var(--accent); color:#000; border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
+        style="padding:.35rem .8rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
       >Tampilkan</button>
       <!-- Shortcut periode -->
       {#each [

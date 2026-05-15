@@ -223,7 +223,7 @@
     {#if tab === 'jurnal'}
       <button
         onclick={bukaModalJurnal}
-        style="padding:.4rem .9rem; background:var(--accent); color:#000; border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
+        style="padding:.4rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
       >+ Catat Jurnal</button>
     {/if}
   </div>
@@ -306,7 +306,7 @@
                   {#if h.status !== 'lunas'}
                     <button
                       onclick={() => bukaBayarHutang(h)}
-                      style="padding:.25rem .65rem; background:var(--accent); color:#000; border:none; border-radius:3px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer"
+                      style="padding:.25rem .65rem; background:var(--accent); color:var(--bg); border:none; border-radius:3px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer"
                     >Bayar</button>
                   {/if}
                 </td>
@@ -365,7 +365,7 @@
                   {#if p.status !== 'lunas'}
                     <button
                       onclick={() => bukaBayarPiutang(p)}
-                      style="padding:.25rem .65rem; background:var(--accent); color:#000; border:none; border-radius:3px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer"
+                      style="padding:.25rem .65rem; background:var(--accent); color:var(--bg); border:none; border-radius:3px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer"
                     >Terima</button>
                   {/if}
                 </td>
@@ -462,7 +462,7 @@
         <button onclick={() => modalBayarHutang = false}
           style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
         <button onclick={simpanBayarHutang} disabled={savingBayarHutang}
-          style="padding:.45rem .9rem; background:var(--accent); color:#000; border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingBayarHutang ? .6 : 1}">
+          style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingBayarHutang ? .6 : 1}">
           {savingBayarHutang ? 'Menyimpan...' : 'Bayar'}
         </button>
       </div>
@@ -515,7 +515,7 @@
         <button onclick={() => modalBayarPiutang = false}
           style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
         <button onclick={simpanBayarPiutang} disabled={savingBayarPiutang}
-          style="padding:.45rem .9rem; background:var(--accent); color:#000; border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingBayarPiutang ? .6 : 1}">
+          style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingBayarPiutang ? .6 : 1}">
           {savingBayarPiutang ? 'Menyimpan...' : 'Terima'}
         </button>
       </div>
@@ -583,7 +583,7 @@
         <button onclick={() => modalJurnal = false}
           style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
         <button onclick={simpanJurnal} disabled={savingJurnal}
-          style="padding:.45rem .9rem; background:var(--accent); color:#000; border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingJurnal ? .6 : 1}">
+          style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingJurnal ? .6 : 1}">
           {savingJurnal ? 'Menyimpan...' : 'Simpan'}
         </button>
       </div>

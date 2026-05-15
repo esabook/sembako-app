@@ -181,7 +181,7 @@
     <button
       onclick={bukaGenerate}
       class="px-3 py-1.5 text-sm rounded font-medium"
-      style="background:var(--accent);color:#000"
+      style="background:var(--accent);color:var(--bg)"
     >+ Generate Kartu</button>
   </div>
 
@@ -271,7 +271,7 @@
     {#if errGenerate}<p class="text-xs" style="color:var(--danger)">{errGenerate}</p>{/if}
     <div class="flex justify-end gap-2 pt-1">
       <button onclick={() => (modalGenerateOpen = false)} class="px-3 py-1.5 text-sm rounded border" style="border-color:var(--border);color:var(--text-dim)">Batal</button>
-      <button onclick={simpanGenerate} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:#000">Generate</button>
+      <button onclick={simpanGenerate} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Generate</button>
     </div>
   </div>
 </Modal>
@@ -299,7 +299,7 @@
     {#if errEditKartu}<p class="text-xs" style="color:var(--danger)">{errEditKartu}</p>{/if}
     <div class="flex justify-end gap-2 pt-1">
       <button onclick={() => (modalEditKartuOpen = false)} class="px-3 py-1.5 text-sm rounded border" style="border-color:var(--border);color:var(--text-dim)">Batal</button>
-      <button onclick={simpanEditKartu} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:#000">Simpan</button>
+      <button onclick={simpanEditKartu} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Simpan</button>
     </div>
   </div>
 </Modal>
@@ -334,7 +334,7 @@
       {#if errPoin}<p class="text-xs" style="color:var(--danger)">{errPoin}</p>{/if}
       <div class="flex justify-end gap-2 pt-1">
         <button onclick={() => (modalPoinOpen = false)} class="px-3 py-1.5 text-sm rounded border" style="border-color:var(--border);color:var(--text-dim)">Batal</button>
-        <button onclick={simpanPoin} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:#000">Simpan</button>
+        <button onclick={simpanPoin} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Simpan</button>
       </div>
     </div>
   {/if}
@@ -401,7 +401,7 @@
     <div class="flex justify-end gap-2 pt-1">
       <button onclick={() => (modalAssignKartuOpen = false)} class="px-3 py-1.5 text-sm rounded border" style="border-color:var(--border);color:var(--text-dim)">Batal</button>
       {#if assignPlgId}
-        <button onclick={simpanAssignKartu} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:#000">Assign</button>
+        <button onclick={simpanAssignKartu} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Assign</button>
       {/if}
     </div>
   </div>

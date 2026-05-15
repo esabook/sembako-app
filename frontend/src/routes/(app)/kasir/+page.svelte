@@ -470,11 +470,11 @@
 									</td>
 									<td class="px-3 py-1 text-right">
 										<input
-											type="number" min="0"
+											type="number" min="0" step="500"
 											value={item.diskon_item}
 											oninput={(e) => ubahDiskon(idx, (e.target as HTMLInputElement).value)}
 											onclick={(e) => e.stopPropagation()}
-											class="w-20 text-right px-2 py-0.5 rounded border text-xs outline-none"
+											class="w-20 text-right px-2 py-0.5 rounded border text-xs outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 											style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 										/>
 									</td>
@@ -619,10 +619,11 @@
 						bind:this={bayarInputEl}
 						type="number"
 						min="0"
+						step="500"
 						bind:value={$nominalBayar}
 						placeholder="0"
 						onfocus={() => activeWidget = 'bayar'}
-						class="w-full px-3 py-2 rounded border text-right text-lg font-bold outline-none"
+						class="w-full px-3 py-2 rounded border text-right text-lg font-bold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 					/>
 					{#if Number($nominalBayar) >= $total && $total > 0}
@@ -699,7 +700,7 @@
 				<button
 					onclick={() => { hapusItem(konfirmasiHapusIdx!); konfirmasiHapusIdx = null; }}
 					class="px-4 py-1.5 rounded font-bold text-sm active:scale-95 transition-all"
-					style="background:var(--danger);color:#fff"
+					style="background:var(--danger,#c62828);color:var(--bg,#fff)"
 				>Ya (Enter)</button>
 				<button
 					onclick={() => konfirmasiHapusIdx = null}

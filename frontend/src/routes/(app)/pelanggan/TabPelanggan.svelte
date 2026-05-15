@@ -186,7 +186,7 @@
     <button
       onclick={bukaTambahPlg}
       class="px-3 py-1.5 text-sm rounded font-medium"
-      style="background:var(--accent);color:#000"
+      style="background:var(--accent);color:var(--bg)"
     >+ Tambah</button>
   </div>
 
@@ -336,7 +336,7 @@
     {#if errPlg}<p class="text-xs" style="color:var(--danger)">{errPlg}</p>{/if}
     <div class="flex justify-end gap-2 pt-1">
       <button onclick={() => (modalPlgOpen = false)} class="px-3 py-1.5 text-sm rounded border" style="border-color:var(--border);color:var(--text-dim)">Batal</button>
-      <button onclick={simpanPlg} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:#000">Simpan</button>
+      <button onclick={simpanPlg} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Simpan</button>
     </div>
   </div>
 </Modal>
@@ -402,7 +402,7 @@
     <div class="flex justify-end gap-2 pt-1">
       <button onclick={() => (modalAssignOpen = false)} class="px-3 py-1.5 text-sm rounded border" style="border-color:var(--border);color:var(--text-dim)">Batal</button>
       {#if assignKartuId}
-        <button onclick={simpanAssign} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:#000">Assign</button>
+        <button onclick={simpanAssign} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Assign</button>
       {/if}
     </div>
   </div>

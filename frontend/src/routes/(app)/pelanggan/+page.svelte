@@ -30,7 +30,7 @@
         <button
           onclick={() => gantiTab(val as Tab)}
           class="px-3 py-1.5 text-sm transition-colors"
-          style="{tab === val ? 'background:var(--accent);color:#000;font-weight:600' : 'color:var(--text-dim)'}"
+          style="{tab === val ? 'background:var(--accent);color:var(--bg);font-weight:600' : 'color:var(--text-dim)'}"
         >{label}</button>
       {/each}
     </div>
@@ -96,7 +96,7 @@
       </section>
 
       <div class="flex justify-end pt-1">
-        <button onclick={() => (modalHelpOpen = false)} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:#000">Tutup</button>
+        <button onclick={() => (modalHelpOpen = false)} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Tutup</button>
       </div>
     </div>
   </div>
