@@ -1,6 +1,12 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
+  import { user } from '$lib/stores/auth.js'
   import TabPelanggan from './TabPelanggan.svelte'
   import TabKartu from './TabKartu.svelte'
+
+  $effect(() => {
+    if ($user && !['pemilik', 'manajer', 'kasir'].includes($user.role)) goto('/kasir')
+  })
 
   type Tab = 'pelanggan' | 'kartu'
   let tab = $state<Tab>('pelanggan')

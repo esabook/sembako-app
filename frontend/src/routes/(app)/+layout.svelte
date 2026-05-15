@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { api } from '$lib/utils/api.js';
-	import { user } from '$lib/stores/auth.js';
+	import { user, type Role } from '$lib/stores/auth.js';
 	import { tema, type Tema } from '$lib/stores/tema.js';
 	import { onMount } from 'svelte';
 
@@ -33,15 +33,19 @@
 		}
 	});
 
-	const NAV = [
-		{ href: '/dashboard', label: 'Dashboard' },
-		{ href: '/kasir', label: 'Kasir' },
-		{ href: '/pelanggan', label: 'Pelanggan' },
-		{ href: '/gudang', label: 'Gudang' },
-		{ href: '/karyawan', label: 'Karyawan' },
-		{ href: '/keuangan', label: 'Keuangan' },
-		{ href: '/laporan', label: 'Laporan' },
+	const NAV: { href: string; label: string; roles: Role[] }[] = [
+		{ href: '/dashboard', label: 'Dashboard', roles: ['pemilik', 'manajer'] },
+		{ href: '/kasir',     label: 'Kasir',     roles: ['pemilik', 'manajer', 'kasir', 'gudang'] },
+		{ href: '/pelanggan', label: 'Pelanggan', roles: ['pemilik', 'manajer', 'kasir'] },
+		{ href: '/gudang',    label: 'Gudang',    roles: ['pemilik', 'manajer', 'gudang'] },
+		{ href: '/karyawan',  label: 'Karyawan',  roles: ['pemilik', 'manajer'] },
+		{ href: '/keuangan',  label: 'Keuangan',  roles: ['pemilik', 'manajer'] },
+		{ href: '/laporan',   label: 'Laporan',   roles: ['pemilik', 'manajer'] },
 	];
+
+	function bolehAkses(roles: Role[]): boolean {
+		return $user !== null && roles.includes($user.role);
+	}
 </script>
 
 <div class="min-h-screen flex flex-col" style="background:var(--bg);color:var(--text)">
@@ -51,13 +55,15 @@
 		<span class="font-bold mr-3" style="color:var(--accent)">SEMBAKO</span>
 
 		{#each NAV as item}
-			<a
-				href={item.href}
-				class="px-2 py-1 rounded transition-colors"
-				style="{$page.url.pathname.startsWith(item.href)
-					? 'background:var(--surface2);color:var(--text)'
-					: 'color:var(--text-dim)'}"
-			>{item.label}</a>
+			{#if bolehAkses(item.roles)}
+				<a
+					href={item.href}
+					class="px-2 py-1 rounded transition-colors"
+					style="{$page.url.pathname.startsWith(item.href)
+						? 'background:var(--surface2);color:var(--text)'
+						: 'color:var(--text-dim)'}"
+				>{item.label}</a>
+			{/if}
 		{/each}
 
 		<div class="ml-auto flex items-center gap-3">

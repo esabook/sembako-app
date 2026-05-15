@@ -1,5 +1,11 @@
 <script lang="ts">
+	import { goto } from '$app/navigation'
+	import { user } from '$lib/stores/auth.js'
 	import TabStok from './TabStok.svelte';
+
+	$effect(() => {
+		if ($user && !['pemilik', 'manajer', 'gudang'].includes($user.role)) goto('/kasir')
+	})
 	import TabTerima from './TabTerima.svelte';
 	import TabPO from './TabPO.svelte';
 	import TabOpname from './TabOpname.svelte';

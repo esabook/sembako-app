@@ -1,6 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { goto } from '$app/navigation'
   import { api } from '$lib/utils/api'
+  import { user } from '$lib/stores/auth.js'
+
+  $effect(() => {
+    if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
+  })
 
   type TabKey = 'hutang' | 'piutang' | 'jurnal'
   let tab = $state<TabKey>('hutang')
