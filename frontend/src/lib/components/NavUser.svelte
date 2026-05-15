@@ -3,7 +3,7 @@
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { tema, type Tema } from '$lib/stores/tema.js';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 
 	let buka = $state(false);
 	let ref: HTMLDivElement;
@@ -50,10 +50,10 @@
 	onMount(() => {
 		document.addEventListener('click', tutupJikaLuar);
 		document.addEventListener('fullscreenchange', onFullscreenChange);
-	});
-	onDestroy(() => {
-		document.removeEventListener('click', tutupJikaLuar);
-		document.removeEventListener('fullscreenchange', onFullscreenChange);
+		return () => {
+			document.removeEventListener('click', tutupJikaLuar);
+			document.removeEventListener('fullscreenchange', onFullscreenChange);
+		};
 	});
 </script>
 

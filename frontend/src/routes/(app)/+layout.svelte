@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { api } from '$lib/utils/api.js';
 	import { user, type Role } from '$lib/stores/auth.js';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import NavClock from '$lib/components/NavClock.svelte';
 	import NavUser from '$lib/components/NavUser.svelte';
 
 	let { children } = $props();
 
-	let navExpanded = $state(true);
+	let navExpanded = $state(false);
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const IDLE_MS = 10_000;
@@ -43,13 +43,12 @@
 		window.addEventListener('mousemove', resetIdle, { passive: true });
 		window.addEventListener('keydown', resetIdle, { passive: true });
 		window.addEventListener('pointerdown', resetIdle, { passive: true });
-	});
-
-	onDestroy(() => {
-		if (idleTimer) clearTimeout(idleTimer);
-		window.removeEventListener('mousemove', resetIdle);
-		window.removeEventListener('keydown', resetIdle);
-		window.removeEventListener('pointerdown', resetIdle);
+		return () => {
+			if (idleTimer) clearTimeout(idleTimer);
+			window.removeEventListener('mousemove', resetIdle);
+			window.removeEventListener('keydown', resetIdle);
+			window.removeEventListener('pointerdown', resetIdle);
+		};
 	});
 
 	const NAV: { href: string; label: string; roles: Role[] }[] = [
@@ -121,7 +120,7 @@
 						<a
 							href={item.href}
 							class="rounded px-2 py-1 whitespace-nowrap transition-colors"
-							style={$page.url.pathname.startsWith(item.href)
+							style={page.url.pathname.startsWith(item.href)
 								? 'background:var(--surface2);color:var(--text)'
 								: 'color:var(--text-dim)'}>{item.label}</a
 						>

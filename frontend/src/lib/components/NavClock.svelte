@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 
 	let waktu = $state('');
 	let tanggal = $state('');
@@ -51,11 +51,10 @@
 		perbarui();
 		interval = setInterval(perbarui, 1000);
 		document.addEventListener('click', tutupJikaLuar);
-	});
-
-	onDestroy(() => {
-		clearInterval(interval);
-		document.removeEventListener('click', tutupJikaLuar);
+		return () => {
+			clearInterval(interval);
+			document.removeEventListener('click', tutupJikaLuar);
+		};
 	});
 
 	const sekarang = new Date();
