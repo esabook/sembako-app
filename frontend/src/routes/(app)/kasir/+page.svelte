@@ -136,7 +136,13 @@
 		kasirSse.onmessage = (e) => {
 			lastSseEventMs = Date.now();
 			const msg = JSON.parse(e.data as string) as { type: string; kode?: string; qty?: number };
-			if (msg.type === 'scan' && msg.kode) scanDariPhone(msg.kode, msg.qty ?? 1);
+			if (msg.type === 'scan' && msg.kode) {
+				if (popupCheckout && !$pelangganDipilih) {
+					muatPelanggan(msg.kode);
+				} else {
+					scanDariPhone(msg.kode, msg.qty ?? 1);
+				}
+			}
 		};
 		kasirSse.onerror = () => { scannerStatus = 'disconnected'; };
 	}
@@ -748,7 +754,7 @@
 								<input
 									bind:this={pelangganInputEl}
 									type="text"
-									placeholder="Cari nama pelanggan (min. 3 karakter)..."
+									placeholder="Cari nama/kartu pelanggan (min. 3 karakter)"
 									value={pelangganQuery}
 									oninput={(e) => muatPelanggan((e.target as HTMLInputElement).value)}
 									onkeydown={onPelangganKeydown}
