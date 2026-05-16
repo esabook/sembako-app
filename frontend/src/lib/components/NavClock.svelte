@@ -17,7 +17,7 @@
 	function perbarui() {
 		const now = new Date();
 		waktu = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-		tanggal = now.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+		tanggal = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
 	}
 
 	function hariDalamBulan(tgl: Date) {

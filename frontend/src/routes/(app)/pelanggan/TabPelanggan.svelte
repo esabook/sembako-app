@@ -265,8 +265,9 @@
   <div class="space-y-3">
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Kode * <span class="text-xs">(otomatis kapital)</span></label>
+        <label for="plg-kode" class="block text-xs mb-1" style="color:var(--text-dim)">Kode * <span class="text-xs">(otomatis kapital)</span></label>
         <input
+          id="plg-kode"
           bind:value={formPlg.kode_pelanggan}
           oninput={() => formPlg.kode_pelanggan = formPlg.kode_pelanggan.toUpperCase()}
           placeholder="PLG001"
@@ -275,8 +276,8 @@
         />
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Tipe</label>
-        <select bind:value={formPlg.tipe} class="w-full px-3 py-1.5 text-sm rounded border"
+        <label for="plg-tipe" class="block text-xs mb-1" style="color:var(--text-dim)">Tipe</label>
+        <select id="plg-tipe" bind:value={formPlg.tipe} class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)">
           <option value="eceran">Eceran</option>
           <option value="grosir">Grosir</option>
@@ -285,13 +286,13 @@
       </div>
     </div>
     <div>
-      <label class="block text-xs mb-1" style="color:var(--text-dim)">Nama *</label>
-      <input bind:value={formPlg.nama} placeholder="Nama pelanggan"
+      <label for="plg-nama" class="block text-xs mb-1" style="color:var(--text-dim)">Nama *</label>
+      <input id="plg-nama" bind:value={formPlg.nama} placeholder="Nama pelanggan"
         class="w-full px-3 py-1.5 text-sm rounded border"
         style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-xs mb-1" style="color:var(--text-dim)">Jenis Kelamin</label>
+      <p class="block text-xs mb-1" style="color:var(--text-dim)">Jenis Kelamin</p>
       <div class="flex gap-2">
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label for="gender-pria" class="flex items-center gap-1.5 text-sm cursor-pointer px-3 py-1.5 rounded border flex-1 justify-center"
@@ -309,27 +310,27 @@
         <label for="gender-kosong" class="flex items-center gap-1.5 text-sm cursor-pointer px-3 py-1.5 rounded border flex-1 justify-center"
           style="border-color:var(--border);{formPlg.gender === '' ? 'background:var(--surface2)' : ''}">
           <input id="gender-kosong" type="radio" bind:group={formPlg.gender} value="" class="sr-only" />
-          <span style="color:var(--text-dim)">— Tidak diisi</span>
+          <span style="color:var(--text-dim)">Tidak diisi</span>
         </label>
       </div>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">No. HP</label>
-        <input bind:value={formPlg.kontak} placeholder="08xx..."
+        <label for="plg-kontak" class="block text-xs mb-1" style="color:var(--text-dim)">No. HP</label>
+        <input id="plg-kontak" bind:value={formPlg.kontak} placeholder="08xx..."
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Limit Piutang (Rp)</label>
-        <input type="number" bind:value={formPlg.limit_piutang} min="0"
+        <label for="plg-limit" class="block text-xs mb-1" style="color:var(--text-dim)">Limit Piutang (Rp)</label>
+        <input id="plg-limit" type="number" bind:value={formPlg.limit_piutang} min="0"
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
     </div>
     <div>
-      <label class="block text-xs mb-1" style="color:var(--text-dim)">Alamat</label>
-      <textarea bind:value={formPlg.alamat} rows="2" placeholder="Opsional"
+      <label for="plg-alamat" class="block text-xs mb-1" style="color:var(--text-dim)">Alamat</label>
+      <textarea id="plg-alamat" bind:value={formPlg.alamat} rows="2" placeholder="Opsional"
         class="w-full px-3 py-1.5 text-sm rounded border resize-none"
         style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
     </div>
@@ -360,9 +361,10 @@
     {:else}
       <!-- Search kartu -->
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Cari No. Kartu (min. 3 digit)</label>
+        <label for="plg-cari-kartu" class="block text-xs mb-1" style="color:var(--text-dim)">Cari No. Kartu (min. 3 digit)</label>
         <div class="relative">
           <input
+            id="plg-cari-kartu"
             bind:value={kartuSearchQ}
             oninput={cariKartu}
             placeholder="Ketik min. 3 digit nomor kartu..."

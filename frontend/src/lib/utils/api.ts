@@ -1,4 +1,7 @@
-const BASE_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000'
+// Relatif URL agar works dari device mana pun (HP, laptop, dll)
+// Di dev: Vite proxy forward /api → localhost:3000
+// Di prod: Nginx forward /api → localhost:3000
+const BASE_URL = import.meta.env.PUBLIC_API_URL ?? '/api'
 
 type ApiResponse<T> = { success: true; data: T } | { success: false; error: string }
 

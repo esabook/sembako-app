@@ -30,7 +30,11 @@ export const nominalBayar = writable<string>('')
 export const itemAktifIdx = writable<number>(-1)
 
 export const subtotal = derived(keranjang, ($k) =>
-  $k.reduce((s, i) => s + i.harga_jual * i.jumlah - i.diskon_item, 0)
+  $k.reduce((s, i) => s + i.harga_jual * i.jumlah, 0)
+)
+
+export const diskonTotal = derived(keranjang, ($k) =>
+  $k.reduce((s, i) => s + i.diskon_item, 0)
 )
 
 // diskon_member (%) dari pelanggan dipotong dari subtotal
@@ -40,8 +44,8 @@ export const diskonMember = derived(
 )
 
 export const total = derived(
-  [subtotal, diskonMember],
-  ([$s, $d]) => $s - $d
+  [subtotal, diskonMember, diskonTotal],
+  ([$s, $d, $dt]) => $s - $d - $dt
 )
 
 export const kembalian = derived(

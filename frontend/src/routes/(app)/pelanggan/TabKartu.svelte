@@ -247,8 +247,8 @@
     <p class="text-xs" style="color:var(--text-dim)">Nomor kartu 10 digit akan di-generate otomatis secara acak dan unik.</p>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Tier Default</label>
-        <select bind:value={formGenerate.tier} class="w-full px-3 py-1.5 text-sm rounded border"
+        <label for="kartu-tier-default" class="block text-xs mb-1" style="color:var(--text-dim)">Tier Default</label>
+        <select id="kartu-tier-default" bind:value={formGenerate.tier} class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)">
           <option value="reguler">Reguler</option>
           <option value="silver">Silver</option>
@@ -256,15 +256,15 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Diskon Member (%)</label>
-        <input type="number" bind:value={formGenerate.diskon_member} min="0" max="100" step="0.5" placeholder="0"
+        <label for="kartu-diskon-member" class="block text-xs mb-1" style="color:var(--text-dim)">Diskon Member (%)</label>
+        <input id="kartu-diskon-member" type="number" bind:value={formGenerate.diskon_member} min="0" max="100" step="0.5" placeholder="0"
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
     </div>
     <div>
-      <label class="block text-xs mb-1" style="color:var(--text-dim)">Jumlah Kartu (maks. 50)</label>
-      <input type="number" bind:value={formGenerate.jumlah} min="1" max="50" placeholder="1"
+      <label for="kartu-jumlah" class="block text-xs mb-1" style="color:var(--text-dim)">Jumlah Kartu (maks. 50)</label>
+      <input id="kartu-jumlah" type="number" bind:value={formGenerate.jumlah} min="1" max="50" placeholder="1"
         class="w-full px-3 py-1.5 text-sm rounded border"
         style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
@@ -281,8 +281,8 @@
   <div class="space-y-3">
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Tier</label>
-        <select bind:value={formEditKartu.tier} class="w-full px-3 py-1.5 text-sm rounded border"
+        <label for="kartu-tier" class="block text-xs mb-1" style="color:var(--text-dim)">Tier</label>
+        <select id="kartu-tier" bind:value={formEditKartu.tier} class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)">
           <option value="reguler">Reguler</option>
           <option value="silver">Silver</option>
@@ -290,8 +290,8 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Diskon (%)</label>
-        <input type="number" bind:value={formEditKartu.diskon_member} min="0" max="100" step="0.5"
+        <label for="kartu-diskon" class="block text-xs mb-1" style="color:var(--text-dim)">Diskon (%)</label>
+        <input id="kartu-diskon" type="number" bind:value={formEditKartu.diskon_member} min="0" max="100" step="0.5"
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
@@ -313,7 +313,7 @@
         <p class="text-2xl font-bold" style="color:var(--info)">{poinTarget.poin}</p>
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Operasi</label>
+        <p class="block text-xs mb-1" style="color:var(--text-dim)">Operasi</p>
         <div class="flex gap-3">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label for="poin-tambah" class="flex items-center gap-1.5 text-sm cursor-pointer" style="color:var(--text)">
@@ -326,8 +326,8 @@
         </div>
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Jumlah Poin</label>
-        <input type="number" bind:value={formPoin.delta} min="1" placeholder="0"
+        <label for="kartu-poin-delta" class="block text-xs mb-1" style="color:var(--text-dim)">Jumlah Poin</label>
+        <input id="kartu-poin-delta" type="number" bind:value={formPoin.delta} min="1" placeholder="0"
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
@@ -356,9 +356,10 @@
     {:else}
       <!-- Search pelanggan -->
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Cari Pelanggan (nama / no. HP / kode)</label>
+        <label for="kartu-cari-plg" class="block text-xs mb-1" style="color:var(--text-dim)">Cari Pelanggan (nama / no. HP / kode)</label>
         <div class="relative">
           <input
+            id="kartu-cari-plg"
             bind:value={plgSearchQ}
             oninput={cariPelanggan}
             placeholder="Ketik min. 2 karakter..."

@@ -1,13 +1,15 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { api } from '$lib/utils/api.js';
 	import { user, type Role } from '$lib/stores/auth.js';
 	import { onMount } from 'svelte';
 	import NavClock from '$lib/components/NavClock.svelte';
 	import NavUser from '$lib/components/NavUser.svelte';
 
-	let { children } = $props();
+	let { children, data } = $props();
+
+	$effect(() => {
+		user.set(data.user as import('$lib/stores/auth.js').User);
+	});
 
 	let navExpanded = $state(false);
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -30,15 +32,7 @@
 		}
 	}
 
-	onMount(async () => {
-		if (!$user) {
-			const res = await api.get<{ id: number; nama: string; role: string }>('/auth/me');
-			if (res.success) {
-				user.set(res.data as import('$lib/stores/auth.js').User);
-			} else {
-				goto('/login');
-			}
-		}
+	onMount(() => {
 		resetIdle();
 		window.addEventListener('mousemove', resetIdle, { passive: true });
 		window.addEventListener('keydown', resetIdle, { passive: true });
