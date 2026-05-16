@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { tema, type Tema } from '$lib/stores/tema.js';
@@ -109,8 +110,19 @@
 				</div>
 			</div>
 
-			<!-- Fullscreen + Keluar -->
+			<!-- Scanner + Fullscreen + Keluar -->
 			<div class="px-3 py-2 flex flex-col gap-0.5">
+				{#if page.url.pathname !== '/scanner'}
+				<a
+					href="/scanner"
+					onclick={() => buka = false}
+					class="w-full text-left text-xs px-2 py-1.5 rounded transition-colors flex items-center justify-between"
+					style="color:var(--accent)"
+				>
+					<span>Mode Scanner</span>
+					<span>📷</span>
+				</a>
+				{/if}
 				<button
 					onclick={toggleFullscreen}
 					class="w-full text-left text-xs px-2 py-1.5 rounded transition-colors flex items-center justify-between"
