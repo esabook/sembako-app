@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { HTTPException } from 'hono/http-exception'
+import { join } from 'node:path'
+import { Scalar } from '@scalar/hono-api-reference'
+import { openAPISpec } from './openapi.ts'
 import { authRouter } from './routes/auth.ts'
 import { barangRouter } from './routes/barang.ts'
 import { supplierRouter } from './routes/supplier.ts'
@@ -41,6 +44,18 @@ app.onError((err, c) => {
 })
 
 app.get('/health', (c) => c.json({ success: true, data: { status: 'ok' } }))
+
+app.get('/openapi.json', (c) => c.json(openAPISpec))
+app.get('/doc', Scalar({ spec: { url: '/openapi.json' }, pageTitle: 'Sembako App API' }))
+
+// Serve uploaded files
+app.get('/uploads/*', async (c) => {
+  const relativePath = c.req.path.replace(/^\/uploads\//, '')
+  const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../uploads')
+  const file = Bun.file(join(uploadDir, relativePath))
+  if (!await file.exists()) return c.notFound()
+  return new Response(file)
+})
 
 app.route('/auth', authRouter)
 app.route('/barang', barangRouter)
