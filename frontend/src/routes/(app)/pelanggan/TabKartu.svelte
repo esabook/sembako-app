@@ -190,53 +190,68 @@
   {:else if kartuList.length === 0}
     <p class="text-sm" style="color:var(--text-dim)">Belum ada kartu. Klik "Generate Kartu" untuk membuat.</p>
   {:else}
-    <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="background:var(--surface2);color:var(--text-dim)">
-            <th class="text-left px-3 py-2 font-medium">No. Kartu</th>
-            <th class="text-left px-3 py-2 font-medium">Tier</th>
-            <th class="text-center px-3 py-2 font-medium">Diskon</th>
-            <th class="text-center px-3 py-2 font-medium">Poin</th>
-            <th class="text-left px-3 py-2 font-medium">Pelanggan</th>
-            <th class="text-center px-3 py-2 font-medium">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each kartuList as k (k.id)}
-            <tr class="border-t" style="border-color:var(--border)">
-              <td class="px-3 py-2 font-mono font-bold tracking-widest" style="color:var(--accent)">{k.no_kartu}</td>
-              <td class="px-3 py-2">
-                <span class="font-bold text-xs" style="{TIER_COLOR[k.tier]}">{TIER_LABEL[k.tier]}</span>
-              </td>
-              <td class="px-3 py-2 text-center text-xs" style="color:{k.diskon_member > 0 ? 'var(--accent)' : 'var(--text-dim)'}">
-                {k.diskon_member > 0 ? `−${k.diskon_member}%` : '—'}
-              </td>
-              <td class="px-3 py-2 text-center text-xs" style="color:var(--info)">{k.poin}</td>
-              <td class="px-3 py-2 text-xs">
-                {#if k.pelanggan_nama}
-                  <div style="color:var(--text)">{k.pelanggan_nama}</div>
-                  <div style="color:var(--text-dim)">{k.pelanggan_kode}</div>
-                {:else}
-                  <span class="px-1.5 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--accent)">Tersedia</span>
-                {/if}
-              </td>
-              <td class="px-3 py-2">
-                <div class="flex items-center justify-center gap-1 flex-wrap">
-                  <button onclick={() => bukaEditKartu(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
-                  <button onclick={() => bukaPoin(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--info)">Poin</button>
-                  {#if k.pelanggan_id}
-                    <button onclick={() => unassignKartu(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--warn)">Lepas</button>
-                  {:else}
-                    <button onclick={() => bukaAssignKartu(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--accent)">Assign</button>
-                  {/if}
-                  <button onclick={() => nonaktifkanKartu(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--danger)">Nonaktif</button>
-                </div>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {#each kartuList as k (k.id)}
+        <div
+          class="flex flex-col gap-2 rounded border p-3 text-sm"
+          style="background:var(--surface);border-color:var(--border)"
+        >
+          <!-- No. Kartu + Tier -->
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono font-bold tracking-widest" style="color:var(--accent)">{k.no_kartu}</span>
+            <span class="font-bold text-xs" style="{TIER_COLOR[k.tier]}">{TIER_LABEL[k.tier]}</span>
+          </div>
+
+          <!-- Diskon + Poin -->
+          <div class="flex items-center justify-between text-xs">
+            <span style="color:{k.diskon_member > 0 ? 'var(--accent)' : 'var(--text-dim)'}">
+              {k.diskon_member > 0 ? `−${k.diskon_member}%` : '—'}
+            </span>
+            <span style="color:var(--info)">{k.poin} poin</span>
+          </div>
+
+          <!-- Pelanggan / Tersedia -->
+          <div class="flex items-center justify-between gap-2 border-t pt-2 text-xs" style="border-color:var(--border)">
+            {#if k.pelanggan_nama}
+              <div class="min-w-0">
+                <div class="truncate font-medium" style="color:var(--text)">{k.pelanggan_nama}</div>
+                <div class="font-mono" style="color:var(--text-dim)">{k.pelanggan_kode}</div>
+              </div>
+              <button
+                onclick={() => unassignKartu(k)}
+                class="shrink-0 rounded border px-2 py-1 transition-colors"
+                style="border-color:var(--border);color:var(--warn)"
+              >Lepas</button>
+            {:else}
+              <span class="rounded px-1.5 py-0.5" style="background:var(--surface2);color:var(--accent)">Tersedia</span>
+              <button
+                onclick={() => bukaAssignKartu(k)}
+                class="shrink-0 rounded border px-2 py-1 transition-colors"
+                style="border-color:var(--border);color:var(--accent)"
+              >Assign</button>
+            {/if}
+          </div>
+
+          <!-- Aksi bawah -->
+          <div class="flex items-center gap-1.5 border-t pt-2" style="border-color:var(--border)">
+            <button
+              onclick={() => bukaEditKartu(k)}
+              class="rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:var(--text-dim)"
+            >Edit</button>
+            <button
+              onclick={() => bukaPoin(k)}
+              class="rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:var(--info)"
+            >Poin</button>
+            <button
+              onclick={() => nonaktifkanKartu(k)}
+              class="ml-auto rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:var(--danger)"
+            >Nonaktif</button>
+          </div>
+        </div>
+      {/each}
     </div>
   {/if}
 </div>
