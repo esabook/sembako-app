@@ -27,6 +27,7 @@
   let kartuQuery   = $state('')
   let kartuFilter  = $state<'semua' | 'assigned' | 'available'>('semua')
   let kartuLoading = $state(false)
+  let viewMode     = $state<'grid' | 'list'>('grid')
 
   let modalGenerateOpen = $state(false)
   let formGenerate      = $state({ tier: 'reguler' as Kartu['tier'], diskon_member: '0', jumlah: '1' })
@@ -159,37 +160,60 @@
   }
 </script>
 
+<!-- action bar -->
 <div class="space-y-3">
-  <div class="flex items-center justify-between flex-wrap gap-2">
-    <div class="flex gap-2 flex-wrap flex-1">
-      <input
-        bind:value={kartuQuery}
-        placeholder="Cari nomor kartu..."
-        class="px-3 py-1.5 text-sm rounded border flex-1 min-w-40"
-        style="background:var(--surface);border-color:var(--border);color:var(--text)"
-      />
+  <div class="flex items-center gap-2">
+    <input
+      bind:value={kartuQuery}
+      placeholder="Cari nomor kartu..."
+      class="px-3 py-1.5 text-sm rounded border flex-1 min-w-0 outline-none"
+      style="background:var(--surface);border-color:var(--border);color:var(--text)"
+    />
+    <div class="flex items-center gap-1.5 shrink-0">
       <select
         bind:value={kartuFilter}
-        class="px-3 py-1.5 text-sm rounded border"
+        class="px-2 py-1.5 text-sm rounded border"
         style="background:var(--surface);border-color:var(--border);color:var(--text)"
       >
         <option value="semua">Semua</option>
         <option value="available">Tersedia</option>
-        <option value="assigned">Sudah Assign</option>
+        <option value="assigned">Assigned</option>
       </select>
+      <button
+        onclick={() => (viewMode = 'grid')}
+        title="Tampilan grid"
+        class="p-1.5 rounded border transition-colors"
+        style="{viewMode === 'grid' ? 'background:var(--surface2);border-color:var(--accent);color:var(--accent)' : 'border-color:var(--border);color:var(--text-dim)'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <rect x="0" y="0" width="6" height="6" rx="1"/><rect x="8" y="0" width="6" height="6" rx="1"/>
+          <rect x="0" y="8" width="6" height="6" rx="1"/><rect x="8" y="8" width="6" height="6" rx="1"/>
+        </svg>
+      </button>
+      <button
+        onclick={() => (viewMode = 'list')}
+        title="Tampilan list"
+        class="p-1.5 rounded border transition-colors"
+        style="{viewMode === 'list' ? 'background:var(--surface2);border-color:var(--accent);color:var(--accent)' : 'border-color:var(--border);color:var(--text-dim)'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <rect x="0" y="1" width="14" height="2" rx="1"/><rect x="0" y="6" width="14" height="2" rx="1"/>
+          <rect x="0" y="11" width="14" height="2" rx="1"/>
+        </svg>
+      </button>
+      <button
+        onclick={bukaGenerate}
+        class="px-3 py-1.5 text-sm rounded font-medium whitespace-nowrap"
+        style="background:var(--accent);color:var(--bg)"
+      >+ Generate</button>
     </div>
-    <button
-      onclick={bukaGenerate}
-      class="px-3 py-1.5 text-sm rounded font-medium"
-      style="background:var(--accent);color:var(--bg)"
-    >+ Generate Kartu</button>
   </div>
 
   {#if kartuLoading}
     <p class="text-sm" style="color:var(--text-dim)">Memuat...</p>
   {:else if kartuList.length === 0}
     <p class="text-sm" style="color:var(--text-dim)">Belum ada kartu. Klik "Generate Kartu" untuk membuat.</p>
-  {:else}
+  {:else if viewMode === 'grid'}
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {#each kartuList as k (k.id)}
         <div
@@ -252,6 +276,53 @@
           </div>
         </div>
       {/each}
+    </div>
+  {:else}
+    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr style="background:var(--surface2)">
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">No. Kartu</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Tier</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Diskon</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Poin</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Pelanggan</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each kartuList as k (k.id)}
+            <tr class="border-t" style="border-color:var(--border)">
+              <td class="px-3 py-2 font-mono font-bold tracking-widest" style="color:var(--accent)">{k.no_kartu}</td>
+              <td class="px-3 py-2 text-xs font-bold" style="{TIER_COLOR[k.tier]}">{TIER_LABEL[k.tier]}</td>
+              <td class="px-3 py-2 text-right text-xs" style="color:{k.diskon_member > 0 ? 'var(--accent)' : 'var(--text-dim)'}">
+                {k.diskon_member > 0 ? `−${k.diskon_member}%` : '—'}
+              </td>
+              <td class="px-3 py-2 text-right text-xs" style="color:var(--info)">{k.poin}</td>
+              <td class="px-3 py-2 text-xs">
+                {#if k.pelanggan_nama}
+                  <div class="font-medium" style="color:var(--text)">{k.pelanggan_nama}</div>
+                  <div class="font-mono text-xs" style="color:var(--text-dim)">{k.pelanggan_kode}</div>
+                {:else}
+                  <span class="rounded px-1.5 py-0.5" style="background:var(--surface2);color:var(--accent)">Tersedia</span>
+                {/if}
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-1 justify-end flex-wrap">
+                  <button onclick={() => bukaEditKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
+                  <button onclick={() => bukaPoin(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--info)">Poin</button>
+                  {#if k.pelanggan_nama}
+                    <button onclick={() => unassignKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--warn)">Lepas</button>
+                  {:else}
+                    <button onclick={() => bukaAssignKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--accent)">Assign</button>
+                  {/if}
+                  <button onclick={() => nonaktifkanKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Nonaktif</button>
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
   {/if}
 </div>

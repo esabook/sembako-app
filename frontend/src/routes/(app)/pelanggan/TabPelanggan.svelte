@@ -43,6 +43,7 @@
   let plgQuery        = $state('')
   let plgLoading      = $state(false)
   let plgShowNonAktif = $state(false)
+  let viewMode        = $state<'grid' | 'list'>('grid')
 
   let modalPlgOpen = $state(false)
   let editPlg      = $state<Pelanggan | null>(null)
@@ -170,31 +171,55 @@
 </script>
 
 <div class="space-y-3">
-  <div class="flex items-center justify-between flex-wrap gap-2">
-    <div class="flex gap-2 flex-1 flex-wrap">
-      <input
-        bind:value={plgQuery}
-        placeholder="Cari nama, kode, no. HP, atau no. kartu..."
-        class="px-3 py-1.5 text-sm rounded border flex-1 min-w-52"
-        style="background:var(--surface);border-color:var(--border);color:var(--text)"
-      />
-      <label class="flex items-center gap-1.5 text-sm cursor-pointer" style="color:var(--text-dim)">
+  <!-- action bar -->
+  <div class="flex items-center gap-2">
+    <input
+      bind:value={plgQuery}
+      placeholder="Cari nama, kode, no. HP, atau no. kartu..."
+      class="px-3 py-1.5 text-sm rounded border flex-1 min-w-0 outline-none"
+      style="background:var(--surface);border-color:var(--border);color:var(--text)"
+    />
+    <div class="flex items-center gap-1.5 shrink-0">
+      <label class="flex items-center gap-1.5 text-sm cursor-pointer px-2 py-1.5 rounded border whitespace-nowrap"
+        style="border-color:var(--border);color:var(--text-dim)">
         <input type="checkbox" bind:checked={plgShowNonAktif} />
         Non-aktif
       </label>
+      <button
+        onclick={() => (viewMode = 'grid')}
+        title="Tampilan grid"
+        class="p-1.5 rounded border transition-colors"
+        style="{viewMode === 'grid' ? 'background:var(--surface2);border-color:var(--accent);color:var(--accent)' : 'border-color:var(--border);color:var(--text-dim)'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <rect x="0" y="0" width="6" height="6" rx="1"/><rect x="8" y="0" width="6" height="6" rx="1"/>
+          <rect x="0" y="8" width="6" height="6" rx="1"/><rect x="8" y="8" width="6" height="6" rx="1"/>
+        </svg>
+      </button>
+      <button
+        onclick={() => (viewMode = 'list')}
+        title="Tampilan list"
+        class="p-1.5 rounded border transition-colors"
+        style="{viewMode === 'list' ? 'background:var(--surface2);border-color:var(--accent);color:var(--accent)' : 'border-color:var(--border);color:var(--text-dim)'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <rect x="0" y="1" width="14" height="2" rx="1"/><rect x="0" y="6" width="14" height="2" rx="1"/>
+          <rect x="0" y="11" width="14" height="2" rx="1"/>
+        </svg>
+      </button>
+      <button
+        onclick={bukaTambahPlg}
+        class="px-3 py-1.5 text-sm rounded font-medium whitespace-nowrap"
+        style="background:var(--accent);color:var(--bg)"
+      >+ Tambah</button>
     </div>
-    <button
-      onclick={bukaTambahPlg}
-      class="px-3 py-1.5 text-sm rounded font-medium"
-      style="background:var(--accent);color:var(--bg)"
-    >+ Tambah</button>
   </div>
 
   {#if plgLoading}
     <p class="text-sm" style="color:var(--text-dim)">Memuat...</p>
   {:else if plgList.length === 0}
     <p class="text-sm" style="color:var(--text-dim)">Belum ada pelanggan.</p>
-  {:else}
+  {:else if viewMode === 'grid'}
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {#each plgList as p (p.id)}
         <div
@@ -270,6 +295,65 @@
           </div>
         </div>
       {/each}
+    </div>
+  {:else}
+    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+      <table class="w-full text-sm border-collapse">
+        <thead>
+          <tr style="background:var(--surface2)">
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kode</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Nama</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Tipe</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kontak</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Piutang</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kartu</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each plgList as p (p.id)}
+            <tr class="border-t" style="border-color:var(--border);{!p.is_active ? 'opacity:0.5' : ''}">
+              <td class="px-3 py-2 font-mono text-xs" style="color:var(--text-dim)">{p.kode_pelanggan}</td>
+              <td class="px-3 py-2">
+                <span class="font-medium" style="color:var(--text)">{p.nama}</span>
+                {#if p.gender}
+                  <span class="ml-1 text-xs" style="{genderColor(p.gender)}">{genderSymbol(p.gender)}</span>
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-xs">
+                <span class="rounded px-1.5 py-0.5" style="background:var(--surface2);color:var(--text-dim)">{p.tipe}</span>
+              </td>
+              <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.kontak ?? '—'}</td>
+              <td class="px-3 py-2 text-right text-xs" style="color:{p.saldo_piutang > 0 ? 'var(--warn)' : 'var(--text-dim)'}">
+                {p.saldo_piutang > 0 ? rupiah(p.saldo_piutang) : '—'}
+              </td>
+              <td class="px-3 py-2 text-xs">
+                {#if p.no_kartu}
+                  <span class="font-mono" style="color:var(--accent)">{p.no_kartu}</span>
+                  {#if p.tier}
+                    <span class="ml-1 font-bold" style="{TIER_COLOR[p.tier]}">{TIER_LABEL[p.tier]}</span>
+                  {/if}
+                {:else}
+                  <span style="color:var(--text-dim)">—</span>
+                {/if}
+              </td>
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-1 justify-end flex-wrap">
+                  <button onclick={() => bukaEditPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
+                  {#if p.no_kartu}
+                    <button onclick={() => unassignKartu(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Lepas Kartu</button>
+                  {:else}
+                    <button onclick={() => bukaAssignKartu(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--accent)">+ Kartu</button>
+                  {/if}
+                  <button onclick={() => toggleAktifPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}">
+                    {p.is_active ? 'Nonaktif' : 'Aktifkan'}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
   {/if}
 </div>
