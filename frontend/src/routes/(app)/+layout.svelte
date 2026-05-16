@@ -106,9 +106,9 @@
 			</svg>
 		</button>
 
-		<!-- Nav links -->
+		<!-- Nav links — desktop only -->
 		{#if navExpanded}
-			<div class="flex items-center gap-1 overflow-x-auto">
+			<div class="hidden items-center gap-1 overflow-x-auto md:flex">
 				{#each NAV as item}
 					{#if bolehAkses(item.roles)}
 						<a
@@ -128,6 +128,29 @@
 			<NavUser />
 		</div>
 	</nav>
+
+	<!-- Nav links — mobile dropdown -->
+	{#if navExpanded}
+		<div
+			class="flex flex-col border-b md:hidden"
+			style="background:var(--surface);border-color:var(--border)"
+		>
+			{#each NAV as item}
+				{#if bolehAkses(item.roles)}
+					<a
+						href={item.href}
+						onclick={() => {
+							navExpanded = false;
+						}}
+						class="border-b px-4 py-3 text-sm transition-colors last:border-0"
+						style={page.url.pathname.startsWith(item.href)
+							? 'background:var(--surface2);color:var(--text);border-color:var(--border)'
+							: 'color:var(--text-dim);border-color:var(--border)'}>{item.label}</a
+					>
+				{/if}
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Konten -->
 	<main class="flex min-h-0 flex-1 flex-col p-4">
