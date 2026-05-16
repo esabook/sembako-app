@@ -17,6 +17,14 @@ export default defineConfig({
                         proxyReq.removeHeader('accept-encoding');
                     });
                 },
+            },
+            '/uploads': {
+                target: 'http://localhost:3000',
+                configure: (proxy) => {
+                    proxy.on('proxyReq', (proxyReq) => {
+                        proxyReq.removeHeader('accept-encoding');
+                    });
+                },
             }
         }
     }

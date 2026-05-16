@@ -4,6 +4,9 @@ import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
 import { barang, kategori, satuan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import sharp from 'sharp'
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 export const barangRouter = new Hono()
 
@@ -222,4 +225,36 @@ barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
     .run()
 
   return c.json({ success: true, data: null })
+})
+
+// ── Upload Foto ───────────────────────────────────────────────────────────
+
+barangRouter.post('/:id/foto', requirePermission('stok.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const existing = db.select().from(barang).where(eq(barang.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
+
+  const formData = await c.req.formData()
+  const file = formData.get('foto') as File | null
+  if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
+
+  if (!file.type.startsWith('image/')) throw new HTTPException(400, { message: 'File harus berupa gambar' })
+
+  const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../../uploads')
+  const produkDir = join(uploadDir, 'produk')
+  mkdirSync(produkDir, { recursive: true })
+
+  const filename = `${id}_${Date.now()}.jpg`
+  const buf = Buffer.from(await file.arrayBuffer())
+
+  await sharp(buf).resize(300, 300, { fit: 'inside' }).jpeg({ quality: 85 }).toFile(join(produkDir, `med_${filename}`))
+  await sharp(buf).resize(60, 60, { fit: 'cover' }).jpeg({ quality: 80 }).toFile(join(produkDir, `thumb_${filename}`))
+
+  const fotoPath = `produk/med_${filename}`
+  db.update(barang)
+    .set({ foto_path: fotoPath, updated_at: sql`(datetime('now','localtime'))` })
+    .where(eq(barang.id, id))
+    .run()
+
+  return c.json({ success: true, data: { foto_path: fotoPath } })
 })

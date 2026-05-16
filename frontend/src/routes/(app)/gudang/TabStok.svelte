@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
+	import { user } from '$lib/stores/auth.js';
+	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import Modal from '$lib/components/Modal.svelte';
 	import TabStokGuide from './TabStokGuide.svelte';
 
@@ -24,7 +26,10 @@
 
 	function statusStok(item: { stok_sekarang: number; stok_minimum: number }) { if (item.stok_sekarang <= 0) return { label: 'HABIS', color: 'var(--danger)' }; if (item.stok_sekarang <= item.stok_minimum) return { label: 'HAMPIR HABIS', color: 'var(--warn)' }; return { label: 'AMAN', color: 'var(--accent)' }; }
 
-	onMount(muatStok);
+	onMount(() => {
+		muatStok();
+		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => { query = kode; });
+	});
 </script>
 
 <div class="flex flex-col gap-3">

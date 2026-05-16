@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
+	import { user } from '$lib/stores/auth.js';
+	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import TabTerimaGuide from './TabTerimaGuide.svelte';
 
 	type Barang = { id: number; kode_barang: string; nama_barang: string; harga_beli_terakhir: number; stok_sekarang: number; };
@@ -55,7 +57,14 @@
 		muatBM();
 	}
 
-	onMount(() => { muatBM(); muatSupplier(); });
+	onMount(() => {
+		muatBM();
+		muatSupplier();
+		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => {
+			bmSearchVal = kode;
+			cariBM(kode);
+		});
+	});
 </script>
 
 <div class="flex gap-6">
