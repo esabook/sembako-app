@@ -8,10 +8,10 @@
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
   })
 
-  type TabKey = 'hutang' | 'piutang' | 'jurnal'
+  type TabKey = 'hutang' | 'piutang' | 'jurnal' | 'kasbank'
   let tab = $state<TabKey>('hutang')
 
-  // ── Data ──────────────────────────────────────────────────────────────────
+  // ── Types ─────────────────────────────────────────────────────────────────
 
   type Hutang = {
     id: number; supplier_id: number; nama_supplier: string
@@ -36,12 +36,16 @@
     referensi_tipe: string | null; referensi_id: number | null
   }
 
-  type KasBank = { id: number; nama: string; tipe: 'kas' | 'bank' }
+  type KasBank = { id: number; nama: string; tipe: 'kas' | 'bank'; saldo_awal: number }
+  type KasBankSaldo = KasBank & { total_masuk: number; total_keluar: number; saldo: number }
+
+  // ── State ─────────────────────────────────────────────────────────────────
 
   let hutangList = $state<Hutang[]>([])
   let piutangList = $state<Piutang[]>([])
   let jurnalList = $state<Jurnal[]>([])
   let kasBankList = $state<KasBank[]>([])
+  let kasBankSaldo = $state<KasBankSaldo[]>([])
 
   let loading = $state(false)
   let error = $state('')
@@ -50,6 +54,12 @@
 
   let filterStatusHutang = $state<'semua' | 'belum' | 'sebagian' | 'lunas'>('belum')
   let filterStatusPiutang = $state<'semua' | 'belum' | 'sebagian' | 'lunas'>('belum')
+
+  // Jurnal filters
+  const bulanIni = new Date().toISOString().slice(0, 7)
+  let filterDari = $state(bulanIni + '-01')
+  let filterSampai = $state(hariIni())
+  let filterKasBankId = $state(0)
 
   let hutangFiltered = $derived(
     filterStatusHutang === 'semua'
@@ -71,6 +81,10 @@
   let totalPiutangBelum = $derived(
     piutangList.filter((p) => p.status !== 'lunas').reduce((s, p) => s + p.sisa_piutang, 0)
   )
+  let totalSaldo = $derived(kasBankSaldo.reduce((s, kb) => s + kb.saldo, 0))
+
+  let jurnalMasuk = $derived(jurnalList.filter(j => j.jenis === 'masuk').reduce((s, j) => s + j.jumlah, 0))
+  let jurnalKeluar = $derived(jurnalList.filter(j => j.jenis === 'keluar').reduce((s, j) => s + j.jumlah, 0))
 
   // ── Modal Bayar Hutang ────────────────────────────────────────────────────
 
@@ -81,11 +95,7 @@
 
   function bukaBayarHutang(h: Hutang) {
     hutangDipilih = h
-    formBayarHutang = {
-      jumlah_bayar: h.sisa_hutang,
-      kas_bank_id: kasBankList[0]?.id ?? 0,
-      tanggal_bayar: hariIni(),
-    }
+    formBayarHutang = { jumlah_bayar: h.sisa_hutang, kas_bank_id: kasBankList[0]?.id ?? 0, tanggal_bayar: hariIni() }
     modalBayarHutang = true
   }
 
@@ -93,13 +103,12 @@
     if (!hutangDipilih) return
     savingBayarHutang = true
     const res = await api.post<{ sisa_hutang: number; status: string }>(
-      `/keuangan/hutang/${hutangDipilih.id}/bayar`,
-      formBayarHutang
+      `/keuangan/hutang/${hutangDipilih.id}/bayar`, formBayarHutang
     )
     savingBayarHutang = false
     if (!res.success) { error = res.error ?? 'Gagal menyimpan'; return }
     modalBayarHutang = false
-    await muatHutang()
+    await Promise.all([muatHutang(), muatKasBankSaldo()])
   }
 
   // ── Modal Bayar Piutang ───────────────────────────────────────────────────
@@ -111,11 +120,7 @@
 
   function bukaBayarPiutang(p: Piutang) {
     piutangDipilih = p
-    formBayarPiutang = {
-      jumlah_bayar: p.sisa_piutang,
-      kas_bank_id: kasBankList[0]?.id ?? 0,
-      tanggal_bayar: hariIni(),
-    }
+    formBayarPiutang = { jumlah_bayar: p.sisa_piutang, kas_bank_id: kasBankList[0]?.id ?? 0, tanggal_bayar: hariIni() }
     modalBayarPiutang = true
   }
 
@@ -123,13 +128,12 @@
     if (!piutangDipilih) return
     savingBayarPiutang = true
     const res = await api.post<{ sisa_piutang: number; status: string }>(
-      `/keuangan/piutang/${piutangDipilih.id}/bayar`,
-      formBayarPiutang
+      `/keuangan/piutang/${piutangDipilih.id}/bayar`, formBayarPiutang
     )
     savingBayarPiutang = false
     if (!res.success) { error = res.error ?? 'Gagal menyimpan'; return }
     modalBayarPiutang = false
-    await muatPiutang()
+    await Promise.all([muatPiutang(), muatKasBankSaldo()])
   }
 
   // ── Modal Jurnal Manual ───────────────────────────────────────────────────
@@ -142,10 +146,7 @@
   let savingJurnal = $state(false)
 
   function bukaModalJurnal() {
-    formJurnal = {
-      kas_bank_id: kasBankList[0]?.id ?? 0,
-      jenis: 'masuk', kategori: '', keterangan: '', jumlah: 0, tanggal: hariIni(),
-    }
+    formJurnal = { kas_bank_id: kasBankList[0]?.id ?? 0, jenis: 'masuk', kategori: '', keterangan: '', jumlah: 0, tanggal: hariIni() }
     modalJurnal = true
   }
 
@@ -155,7 +156,51 @@
     savingJurnal = false
     if (!res.success) { error = res.error ?? 'Gagal menyimpan'; return }
     modalJurnal = false
-    await muatJurnal()
+    await Promise.all([muatJurnal(), muatKasBankSaldo()])
+  }
+
+  // ── Modal Tambah/Edit Kas Bank ────────────────────────────────────────────
+
+  let modalKasBank = $state(false)
+  let editKasBank = $state<KasBank | null>(null)
+  let formKasBank = $state({ nama: '', tipe: 'kas' as 'kas' | 'bank', saldo_awal: 0 })
+  let savingKasBank = $state(false)
+
+  function bukaTambahKasBank() {
+    editKasBank = null
+    formKasBank = { nama: '', tipe: 'kas', saldo_awal: 0 }
+    modalKasBank = true
+  }
+
+  function bukaEditKasBank(kb: KasBankSaldo) {
+    editKasBank = kb
+    formKasBank = { nama: kb.nama, tipe: kb.tipe, saldo_awal: kb.saldo_awal }
+    modalKasBank = true
+  }
+
+  async function simpanKasBank() {
+    if (!formKasBank.nama.trim()) { error = 'Nama akun wajib diisi'; return }
+    savingKasBank = true
+    let res
+    if (editKasBank) {
+      res = await api.put(`/keuangan/kas-bank/${editKasBank.id}`, { nama: formKasBank.nama, saldo_awal: formKasBank.saldo_awal })
+    } else {
+      res = await api.post('/keuangan/kas-bank', formKasBank)
+    }
+    savingKasBank = false
+    if (!res.success) { error = res.error ?? 'Gagal menyimpan'; return }
+    modalKasBank = false
+    await muatKasBankSaldo()
+    const kb = await api.get<KasBank[]>('/keuangan/kas-bank')
+    if (kb.success) kasBankList = kb.data!
+  }
+
+  async function nonaktifkanKasBank(id: number) {
+    if (!confirm('Nonaktifkan akun ini?')) return
+    await api.delete(`/keuangan/kas-bank/${id}`)
+    await muatKasBankSaldo()
+    const kb = await api.get<KasBank[]>('/keuangan/kas-bank')
+    if (kb.success) kasBankList = kb.data!
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -197,15 +242,24 @@
   }
 
   async function muatJurnal() {
-    const res = await api.get<Jurnal[]>('/keuangan/jurnal')
+    const params = new URLSearchParams()
+    if (filterDari) params.set('dari', filterDari)
+    if (filterSampai) params.set('sampai', filterSampai)
+    if (filterKasBankId) params.set('kas_bank_id', String(filterKasBankId))
+    const res = await api.get<Jurnal[]>(`/keuangan/jurnal?${params}`)
     if (res.success) jurnalList = res.data!
+  }
+
+  async function muatKasBankSaldo() {
+    const res = await api.get<KasBankSaldo[]>('/keuangan/kas-bank/saldo')
+    if (res.success) kasBankSaldo = res.data!
   }
 
   onMount(async () => {
     loading = true
     const kb = await api.get<KasBank[]>('/keuangan/kas-bank')
     if (kb.success) kasBankList = kb.data!
-    await Promise.all([muatHutang(), muatPiutang(), muatJurnal()])
+    await Promise.all([muatHutang(), muatPiutang(), muatJurnal(), muatKasBankSaldo()])
     loading = false
   })
 
@@ -213,6 +267,7 @@
     if (tab === 'hutang') muatHutang()
     else if (tab === 'piutang') muatPiutang()
     else if (tab === 'jurnal') muatJurnal()
+    else if (tab === 'kasbank') muatKasBankSaldo()
   })
 </script>
 
@@ -225,28 +280,37 @@
         onclick={bukaModalJurnal}
         style="padding:.4rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
       >+ Catat Jurnal</button>
+    {:else if tab === 'kasbank'}
+      <button
+        onclick={bukaTambahKasBank}
+        style="padding:.4rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
+      >+ Tambah Akun</button>
     {/if}
   </div>
 
   <!-- Ringkasan -->
-  <div style="display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-bottom:1rem">
-    <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.75rem 1rem">
-      <div style="font-size:.7rem; color:var(--text-dim); margin-bottom:.25rem">HUTANG SUPPLIER</div>
-      <div style="font-size:1.1rem; font-weight:700; color:var(--danger)">Rp {fmt(totalHutangBelum)}</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:.6rem; margin-bottom:1rem">
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.65rem .9rem">
+      <div style="font-size:.65rem; color:var(--text-dim); margin-bottom:.2rem">HUTANG SUPPLIER</div>
+      <div style="font-size:1rem; font-weight:700; color:var(--danger)">Rp {fmt(totalHutangBelum)}</div>
     </div>
-    <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.75rem 1rem">
-      <div style="font-size:.7rem; color:var(--text-dim); margin-bottom:.25rem">PIUTANG PELANGGAN</div>
-      <div style="font-size:1.1rem; font-weight:700; color:var(--warn)">Rp {fmt(totalPiutangBelum)}</div>
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.65rem .9rem">
+      <div style="font-size:.65rem; color:var(--text-dim); margin-bottom:.2rem">PIUTANG PELANGGAN</div>
+      <div style="font-size:1rem; font-weight:700; color:var(--warn)">Rp {fmt(totalPiutangBelum)}</div>
+    </div>
+    <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.65rem .9rem">
+      <div style="font-size:.65rem; color:var(--text-dim); margin-bottom:.2rem">TOTAL SALDO KAS</div>
+      <div style="font-size:1rem; font-weight:700; color:var(--info)">Rp {fmt(totalSaldo)}</div>
     </div>
   </div>
 
   <!-- Tabs -->
   <div style="display:flex; gap:.5rem; border-bottom:1px solid var(--border); margin-bottom:1rem">
-    {#each (['hutang','piutang','jurnal'] as TabKey[]) as t}
+    {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank']] as [TabKey, string][]) as [t, label]}
       <button
         onclick={() => tab = t}
-        style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em"
-      >{t === 'hutang' ? 'Hutang Supplier' : t === 'piutang' ? 'Piutang Pelanggan' : 'Jurnal Kas'}</button>
+        style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap"
+      >{label}</button>
     {/each}
   </div>
 </div>
@@ -379,10 +443,50 @@
 
   <!-- ═══════════════════════════════════════ TAB JURNAL ═══ -->
   {#if tab === 'jurnal'}
+    <!-- Filter -->
+    <div style="display:flex; gap:.6rem; margin-bottom:.75rem; flex-wrap:wrap; align-items:flex-end">
+      <div>
+        <div style="font-size:.68rem; color:var(--text-dim); margin-bottom:.2rem">Dari</div>
+        <input type="date" bind:value={filterDari} onchange={muatJurnal}
+          style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem" />
+      </div>
+      <div>
+        <div style="font-size:.68rem; color:var(--text-dim); margin-bottom:.2rem">Sampai</div>
+        <input type="date" bind:value={filterSampai} onchange={muatJurnal}
+          style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem" />
+      </div>
+      <div>
+        <div style="font-size:.68rem; color:var(--text-dim); margin-bottom:.2rem">Akun</div>
+        <select bind:value={filterKasBankId} onchange={muatJurnal}
+          style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem">
+          <option value={0}>Semua Akun</option>
+          {#each kasBankList as kb}
+            <option value={kb.id}>{kb.nama}</option>
+          {/each}
+        </select>
+      </div>
+    </div>
+
+    <!-- Ringkasan periode -->
+    <div style="display:flex; gap:.6rem; margin-bottom:.75rem">
+      <div style="background:rgba(0,230,118,.08); border:1px solid rgba(0,230,118,.25); border-radius:4px; padding:.45rem .8rem; font-size:.78rem">
+        <span style="color:var(--text-dim)">Masuk: </span>
+        <span style="color:var(--accent); font-weight:700">Rp {fmt(jurnalMasuk)}</span>
+      </div>
+      <div style="background:rgba(255,82,82,.08); border:1px solid rgba(255,82,82,.25); border-radius:4px; padding:.45rem .8rem; font-size:.78rem">
+        <span style="color:var(--text-dim)">Keluar: </span>
+        <span style="color:var(--danger); font-weight:700">Rp {fmt(jurnalKeluar)}</span>
+      </div>
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:.45rem .8rem; font-size:.78rem">
+        <span style="color:var(--text-dim)">Selisih: </span>
+        <span style="color:{jurnalMasuk - jurnalKeluar >= 0 ? 'var(--accent)' : 'var(--danger)'}; font-weight:700">Rp {fmt(jurnalMasuk - jurnalKeluar)}</span>
+      </div>
+    </div>
+
     {#if loading}
       <p style="color:var(--text-dim); font-size:.85rem">Memuat...</p>
     {:else if jurnalList.length === 0}
-      <p style="color:var(--text-dim); font-size:.85rem">Belum ada jurnal kas.</p>
+      <p style="color:var(--text-dim); font-size:.85rem">Tidak ada jurnal untuk periode ini.</p>
     {:else}
       <div style="overflow-x:auto">
         <table style="width:100%; border-collapse:collapse; font-size:.82rem">
@@ -415,27 +519,78 @@
       </div>
     {/if}
   {/if}
+
+  <!-- ═══════════════════════════════════════ TAB KAS/BANK ═ -->
+  {#if tab === 'kasbank'}
+    {#if loading}
+      <p style="color:var(--text-dim); font-size:.85rem">Memuat...</p>
+    {:else if kasBankSaldo.length === 0}
+      <p style="color:var(--text-dim); font-size:.85rem">Belum ada akun kas/bank.</p>
+    {:else}
+      <div style="display:grid; gap:.75rem; margin-bottom:1rem">
+        {#each kasBankSaldo as kb}
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.9rem 1rem">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start">
+              <div>
+                <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.2rem">
+                  <span style="font-weight:700; color:var(--text)">{kb.nama}</span>
+                  <span style="font-size:.65rem; padding:.1rem .4rem; background:var(--surface2); border:1px solid var(--border); border-radius:3px; color:var(--text-dim); text-transform:uppercase">{kb.tipe}</span>
+                </div>
+                <div style="font-size:.75rem; color:var(--text-dim)">Saldo awal: Rp {fmt(kb.saldo_awal)}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:1.1rem; font-weight:700; color:var(--info)">Rp {fmt(kb.saldo)}</div>
+                <div style="font-size:.7rem; color:var(--text-dim); margin-top:.15rem">saldo saat ini</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:.75rem; margin-top:.75rem; padding-top:.6rem; border-top:1px solid var(--border)">
+              <div style="font-size:.75rem">
+                <span style="color:var(--text-dim)">Masuk: </span>
+                <span style="color:var(--accent); font-weight:600">+Rp {fmt(kb.total_masuk)}</span>
+              </div>
+              <div style="font-size:.75rem">
+                <span style="color:var(--text-dim)">Keluar: </span>
+                <span style="color:var(--danger); font-weight:600">-Rp {fmt(kb.total_keluar)}</span>
+              </div>
+              <div style="margin-left:auto; display:flex; gap:.5rem">
+                <button
+                  onclick={() => bukaEditKasBank(kb)}
+                  style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:3px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
+                >Edit</button>
+                <button
+                  onclick={() => nonaktifkanKasBank(kb.id)}
+                  style="padding:.25rem .6rem; background:transparent; border:1px solid var(--danger); border-radius:3px; color:var(--danger); font-family:inherit; font-size:.72rem; cursor:pointer"
+                >Nonaktifkan</button>
+              </div>
+            </div>
+          </div>
+        {/each}
+      </div>
+
+      <!-- Total footer -->
+      <div style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:.75rem 1rem; display:flex; justify-content:space-between; align-items:center">
+        <span style="font-size:.8rem; color:var(--text-dim); font-weight:600">TOTAL SEMUA AKUN</span>
+        <span style="font-size:1.1rem; font-weight:700; color:var(--info)">Rp {fmt(totalSaldo)}</span>
+      </div>
+    {/if}
+  {/if}
 </div>
 
 <!-- ═══════════════════════════════════ MODAL BAYAR HUTANG ═══ -->
 {#if modalBayarHutang && hutangDipilih}
   <div
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
+    role="dialog" aria-modal="true" tabindex="-1"
     style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
     onkeydown={(e) => { if (e.key === 'Escape') modalBayarHutang = false }}
   >
     <div
       style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;max-width:420px"
-      role="presentation"
-      onclick={(e) => e.stopPropagation()}
+      role="presentation" onclick={(e) => e.stopPropagation()}
     >
       <h2 style="font-size:1rem; font-weight:700; margin:0 0 1rem; color:var(--text)">Bayar Hutang</h2>
       <p style="font-size:.82rem; color:var(--text-dim); margin:0 0 1rem">
         {hutangDipilih.nama_supplier} — Sisa <strong style="color:var(--danger)">Rp {fmt(hutangDipilih.sisa_hutang)}</strong>
       </p>
-
       <div style="display:flex; flex-direction:column; gap:.75rem">
         <div>
           <label for="bh-tgl" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Tanggal Bayar</label>
@@ -457,7 +612,6 @@
           </select>
         </div>
       </div>
-
       <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem">
         <button onclick={() => modalBayarHutang = false}
           style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
@@ -473,22 +627,18 @@
 <!-- ══════════════════════════════════ MODAL BAYAR PIUTANG ══ -->
 {#if modalBayarPiutang && piutangDipilih}
   <div
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
+    role="dialog" aria-modal="true" tabindex="-1"
     style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
     onkeydown={(e) => { if (e.key === 'Escape') modalBayarPiutang = false }}
   >
     <div
       style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;max-width:420px"
-      role="presentation"
-      onclick={(e) => e.stopPropagation()}
+      role="presentation" onclick={(e) => e.stopPropagation()}
     >
       <h2 style="font-size:1rem; font-weight:700; margin:0 0 1rem; color:var(--text)">Terima Pembayaran Piutang</h2>
       <p style="font-size:.82rem; color:var(--text-dim); margin:0 0 1rem">
         {piutangDipilih.nama_pelanggan} — Sisa <strong style="color:var(--warn)">Rp {fmt(piutangDipilih.sisa_piutang)}</strong>
       </p>
-
       <div style="display:flex; flex-direction:column; gap:.75rem">
         <div>
           <label for="bp-tgl" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Tanggal Terima</label>
@@ -510,7 +660,6 @@
           </select>
         </div>
       </div>
-
       <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem">
         <button onclick={() => modalBayarPiutang = false}
           style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
@@ -526,19 +675,15 @@
 <!-- ══════════════════════════════════ MODAL JURNAL MANUAL ══ -->
 {#if modalJurnal}
   <div
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
+    role="dialog" aria-modal="true" tabindex="-1"
     style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
     onkeydown={(e) => { if (e.key === 'Escape') modalJurnal = false }}
   >
     <div
       style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;max-width:440px"
-      role="presentation"
-      onclick={(e) => e.stopPropagation()}
+      role="presentation" onclick={(e) => e.stopPropagation()}
     >
       <h2 style="font-size:1rem; font-weight:700; margin:0 0 1rem; color:var(--text)">Catat Jurnal Kas</h2>
-
       <div style="display:flex; flex-direction:column; gap:.75rem">
         <div>
           <label for="jm-tgl" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Tanggal</label>
@@ -578,13 +723,60 @@
             style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
         </div>
       </div>
-
       <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem">
         <button onclick={() => modalJurnal = false}
           style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
         <button onclick={simpanJurnal} disabled={savingJurnal}
           style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingJurnal ? .6 : 1}">
           {savingJurnal ? 'Menyimpan...' : 'Simpan'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ══════════════════════════════════ MODAL KAS/BANK ════════ -->
+{#if modalKasBank}
+  <div
+    role="dialog" aria-modal="true" tabindex="-1"
+    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
+    onkeydown={(e) => { if (e.key === 'Escape') modalKasBank = false }}
+  >
+    <div
+      style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;max-width:400px"
+      role="presentation" onclick={(e) => e.stopPropagation()}
+    >
+      <h2 style="font-size:1rem; font-weight:700; margin:0 0 1rem; color:var(--text)">
+        {editKasBank ? 'Edit Akun' : 'Tambah Akun Kas/Bank'}
+      </h2>
+      <div style="display:flex; flex-direction:column; gap:.75rem">
+        <div>
+          <label for="kb-nama" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Nama Akun</label>
+          <input id="kb-nama" type="text" bind:value={formKasBank.nama} placeholder="contoh: Kas Toko, BCA 1234"
+            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
+        </div>
+        {#if !editKasBank}
+          <div>
+            <label for="kb-tipe" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Tipe</label>
+            <select id="kb-tipe" bind:value={formKasBank.tipe}
+              style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
+              <option value="kas">Kas (uang tunai)</option>
+              <option value="bank">Bank (rekening)</option>
+            </select>
+          </div>
+        {/if}
+        <div>
+          <label for="kb-saldo" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Saldo Awal</label>
+          <input id="kb-saldo" type="number" bind:value={formKasBank.saldo_awal} min="0"
+            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
+        </div>
+      </div>
+      <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem">
+        <button onclick={() => modalKasBank = false}
+          style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
+        <button onclick={simpanKasBank} disabled={savingKasBank}
+          style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingKasBank ? .6 : 1}">
+          {savingKasBank ? 'Menyimpan...' : 'Simpan'}
         </button>
       </div>
     </div>
