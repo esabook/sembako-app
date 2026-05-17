@@ -1,6 +1,6 @@
 # CLAUDE_fase.md — Status Aktif & Next Steps
 
-Versi  : 1.1
+Versi  : 1.2
 Tanggal: 2026-05-17
 Baca file ini PERTAMA untuk orientasi cepat sebelum membaca CLAUDE.md / CLAUDE_v2.md.
 File ini adalah OVERRIDE TERTINGGI untuk status implementasi dan konvensi aktif.
@@ -30,7 +30,7 @@ Fase 1–4 selesai: Fondasi → Operasional Inti → Keuangan → Laporan
 | **Pengaturan Toko** | ✅ SELESAI | **PRIORITAS TINGGI** |
 | **Manajemen Harga** | ✅ SELESAI | **PRIORITAS TINGGI** |
 | **Retur Penjualan** | ✅ SELESAI | **PRIORITAS TINGGI** |
-| **Notifikasi Terpusat** | ❌ BELUM | **PRIORITAS TINGGI** |
+| **Notifikasi Terpusat** | ✅ SELESAI | **PRIORITAS TINGGI** |
 | Promo & Diskon | ❌ BELUM | Fase 6 |
 | Label & Barcode cetak | ❌ BELUM | Fase 6 |
 | Audit Trail UI | ❌ BELUM | Fase 6 (data log_aktivitas sudah ada) |
