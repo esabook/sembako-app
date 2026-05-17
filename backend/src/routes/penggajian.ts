@@ -172,55 +172,57 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
       : existing.gaji_pokok
   const total = Math.max(0, gajiBase + tunjangan - existing.potongan_kasbon - potonganLain)
 
-  const row = db
-    .update(penggajian)
-    .set({
-      tunjangan,
-      potongan_lain: potonganLain,
-      total_gaji: total,
-      status: body.status ?? existing.status,
-      updated_at: sql`(datetime('now','localtime'))`,
-    })
-    .where(eq(penggajian.id, id))
-    .returning()
-    .get()
+  const row = db.transaction((tx) => {
+    const updated = tx
+      .update(penggajian)
+      .set({
+        tunjangan,
+        potongan_lain: potonganLain,
+        total_gaji: total,
+        status: body.status ?? existing.status,
+        updated_at: sql`(datetime('now','localtime'))`,
+      })
+      .where(eq(penggajian.id, id))
+      .returning()
+      .get()
 
-  // Jika status dibayar: potong kasbon aktif dan catat jurnal kas
-  if (body.status === 'dibayar' && existing.status !== 'dibayar') {
-    // Potong sisa kasbon karyawan yang masih aktif
-    const kasbonAktif = db
-      .select()
-      .from(kasbon)
-      .where(and(eq(kasbon.karyawan_id, existing.karyawan_id), eq(kasbon.status, 'aktif')))
-      .all()
+    // Jika status dibayar: potong kasbon aktif dan catat jurnal kas
+    if (body.status === 'dibayar' && existing.status !== 'dibayar') {
+      const kasbonAktif = tx
+        .select()
+        .from(kasbon)
+        .where(and(eq(kasbon.karyawan_id, existing.karyawan_id), eq(kasbon.status, 'aktif')))
+        .all()
 
-    for (const kb of kasbonAktif) {
-      const sisa = Math.max(0, kb.sisa_kasbon - kb.cicilan_per_bulan)
-      db.update(kasbon)
-        .set({
-          sisa_kasbon: sisa,
-          status: sisa <= 0 ? 'lunas' : 'aktif',
-          updated_at: sql`(datetime('now','localtime'))`,
-        })
-        .where(eq(kasbon.id, kb.id))
-        .run()
+      for (const kb of kasbonAktif) {
+        const sisa = Math.max(0, kb.sisa_kasbon - kb.cicilan_per_bulan)
+        tx.update(kasbon)
+          .set({
+            sisa_kasbon: sisa,
+            status: sisa <= 0 ? 'lunas' : 'aktif',
+            updated_at: sql`(datetime('now','localtime'))`,
+          })
+          .where(eq(kasbon.id, kb.id))
+          .run()
+      }
+
+      if (body.kas_bank_id) {
+        tx.insert(jurnal_kas).values({
+          tanggal: new Date().toISOString().slice(0, 10),
+          kas_bank_id: body.kas_bank_id,
+          jenis: 'keluar',
+          kategori: 'gaji',
+          referensi_tipe: 'penggajian',
+          referensi_id: id,
+          keterangan: `Gaji ${existing.periode_bulan}`,
+          jumlah: updated!.total_gaji,
+          dicatat_oleh: user.id,
+        }).run()
+      }
     }
 
-    // Catat jurnal kas jika kas_bank_id disediakan
-    if (body.kas_bank_id) {
-      db.insert(jurnal_kas).values({
-        tanggal: new Date().toISOString().slice(0, 10),
-        kas_bank_id: body.kas_bank_id,
-        jenis: 'keluar',
-        kategori: 'gaji',
-        referensi_tipe: 'penggajian',
-        referensi_id: id,
-        keterangan: `Gaji ${existing.periode_bulan}`,
-        jumlah: row!.total_gaji,
-        dicatat_oleh: user.id,
-      }).run()
-    }
-  }
+    return updated
+  })
 
   return c.json({ success: true, data: row })
 })

@@ -48,7 +48,26 @@ export const promoTotalBerlaku = derived(
 	([$promos, $total]) => $promos.filter((p) => p.tipe === 'total' && $total >= p.min_total)
 );
 
+// Nilai diskon terbaik dari promo tipe 'total'
+export const diskonPromoTotal = derived(
+	[promoTotalBerlaku, total],
+	([$promos, $total]) => {
+		if ($promos.length === 0) return 0;
+		const best = Math.max(...$promos.map((p) =>
+			p.tipe_nilai === 'persen' ? Math.round($total * p.nilai / 100) : p.nilai
+		));
+		return Math.min(best, $total);
+	}
+);
+
+export const totalAkhir = derived(
+	[total, diskonPromoTotal],
+	([$t, $d]) => $t - $d
+);
+
 // ── UI state ─────────────────────────────────────────────────────────────────
+
+export const kasBankDipilih = writable<number | null>(null);
 
 export const searchVal         = writable('');
 export const searchResults     = writable<BarangResult[]>([]);
@@ -236,12 +255,13 @@ export function openCheckout() {
 export function tutupCheckout() {
 	popupCheckout.set(false);
 	snap.set(null);
+	kasBankDipilih.set(null);
 }
 
 export async function prosesBayar() {
 	const $metode  = get(metodeBayar);
 	const $pelanggan = get(pelangganDipilih);
-	const $total   = get(total);
+	const $total   = get(totalAkhir);
 	const $nominal = get(nominalBayar);
 	const $keranjang = get(keranjang);
 	const $tipe    = get(tipeTransaksi);
@@ -263,6 +283,7 @@ export async function prosesBayar() {
 				tipe: $tipe,
 				metode_bayar: $metode,
 				bayar: Number($nominal) || $total,
+				kas_bank_id: get(kasBankDipilih) ?? undefined,
 				items: $keranjang.map((i) => ({
 					barang_id: i.barang_id,
 					satuan_id: i.satuan_id,

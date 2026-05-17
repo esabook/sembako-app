@@ -105,6 +105,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     tipe: 'eceran' | 'grosir'
     metode_bayar: 'tunai' | 'transfer' | 'qris' | 'hutang'
     bayar: number
+    kas_bank_id?: number
     diskon_total?: number
     items: ItemInput[]
   }>()
@@ -193,11 +194,17 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
     // 3. Jurnal kas (hanya jika bukan hutang)
     if (body.metode_bayar !== 'hutang') {
-      const kasUtama = db.select().from(kas_bank).where(eq(kas_bank.tipe, 'kas')).get()
-      if (kasUtama) {
+      let kasTujuan = body.kas_bank_id
+        ? db.select().from(kas_bank).where(eq(kas_bank.id, body.kas_bank_id)).get()
+        : null
+      // Fallback ke kas tunai pertama jika tidak ada kas_bank_id atau tidak ditemukan
+      if (!kasTujuan) {
+        kasTujuan = db.select().from(kas_bank).where(eq(kas_bank.tipe, 'kas')).get()
+      }
+      if (kasTujuan) {
         db.insert(jurnal_kas).values({
           tanggal: tgl,
-          kas_bank_id: kasUtama.id,
+          kas_bank_id: kasTujuan.id,
           jenis: 'masuk',
           kategori: 'penjualan',
           referensi_tipe: 'penjualan',

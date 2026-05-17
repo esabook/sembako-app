@@ -30,7 +30,7 @@ promoRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
 
 // ── GET /promo/aktif — promo aktif hari ini (untuk kasir) ─────────────────
 
-promoRouter.get('/aktif', async (c) => {
+promoRouter.get('/aktif', requirePermission('penjualan.lihat'), async (c) => {
   const hari = tglHariIni()
 
   const rows = db.select().from(promo).where(
@@ -89,7 +89,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
   if (!body.nama) throw new HTTPException(400, { message: 'Nama promo wajib diisi' })
   if (!body.nilai || body.nilai <= 0) throw new HTTPException(400, { message: 'Nilai diskon harus > 0' })
-  if (body.tipe === 'persen' && body.nilai > 100) throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
+  if (body.tipe_nilai === 'persen' && body.nilai > 100) throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
   const hasil = db.transaction(() => {
     const p = db.insert(promo).values({
@@ -139,6 +139,9 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
     aktif?: boolean
     targets?: TargetIn[]
   }>()
+
+  if (body.tipe_nilai === 'persen' && body.nilai !== undefined && body.nilai > 100)
+    throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
   db.transaction(() => {
     db.update(promo)

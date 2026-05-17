@@ -25,11 +25,15 @@
 		initKasirScan, cleanupKasirScan,
 		kirimStrukWA,
 		kirimNotifHutangWA,
-		loadPromoAktif, promoTotalBerlaku,
+		loadPromoAktif, promoTotalBerlaku, diskonPromoTotal, totalAkhir,
+		kasBankDipilih,
 	} from './kasir.store';
 	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
+
+	// ── Akun kas/bank (untuk selector checkout) ──────────────────────────────
+	let daftarKasBank = $state<{ id: number; nama: string; tipe: string }[]>([])
 
 	// ── Pengaturan toko (untuk struk) ────────────────────────────────────────
 	let namaToko   = $state('Toko Sembako')
@@ -328,6 +332,9 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 	onMount(() => {
 		initKasirMode();
 		void loadPromoAktif();
+		void api.get<{ id: number; nama: string; tipe: string }[]>('/keuangan/kas-bank').then((res) => {
+			if (res.success) daftarKasBank = res.data;
+		});
 		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
 		void muatShiftAktif();
 		void api.get<Record<string, string>>('/pengaturan').then((res) => {
@@ -435,7 +442,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 								/>
 							</td>
 							<td class="px-3 py-2 text-right font-medium font-mono">
-								{rupiah(item.harga_jual * item.jumlah)}
+								{rupiah(item.harga_jual * item.jumlah - item.diskon_item)}
 							</td>
 							<td class="px-2 py-2 text-center">
 								<button
@@ -467,7 +474,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 			</table>
 			<span class="ml-5 flex items-center gap-1">
 				<span class="text-sm" style="color:var(--text-dim)">TOTAL&nbsp;</span>
-				<span class="font-mono text-4xl font-bold">{rupiah($total)}</span>
+				<span class="font-mono text-4xl font-bold">{rupiah($totalAkhir)}</span>
 			</span>
 		</div>
 		<div class="flex items-center gap-2">
@@ -796,6 +803,24 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						</div>
 					</div>
 
+					<!-- akun kas/bank (hanya untuk transfer/QRIS) -->
+					{#if $metodeBayar === 'transfer' || $metodeBayar === 'qris'}
+						<div class="flex flex-col gap-1.5">
+							<p class="text-xs" style="color:var(--text-dim)">AKUN TUJUAN</p>
+							<div class="flex flex-wrap gap-1.5">
+								{#each daftarKasBank as kb (kb.id)}
+									<button
+										onclick={() => kasBankDipilih.set(kb.id)}
+										class="px-3 py-1.5 rounded text-xs font-bold border transition-all"
+										style="{$kasBankDipilih === kb.id
+											? 'background:var(--info);color:var(--bg);border-color:var(--info)'
+											: 'border-color:var(--border);color:var(--text-dim)'}"
+									>{kb.nama}</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
+
 					<!-- nominal bayar -->
 					{#if $metodeBayar !== 'hutang'}
 						<div class="flex flex-col gap-1.5">
@@ -809,7 +834,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 								class="w-full px-3 py-3 rounded border text-right text-xl font-bold font-mono outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 								style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 							/>
-							{#if Number($nominalBayar) >= $total && $total > 0}
+							{#if Number($nominalBayar) >= $totalAkhir && $totalAkhir > 0}
 								<div class="flex justify-between px-1 text-sm">
 									<span style="color:var(--text-dim)">Kembalian</span>
 									<span class="font-bold font-mono" style="color:var(--accent)">Rp {rupiah($kembalian)}</span>
@@ -827,7 +852,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 									<span>🎁</span>
 									<span class="font-bold">{p.nama}</span>
 									<span style="color:var(--text-dim)">—</span>
-									<span>Diskon {p.tipe_nilai === 'persen' ? `${p.nilai}%` : `Rp ${new Intl.NumberFormat('id-ID').format(p.nilai)}`} berlaku!</span>
+									<span>Hemat Rp {rupiah($diskonPromoTotal)}</span>
 								</div>
 							{/each}
 						</div>

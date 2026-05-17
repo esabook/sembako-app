@@ -109,5 +109,6 @@ export function resetKasir() {
   nominalBayar.set('')
   pelangganDipilih.set(null)
   metodeBayar.set('tunai')
+  tipeTransaksi.set('eceran')
   itemAktifIdx.set(-1)
 }

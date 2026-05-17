@@ -216,8 +216,8 @@ kasbonRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
   const existing = db.select({ id: kasbon.id, status: kasbon.status }).from(kasbon).where(eq(kasbon.id, id)).get()
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
-  if (existing.status === 'aktif')
-    throw new HTTPException(400, { message: 'Kasbon aktif tidak bisa dihapus, harus lunas dulu' })
+  if (existing.status === 'aktif' || existing.status === 'disetujui')
+    throw new HTTPException(400, { message: 'Kasbon yang sudah disetujui atau aktif tidak bisa dihapus' })
 
   db.delete(kasbon).where(eq(kasbon.id, id)).run()
   return c.json({ success: true, data: null })

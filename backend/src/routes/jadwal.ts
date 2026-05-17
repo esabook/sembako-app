@@ -119,16 +119,6 @@ jadwalRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
   return c.json({ success: true, data: row }, 201)
 })
 
-// ── DELETE /jadwal/:id — hapus jadwal ─────────────────────────────────────────
-
-jadwalRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
-  const id = Number(c.req.param('id'))
-  const existing = db.select({ id: jadwal_kerja.id }).from(jadwal_kerja).where(eq(jadwal_kerja.id, id)).get()
-  if (!existing) throw new HTTPException(404, { message: 'Jadwal tidak ditemukan' })
-  db.delete(jadwal_kerja).where(eq(jadwal_kerja.id, id)).run()
-  return c.json({ success: true, data: null })
-})
-
 // ── GET /jadwal/tukar — list permintaan tukar shift ──────────────────────────
 
 jadwalRouter.get('/tukar', requirePermission('karyawan.lihat'), async (c) => {
@@ -206,6 +196,14 @@ jadwalRouter.put('/tukar/:id/setujui', requirePermission('karyawan.edit'), async
   if (!req) throw new HTTPException(404, { message: 'Permintaan tukar shift tidak ditemukan' })
   if (req.status !== 'menunggu') throw new HTTPException(400, { message: 'Permintaan sudah diproses' })
 
+  // Validasi jadwal penerima benar-benar milik penerima_id
+  if (req.jadwal_penerima_id) {
+    const jp = db.select({ karyawan_id: jadwal_kerja.karyawan_id })
+      .from(jadwal_kerja).where(eq(jadwal_kerja.id, req.jadwal_penerima_id)).get()
+    if (!jp || jp.karyawan_id !== req.penerima_id)
+      throw new HTTPException(400, { message: 'Jadwal penerima tidak valid' })
+  }
+
   // Swap karyawan_id pada kedua jadwal
   db.transaction((tx) => {
     tx.update(jadwal_kerja).set({ karyawan_id: req.penerima_id }).where(eq(jadwal_kerja.id, req.jadwal_id)).run()
@@ -240,5 +238,16 @@ jadwalRouter.put('/tukar/:id/tolak', requirePermission('karyawan.edit'), async (
     catatan_proses: (body as { catatan?: string }).catatan,
     updated_at: sql`(datetime('now','localtime'))`,
   }).where(eq(tukar_shift.id, id)).run()
+  return c.json({ success: true, data: null })
+})
+
+// ── DELETE /jadwal/:id — hapus jadwal ─────────────────────────────────────────
+// Didaftarkan TERAKHIR agar route statis /tukar* tidak tertangkap /:id
+
+jadwalRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const existing = db.select({ id: jadwal_kerja.id }).from(jadwal_kerja).where(eq(jadwal_kerja.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Jadwal tidak ditemukan' })
+  db.delete(jadwal_kerja).where(eq(jadwal_kerja.id, id)).run()
   return c.json({ success: true, data: null })
 })

@@ -21,11 +21,13 @@
 		style="background:rgba(0,0,0,0.6)"
 		role="dialog"
 		aria-modal="true"
+		onclick={tutup}
 	>
 		<!-- panel -->
 		<div
 			class="w-full max-w-md rounded-lg border p-6 shadow-xl"
 			style="background:var(--surface);border-color:var(--border)"
+			onclick={(e) => e.stopPropagation()}
 		>
 			<div class="flex items-center justify-between mb-4">
 				<h3 class="font-bold text-sm">{title}</h3>

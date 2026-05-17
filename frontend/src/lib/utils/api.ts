@@ -6,12 +6,16 @@ const BASE_URL = import.meta.env.PUBLIC_API_URL ?? '/api'
 type ApiResponse<T> = { success: true; data: T } | { success: false; error: string }
 
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
-    credentials: 'include',
-    ...init,
-  })
-  return res.json() as Promise<ApiResponse<T>>
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...init?.headers },
+      credentials: 'include',
+      ...init,
+    })
+    return res.json() as Promise<ApiResponse<T>>
+  } catch {
+    return { success: false, error: 'Network error' }
+  }
 }
 
 export const api = {
@@ -24,11 +28,15 @@ export const api = {
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   upload: async <T>(path: string, formData: FormData): Promise<ApiResponse<T>> => {
-    const res = await fetch(`${BASE_URL}${path}`, {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
-    })
-    return res.json() as Promise<ApiResponse<T>>
+    try {
+      const res = await fetch(`${BASE_URL}${path}`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      })
+      return res.json() as Promise<ApiResponse<T>>
+    } catch {
+      return { success: false, error: 'Network error' }
+    }
   },
 }
