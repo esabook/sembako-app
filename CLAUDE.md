@@ -7,6 +7,10 @@ Baca seluruh file ini terlebih dahulu, kemudian baca CLAUDE_v2.md.
 > update roadmap Fase 1-7, dan tabel database baru.
 > Jika ada konflik antara kedua file, CLAUDE_v2.md yang berlaku.
 
+> **Implementasi fitur baru:** Baca `CLAUDE_SKILL_FEATURE_DEV.md` sebelum
+> mulai eksplorasi codebase. File ini berisi pola backend/frontend yang sudah
+> diverifikasi, gotcha kritis, dan urutan implementasi — menghemat fase discovery.
+
 ---
 
 ## IDENTITAS PROJECT
