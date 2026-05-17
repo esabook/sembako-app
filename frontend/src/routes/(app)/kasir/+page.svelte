@@ -27,6 +27,13 @@
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 
+	// ── Pengaturan toko (untuk struk) ────────────────────────────────────────
+	let namaToko   = $state('Toko Sembako')
+	let alamatToko = $state('')
+	let strHeader  = $state('')
+	let strFooter  = $state('Terima kasih sudah berbelanja!')
+	let strUkuran  = $state('80')
+
 	// ── Derived (struk: live atau dari snapshot) ──────────────────────────────
 	const strukItems    = $derived($snap?.items    ?? $keranjang);
 	const strukSubtotal = $derived($snap?.subtotal ?? $subtotal);
@@ -236,9 +243,75 @@
 		toast.sukses('Shift ditutup')
 	}
 
+	// ── Cetak struk (popup window, thermal receipt) ──────────────────────────
+	function cetakStruk() {
+		const lebar = strUkuran === '58' ? '58mm' : '80mm'
+		const rp = (n: number) => new Intl.NumberFormat('id-ID').format(Math.round(n))
+		const tgl = $checkoutTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+		const jam = $checkoutTime.toTimeString().slice(0, 5)
+		const METODE_STR: Record<string, string> = { tunai: 'Tunai', transfer: 'Transfer', qris: 'QRIS', hutang: 'Hutang' }
+
+		const itemsHtml = strukItems.map((item) => `
+			<div style="font-weight:600">${item.nama_barang}</div>
+			<div style="display:flex;justify-content:space-between;font-size:8.5pt;color:#444">
+				<span>${item.jumlah}${item.singkatan_satuan ? ' ' + item.singkatan_satuan : ''} &times; ${rp(item.harga_jual)}</span>
+				<span style="color:#000">${rp(item.harga_jual * item.jumlah - item.diskon_item)}</span>
+			</div>
+			${item.diskon_item > 0 ? `<div style="font-size:8pt;color:#b36000">&nbsp;&nbsp;diskon &minus;${rp(item.diskon_item)}</div>` : ''}
+		`).join('')
+
+		const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Struk</title>
+<style>
+@page{size:${lebar} auto;margin:4mm 5mm}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',Courier,monospace;font-size:9.5pt;color:#000;width:100%}
+hr{border:none;border-top:1px dashed #000;margin:5px 0}
+</style></head><body>
+<div style="text-align:center;font-weight:bold;font-size:12pt">${namaToko}</div>
+${alamatToko ? `<div style="text-align:center;font-size:8pt">${alamatToko}</div>` : ''}
+${strHeader ? `<div style="text-align:center;font-size:8pt">${strHeader}</div>` : ''}
+<div style="text-align:center;font-size:8pt;color:#555">${tgl} &middot; ${jam}</div>
+${strukPelanggan ? `<div style="text-align:center;font-size:8.5pt">Pelanggan: <b>${strukPelanggan.nama}</b></div>` : ''}
+<hr>
+${itemsHtml}
+<hr>
+${strukDiskon > 0 ? `<div style="display:flex;justify-content:space-between;font-size:8.5pt"><span>Diskon member</span><span>&minus;${rp(strukDiskon)}</span></div>` : ''}
+<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:11pt;margin-top:2px">
+	<span>TOTAL</span><span>Rp ${rp(strukTotal)}</span>
+</div>
+<hr>
+<div style="display:flex;justify-content:space-between;font-size:8.5pt">
+	<span>${METODE_STR[strukMetode] ?? strukMetode}</span><span>${rp(strukNominal)}</span>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:8.5pt">
+	<span>Kembali</span><span>${rp(strukKembali)}</span>
+</div>
+${strukMetode === 'hutang' ? '<div style="text-align:center;font-weight:bold;font-size:8.5pt;margin-top:3px">[ TRANSAKSI HUTANG ]</div>' : ''}
+<hr>
+<div style="text-align:center;font-size:8pt">${strFooter}</div>
+${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888;margin-top:2px">${$snap.noTransaksi}</div>` : ''}
+</body></html>`
+
+		const w = window.open('', '_blank', 'width=420,height=700,menubar=no,toolbar=no')
+		if (!w) { toast.error('Popup diblokir browser — izinkan popup untuk halaman ini'); return }
+		w.document.write(html)
+		w.document.close()
+		w.onload = () => { w.print(); w.close() }
+	}
+
 	onMount(() => {
 		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
 		void muatShiftAktif();
+		void api.get<Record<string, string>>('/pengaturan').then((res) => {
+			if (!res.success) return
+			const s = res.data
+			if (s.nama_toko)    namaToko   = s.nama_toko
+			if (s.alamat)       alamatToko = s.alamat
+			if (s.struk_header) strHeader  = s.struk_header
+			if (s.struk_footer) strFooter  = s.struk_footer
+			if (s.struk_ukuran) strUkuran  = s.struk_ukuran
+		})
 		return () => {
 			clearTimeout(cariTimer);
 			clearTimeout(pelangganTimer);
@@ -765,7 +838,7 @@
 				<!-- cetak / wa -->
 				<div class="shrink-0 p-3 border-t flex flex-col gap-2" style="border-color:var(--border)">
 					<button
-						onclick={() => window.print()}
+						onclick={cetakStruk}
 						class="w-full py-2 rounded text-xs border font-medium transition-all hover:opacity-80"
 						style="border-color:var(--border);color:var(--text-dim)">
 						Cetak Struk
