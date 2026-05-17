@@ -1,0 +1,317 @@
+// State UI + semua actions kasir.
+// Tidak ada try/catch langsung — semua async pakai withLoading().
+// Debounce input ada di +page.svelte (DOM concern).
+
+import { writable, derived, get } from 'svelte/store';
+import QRCode from 'qrcode';
+import {
+	keranjang, tipeTransaksi, metodeBayar,
+	pelangganDipilih, nominalBayar, itemAktifIdx,
+	subtotal, diskonMember, kembalian, total,
+	resetKasir,
+} from '$lib/stores/kasir';
+import { loading, toast } from '$lib/stores/ui.store';
+import { withLoading } from '$lib/utils/async';
+import { fetchBarang, fetchPelanggan, submitPenjualan } from './kasir.api';
+import type { BarangResult, PelangganResult, ScannerStatus, Snap } from './kasir.types';
+
+// ── UI state ─────────────────────────────────────────────────────────────────
+
+export const searchVal         = writable('');
+export const searchResults     = writable<BarangResult[]>([]);
+export const searchSelectedIdx = writable(-1);
+
+export const pelangganQuery        = writable('');
+export const pelangganList         = writable<PelangganResult[]>([]);
+export const pelangganSelectedIdx  = writable(-1);
+
+export const konfirmasiHapusIdx = writable<number | null>(null);
+export const popupSearch        = writable(false);
+export const popupCheckout      = writable(false);
+export const snap               = writable<Snap | null>(null);
+export const checkoutTime       = writable(new Date());
+
+export const scanSessionId  = writable('');
+export const scanUrl        = writable('');
+export const qrDataUrl      = writable('');
+export const qrLarge        = writable(false);
+export const scannerStatus  = writable<ScannerStatus>('idle');
+
+// Derived: apakah loading spesifik sedang berjalan
+export const cariLoading  = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-cari'));
+export const prosesLoading = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-bayar'));
+
+// ── SSE internals (browser-only, tidak reaktif) ────────────────────────────
+
+let kasirSse: EventSource | null = null;
+let lastSseEventMs = 0;
+let sseWatchdog: ReturnType<typeof setInterval> | null = null;
+const SSE_TIMEOUT_MS = 15_000;
+
+// ── Cari barang ───────────────────────────────────────────────────────────────
+
+export async function cariBarang(q: string) {
+	if (!q.trim()) {
+		searchResults.set([]);
+		searchSelectedIdx.set(-1);
+		return;
+	}
+	const hasil = await withLoading(() => fetchBarang(q), {
+		loadingKey: 'kasir-cari',
+		modul: 'kasir',
+		aksi: 'cari_barang',
+		bisaRetry: true,
+	});
+	if (hasil) {
+		searchResults.set(hasil);
+		searchSelectedIdx.set(hasil.length > 0 ? 0 : -1);
+	}
+}
+
+export function openSearch() {
+	popupSearch.set(true);
+}
+
+export function closeSearch() {
+	popupSearch.set(false);
+	searchVal.set('');
+	searchResults.set([]);
+	searchSelectedIdx.set(-1);
+}
+
+export async function scanDariPhone(kode: string, qty = 1) {
+	const hasil = await withLoading(() => fetchBarang(kode), {
+		loadingKey: 'kasir-scan',
+		modul: 'kasir',
+		aksi: 'scan_barang',
+	});
+	if (!hasil) return;
+	if (!get(popupSearch) && hasil.length === 1) {
+		tambahKeKeranjang(hasil[0]!, qty);
+		return;
+	}
+	searchVal.set(kode);
+	searchResults.set(hasil);
+	searchSelectedIdx.set(hasil.length > 0 ? 0 : -1);
+	if (!get(popupSearch)) openSearch();
+}
+
+// ── Keranjang ─────────────────────────────────────────────────────────────────
+
+export function tambahKeKeranjang(br: BarangResult, qty = 1) {
+	const harga =
+		get(tipeTransaksi) === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
+	keranjang.update((k) => {
+		const idx = k.findIndex((i) => i.barang_id === br.id);
+		if (idx >= 0) {
+			const u = [...k];
+			u[idx] = { ...u[idx]!, jumlah: Math.min(u[idx]!.jumlah + qty, u[idx]!.stok_sekarang) };
+			itemAktifIdx.set(idx);
+			return u;
+		}
+		itemAktifIdx.set(k.length);
+		return [
+			...k,
+			{
+				barang_id: br.id,
+				kode_barang: br.kode_barang,
+				nama_barang: br.nama_barang,
+				satuan_id: br.satuan_dasar_id,
+				singkatan_satuan: br.singkatan_satuan ?? '',
+				jumlah: Math.min(qty, br.stok_sekarang),
+				harga_jual: harga,
+				diskon_item: 0,
+				stok_sekarang: br.stok_sekarang,
+			},
+		];
+	});
+	closeSearch();
+}
+
+export function ubahJumlah(idx: number, delta: number) {
+	keranjang.update((k) => {
+		const u = [...k];
+		const item = u[idx];
+		if (!item) return k;
+		const newQty = item.jumlah + delta;
+		if (newQty <= 0) {
+			u.splice(idx, 1);
+			itemAktifIdx.set(u.length > 0 ? Math.min(idx, u.length - 1) : -1);
+			return u;
+		}
+		u[idx] = { ...item, jumlah: Math.min(newQty, item.stok_sekarang) };
+		return u;
+	});
+}
+
+export function hapusItem(idx: number) {
+	keranjang.update((k) => {
+		const u = [...k];
+		u.splice(idx, 1);
+		return u;
+	});
+	itemAktifIdx.set(-1);
+	konfirmasiHapusIdx.set(null);
+}
+
+export function ubahDiskon(idx: number, val: string) {
+	keranjang.update((k) => {
+		const u = [...k];
+		if (u[idx]) u[idx] = { ...u[idx]!, diskon_item: Number(val) || 0 };
+		return u;
+	});
+}
+
+// ── Pelanggan ─────────────────────────────────────────────────────────────────
+
+export async function muatPelanggan(q: string) {
+	pelangganQuery.set(q);
+	if (q.length < 3) {
+		pelangganList.set([]);
+		pelangganSelectedIdx.set(-1);
+		return;
+	}
+	const hasil = await withLoading(() => fetchPelanggan(q), {
+		loadingKey: 'kasir-pelanggan',
+		modul: 'kasir',
+		aksi: 'cari_pelanggan',
+	});
+	if (hasil) {
+		pelangganList.set(hasil);
+		pelangganSelectedIdx.set(hasil.length > 0 ? 0 : -1);
+	}
+}
+
+export function pilihPelanggan(p: PelangganResult) {
+	pelangganDipilih.set(p);
+	pelangganList.set([]);
+	pelangganQuery.set('');
+}
+
+// ── Checkout ──────────────────────────────────────────────────────────────────
+
+export function openCheckout() {
+	if (get(keranjang).length === 0) return;
+	snap.set(null);
+	checkoutTime.set(new Date());
+	popupCheckout.set(true);
+}
+
+export function tutupCheckout() {
+	popupCheckout.set(false);
+	snap.set(null);
+}
+
+export async function prosesBayar() {
+	const $metode  = get(metodeBayar);
+	const $pelanggan = get(pelangganDipilih);
+	const $total   = get(total);
+	const $nominal = get(nominalBayar);
+	const $keranjang = get(keranjang);
+	const $tipe    = get(tipeTransaksi);
+	const $waktu   = get(checkoutTime);
+
+	if ($metode === 'hutang' && !$pelanggan) {
+		toast.error('Pilih pelanggan untuk transaksi hutang');
+		return;
+	}
+	if ($metode !== 'hutang' && Number($nominal) < $total) {
+		toast.error('Nominal bayar kurang');
+		return;
+	}
+
+	const hasil = await withLoading(
+		() =>
+			submitPenjualan({
+				pelanggan_id: $pelanggan?.id,
+				tipe: $tipe,
+				metode_bayar: $metode,
+				bayar: Number($nominal) || $total,
+				items: $keranjang.map((i) => ({
+					barang_id: i.barang_id,
+					satuan_id: i.satuan_id,
+					jumlah: i.jumlah,
+					harga_jual: i.harga_jual,
+					diskon_item: i.diskon_item,
+				})),
+			}),
+		{
+			loadingKey: 'kasir-bayar',
+			loadingPesan: 'Memproses transaksi...',
+			modul: 'kasir',
+			aksi: 'proses_bayar',
+			errorPesan: 'Transaksi gagal. Coba lagi.',
+		}
+	);
+
+	if (!hasil) return;
+
+	snap.set({
+		items: [...$keranjang],
+		subtotal: get(subtotal),
+		diskon: get(diskonMember),
+		total: $total,
+		metode: $metode,
+		nominal: Number($nominal) || $total,
+		kembalian: get(kembalian),
+		pelanggan: $pelanggan,
+		tipe: $tipe,
+		noTransaksi: hasil.no_transaksi,
+		waktu: $waktu,
+	});
+	resetKasir();
+}
+
+// ── SSE Scanner ───────────────────────────────────────────────────────────────
+
+export function connectKasirSse() {
+	kasirSse?.close();
+	const sid = get(scanSessionId);
+	kasirSse = new EventSource(`/api/scan-relay/kasir/${sid}`);
+	kasirSse.onopen = () => {
+		scannerStatus.set('connected');
+		lastSseEventMs = Date.now();
+	};
+	kasirSse.onmessage = (e) => {
+		lastSseEventMs = Date.now();
+		const msg = JSON.parse(e.data as string) as {
+			type: string;
+			kode?: string;
+			qty?: number;
+		};
+		if (msg.type === 'scan' && msg.kode) {
+			if (get(popupCheckout) && !get(pelangganDipilih)) {
+				void muatPelanggan(msg.kode);
+			} else {
+				void scanDariPhone(msg.kode, msg.qty ?? 1);
+			}
+		}
+	};
+	kasirSse.onerror = () => scannerStatus.set('disconnected');
+}
+
+export function startSseWatchdog() {
+	if (sseWatchdog) clearInterval(sseWatchdog);
+	sseWatchdog = setInterval(() => {
+		if (lastSseEventMs > 0 && Date.now() - lastSseEventMs > SSE_TIMEOUT_MS) {
+			scannerStatus.set('disconnected');
+			connectKasirSse();
+		}
+	}, 5_000);
+}
+
+export async function initKasirScan(userId: number, host: string, protocol: string) {
+	const sid = `kasir${userId}`;
+	const url = `${protocol}//${host}/scan?s=${sid}`;
+	scanSessionId.set(sid);
+	scanUrl.set(url);
+	const dataUrl = await QRCode.toDataURL(url, { width: 128, margin: 1 });
+	qrDataUrl.set(dataUrl);
+	connectKasirSse();
+	startSseWatchdog();
+}
+
+export function cleanupKasirScan() {
+	if (sseWatchdog) clearInterval(sseWatchdog);
+	kasirSse?.close();
+}

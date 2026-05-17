@@ -1,342 +1,131 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import QRCode from 'qrcode';
-	import { api } from '$lib/utils/api.js';
+	import { page } from '$app/state';
 	import {
 		keranjang, tipeTransaksi, metodeBayar,
 		pelangganDipilih, nominalBayar, itemAktifIdx,
-		subtotal, diskonTotal, diskonMember, total, kembalian,
-		resetKasir, type ItemKeranjang, type MetodeBayar,
-	} from '$lib/stores/kasir.js';
-	import { page } from '$app/state';
+		subtotal, diskonMember, diskonTotal, total, kembalian,
+		resetKasir,
+	} from '$lib/stores/kasir';
+	import {
+		// state
+		searchVal, searchResults, searchSelectedIdx, cariLoading,
+		pelangganQuery, pelangganList, pelangganSelectedIdx,
+		konfirmasiHapusIdx, popupSearch, popupCheckout,
+		snap, checkoutTime,
+		scanSessionId, scanUrl, qrDataUrl, qrLarge, scannerStatus,
+		prosesLoading,
+		// actions
+		cariBarang, openSearch, closeSearch, scanDariPhone,
+		tambahKeKeranjang, ubahJumlah, hapusItem, ubahDiskon,
+		muatPelanggan, pilihPelanggan,
+		openCheckout, tutupCheckout, prosesBayar,
+		initKasirScan, cleanupKasirScan,
+	} from './kasir.store';
+	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
 
-	type BarangResult = {
-		id: number; kode_barang: string; nama_barang: string;
-		harga_jual_eceran: number; harga_jual_grosir: number;
-		stok_sekarang: number; satuan_dasar_id: number | null;
-		singkatan_satuan: string | null;
-	};
-	type PelangganResult = {
-		id: number; nama: string; saldo_piutang: number;
-		gender: 'pria' | 'wanita' | null;
-		no_kartu: string | null;
-		tier: 'reguler' | 'silver' | 'gold' | null;
-		diskon_member: number | null;
-	};
-	type Snap = {
-		items: ItemKeranjang[]; subtotal: number; diskon: number; total: number;
-		metode: MetodeBayar; nominal: number; kembalian: number;
-		pelanggan: PelangganResult | null; tipe: 'eceran' | 'grosir';
-		noTransaksi: string; waktu: Date;
-	};
+	// ── Derived (struk: live atau dari snapshot) ──────────────────────────────
+	const strukItems    = $derived($snap?.items    ?? $keranjang);
+	const strukSubtotal = $derived($snap?.subtotal ?? $subtotal);
+	const strukDiskon   = $derived($snap?.diskon   ?? $diskonMember);
+	const strukTotal    = $derived($snap?.total    ?? $total);
+	const strukMetode   = $derived($snap?.metode   ?? $metodeBayar);
+	const strukNominal  = $derived($snap ? $snap.nominal  : Number($nominalBayar));
+	const strukKembali  = $derived($snap ? $snap.kembalian : $kembalian);
+	const strukPelanggan = $derived($snap?.pelanggan ?? $pelangganDipilih);
 
-	// ── State ────────────────────────────────────────────────────────────────
-	let searchVal        = $state('');
-	let searchResults    = $state<BarangResult[]>([]);
-	let searchLoading    = $state(false);
-	let searchSelectedIdx = $state(-1);
+	// ── DOM refs ──────────────────────────────────────────────────────────────
+	let searchInputEl:   HTMLInputElement | undefined = $state();
+	let pelangganInputEl: HTMLInputElement | undefined = $state();
+	let bayarInputEl:    HTMLInputElement | undefined = $state();
 
-	let pelangganQuery        = $state('');
-	let pelangganList         = $state<PelangganResult[]>([]);
-	let pelangganSelectedIdx  = $state(-1);
+	// ── Fokus otomatis saat popup terbuka ─────────────────────────────────────
+	$effect(() => {
+		if ($popupSearch)   setTimeout(() => searchInputEl?.focus(), 0);
+	});
+	$effect(() => {
+		if ($popupCheckout) setTimeout(() => bayarInputEl?.focus(), 50);
+	});
 
-	let prosesLoading        = $state(false);
-	let errorMsg             = $state('');
-	let konfirmasiHapusIdx   = $state<number | null>(null);
-
-	let popupSearch   = $state(false);
-	let popupCheckout = $state(false);
-	let snap          = $state<Snap | null>(null);
-	let checkoutTime  = $state(new Date());
-
-	// barcode scanner buffer
-	let lastKeyTime   = 0;
-	let barcodeBuffer = '';
-
-	let scanSessionId   = $state('');
-	let scanUrl         = $state('');
-	let qrDataUrl       = $state('');
-	let qrLarge         = $state(false);
-	let scannerStatus   = $state<'idle' | 'connected' | 'disconnected'>('idle');
-	let kasirSse: EventSource | null = null;
-	let lastSseEventMs  = 0;
-	let sseWatchdog: ReturnType<typeof setInterval> | null = null;
-	const SSE_TIMEOUT_MS = 15_000;
-
-	let searchInputEl = $state<HTMLInputElement>();
-	let pelangganInputEl = $state<HTMLInputElement>();
-	let bayarInputEl     = $state<HTMLInputElement>();
-
-	// ── Derived struk values (live or from snapshot) ─────────────────────────
-	const strukItems    = $derived(snap?.items    ?? $keranjang);
-	const strukSubtotal = $derived(snap?.subtotal ?? $subtotal);
-	const strukDiskon   = $derived(snap?.diskon   ?? $diskonMember);
-	const strukTotal    = $derived(snap?.total    ?? $total);
-	const strukMetode   = $derived(snap?.metode   ?? $metodeBayar);
-	const strukNominal  = $derived(snap ? snap.nominal  : Number($nominalBayar));
-	const strukKembali  = $derived(snap ? snap.kembalian : $kembalian);
-	const strukPelanggan = $derived(snap?.pelanggan ?? $pelangganDipilih);
-
-	// ── Helpers ───────────────────────────────────────────────────────────────
-	function rupiah(n: number) {
-		return new Intl.NumberFormat('id-ID').format(n);
-	}
-	const METODE: MetodeBayar[] = ['tunai', 'transfer', 'qris', 'hutang'];
-	const METODE_LABEL: Record<MetodeBayar, string> = {
-		tunai: 'TUNAI', transfer: 'TRANSFER', qris: 'QRIS', hutang: 'HUTANG',
-	};
-	function formatTgl(d: Date) {
-		return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-	}
-	function formatJam(d: Date) {
-		return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+	// ── Debounce cari barang (DOM concern — exception per CLAUDE_v2.md) ───────
+	let cariTimer: ReturnType<typeof setTimeout>;
+	function handleSearchInput() {
+		clearTimeout(cariTimer);
+		cariTimer = setTimeout(() => cariBarang($searchVal), 200);
 	}
 
-	// ── Search ────────────────────────────────────────────────────────────────
-	let searchTimer: ReturnType<typeof setTimeout>;
-	async function cariBarang(q: string) {
-		if (!q.trim()) { searchResults = []; searchSelectedIdx = -1; return; }
-		clearTimeout(searchTimer);
-		searchLoading = true;
-		searchTimer = setTimeout(async () => {
-			const res = await api.get<BarangResult[]>(`/barang?q=${encodeURIComponent(q)}`);
-			searchLoading = false;
-			if (res.success) {
-				searchResults = res.data;
-				searchSelectedIdx = res.data.length > 0 ? 0 : -1;
-			}
-		}, 200);
-	}
-
-	async function openSearch() {
-		popupSearch = true;
-		setTimeout(() => searchInputEl?.focus(), 0);
-	}
-
-	async function scanDariPhone(kode: string, qty = 1) {
-		const res = await api.get<BarangResult[]>(`/barang?q=${encodeURIComponent(kode)}`);
-		if (!res.success) return;
-		if (!popupSearch && res.data.length === 1) {
-			tambahKeKeranjang(res.data[0]!, qty);
-			return;
-		}
-		searchVal = kode;
-		searchResults = res.data;
-		searchSelectedIdx = res.data.length > 0 ? 0 : -1;
-		if (!popupSearch) openSearch();
-	}
-
-	function connectKasirSse() {
-		kasirSse?.close();
-		kasirSse = new EventSource(`/api/scan-relay/kasir/${scanSessionId}`);
-		kasirSse.onopen = () => {
-			scannerStatus = 'connected';
-			lastSseEventMs = Date.now();
-		};
-		kasirSse.onmessage = (e) => {
-			lastSseEventMs = Date.now();
-			const msg = JSON.parse(e.data as string) as { type: string; kode?: string; qty?: number };
-			if (msg.type === 'scan' && msg.kode) {
-				if (popupCheckout && !$pelangganDipilih) {
-					muatPelanggan(msg.kode);
-				} else {
-					scanDariPhone(msg.kode, msg.qty ?? 1);
-				}
-			}
-		};
-		kasirSse.onerror = () => { scannerStatus = 'disconnected'; };
-	}
-
-	function startSseWatchdog() {
-		if (sseWatchdog) clearInterval(sseWatchdog);
-		sseWatchdog = setInterval(() => {
-			if (lastSseEventMs > 0 && Date.now() - lastSseEventMs > SSE_TIMEOUT_MS) {
-				scannerStatus = 'disconnected';
-				connectKasirSse();
-			}
-		}, 5_000);
-	}
-	function closeSearch() {
-		popupSearch = false;
-		searchVal = '';
-		searchResults = [];
-		searchSelectedIdx = -1;
-		searchLoading = false;
-		clearTimeout(searchTimer);
-	}
-
-	// ── Keranjang ─────────────────────────────────────────────────────────────
-	function tambahKeKeranjang(br: BarangResult, qty = 1) {
-		const harga = $tipeTransaksi === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
-		keranjang.update((k) => {
-			const idx = k.findIndex((i) => i.barang_id === br.id);
-			if (idx >= 0) {
-				const u = [...k];
-				u[idx] = { ...u[idx]!, jumlah: Math.min(u[idx]!.jumlah + qty, u[idx]!.stok_sekarang) };
-				itemAktifIdx.set(idx);
-				return u;
-			}
-			itemAktifIdx.set(k.length);
-			return [...k, {
-				barang_id: br.id, kode_barang: br.kode_barang, nama_barang: br.nama_barang,
-				satuan_id: br.satuan_dasar_id, singkatan_satuan: br.singkatan_satuan ?? '',
-				jumlah: Math.min(qty, br.stok_sekarang), harga_jual: harga, diskon_item: 0, stok_sekarang: br.stok_sekarang,
-			}];
-		});
-		closeSearch();
-	}
-
-	function ubahJumlah(idx: number, delta: number) {
-		keranjang.update((k) => {
-			const u = [...k];
-			const item = u[idx];
-			if (!item) return k;
-			const newQty = item.jumlah + delta;
-			if (newQty <= 0) {
-				u.splice(idx, 1);
-				itemAktifIdx.set(u.length > 0 ? Math.min(idx, u.length - 1) : -1);
-				return u;
-			}
-			u[idx] = { ...item, jumlah: Math.min(newQty, item.stok_sekarang) };
-			return u;
-		});
-	}
-
-	function hapusItem(idx: number) {
-		keranjang.update((k) => { const u = [...k]; u.splice(idx, 1); return u; });
-		itemAktifIdx.set(-1);
-		konfirmasiHapusIdx = null;
-	}
-
-	function ubahDiskon(idx: number, val: string) {
-		keranjang.update((k) => {
-			const u = [...k];
-			if (u[idx]) u[idx] = { ...u[idx]!, diskon_item: Number(val) || 0 };
-			return u;
-		});
-	}
-
-	// ── Pelanggan ─────────────────────────────────────────────────────────────
+	// ── Debounce cari pelanggan ────────────────────────────────────────────────
 	let pelangganTimer: ReturnType<typeof setTimeout>;
-	async function muatPelanggan(q: string) {
-		pelangganQuery = q;
-		if (q.length < 3) { pelangganList = []; pelangganSelectedIdx = -1; return; }
+	function handlePelangganInput(q: string) {
 		clearTimeout(pelangganTimer);
-		pelangganTimer = setTimeout(async () => {
-			const res = await api.get<PelangganResult[]>(`/pelanggan?q=${encodeURIComponent(q)}`);
-			if (res.success) {
-				pelangganList = res.data;
-				pelangganSelectedIdx = res.data.length > 0 ? 0 : -1;
-			}
-		}, 200);
-	}
-	function pilihPelanggan(p: PelangganResult) {
-		pelangganDipilih.set(p);
-		pelangganList = [];
-		pelangganQuery = '';
+		pelangganTimer = setTimeout(() => muatPelanggan(q), 200);
 	}
 
-	// ── Checkout ──────────────────────────────────────────────────────────────
-	function openCheckout() {
-		if ($keranjang.length === 0) return;
-		errorMsg = '';
-		snap = null;
-		checkoutTime = new Date();
-		popupCheckout = true;
-		setTimeout(() => bayarInputEl?.focus(), 50);
-	}
-	function tutupCheckout() {
-		popupCheckout = false;
-		snap = null;
-	}
-
-	async function prosesBayar() {
-		if ($metodeBayar === 'hutang' && !$pelangganDipilih) {
-			errorMsg = 'Pilih pelanggan untuk transaksi hutang'; return;
-		}
-		if ($metodeBayar !== 'hutang' && Number($nominalBayar) < $total) {
-			errorMsg = 'Nominal bayar kurang'; return;
-		}
-		prosesLoading = true;
-		errorMsg = '';
-		const res = await api.post<{ no_transaksi: string }>('/penjualan', {
-			pelanggan_id: $pelangganDipilih?.id,
-			tipe: $tipeTransaksi,
-			metode_bayar: $metodeBayar,
-			bayar: Number($nominalBayar) || $total,
-			items: $keranjang.map((i) => ({
-				barang_id: i.barang_id, satuan_id: i.satuan_id,
-				jumlah: i.jumlah, harga_jual: i.harga_jual, diskon_item: i.diskon_item,
-			})),
-		});
-		prosesLoading = false;
-		if (!res.success) { errorMsg = (res as { success: false; error: string }).error; return; }
-
-		// snapshot sebelum reset
-		snap = {
-			items: [...$keranjang], subtotal: $subtotal, diskon: $diskonMember,
-			total: $total, metode: $metodeBayar,
-			nominal: Number($nominalBayar) || $total,
-			kembalian: $kembalian, pelanggan: $pelangganDipilih,
-			tipe: $tipeTransaksi, noTransaksi: res.data.no_transaksi,
-			waktu: checkoutTime,
-		};
-		resetKasir();
-	}
+	// ── Barcode scanner: buffer untuk USB/BT scanner ──────────────────────────
+	let lastKeyTime = 0;
+	let barcodeBuffer = '';
 
 	// ── Keyboard: search popup ────────────────────────────────────────────────
 	function onSearchKeydown(e: KeyboardEvent) {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
-			searchSelectedIdx = Math.min(searchSelectedIdx + 1, Math.min(7, searchResults.length - 1));
+			searchSelectedIdx.update((i) => Math.min(i + 1, Math.min(7, $searchResults.length - 1)));
 		} else if (e.key === 'ArrowUp') {
 			e.preventDefault();
-			searchSelectedIdx = Math.max(searchSelectedIdx - 1, 0);
+			searchSelectedIdx.update((i) => Math.max(i - 1, 0));
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
-			const sel = searchResults[searchSelectedIdx >= 0 ? searchSelectedIdx : 0];
+			const idx = $searchSelectedIdx >= 0 ? $searchSelectedIdx : 0;
+			const sel = $searchResults[idx];
 			if (sel) tambahKeKeranjang(sel);
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
-			if (qrLarge) { qrLarge = false; return; }
+			if ($qrLarge) { qrLarge.set(false); return; }
 			closeSearch();
 		}
 	}
 
-	// ── Keyboard: pelanggan (dalam checkout) ──────────────────────────────────
+	// ── Keyboard: pelanggan dalam checkout ────────────────────────────────────
 	function onPelangganKeydown(e: KeyboardEvent) {
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
-			pelangganSelectedIdx = Math.min(pelangganSelectedIdx + 1, pelangganList.length - 1);
+			pelangganSelectedIdx.update((i) => Math.min(i + 1, $pelangganList.length - 1));
 		} else if (e.key === 'ArrowUp') {
 			e.preventDefault();
-			pelangganSelectedIdx = Math.max(pelangganSelectedIdx - 1, 0);
-		} else if (e.key === 'Enter' && pelangganSelectedIdx >= 0) {
-			e.preventDefault(); pilihPelanggan(pelangganList[pelangganSelectedIdx]!);
+			pelangganSelectedIdx.update((i) => Math.max(i - 1, 0));
+		} else if (e.key === 'Enter' && $pelangganSelectedIdx >= 0) {
+			e.preventDefault();
+			const p = $pelangganList[$pelangganSelectedIdx];
+			if (p) pilihPelanggan(p);
 		} else if (e.key === 'Escape') {
-			e.preventDefault(); pelangganList = [];
+			e.preventDefault();
+			pelangganList.set([]);
 		}
 	}
 
 	// ── Keyboard: global ──────────────────────────────────────────────────────
 	function onKeydown(e: KeyboardEvent) {
-		if (konfirmasiHapusIdx !== null) {
-			if (e.key === 'Enter') { e.preventDefault(); hapusItem(konfirmasiHapusIdx); }
-			else if (e.key === 'Escape') { e.preventDefault(); konfirmasiHapusIdx = null; }
+		if ($konfirmasiHapusIdx !== null) {
+			if (e.key === 'Enter') { e.preventDefault(); hapusItem($konfirmasiHapusIdx); }
+			else if (e.key === 'Escape') { e.preventDefault(); konfirmasiHapusIdx.set(null); }
 			return;
 		}
 
-		const inInput = ['INPUT', 'TEXTAREA'].includes((document.activeElement as HTMLElement)?.tagName ?? '');
+		const inInput = ['INPUT', 'TEXTAREA'].includes(
+			(document.activeElement as HTMLElement)?.tagName ?? ''
+		);
 
-		// barcode scanner detection (main screen only)
-		if (!inInput && !popupSearch && !popupCheckout) {
+		// barcode scanner detection (hanya di main screen)
+		if (!inInput && !$popupSearch && !$popupCheckout) {
 			const now = Date.now();
 			if (now - lastKeyTime < 50 && e.key.length === 1) {
 				barcodeBuffer += e.key;
 			} else if (e.key === 'Enter' && barcodeBuffer.length > 3) {
 				const code = barcodeBuffer;
 				barcodeBuffer = ''; lastKeyTime = 0;
-				searchVal = code; openSearch(); cariBarang(code);
+				searchVal.set(code);
+				openSearch();
+				void cariBarang(code);
 				return;
 			} else {
 				barcodeBuffer = e.key.length === 1 ? e.key : '';
@@ -347,54 +136,49 @@
 		switch (e.key) {
 			case 'F3':
 				e.preventDefault();
-				if (!popupCheckout) { popupSearch ? closeSearch() : openSearch(); }
+				if (!$popupCheckout) { $popupSearch ? closeSearch() : openSearch(); }
 				break;
 			case 'F10':
 				e.preventDefault();
-				if (!popupSearch && !popupCheckout && $keranjang.length > 0) openCheckout();
+				if (!$popupSearch && !$popupCheckout && $keranjang.length > 0) openCheckout();
 				break;
 			case 'F12':
 				e.preventDefault();
-				if (!popupSearch && !popupCheckout) resetKasir();
+				if (!$popupSearch && !$popupCheckout) resetKasir();
 				break;
 			case 'Escape':
 				e.preventDefault();
-				if (qrLarge)       { qrLarge = false;  return; }
-				if (popupCheckout) { tutupCheckout();   return; }
-				if (popupSearch)   { closeSearch();     return; }
+				if ($qrLarge)       { qrLarge.set(false);  return; }
+				if ($popupCheckout) { tutupCheckout();      return; }
+				if ($popupSearch)   { closeSearch();        return; }
 				break;
 		}
 
-		// keranjang navigation
-		if (!popupSearch && !popupCheckout && !inInput && $keranjang.length > 0) {
+		// navigasi keranjang
+		if (!$popupSearch && !$popupCheckout && !inInput && $keranjang.length > 0) {
 			if (e.key === 'ArrowRight' && $itemAktifIdx >= 0) {
 				e.preventDefault(); ubahJumlah($itemAktifIdx, 1);
 			} else if (e.key === 'ArrowLeft' && $itemAktifIdx >= 0) {
 				e.preventDefault();
 				const cur = $keranjang[$itemAktifIdx];
-				if (cur && cur.jumlah <= 1) konfirmasiHapusIdx = $itemAktifIdx;
+				if (cur && cur.jumlah <= 1) konfirmasiHapusIdx.set($itemAktifIdx);
 				else ubahJumlah($itemAktifIdx, -1);
 			} else if (e.key === 'ArrowDown') {
 				e.preventDefault();
-				itemAktifIdx.update(i => Math.min(i < 0 ? 0 : i + 1, $keranjang.length - 1));
+				itemAktifIdx.update((i) => Math.min(i < 0 ? 0 : i + 1, $keranjang.length - 1));
 			} else if (e.key === 'ArrowUp') {
 				e.preventDefault();
-				itemAktifIdx.update(i => Math.max(i - 1, 0));
+				itemAktifIdx.update((i) => Math.max(i - 1, 0));
 			}
 		}
 	}
 
 	onMount(() => {
-		scanSessionId = `kasir${page.data.user?.id ?? 0}`;
-		scanUrl = `${location.protocol}//${location.host}/scan?s=${scanSessionId}`;
-		QRCode.toDataURL(scanUrl, { width: 128, margin: 1 }).then((url) => { qrDataUrl = url; });
-		connectKasirSse();
-		startSseWatchdog();
+		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
 		return () => {
-			clearTimeout(searchTimer);
+			clearTimeout(cariTimer);
 			clearTimeout(pelangganTimer);
-			if (sseWatchdog) clearInterval(sseWatchdog);
-			kasirSse?.close();
+			cleanupKasirScan();
 		};
 	});
 </script>
@@ -402,7 +186,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 <!-- ─── Main: Keranjang + Bottom Bar ─────────────────────────────────────── -->
-<div class="flex flex-col flex-1 min-h-0">
+<div class="flex flex-1 min-h-0 flex-col">
 
 	<!-- Keranjang table -->
 	<div class="flex-1 overflow-y-auto min-h-0 rounded border" style="border-color:var(--border)">
@@ -430,7 +214,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each $keranjang as item, idx}
+					{#each $keranjang as item, idx (item.barang_id)}
 						<tr
 							class="border-t cursor-pointer"
 							style="{$itemAktifIdx === idx
@@ -447,7 +231,7 @@
 							<td class="px-2 py-1">
 								<div class="flex items-center justify-center gap-1">
 									<button
-										onclick={(e) => { e.stopPropagation(); if (item.jumlah <= 1) konfirmasiHapusIdx = idx; else ubahJumlah(idx, -1); }}
+										onclick={(e) => { e.stopPropagation(); if (item.jumlah <= 1) konfirmasiHapusIdx.set(idx); else ubahJumlah(idx, -1); }}
 										class="w-6 h-6 rounded text-center leading-none"
 										style="background:var(--surface);color:var(--text-dim)">−</button>
 									<span class="w-8 text-center font-mono">{item.jumlah}</span>
@@ -473,7 +257,7 @@
 							</td>
 							<td class="px-2 py-2 text-center">
 								<button
-									onclick={(e) => { e.stopPropagation(); konfirmasiHapusIdx = idx; }}
+									onclick={(e) => { e.stopPropagation(); konfirmasiHapusIdx.set(idx); }}
 									class="text-xs" style="color:var(--danger)">✕</button>
 							</td>
 						</tr>
@@ -500,7 +284,8 @@
 				</tbody>
 			</table>
 			<span class="ml-5 flex items-center gap-1">
-			<span class="text-sm" style="color:var(--text-dim)">TOTAL&nbsp;</span><span class="font-mono text-4xl font-bold">{rupiah($total)}</span>
+				<span class="text-sm" style="color:var(--text-dim)">TOTAL&nbsp;</span>
+				<span class="font-mono text-4xl font-bold">{rupiah($total)}</span>
 			</span>
 		</div>
 		<div class="flex items-center gap-2">
@@ -522,14 +307,12 @@
 </div>
 
 <!-- ─── Spotlight Search ──────────────────────────────────────────────────── -->
-{#if popupSearch}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
+{#if $popupSearch}
 	<div
 		class="fixed inset-0 z-50 flex flex-col items-center pt-20 px-4"
 		style="background:rgba(0,0,0,0.65)"
 		onclick={closeSearch}
 		role="none">
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
 			class="flex items-start gap-3 w-full max-w-3xl"
 			onclick={(e) => e.stopPropagation()}
@@ -545,7 +328,7 @@
 			<div class="flex items-center gap-3 px-4 py-3 border-b" style="border-color:var(--border)">
 				<!-- tipe toggle -->
 				<div class="flex gap-1 shrink-0">
-					{#each (['eceran', 'grosir'] as const) as t}
+					{#each (['eceran', 'grosir'] as const) as t (t)}
 						<button
 							onclick={() => tipeTransaksi.set(t)}
 							class="px-2 py-0.5 rounded text-xs font-bold border transition-all"
@@ -559,13 +342,13 @@
 					bind:this={searchInputEl}
 					type="text"
 					placeholder="Cari nama atau kode barang..."
-					bind:value={searchVal}
-					oninput={() => cariBarang(searchVal)}
+					bind:value={$searchVal}
+					oninput={handleSearchInput}
 					onkeydown={onSearchKeydown}
 					class="flex-1 bg-transparent outline-none text-base"
 					style="color:var(--text)"
 				/>
-				{#if searchLoading}
+				{#if $cariLoading}
 					<span class="text-xs shrink-0" style="color:var(--text-dim)">mencari...</span>
 				{/if}
 				<kbd class="text-xs shrink-0 px-1.5 py-0.5 rounded border font-mono"
@@ -573,13 +356,13 @@
 			</div>
 
 			<!-- results -->
-			{#if searchResults.length > 0}
+			{#if $searchResults.length > 0}
 				<div class="max-h-96 overflow-y-auto">
-					{#each searchResults.slice(0, 8) as br, i}
+					{#each $searchResults.slice(0, 8) as br, i (br.id)}
 						<button
 							onclick={() => tambahKeKeranjang(br)}
 							class="w-full text-left px-4 py-3 border-t transition-colors"
-							style="border-color:var(--border);background:{searchSelectedIdx === i ? 'var(--surface2)' : 'transparent'}"
+							style="border-color:var(--border);background:{$searchSelectedIdx === i ? 'var(--surface2)' : 'transparent'}"
 						>
 							<div class="flex items-center justify-between gap-4">
 								<div class="min-w-0">
@@ -604,7 +387,7 @@
 						</button>
 					{/each}
 				</div>
-			{:else if searchVal && !searchLoading}
+			{:else if $searchVal && !$cariLoading}
 				<p class="px-4 py-6 text-sm text-center" style="color:var(--text-dim)">Barang tidak ditemukan</p>
 			{:else}
 				<p class="px-4 py-4 text-xs text-center" style="color:var(--text-dim)">
@@ -614,51 +397,43 @@
 		</div>
 
 		<!-- QR panel: scan dari HP -->
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
 			class="shrink-0 rounded-xl border p-3 flex flex-col items-center gap-2 shadow-2xl cursor-pointer select-none"
 			style="background:var(--surface);border-color:var(--border)"
-			onclick={() => { if (qrDataUrl) qrLarge = true; }}
+			onclick={() => { if ($qrDataUrl) qrLarge.set(true); }}
 			role="none"
 			title="Klik untuk perbesar QR">
-			{#if qrDataUrl}
-				<img src={qrDataUrl} alt="Scan dari HP" class="w-24 h-24 rounded" style="image-rendering:pixelated" />
+			{#if $qrDataUrl}
+				<img src={$qrDataUrl} alt="Scan dari HP" class="w-24 h-24 rounded" style="image-rendering:pixelated" />
 			{:else}
 				<div class="w-24 h-24 rounded animate-pulse" style="background:var(--surface2)"></div>
 			{/if}
 			<div class="flex items-center gap-1.5">
-				<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:{scannerStatus === 'connected' ? 'var(--accent)' : scannerStatus === 'disconnected' ? 'var(--warn)' : 'var(--border)'}"></span>
+				<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:{$scannerStatus === 'connected' ? 'var(--accent)' : $scannerStatus === 'disconnected' ? 'var(--warn)' : 'var(--border)'}"></span>
 				<p class="text-xs" style="color:var(--text-dim)">
-					{scannerStatus === 'connected' ? 'HP terhubung' : scannerStatus === 'disconnected' ? 'HP terputus' : 'HP scanner'}
+					{$scannerStatus === 'connected' ? 'HP terhubung' : $scannerStatus === 'disconnected' ? 'HP terputus' : 'HP scanner'}
 				</p>
 			</div>
-			{#if scanSessionId}
-				<p class="font-mono text-xs tracking-widest" style="color:var(--accent)">{scanSessionId}</p>
+			{#if $scanSessionId}
+				<p class="font-mono text-xs tracking-widest" style="color:var(--accent)">{$scanSessionId}</p>
 			{/if}
 			<p class="text-xs" style="color:var(--text-dim)">↗ klik perbesar</p>
 		</div>
 
 		<!-- Large QR overlay -->
-		{#if qrLarge}
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
+		{#if $qrLarge}
 			<div
 				class="fixed inset-0 z-[60] flex items-center justify-center"
 				style="background:rgba(0,0,0,0.88)"
-				onclick={() => qrLarge = false}
+				onclick={() => qrLarge.set(false)}
 				role="none">
-				<!-- svelte-ignore a11y_click_events_have_key_events -->
 				<div class="flex flex-col items-center gap-4" onclick={(e) => e.stopPropagation()} role="none">
-					<img src={qrDataUrl} alt="Scan dari HP" class="w-80 h-80 rounded-xl" style="image-rendering:pixelated" />
-
+					<img src={$qrDataUrl} alt="Scan dari HP" class="w-80 h-80 rounded-xl" style="image-rendering:pixelated" />
 					<p class="text-sm" style="color:var(--text-dim)">Arahkan HP ke QR · atau ketik manual:</p>
-
-					<!-- URL manual -->
 					<div class="rounded-lg border px-4 py-3 text-center" style="background:var(--surface);border-color:var(--border)">
 						<p class="text-xs mb-1" style="color:var(--text-dim)">Buka di browser HP</p>
-						<p class="font-mono text-base tracking-wide" style="color:var(--accent)">{scanUrl}</p>
+						<p class="font-mono text-base tracking-wide" style="color:var(--accent)">{$scanUrl}</p>
 					</div>
-
-					<!-- fallback: host + session ID terpisah -->
 					<div class="flex gap-6 text-center">
 						<div>
 							<p class="text-xs mb-0.5" style="color:var(--text-dim)">Alamat server</p>
@@ -672,10 +447,9 @@
 						<div style="color:var(--border)">·</div>
 						<div>
 							<p class="text-xs mb-0.5" style="color:var(--text-dim)">Kode sesi</p>
-							<p class="font-mono text-lg font-bold tracking-widest" style="color:var(--accent)">{scanSessionId}</p>
+							<p class="font-mono text-lg font-bold tracking-widest" style="color:var(--accent)">{$scanSessionId}</p>
 						</div>
 					</div>
-
 					<p class="text-xs" style="color:var(--text-dim)">klik luar / ESC untuk tutup</p>
 				</div>
 			</div>
@@ -686,14 +460,12 @@
 {/if}
 
 <!-- ─── Checkout Popup ────────────────────────────────────────────────────── -->
-{#if popupCheckout}
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
+{#if $popupCheckout}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center p-4"
 		style="background:rgba(0,0,0,0.7)"
-		onclick={() => { if (!snap) tutupCheckout(); }}
+		onclick={() => { if (!$snap) tutupCheckout(); }}
 		role="none">
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<div
 			class="w-full max-w-3xl rounded-xl border overflow-hidden flex shadow-2xl"
 			style="background:var(--surface);border-color:var(--border);max-height:90vh"
@@ -701,14 +473,14 @@
 			role="none">
 
 			<!-- ── Kolom 1: Input / Sukses ── -->
-			<div class="flex-1 flex flex-col p-6 gap-4 overflow-y-auto min-w-0" style="min-width:0">
+			<div class="flex-1 flex flex-col p-6 gap-4 overflow-y-auto min-w-0">
 
-				{#if snap}
+				{#if $snap}
 					<!-- sukses state -->
 					<div class="flex flex-col items-center justify-center flex-1 gap-3 py-8 text-center">
 						<div class="text-5xl" style="color:var(--accent)">✓</div>
 						<p class="font-bold text-lg">Transaksi Berhasil</p>
-						<p class="font-mono text-sm" style="color:var(--text-dim)">{snap.noTransaksi}</p>
+						<p class="font-mono text-sm" style="color:var(--text-dim)">{$snap.noTransaksi}</p>
 						<button
 							onclick={tutupCheckout}
 							class="mt-4 px-6 py-2 rounded font-bold text-sm active:scale-95 transition-all"
@@ -721,7 +493,7 @@
 					<div class="flex items-center justify-between">
 						<h2 class="font-bold text-base">Proses Pembayaran</h2>
 						<div class="flex gap-1">
-							{#each (['eceran', 'grosir'] as const) as t}
+							{#each (['eceran', 'grosir'] as const) as t (t)}
 								<button
 									onclick={() => tipeTransaksi.set(t)}
 									class="px-2 py-0.5 rounded text-xs font-bold border transition-all"
@@ -755,20 +527,20 @@
 									bind:this={pelangganInputEl}
 									type="text"
 									placeholder="Cari nama/kartu pelanggan (min. 3 karakter)"
-									value={pelangganQuery}
-									oninput={(e) => muatPelanggan((e.target as HTMLInputElement).value)}
+									value={$pelangganQuery}
+									oninput={(e) => handlePelangganInput((e.target as HTMLInputElement).value)}
 									onkeydown={onPelangganKeydown}
 									class="w-full px-3 py-2 rounded border text-sm outline-none"
 									style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 								/>
-								{#if pelangganList.length > 0}
+								{#if $pelangganList.length > 0}
 									<div class="absolute z-10 top-full left-0 right-0 mt-1 rounded border max-h-40 overflow-y-auto shadow-lg"
 										style="background:var(--surface);border-color:var(--border)">
-										{#each pelangganList as p, i}
+										{#each $pelangganList as p, i (p.id)}
 											<button
 												onclick={() => pilihPelanggan(p)}
 												class="w-full text-left px-3 py-2 text-sm border-t"
-												style="border-color:var(--border);background:{pelangganSelectedIdx === i ? 'var(--surface2)' : 'transparent'}"
+												style="border-color:var(--border);background:{$pelangganSelectedIdx === i ? 'var(--surface2)' : 'transparent'}"
 											>
 												{p.nama}
 												{#if p.gender === 'pria'}<span class="ml-1" style="color:#40c4ff">♂</span>
@@ -786,7 +558,7 @@
 					<div class="flex flex-col gap-1.5">
 						<p class="text-xs" style="color:var(--text-dim)">METODE BAYAR</p>
 						<div class="grid grid-cols-4 gap-1.5">
-							{#each METODE as m}
+							{#each METODE as m (m)}
 								<button
 									onclick={() => metodeBayar.set(m)}
 									class="py-2 rounded text-sm font-bold border transition-all"
@@ -820,12 +592,6 @@
 						</div>
 					{/if}
 
-					<!-- error -->
-					{#if errorMsg}
-						<p class="text-xs px-3 py-2 rounded"
-							style="background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger)">{errorMsg}</p>
-					{/if}
-
 					<!-- actions -->
 					<div class="flex gap-2 mt-auto pt-2">
 						<button
@@ -835,11 +601,11 @@
 							Batal (ESC)
 						</button>
 						<button
-							onclick={prosesBayar}
-							disabled={prosesLoading}
+							onclick={() => void prosesBayar()}
+							disabled={$prosesLoading}
 							class="flex-1 py-2.5 rounded font-bold text-sm disabled:opacity-40 transition-all active:scale-95"
 							style="background:var(--accent);color:var(--bg)">
-							{prosesLoading ? 'MEMPROSES...' : 'SELESAI ✓'}
+							{$prosesLoading ? 'MEMPROSES...' : 'SELESAI ✓'}
 						</button>
 					</div>
 				{/if}
@@ -847,13 +613,12 @@
 
 			<!-- ── Kolom 2: Preview Struk ── -->
 			<div class="w-60 shrink-0 border-l flex flex-col" style="border-color:var(--border);background:var(--surface2)">
-				<!-- struk content -->
 				<div class="flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed" style="color:var(--text)">
 
 					<div class="text-center mb-2">
 						<div class="font-bold text-sm tracking-widest">TOKO SEMBAKO</div>
 						<div class="text-xs" style="color:var(--text-dim)">
-							{formatTgl(checkoutTime)} · {formatJam(checkoutTime)}
+							{formatTgl($checkoutTime)} · {formatJam($checkoutTime)}
 						</div>
 						{#if strukPelanggan}
 							<div class="mt-0.5" style="color:var(--accent)">{strukPelanggan.nama}</div>
@@ -862,7 +627,7 @@
 
 					<div class="border-t border-dashed my-2" style="border-color:var(--text-dim);opacity:0.3"></div>
 
-					{#each strukItems as item}
+					{#each strukItems as item (item.barang_id)}
 						<div class="mb-1.5">
 							<div class="truncate font-medium">{item.nama_barang}</div>
 							<div class="flex justify-between" style="color:var(--text-dim)">
@@ -889,16 +654,17 @@
 						<span style="color:var(--accent)">Rp {rupiah(strukTotal)}</span>
 					</div>
 
-						<div class="mt-1 flex flex-col gap-0.5" style="color:var(--text-dim)">
-							<div class="flex justify-between">
-								<span>{METODE_LABEL[strukMetode]}</span>
-								<span>{rupiah(strukNominal)}</span>
-							</div>
-								<div class="flex justify-between">
-									<span>Kembali</span>
-									<span style="color:var(--text)">{rupiah(strukKembali)}</span>
-								</div>
+					<div class="mt-1 flex flex-col gap-0.5" style="color:var(--text-dim)">
+						<div class="flex justify-between">
+							<span>{METODE_LABEL[strukMetode]}</span>
+							<span>{rupiah(strukNominal)}</span>
 						</div>
+						<div class="flex justify-between">
+							<span>Kembali</span>
+							<span style="color:var(--text)">{rupiah(strukKembali)}</span>
+						</div>
+					</div>
+
 					{#if strukMetode === 'hutang'}
 						<div class="text-center mt-1 text-xs font-bold" style="color:var(--warn)">── HUTANG ──</div>
 					{/if}
@@ -906,8 +672,8 @@
 					<div class="border-t border-dashed my-2" style="border-color:var(--text-dim);opacity:0.3"></div>
 					<div class="text-center" style="color:var(--text-dim)">Terima kasih</div>
 
-					{#if snap}
-						<div class="text-center mt-1 text-xs" style="color:var(--accent)">{snap.noTransaksi}</div>
+					{#if $snap}
+						<div class="text-center mt-1 text-xs" style="color:var(--accent)">{$snap.noTransaksi}</div>
 					{/if}
 				</div>
 
@@ -920,7 +686,7 @@
 						Cetak Struk
 					</button>
 					<button
-						disabled={!snap && !strukPelanggan}
+						disabled={!$snap && !strukPelanggan}
 						class="w-full py-2 rounded text-xs border font-medium transition-all hover:opacity-80 disabled:opacity-30"
 						style="border-color:var(--border);color:var(--text-dim)">
 						Kirim via WhatsApp
@@ -933,18 +699,18 @@
 {/if}
 
 <!-- ─── Modal konfirmasi hapus ──────────────────────────────────────────────── -->
-{#if konfirmasiHapusIdx !== null}
+{#if $konfirmasiHapusIdx !== null}
 	<div class="fixed inset-0 z-40 flex items-center justify-center" style="background:rgba(0,0,0,0.55)">
 		<div class="rounded-lg border p-6 text-center w-72" style="background:var(--surface);border-color:var(--border)">
 			<p class="font-bold mb-1">Hapus dari keranjang?</p>
-			<p class="text-sm mb-5" style="color:var(--text-dim)">{$keranjang[konfirmasiHapusIdx]?.nama_barang ?? ''}</p>
+			<p class="text-sm mb-5" style="color:var(--text-dim)">{$keranjang[$konfirmasiHapusIdx]?.nama_barang ?? ''}</p>
 			<div class="flex gap-2 justify-center">
 				<button
-					onclick={() => hapusItem(konfirmasiHapusIdx!)}
+					onclick={() => hapusItem($konfirmasiHapusIdx!)}
 					class="px-4 py-1.5 rounded font-bold text-sm active:scale-95 transition-all"
 					style="background:var(--danger);color:#fff">Ya (Enter)</button>
 				<button
-					onclick={() => konfirmasiHapusIdx = null}
+					onclick={() => konfirmasiHapusIdx.set(null)}
 					class="px-4 py-1.5 rounded text-sm border active:scale-95 transition-all"
 					style="border-color:var(--border);color:var(--text-dim)">Batal (ESC)</button>
 			</div>
