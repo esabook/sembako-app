@@ -10,6 +10,7 @@ export type BarangResult = {
 	stok_sekarang: number;
 	satuan_dasar_id: number | null;
 	singkatan_satuan: string | null;
+	foto_path: string | null;
 };
 
 export type PelangganResult = {

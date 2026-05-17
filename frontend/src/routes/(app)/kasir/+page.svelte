@@ -580,13 +580,22 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 							style="border-color:var(--border);background:{$searchSelectedIdx === i ? 'var(--surface2)' : 'transparent'}"
 						>
 							<div class="flex items-center justify-between gap-4">
-								<div class="min-w-0">
-									<span class="text-xs font-mono mr-2" style="color:var(--text-dim)">{br.kode_barang}</span>
-									<span class="font-medium">{br.nama_barang}</span>
-									<span class="text-xs ml-2"
-										style="color:{br.stok_sekarang <= 0 ? 'var(--danger)' : 'var(--text-dim)'}">
-										stok {br.stok_sekarang} {br.singkatan_satuan ?? ''}
-									</span>
+								<div class="flex items-center gap-3 min-w-0">
+									{#if br.foto_path}
+										<img src="/uploads/{br.foto_path.replace('med_', 'thumb_')}" alt={br.nama_barang}
+											class="w-9 h-9 rounded object-cover shrink-0"
+											style="border:1px solid var(--border)" />
+									{:else}
+										<div class="w-9 h-9 rounded shrink-0" style="background:var(--surface2);border:1px solid var(--border)"></div>
+									{/if}
+									<div class="min-w-0">
+										<span class="text-xs font-mono mr-2" style="color:var(--text-dim)">{br.kode_barang}</span>
+										<span class="font-medium">{br.nama_barang}</span>
+										<span class="text-xs ml-2"
+											style="color:{br.stok_sekarang <= 0 ? 'var(--danger)' : 'var(--text-dim)'}">
+											stok {br.stok_sekarang} {br.singkatan_satuan ?? ''}
+										</span>
+									</div>
 								</div>
 								<div class="flex gap-4 shrink-0 text-sm font-mono">
 									<span style="color:{$tipeTransaksi === 'eceran' ? 'var(--accent)' : 'var(--text-dim)'}">

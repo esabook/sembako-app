@@ -94,13 +94,7 @@
 	async function uploadFoto(barangId: number, file: File) {
 		const formData = new FormData();
 		formData.append('foto', file);
-		const baseUrl = import.meta.env.PUBLIC_API_URL ?? '/api';
-		const res = await fetch(`${baseUrl}/barang/${barangId}/foto`, {
-			method: 'POST',
-			credentials: 'include',
-			body: formData,
-		});
-		return res.json() as Promise<{ success: boolean; error?: string }>;
+		return api.upload<{ foto_path: string }>(`/barang/${barangId}/foto`, formData);
 	}
 
 	function bukaFormBarang(item?: Barang) {
