@@ -416,6 +416,20 @@ export const shift_kasir = sqliteTable('shift_kasir', {
   ...timestamps,
 })
 
+// ─── Manajemen Harga ─────────────────────────────────────────────────────────
+
+export const harga_jadwal = sqliteTable('harga_jadwal', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  barang_id: integer('barang_id').notNull().references(() => barang.id),
+  harga_eceran_baru: real('harga_eceran_baru').notNull(),
+  harga_grosir_baru: real('harga_grosir_baru').notNull(),
+  berlaku_mulai: text('berlaku_mulai').notNull(),
+  berlaku_sampai: text('berlaku_sampai'),
+  status: text('status', { enum: ['draft', 'aktif', 'selesai', 'batal'] }).notNull().default('draft'),
+  dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...timestamps,
+})
+
 // ─── Pengaturan Toko ─────────────────────────────────────────────────────────
 
 export const toko_settings = sqliteTable('toko_settings', {

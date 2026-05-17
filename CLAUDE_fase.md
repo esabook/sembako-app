@@ -28,7 +28,7 @@ Fase 1–4 selesai: Fondasi → Operasional Inti → Keuangan → Laporan
 | Absensi & penggajian | ✅ SELESAI | |
 | Kartu anggota pelanggan | ✅ SELESAI | |
 | **Pengaturan Toko** | ✅ SELESAI | **PRIORITAS TINGGI** |
-| **Manajemen Harga** | ❌ BELUM | **PRIORITAS TINGGI** |
+| **Manajemen Harga** | ✅ SELESAI | **PRIORITAS TINGGI** |
 | **Retur Penjualan** | ❌ BELUM | **PRIORITAS TINGGI** |
 | **Notifikasi Terpusat** | ❌ BELUM | **PRIORITAS TINGGI** |
 | Promo & Diskon | ❌ BELUM | Fase 6 |
