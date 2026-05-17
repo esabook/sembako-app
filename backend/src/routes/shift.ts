@@ -1,0 +1,187 @@
+import { Hono } from 'hono'
+import { eq, and, desc, gte, lte, ne, sql } from 'drizzle-orm'
+import { HTTPException } from 'hono/http-exception'
+import { db } from '../db/index.ts'
+import { shift_kasir, penjualan, karyawan } from '../db/schema.ts'
+import { authMiddleware } from '../middleware/auth.ts'
+import type { JWTPayload } from './auth.ts'
+
+export const shiftRouter = new Hono()
+
+shiftRouter.use('*', authMiddleware)
+
+function jamSekarang(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(11, 16)
+}
+
+function tglSekarang(): string {
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
+}
+
+// ── GET /shift/aktif ──────────────────────────────────────────────────────
+// Cek apakah user punya shift yang sedang buka hari ini
+
+shiftRouter.get('/aktif', async (c) => {
+  const user = c.get('user') as JWTPayload
+
+  const shift = db
+    .select({
+      id: shift_kasir.id,
+      tanggal: shift_kasir.tanggal,
+      jam_buka: shift_kasir.jam_buka,
+      kas_awal: shift_kasir.kas_awal,
+      jumlah_transaksi: shift_kasir.jumlah_transaksi,
+      total_penjualan: shift_kasir.total_penjualan,
+      status: shift_kasir.status,
+    })
+    .from(shift_kasir)
+    .where(
+      and(
+        eq(shift_kasir.karyawan_id, user.id),
+        eq(shift_kasir.status, 'buka'),
+        eq(shift_kasir.tanggal, tglSekarang()),
+      )
+    )
+    .get()
+
+  return c.json({ success: true, data: shift ?? null })
+})
+
+// ── GET /shift ─────────────────────────────────────────────────────────────
+// Riwayat shift user (bisa semua role, hanya milik sendiri kecuali pemilik/manajer)
+
+shiftRouter.get('/', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const { dari, sampai } = c.req.query()
+
+  const conditions = []
+  if (!['pemilik', 'manajer'].includes(user.role)) {
+    conditions.push(eq(shift_kasir.karyawan_id, user.id))
+  }
+  if (dari) conditions.push(gte(shift_kasir.tanggal, dari))
+  if (sampai) conditions.push(lte(shift_kasir.tanggal, sampai))
+
+  const rows = db
+    .select({
+      id: shift_kasir.id,
+      nama_kasir: karyawan.nama,
+      tanggal: shift_kasir.tanggal,
+      jam_buka: shift_kasir.jam_buka,
+      jam_tutup: shift_kasir.jam_tutup,
+      kas_awal: shift_kasir.kas_awal,
+      kas_fisik: shift_kasir.kas_fisik,
+      kas_sistem: shift_kasir.kas_sistem,
+      selisih_kas: shift_kasir.selisih_kas,
+      jumlah_transaksi: shift_kasir.jumlah_transaksi,
+      total_penjualan: shift_kasir.total_penjualan,
+      catatan: shift_kasir.catatan,
+      status: shift_kasir.status,
+    })
+    .from(shift_kasir)
+    .leftJoin(karyawan, eq(shift_kasir.karyawan_id, karyawan.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(shift_kasir.tanggal))
+    .limit(100)
+    .all()
+
+  return c.json({ success: true, data: rows })
+})
+
+// ── POST /shift/buka ──────────────────────────────────────────────────────
+
+shiftRouter.post('/buka', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const body = await c.req.json<{ kas_awal: number; catatan?: string }>()
+
+  if (body.kas_awal == null || body.kas_awal < 0)
+    throw new HTTPException(400, { message: 'Kas awal tidak valid' })
+
+  // Cek sudah ada shift buka hari ini
+  const existing = db
+    .select({ id: shift_kasir.id })
+    .from(shift_kasir)
+    .where(
+      and(
+        eq(shift_kasir.karyawan_id, user.id),
+        eq(shift_kasir.status, 'buka'),
+        eq(shift_kasir.tanggal, tglSekarang()),
+      )
+    )
+    .get()
+
+  if (existing) throw new HTTPException(400, { message: 'Shift hari ini sudah dibuka' })
+
+  const row = db.insert(shift_kasir).values({
+    karyawan_id: user.id,
+    tanggal: tglSekarang(),
+    jam_buka: jamSekarang(),
+    kas_awal: body.kas_awal,
+    catatan: body.catatan,
+    status: 'buka',
+  }).returning().get()
+
+  return c.json({ success: true, data: row }, 201)
+})
+
+// ── POST /shift/tutup ─────────────────────────────────────────────────────
+
+shiftRouter.post('/tutup', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const body = await c.req.json<{ kas_fisik: number; catatan?: string }>()
+
+  if (body.kas_fisik == null || body.kas_fisik < 0)
+    throw new HTTPException(400, { message: 'Kas fisik tidak valid' })
+
+  const shift = db
+    .select()
+    .from(shift_kasir)
+    .where(
+      and(
+        eq(shift_kasir.karyawan_id, user.id),
+        eq(shift_kasir.status, 'buka'),
+        eq(shift_kasir.tanggal, tglSekarang()),
+      )
+    )
+    .get()
+
+  if (!shift) throw new HTTPException(404, { message: 'Tidak ada shift yang sedang buka hari ini' })
+
+  // Hitung rekap penjualan tunai shift ini
+  const rekapRows = db
+    .select({
+      jumlah_trx: sql<number>`count(*)`,
+      total: sql<number>`COALESCE(sum(total), 0)`,
+      tunai: sql<number>`COALESCE(sum(CASE WHEN metode_bayar = 'tunai' THEN total ELSE 0 END), 0)`,
+    })
+    .from(penjualan)
+    .where(
+      and(
+        ne(penjualan.status, 'void'),
+        eq(penjualan.kasir_id, user.id),
+        gte(penjualan.tanggal, `${shift.tanggal} ${shift.jam_buka}`),
+      )
+    )
+    .get()
+
+  const kasSistem = shift.kas_awal + (rekapRows?.tunai ?? 0)
+  const selisih = body.kas_fisik - kasSistem
+
+  const row = db
+    .update(shift_kasir)
+    .set({
+      jam_tutup: jamSekarang(),
+      kas_fisik: body.kas_fisik,
+      kas_sistem: kasSistem,
+      selisih_kas: selisih,
+      jumlah_transaksi: rekapRows?.jumlah_trx ?? 0,
+      total_penjualan: rekapRows?.total ?? 0,
+      catatan: body.catatan ?? shift.catatan,
+      status: 'tutup',
+      updated_at: sql`(datetime('now','localtime'))`,
+    })
+    .where(eq(shift_kasir.id, shift.id))
+    .returning()
+    .get()
+
+  return c.json({ success: true, data: row })
+})

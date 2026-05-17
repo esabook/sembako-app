@@ -23,6 +23,7 @@ import { absensiRouter } from './routes/absensi.ts'
 import { kasbonRouter } from './routes/kasbon.ts'
 import { penggajianRouter } from './routes/penggajian.ts'
 import { scanRelayRouter } from './routes/scan_relay.ts'
+import { shiftRouter } from './routes/shift.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
 type Variables = { user: JWTPayload }
@@ -75,6 +76,7 @@ app.route('/absensi', absensiRouter)
 app.route('/kasbon', kasbonRouter)
 app.route('/penggajian', penggajianRouter)
 app.route('/scan-relay', scanRelayRouter)
+app.route('/shift', shiftRouter)
 
 const PORT = Number(process.env.PORT ?? 3000)
 console.log(`Backend berjalan di http://localhost:${PORT}`)

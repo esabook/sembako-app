@@ -21,8 +21,11 @@
 		muatPelanggan, pilihPelanggan,
 		openCheckout, tutupCheckout, prosesBayar,
 		initKasirScan, cleanupKasirScan,
+		kirimStrukWA,
 	} from './kasir.store';
 	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
+	import { api } from '$lib/utils/api';
+	import { toast } from '$lib/stores/ui.store';
 
 	// ── Derived (struk: live atau dari snapshot) ──────────────────────────────
 	const strukItems    = $derived($snap?.items    ?? $keranjang);
@@ -142,6 +145,12 @@
 				e.preventDefault();
 				if (!$popupSearch && !$popupCheckout && $keranjang.length > 0) openCheckout();
 				break;
+			case 'F11':
+				e.preventDefault();
+				if (!$popupSearch && !$popupCheckout) {
+					if (shiftAktif) void bukaTutupShift(); else void bukaBukaShift();
+				}
+				break;
 			case 'F12':
 				e.preventDefault();
 				if (!$popupSearch && !$popupCheckout) resetKasir();
@@ -173,8 +182,63 @@
 		}
 	}
 
+	// ── Shift management ─────────────────────────────────────────────────────
+
+	type ShiftAktif = {
+		id: number; tanggal: string; jam_buka: string; kas_awal: number;
+		jumlah_transaksi: number; total_penjualan: number; status: string;
+	}
+
+	let shiftAktif = $state<ShiftAktif | null>(null)
+	let modalBukaShift = $state(false)
+	let modalTutupShift = $state(false)
+	let kasAwal = $state(0)
+	let kasFisik = $state(0)
+	let catatanShift = $state('')
+	let savingShift = $state(false)
+
+	async function muatShiftAktif() {
+		const res = await api.get<ShiftAktif | null>('/shift/aktif')
+		if (res.success) shiftAktif = res.data
+	}
+
+	async function bukaBukaShift() {
+		await muatShiftAktif()
+		if (shiftAktif) { toast.warn('Shift hari ini sudah dibuka'); return }
+		kasAwal = 0; catatanShift = ''
+		modalBukaShift = true
+	}
+
+	async function simpanBukaShift() {
+		savingShift = true
+		const res = await api.post<ShiftAktif>('/shift/buka', { kas_awal: kasAwal, catatan: catatanShift || undefined })
+		savingShift = false
+		if (!res.success) { toast.error(res.error ?? 'Gagal buka shift'); return }
+		shiftAktif = res.data!
+		modalBukaShift = false
+		toast.sukses('Shift dibuka')
+	}
+
+	async function bukaTutupShift() {
+		if (!shiftAktif) { toast.warn('Buka shift terlebih dahulu'); return }
+		await muatShiftAktif()
+		kasFisik = 0; catatanShift = ''
+		modalTutupShift = true
+	}
+
+	async function simpanTutupShift() {
+		savingShift = true
+		const res = await api.post('/shift/tutup', { kas_fisik: kasFisik, catatan: catatanShift || undefined })
+		savingShift = false
+		if (!res.success) { toast.error(res.error ?? 'Gagal tutup shift'); return }
+		shiftAktif = null
+		modalTutupShift = false
+		toast.sukses('Shift ditutup')
+	}
+
 	onMount(() => {
 		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
+		void muatShiftAktif();
 		return () => {
 			clearTimeout(cariTimer);
 			clearTimeout(pelangganTimer);
@@ -289,6 +353,22 @@
 			</span>
 		</div>
 		<div class="flex items-center gap-2">
+			<!-- Shift indicator + buka/tutup -->
+			{#if shiftAktif}
+				<button
+					onclick={bukaTutupShift}
+					class="px-3 py-1 rounded text-xs border transition-all"
+					style="border-color:var(--warn);color:var(--warn)">
+					F11 · Tutup Shift
+				</button>
+			{:else}
+				<button
+					onclick={bukaBukaShift}
+					class="px-3 py-1 rounded text-xs border transition-all"
+					style="border-color:var(--border);color:var(--text-dim)">
+					F11 · Buka Shift
+				</button>
+			{/if}
 			{#if $keranjang.length > 0}
 				<button
 					onclick={() => resetKasir()}
@@ -686,7 +766,8 @@
 						Cetak Struk
 					</button>
 					<button
-						disabled={!$snap && !strukPelanggan}
+						disabled={!$snap}
+						onclick={() => $snap && kirimStrukWA($snap)}
 						class="w-full py-2 rounded text-xs border font-medium transition-all hover:opacity-80 disabled:opacity-30"
 						style="border-color:var(--border);color:var(--text-dim)">
 						Kirim via WhatsApp
@@ -694,6 +775,95 @@
 				</div>
 			</div>
 
+		</div>
+	</div>
+{/if}
+
+<!-- ─── Modal Buka Shift ─────────────────────────────────────────────────────── -->
+{#if modalBukaShift}
+	<div class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.6)"
+		role="dialog" aria-modal="true" tabindex="-1"
+		onkeydown={(e) => { if (e.key === 'Escape') modalBukaShift = false }}>
+		<div class="rounded-lg border p-6 w-80" style="background:var(--surface);border-color:var(--border)"
+			role="presentation" onclick={(e) => e.stopPropagation()}>
+			<h2 class="font-bold text-base mb-4">Buka Shift</h2>
+			<div class="flex flex-col gap-3">
+				<div>
+					<label for="kas-awal" class="block text-xs mb-1" style="color:var(--text-dim)">Kas Awal (uang di laci)</label>
+					<input id="kas-awal" type="number" min="0" step="1000"
+						bind:value={kasAwal}
+						class="w-full px-3 py-2 rounded border text-sm outline-none"
+						style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				</div>
+				<div>
+					<label for="catatan-buka" class="block text-xs mb-1" style="color:var(--text-dim)">Catatan (opsional)</label>
+					<input id="catatan-buka" type="text"
+						bind:value={catatanShift} placeholder="..."
+						class="w-full px-3 py-2 rounded border text-sm outline-none"
+						style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				</div>
+			</div>
+			<div class="flex gap-2 justify-end mt-5">
+				<button onclick={() => modalBukaShift = false}
+					class="px-4 py-1.5 rounded text-sm border"
+					style="border-color:var(--border);color:var(--text-dim)">Batal</button>
+				<button onclick={simpanBukaShift} disabled={savingShift}
+					class="px-4 py-1.5 rounded text-sm font-bold disabled:opacity-60"
+					style="background:var(--accent);color:var(--bg)">
+					{savingShift ? 'Menyimpan...' : 'Buka Shift'}
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- ─── Modal Tutup Shift ────────────────────────────────────────────────────── -->
+{#if modalTutupShift && shiftAktif}
+	<div class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.6)"
+		role="dialog" aria-modal="true" tabindex="-1"
+		onkeydown={(e) => { if (e.key === 'Escape') modalTutupShift = false }}>
+		<div class="rounded-lg border p-6 w-96" style="background:var(--surface);border-color:var(--border)"
+			role="presentation" onclick={(e) => e.stopPropagation()}>
+			<h2 class="font-bold text-base mb-1">Tutup Shift</h2>
+			<p class="text-xs mb-4" style="color:var(--text-dim)">
+				Shift dibuka {shiftAktif.jam_buka} · {shiftAktif.jumlah_transaksi} transaksi
+			</p>
+			<div class="flex flex-col gap-3">
+				<div class="rounded border p-3 text-sm" style="background:var(--surface2);border-color:var(--border)">
+					<div class="flex justify-between mb-1">
+						<span style="color:var(--text-dim)">Kas Awal</span>
+						<span>{rupiah(shiftAktif.kas_awal)}</span>
+					</div>
+					<div class="flex justify-between">
+						<span style="color:var(--text-dim)">Total Penjualan Tunai</span>
+						<span style="color:var(--accent)">+{rupiah(shiftAktif.total_penjualan)}</span>
+					</div>
+				</div>
+				<div>
+					<label for="kas-fisik" class="block text-xs mb-1" style="color:var(--text-dim)">Kas Fisik (hitung uang di laci)</label>
+					<input id="kas-fisik" type="number" min="0" step="1000"
+						bind:value={kasFisik}
+						class="w-full px-3 py-2 rounded border text-sm outline-none"
+						style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				</div>
+				<div>
+					<label for="catatan-tutup" class="block text-xs mb-1" style="color:var(--text-dim)">Catatan (opsional)</label>
+					<input id="catatan-tutup" type="text"
+						bind:value={catatanShift} placeholder="..."
+						class="w-full px-3 py-2 rounded border text-sm outline-none"
+						style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				</div>
+			</div>
+			<div class="flex gap-2 justify-end mt-5">
+				<button onclick={() => modalTutupShift = false}
+					class="px-4 py-1.5 rounded text-sm border"
+					style="border-color:var(--border);color:var(--text-dim)">Batal</button>
+				<button onclick={simpanTutupShift} disabled={savingShift}
+					class="px-4 py-1.5 rounded text-sm font-bold disabled:opacity-60"
+					style="background:var(--warn);color:var(--bg)">
+					{savingShift ? 'Menyimpan...' : 'Tutup Shift'}
+				</button>
+			</div>
 		</div>
 	</div>
 {/if}
