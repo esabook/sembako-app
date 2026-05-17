@@ -236,5 +236,21 @@
 				Simpan Pengaturan
 			</Button>
 		</div>
+
+		<!-- ── Menu Lanjutan ───────────────────────────────────────────── -->
+		<section class="rounded border" style="background:var(--surface);border-color:var(--border)">
+			<h2 class="text-sm font-bold uppercase tracking-widest px-4 pt-4 pb-2" style="color:var(--text-dim)">Menu Lanjutan</h2>
+			<a
+				href="/pengaturan/notifikasi"
+				class="flex items-center justify-between px-4 py-3 border-t"
+				style="border-color:var(--border);color:var(--text)"
+			>
+				<div>
+					<p class="text-sm font-medium">Notifikasi Terpusat</p>
+					<p class="text-xs" style="color:var(--text-dim)">Konfigurasi alert stok, hutang, laporan WA, dll</p>
+				</div>
+				<span style="color:var(--text-dim)">→</span>
+			</a>
+		</section>
 	{/if}
 </div>

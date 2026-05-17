@@ -71,6 +71,13 @@
       "when": 1778990345822,
       "tag": "0009_smiling_black_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1778996230226,
+      "tag": "0010_special_ultragirl",
+      "breakpoints": true
     }
   ]
 }

@@ -467,3 +467,37 @@ export const retur_penjualan_detail = sqliteTable('retur_penjualan_detail', {
   harga_jual: real('harga_jual').notNull(), // snapshot dari penjualan_detail
   subtotal: real('subtotal').notNull(),
 })
+
+// ─── Notifikasi Terpusat ──────────────────────────────────────────────────────
+
+export const notifikasi_config = sqliteTable('notifikasi_config', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  jenis: text('jenis', {
+    enum: [
+      'stok_habis', 'stok_kritis', 'barang_kadaluarsa',
+      'hutang_jatuh_tempo', 'piutang_macet',
+      'void_transaksi', 'diskon_tinggi', 'selisih_kas',
+      'ringkasan_harian', 'ringkasan_mingguan',
+    ],
+  }).notNull().unique(),
+  aktif: integer('aktif', { mode: 'boolean' }).notNull().default(false),
+  channel: text('channel', { enum: ['wa', 'dashboard', 'keduanya'] }).notNull().default('dashboard'),
+  threshold: real('threshold'),          // hari / % / unit sesuai jenis
+  jam_kirim: text('jam_kirim'),          // HH:MM — untuk scheduled
+  hari_kirim: integer('hari_kirim'),     // 1-7 (Senin-Minggu) — untuk weekly
+  penerima_wa: text('penerima_wa'),      // nomor HP tujuan
+  terakhir_dikirim: text('terakhir_dikirim'),
+  updated_at: text('updated_at').default(sql`(datetime('now','localtime'))`),
+})
+
+export const notifikasi_log = sqliteTable('notifikasi_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  jenis: text('jenis').notNull(),
+  channel: text('channel', { enum: ['wa', 'dashboard'] }).notNull().default('dashboard'),
+  pesan: text('pesan').notNull(),
+  penerima: text('penerima'),
+  status: text('status', { enum: ['terkirim', 'gagal', 'pending'] }).notNull().default('pending'),
+  waktu: text('waktu').notNull().default(sql`(datetime('now','localtime'))`),
+  referensi_tipe: text('referensi_tipe'),
+  referensi_id: integer('referensi_id'),
+})
