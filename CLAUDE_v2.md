@@ -339,25 +339,120 @@ backend/src/routes/audit.ts
 ### [SEDANG] MODUL BUDGET & TARGET
 
 Bangun setelah ada data historis minimal 1 bulan.
+Realisasi dihitung otomatis dari data yang sudah ada
+(jurnal_kas, penjualan) — tidak ada input ganda.
 
 ```
-FITUR:
-  □ Set target penjualan per bulan
-  □ Set target margin kotor per bulan
-  □ Set budget operasional per kategori pengeluaran
-  □ Progress bar target di dashboard owner
-  □ Alert jika pengeluaran melebihi budget
-  □ Proyeksi akhir bulan berdasarkan tren saat ini
+FITUR UTAMA:
+
+TARGET PENJUALAN (per bulan):
+  □ Set target omzet bulanan (Rp)
+  □ Set target jumlah transaksi
+  □ Set target margin kotor (%)
+  □ Breakdown target per minggu (opsional, hitung otomatis)
+
+BUDGET OPERASIONAL (per bulan):
+  □ Set budget per kategori pengeluaran:
+      gaji, sewa, listrik/air, kemasan/bahan, operasional, lain-lain
+  □ Kategori harus sesuai dengan field kategori di jurnal_kas
+    → realisasi dihitung otomatis, tidak perlu input ulang
+  □ Sisa budget = budget - realisasi (auto dari jurnal_kas)
+
+MONITORING & DASHBOARD:
+  □ Widget di dashboard owner:
+      - Progress bar omzet hari ini / bulan ini vs target
+      - % margin bulan berjalan vs target
+      - Bar chart budget vs realisasi per kategori
+  □ Proyeksi akhir bulan:
+      jika hari ke-10 sudah Rp 15jt → proyeksi = (15jt / 10) × 30 = 45jt
+  □ Status per metrik: AMAN / PERHATIAN / BAHAYA
+      AMAN      → realisasi ≥ 90% dari target (untuk penjualan)
+      PERHATIAN → realisasi 70-89% dari target
+      BAHAYA    → realisasi < 70% dari target
+      (terbalik untuk pengeluaran: BAHAYA jika realisasi > 110% budget)
+
+ALERT:
+  □ Pengeluaran kategori melebihi budget → notifikasi ke pemilik
+  □ Proyeksi omzet di bawah target (H-10 bulan) → alert dashboard
+  □ Margin bulan berjalan di bawah target → flag di dashboard
+
+RIWAYAT:
+  □ Bandingkan realisasi bulan ini vs bulan lalu
+  □ Tabel histori target per bulan (bisa lihat 6 bulan ke belakang)
+  □ Salin target bulan lalu → tinggal edit angkanya
 ```
 
 ```typescript
-// Tabel baru
-budget_target {
-  id, periode_bulan,    // format YYYY-MM
-  tipe,                 // penjualan/margin/biaya_gaji/biaya_operasional/dll
-  nilai_target,
-  catatan
+// Tabel target penjualan
+target_penjualan {
+  id,
+  periode_bulan,        // YYYY-MM
+  target_omzet,         // Rp total penjualan bersih
+  target_transaksi,     // jumlah transaksi
+  target_margin_pct,    // target margin kotor dalam persen
+  catatan,
+  dibuat_oleh,
+  dibuat_at
 }
+
+// Tabel budget operasional
+// kategori harus match dengan nilai kolom 'kategori' di jurnal_kas
+budget_operasional {
+  id,
+  periode_bulan,        // YYYY-MM
+  kategori,             // gaji/sewa/listrik/kemasan/operasional/lain
+  nilai_budget,         // Rp yang dianggarkan
+  catatan,
+  dibuat_oleh,
+  dibuat_at
+}
+
+// Kategori standar (bisa dikembangkan via toko_settings):
+//   'gaji'         → pembayaran gaji karyawan
+//   'sewa'         → sewa toko
+//   'listrik'      → tagihan listrik & air
+//   'kemasan'      → plastik, kardus, dll
+//   'operasional'  → bensin, ATK, dll
+//   'lain'         → pengeluaran tidak terkategori
+```
+
+**Route baru:**
+```
+GET  /api/budget-target/:periode         → ambil target + budget bulan ini
+POST /api/budget-target/target           → set/update target penjualan
+POST /api/budget-target/budget           → set/update budget operasional
+GET  /api/budget-target/:periode/realisasi  → target vs realisasi aktual
+GET  /api/budget-target/:periode/proyeksi   → proyeksi akhir bulan
+GET  /api/budget-target/histori          → riwayat 6 bulan terakhir
+POST /api/budget-target/salin/:dari/:ke  → salin target bulan lalu
+```
+
+**Logika realisasi (tidak ada tabel tambahan):**
+```typescript
+// Omzet realisasi → dari tabel penjualan
+SELECT SUM(total) FROM penjualan
+WHERE status = 'lunas' AND strftime('%Y-%m', tanggal) = :periode
+
+// Margin realisasi → (penjualan - HPP) / penjualan
+// HPP diambil dari harga_beli snapshot di penjualan_detail
+
+// Realisasi pengeluaran per kategori → dari jurnal_kas
+SELECT kategori, SUM(jumlah) FROM jurnal_kas
+WHERE jenis = 'keluar' AND strftime('%Y-%m', tanggal) = :periode
+GROUP BY kategori
+```
+
+**Posisi di folder:**
+```
+frontend/src/routes/(app)/keuangan/budget/
+  ├── +page.svelte
+  ├── +page.ts
+  ├── budget.types.ts
+  ├── budget.api.ts
+  ├── budget.logic.ts
+  └── budget.store.ts
+
+backend/src/routes/budget-target.ts
 ```
 
 ---
@@ -509,7 +604,10 @@ promo               { id, nama, tipe, nilai, tipe_nilai,
 promo_target        { id, promo_id, target_tipe, target_id }
 
 // Dari Modul Budget & Target (Fase 6)
-budget_target       { id, periode_bulan, tipe, nilai_target, catatan }
+target_penjualan    { id, periode_bulan, target_omzet, target_transaksi,
+                      target_margin_pct, catatan, dibuat_oleh, dibuat_at }
+budget_operasional  { id, periode_bulan, kategori, nilai_budget,
+                      catatan, dibuat_oleh, dibuat_at }
 ```
 
 ---
@@ -995,6 +1093,13 @@ NAMING EVENTS (konsisten di semua komponen):
 ## CHANGELOG
 
 ```
+v2.3 — 2026-05-17
+  ~ Budget & Target: perluas spec lengkap
+    - Pisah tabel jadi target_penjualan + budget_operasional
+    - Tambah logika realisasi otomatis dari jurnal_kas & penjualan
+    - Tambah fitur proyeksi akhir bulan & salin target bulan lalu
+    - Tambah route API lengkap + posisi folder
+
 v2.2 — 2026-05-17
   + Konvensi komponen reusable
   + Struktur folder lib/components (ui/data/form/layout)

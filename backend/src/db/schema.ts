@@ -501,3 +501,29 @@ export const notifikasi_log = sqliteTable('notifikasi_log', {
   referensi_tipe: text('referensi_tipe'),
   referensi_id: integer('referensi_id'),
 })
+
+// ─── Budget & Target ──────────────────────────────────────────────────────────
+
+export const target_penjualan = sqliteTable('target_penjualan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  periode_bulan: text('periode_bulan').notNull().unique(), // format YYYY-MM
+  target_omzet: real('target_omzet').notNull().default(0),
+  target_transaksi: integer('target_transaksi').notNull().default(0),
+  target_margin_pct: real('target_margin_pct').notNull().default(0), // persen, misal 15.0
+  catatan: text('catatan'),
+  dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...timestamps,
+})
+
+// kategori harus match dengan nilai field kategori di jurnal_kas
+export const budget_operasional = sqliteTable('budget_operasional', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  periode_bulan: text('periode_bulan').notNull(), // format YYYY-MM
+  kategori: text('kategori', {
+    enum: ['gaji', 'sewa', 'listrik', 'kemasan', 'operasional', 'lain'],
+  }).notNull(),
+  nilai_budget: real('nilai_budget').notNull().default(0),
+  catatan: text('catatan'),
+  dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...timestamps,
+})

@@ -305,13 +305,17 @@
   </div>
 
   <!-- Tabs -->
-  <div style="display:flex; gap:.5rem; border-bottom:1px solid var(--border); margin-bottom:1rem">
+  <div style="display:flex; gap:.5rem; border-bottom:1px solid var(--border); margin-bottom:1rem; align-items:flex-end">
     {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank']] as [TabKey, string][]) as [t, label]}
       <button
         onclick={() => tab = t}
         style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap"
       >{label}</button>
     {/each}
+    <a
+      href="/keuangan/budget"
+      style="margin-left:auto; padding:.4rem .8rem; border:1px solid var(--accent); border-radius:4px; color:var(--accent); font-family:inherit; font-size:.75rem; font-weight:600; text-decoration:none; white-space:nowrap; margin-bottom:.25rem"
+    >Budget &amp; Target →</a>
   </div>
 </div>
 
