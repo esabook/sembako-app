@@ -300,6 +300,23 @@ export function kirimStrukWA(s: Snap): void {
 	bukaWhatsApp(s.pelanggan?.kontak ?? null, pesan);
 }
 
+export function kirimNotifHutangWA(s: Snap): void {
+	const tgl = s.waktu.toLocaleString('id-ID', {
+		day: '2-digit', month: 'short', year: 'numeric',
+		hour: '2-digit', minute: '2-digit',
+	});
+	const lines = [
+		'*NOTIFIKASI HUTANG*',
+		`No Transaksi : ${s.noTransaksi}`,
+		`Tanggal      : ${tgl}`,
+		`Total Hutang : *Rp ${rupiah(s.total)}*`,
+		'',
+		'Pembayaran dapat dilakukan langsung ke toko.',
+		'Terima kasih. 🙏',
+	];
+	bukaWhatsApp(s.pelanggan?.kontak ?? null, lines.join('\n'));
+}
+
 // ── SSE Scanner ───────────────────────────────────────────────────────────────
 
 export function connectKasirSse() {

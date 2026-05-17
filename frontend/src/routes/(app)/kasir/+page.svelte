@@ -22,6 +22,7 @@
 		openCheckout, tutupCheckout, prosesBayar,
 		initKasirScan, cleanupKasirScan,
 		kirimStrukWA,
+		kirimNotifHutangWA,
 	} from './kasir.store';
 	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
 	import { api } from '$lib/utils/api';
@@ -848,8 +849,17 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						onclick={() => $snap && kirimStrukWA($snap)}
 						class="w-full py-2 rounded text-xs border font-medium transition-all hover:opacity-80 disabled:opacity-30"
 						style="border-color:var(--border);color:var(--text-dim)">
-						Kirim via WhatsApp
+						Kirim Struk WA
 					</button>
+					{#if strukMetode === 'hutang'}
+					<button
+						disabled={!$snap}
+						onclick={() => $snap && kirimNotifHutangWA($snap)}
+						class="w-full py-2 rounded text-xs border font-medium transition-all hover:opacity-80 disabled:opacity-30"
+						style="border-color:var(--warn);color:var(--warn)">
+						Notif Hutang WA
+					</button>
+					{/if}
 				</div>
 			</div>
 

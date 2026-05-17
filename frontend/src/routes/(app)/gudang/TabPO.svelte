@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
+	import { bukaWhatsApp } from '$lib/utils/wa.js';
 	import Modal from '$lib/components/Modal.svelte';
 	import TabPOGuide from './TabPOGuide.svelte';
 
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean; };
-	type PORow = { id: number; no_po: string; tanggal_po: string; nama_supplier: string | null; status: string; total_nilai: number; };
+	type PORow = { id: number; no_po: string; tanggal_po: string; nama_supplier: string | null; kontak_supplier: string | null; status: string; total_nilai: number; };
 	type SuggestItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; harga_beli_terakhir: number; saran_pesan: number; };
 
 	let poList = $state<PORow[]>([]);
@@ -54,6 +55,20 @@
 		await api.put(`/purchase-order/${id}/status`, { status });
 		muatPO();
 		if (poDetail?.id === id) poDetail = { ...poDetail, status };
+	}
+
+	function kirimPOWA(po: PORow) {
+		const rp = (n: number) => new Intl.NumberFormat('id-ID').format(Math.round(n))
+		const pesan = [
+			'*PURCHASE ORDER*',
+			`No PO : ${po.no_po}`,
+			`Tgl   : ${po.tanggal_po}`,
+			`Total : Rp ${rp(po.total_nilai)}`,
+			'',
+			'Mohon konfirmasi ketersediaan dan estimasi pengiriman.',
+			'Terima kasih.',
+		].join('\n')
+		bukaWhatsApp(po.kontak_supplier, pesan)
 	}
 
 	onMount(() => { muatPO(); muatSupplier(); muatSuggest(); });
@@ -139,7 +154,8 @@
 						<td class="px-3 py-2 text-right">{rupiah(po.total_nilai)}</td>
 						<td class="px-3 py-2 text-right">
 							<button onclick={() => lihatPO(po.id)} class="text-xs mr-2" style="color:var(--info)">Detail</button>
-							{#if po.status === 'draft'}<button onclick={() => ubahStatusPO(po.id, 'dikirim')} class="text-xs" style="color:var(--warn)">Kirim</button>{/if}
+							{#if po.status === 'draft'}<button onclick={() => ubahStatusPO(po.id, 'dikirim')} class="text-xs mr-2" style="color:var(--warn)">Kirim</button>{/if}
+							<button onclick={() => kirimPOWA(po)} class="text-xs" style="color:var(--accent)" title="Kirim ke supplier via WhatsApp">WA</button>
 						</td>
 					</tr>
 					{/each}
@@ -165,6 +181,7 @@
 				<button onclick={() => ubahStatusPO(poDetail!.id, s)} class="px-2 py-1 rounded text-xs border" style="border-color:var(--border);color:{SPC[s]}">→ {s}</button>
 				{/if}
 			{/each}
+			<button onclick={() => kirimPOWA(poDetail!)} class="px-2 py-1 rounded text-xs border font-medium" style="border-color:var(--accent);color:var(--accent)">Kirim WA ke Supplier</button>
 		</div>
 	</div>
 	{/if}
