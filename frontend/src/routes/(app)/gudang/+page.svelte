@@ -12,8 +12,9 @@
 	import TabBarang from './TabBarang.svelte';
 	import TabSupplier from './TabSupplier.svelte';
 	import TabPengaturan from './TabPengaturan.svelte';
+	import TabLabel from './TabLabel.svelte';
 
-	type TabId = 'stok' | 'terima' | 'po' | 'opname' | 'barang' | 'supplier' | 'pengaturan';
+	type TabId = 'stok' | 'terima' | 'po' | 'opname' | 'barang' | 'supplier' | 'label' | 'pengaturan';
 	let tab = $state<TabId>('stok');
 
 	const TABS: { id: TabId; label: string }[] = [
@@ -23,6 +24,7 @@
 		{ id: 'opname',      label: 'STOK OPNAME' },
 		{ id: 'barang',      label: 'MASTER BARANG' },
 		{ id: 'supplier',    label: 'SUPPLIER' },
+		{ id: 'label',       label: 'CETAK LABEL' },
 		{ id: 'pengaturan',  label: 'PENGATURAN' },
 	];
 </script>
@@ -44,4 +46,5 @@
 {#if tab === 'opname'}    <TabOpname />{/if}
 {#if tab === 'barang'}    <TabBarang />{/if}
 {#if tab === 'supplier'}  <TabSupplier />{/if}
+{#if tab === 'label'}     <TabLabel />{/if}
 {#if tab === 'pengaturan'}<TabPengaturan />{/if}

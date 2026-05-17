@@ -24,7 +24,6 @@
 <div class="space-y-4">
   <!-- Header + Tabs -->
   <div class="flex items-center gap-3 flex-wrap">
-    <h1 class="text-lg font-bold tracking-wide" style="color:var(--text)">PELANGGAN</h1>
     <div class="flex gap-1 border rounded overflow-hidden" style="border-color:var(--border)">
         {#each [['pelanggan', 'Pelanggan'], ['kartu', 'Kartu Anggota']] as [val, label] (val)}
         <button

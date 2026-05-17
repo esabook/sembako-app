@@ -396,3 +396,134 @@ export const kasbon = sqliteTable('kasbon', {
   status: text('status', { enum: ['aktif', 'lunas'] }).notNull().default('aktif'),
   ...timestamps,
 })
+
+// ─── Shift Kasir ────────────────────────────────────────────────────────────
+
+export const shift_kasir = sqliteTable('shift_kasir', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  tanggal: text('tanggal').notNull(),
+  jam_buka: text('jam_buka').notNull(),
+  jam_tutup: text('jam_tutup'),
+  kas_awal: real('kas_awal').notNull().default(0),
+  kas_fisik: real('kas_fisik'),
+  kas_sistem: real('kas_sistem'),    // dihitung: kas_awal + penjualan_tunai
+  selisih_kas: real('selisih_kas'),  // kas_fisik - kas_sistem
+  jumlah_transaksi: integer('jumlah_transaksi').notNull().default(0),
+  total_penjualan: real('total_penjualan').notNull().default(0),
+  catatan: text('catatan'),
+  status: text('status', { enum: ['buka', 'tutup'] }).notNull().default('buka'),
+  ...timestamps,
+})
+
+// ─── Manajemen Harga ─────────────────────────────────────────────────────────
+
+export const harga_jadwal = sqliteTable('harga_jadwal', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  barang_id: integer('barang_id').notNull().references(() => barang.id),
+  harga_eceran_baru: real('harga_eceran_baru').notNull(),
+  harga_grosir_baru: real('harga_grosir_baru').notNull(),
+  berlaku_mulai: text('berlaku_mulai').notNull(),
+  berlaku_sampai: text('berlaku_sampai'),
+  status: text('status', { enum: ['draft', 'aktif', 'selesai', 'batal'] }).notNull().default('draft'),
+  dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...timestamps,
+})
+
+// ─── Pengaturan Toko ─────────────────────────────────────────────────────────
+
+export const toko_settings = sqliteTable('toko_settings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  key: text('key').notNull().unique(),
+  value: text('value'),
+  updated_at: text('updated_at').default(sql`(datetime('now','localtime'))`),
+})
+
+// ─── Retur Penjualan ──────────────────────────────────────────────────────────
+
+export const retur_penjualan = sqliteTable('retur_penjualan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  no_retur: text('no_retur').notNull().unique(),
+  penjualan_id: integer('penjualan_id').notNull().references(() => penjualan.id),
+  tanggal: text('tanggal').notNull(),
+  kasir_id: integer('kasir_id').references(() => karyawan.id),
+  total_retur: real('total_retur').notNull().default(0),
+  alasan: text('alasan'),
+  // tunai = uang kembali ke pelanggan, kurang_piutang = kurangi piutang, tukar_barang = stok saja
+  metode_refund: text('metode_refund', {
+    enum: ['tunai', 'kurang_piutang', 'tukar_barang'],
+  }).notNull().default('tunai'),
+  kas_bank_id: integer('kas_bank_id').references(() => kas_bank.id),
+  catatan: text('catatan'),
+  ...timestamps,
+})
+
+export const retur_penjualan_detail = sqliteTable('retur_penjualan_detail', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  retur_id: integer('retur_id').notNull().references(() => retur_penjualan.id),
+  barang_id: integer('barang_id').notNull().references(() => barang.id),
+  satuan_id: integer('satuan_id').references(() => satuan.id),
+  jumlah_retur: real('jumlah_retur').notNull(),
+  harga_jual: real('harga_jual').notNull(), // snapshot dari penjualan_detail
+  subtotal: real('subtotal').notNull(),
+})
+
+// ─── Notifikasi Terpusat ──────────────────────────────────────────────────────
+
+export const notifikasi_config = sqliteTable('notifikasi_config', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  jenis: text('jenis', {
+    enum: [
+      'stok_habis', 'stok_kritis', 'barang_kadaluarsa',
+      'hutang_jatuh_tempo', 'piutang_macet',
+      'void_transaksi', 'diskon_tinggi', 'selisih_kas',
+      'ringkasan_harian', 'ringkasan_mingguan',
+    ],
+  }).notNull().unique(),
+  aktif: integer('aktif', { mode: 'boolean' }).notNull().default(false),
+  channel: text('channel', { enum: ['wa', 'dashboard', 'keduanya'] }).notNull().default('dashboard'),
+  threshold: real('threshold'),          // hari / % / unit sesuai jenis
+  jam_kirim: text('jam_kirim'),          // HH:MM — untuk scheduled
+  hari_kirim: integer('hari_kirim'),     // 1-7 (Senin-Minggu) — untuk weekly
+  penerima_wa: text('penerima_wa'),      // nomor HP tujuan
+  terakhir_dikirim: text('terakhir_dikirim'),
+  updated_at: text('updated_at').default(sql`(datetime('now','localtime'))`),
+})
+
+export const notifikasi_log = sqliteTable('notifikasi_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  jenis: text('jenis').notNull(),
+  channel: text('channel', { enum: ['wa', 'dashboard'] }).notNull().default('dashboard'),
+  pesan: text('pesan').notNull(),
+  penerima: text('penerima'),
+  status: text('status', { enum: ['terkirim', 'gagal', 'pending'] }).notNull().default('pending'),
+  waktu: text('waktu').notNull().default(sql`(datetime('now','localtime'))`),
+  referensi_tipe: text('referensi_tipe'),
+  referensi_id: integer('referensi_id'),
+})
+
+// ─── Budget & Target ──────────────────────────────────────────────────────────
+
+export const target_penjualan = sqliteTable('target_penjualan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  periode_bulan: text('periode_bulan').notNull().unique(), // format YYYY-MM
+  target_omzet: real('target_omzet').notNull().default(0),
+  target_transaksi: integer('target_transaksi').notNull().default(0),
+  target_margin_pct: real('target_margin_pct').notNull().default(0), // persen, misal 15.0
+  catatan: text('catatan'),
+  dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...timestamps,
+})
+
+// kategori harus match dengan nilai field kategori di jurnal_kas
+export const budget_operasional = sqliteTable('budget_operasional', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  periode_bulan: text('periode_bulan').notNull(), // format YYYY-MM
+  kategori: text('kategori', {
+    enum: ['gaji', 'sewa', 'listrik', 'kemasan', 'operasional', 'lain'],
+  }).notNull(),
+  nilai_budget: real('nilai_budget').notNull().default(0),
+  catatan: text('catatan'),
+  dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...timestamps,
+})

@@ -43,6 +43,7 @@
   let plgQuery        = $state('')
   let plgLoading      = $state(false)
   let plgShowNonAktif = $state(false)
+  let viewMode        = $state<'grid' | 'list'>('grid')
 
   let modalPlgOpen = $state(false)
   let editPlg      = $state<Pelanggan | null>(null)
@@ -170,84 +171,181 @@
 </script>
 
 <div class="space-y-3">
-  <div class="flex items-center justify-between flex-wrap gap-2">
-    <div class="flex gap-2 flex-1 flex-wrap">
-      <input
-        bind:value={plgQuery}
-        placeholder="Cari nama, kode, no. HP, atau no. kartu..."
-        class="px-3 py-1.5 text-sm rounded border flex-1 min-w-52"
-        style="background:var(--surface);border-color:var(--border);color:var(--text)"
-      />
-      <label class="flex items-center gap-1.5 text-sm cursor-pointer" style="color:var(--text-dim)">
+  <!-- action bar -->
+  <div class="flex items-center gap-2">
+    <input
+      bind:value={plgQuery}
+      placeholder="Cari nama, kode, no. HP, atau no. kartu..."
+      class="px-3 py-1.5 text-sm rounded border flex-1 min-w-0 outline-none"
+      style="background:var(--surface);border-color:var(--border);color:var(--text)"
+    />
+    <div class="flex items-center gap-1.5 shrink-0">
+      <label class="flex items-center gap-1.5 text-sm cursor-pointer px-2 py-1.5 rounded border whitespace-nowrap"
+        style="border-color:var(--border);color:var(--text-dim)">
         <input type="checkbox" bind:checked={plgShowNonAktif} />
         Non-aktif
       </label>
+      <button
+        onclick={() => (viewMode = 'grid')}
+        title="Tampilan grid"
+        class="p-1.5 rounded border transition-colors"
+        style="{viewMode === 'grid' ? 'background:var(--surface2);border-color:var(--accent);color:var(--accent)' : 'border-color:var(--border);color:var(--text-dim)'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <rect x="0" y="0" width="6" height="6" rx="1"/><rect x="8" y="0" width="6" height="6" rx="1"/>
+          <rect x="0" y="8" width="6" height="6" rx="1"/><rect x="8" y="8" width="6" height="6" rx="1"/>
+        </svg>
+      </button>
+      <button
+        onclick={() => (viewMode = 'list')}
+        title="Tampilan list"
+        class="p-1.5 rounded border transition-colors"
+        style="{viewMode === 'list' ? 'background:var(--surface2);border-color:var(--accent);color:var(--accent)' : 'border-color:var(--border);color:var(--text-dim)'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <rect x="0" y="1" width="14" height="2" rx="1"/><rect x="0" y="6" width="14" height="2" rx="1"/>
+          <rect x="0" y="11" width="14" height="2" rx="1"/>
+        </svg>
+      </button>
+      <button
+        onclick={bukaTambahPlg}
+        class="px-3 py-1.5 text-sm rounded font-medium whitespace-nowrap"
+        style="background:var(--accent);color:var(--bg)"
+      >+ Tambah</button>
     </div>
-    <button
-      onclick={bukaTambahPlg}
-      class="px-3 py-1.5 text-sm rounded font-medium"
-      style="background:var(--accent);color:var(--bg)"
-    >+ Tambah</button>
   </div>
 
   {#if plgLoading}
     <p class="text-sm" style="color:var(--text-dim)">Memuat...</p>
   {:else if plgList.length === 0}
     <p class="text-sm" style="color:var(--text-dim)">Belum ada pelanggan.</p>
+  {:else if viewMode === 'grid'}
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {#each plgList as p (p.id)}
+        <div
+          class="flex flex-col gap-2 rounded border p-3 text-sm"
+          style="background:var(--surface);border-color:var(--border);{!p.is_active ? 'opacity:0.5' : ''}"
+        >
+          <!-- Kode + Tipe -->
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-xs" style="color:var(--text-dim)">{p.kode_pelanggan}</span>
+            <span class="rounded px-1.5 py-0.5 text-xs" style="background:var(--surface2);color:var(--text-dim)">{p.tipe}</span>
+          </div>
+
+          <!-- Nama + Gender -->
+          <div class="font-medium leading-tight">
+            {p.nama}
+            {#if p.gender}
+              <span class="ml-1 text-xs" style="{genderColor(p.gender)}">{genderSymbol(p.gender)}</span>
+            {/if}
+          </div>
+
+          <!-- Kontak + Piutang -->
+          <div class="flex items-center justify-between gap-2 text-xs">
+            <span style="color:var(--text-dim)">{p.kontak ?? '—'}</span>
+            <span style="color:{p.saldo_piutang > 0 ? 'var(--warn)' : 'var(--text-dim)'}">
+              {p.saldo_piutang > 0 ? rupiah(p.saldo_piutang) : '—'}
+            </span>
+          </div>
+
+          <!-- Kartu Anggota -->
+          {#if p.no_kartu}
+            <div class="space-y-1 border-t pt-2" style="border-color:var(--border)">
+              <p class="text-xs font-medium" style="color:var(--text-dim)">Kartu Anggota:</p>
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-mono" style="color:var(--accent)">{p.no_kartu}</span>
+                {#if p.diskon_member && p.diskon_member > 0}
+                  <span style="color:var(--accent)">−{p.diskon_member}%</span>
+                {:else}
+                  <span style="color:var(--text-dim)">—</span>
+                {/if}
+              </div>
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold" style="{TIER_COLOR[p.tier ?? 'reguler']}">{TIER_LABEL[p.tier ?? 'reguler']}</span>
+                <span style="color:var(--info)">{p.poin ?? 0} poin</span>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Aksi -->
+          <div class="mt-auto flex flex-wrap items-center gap-1.5 border-t pt-2" style="border-color:var(--border)">
+            <button
+              onclick={() => bukaEditPlg(p)}
+              class="rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:var(--text-dim)"
+            >Edit</button>
+            {#if p.no_kartu}
+              <button
+                onclick={() => unassignKartu(p)}
+                class="rounded border px-2 py-1 text-xs transition-colors"
+                style="border-color:var(--border);color:var(--danger)"
+              >Lepas Kartu</button>
+            {:else}
+              <button
+                onclick={() => bukaAssignKartu(p)}
+                class="rounded border px-2 py-1 text-xs transition-colors"
+                style="border-color:var(--border);color:var(--accent)"
+              >+ Kartu</button>
+            {/if}
+            <button
+              onclick={() => toggleAktifPlg(p)}
+              class="ml-auto rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}"
+            >{p.is_active ? 'Nonaktif' : 'Aktifkan'}</button>
+          </div>
+        </div>
+      {/each}
+    </div>
   {:else}
-    <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
-      <table class="w-full text-sm">
+    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+      <table class="w-full text-sm border-collapse">
         <thead>
-          <tr style="background:var(--surface2);color:var(--text-dim)">
-            <th class="text-left px-3 py-2 font-medium">Kode</th>
-            <th class="text-left px-3 py-2 font-medium">Nama</th>
-            <th class="text-left px-3 py-2 font-medium">Tipe</th>
-            <th class="text-left px-3 py-2 font-medium">Kontak</th>
-            <th class="text-right px-3 py-2 font-medium">Piutang</th>
-            <th class="text-left px-3 py-2 font-medium">Kartu Anggota</th>
-            <th class="text-center px-3 py-2 font-medium">Aksi</th>
+          <tr style="background:var(--surface2)">
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kode</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Nama</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Tipe</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kontak</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Piutang</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kartu</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Aksi</th>
           </tr>
         </thead>
         <tbody>
           {#each plgList as p (p.id)}
-            <tr class="border-t" style="border-color:var(--border);{!p.is_active ? 'opacity:0.45' : ''}">
+            <tr class="border-t" style="border-color:var(--border);{!p.is_active ? 'opacity:0.5' : ''}">
               <td class="px-3 py-2 font-mono text-xs" style="color:var(--text-dim)">{p.kode_pelanggan}</td>
-              <td class="px-3 py-2 font-medium" style="color:var(--text)">
-                {p.nama}
+              <td class="px-3 py-2">
+                <span class="font-medium" style="color:var(--text)">{p.nama}</span>
                 {#if p.gender}
                   <span class="ml-1 text-xs" style="{genderColor(p.gender)}">{genderSymbol(p.gender)}</span>
                 {/if}
               </td>
-              <td class="px-3 py-2">
-                <span class="px-1.5 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">{p.tipe}</span>
+              <td class="px-3 py-2 text-xs">
+                <span class="rounded px-1.5 py-0.5" style="background:var(--surface2);color:var(--text-dim)">{p.tipe}</span>
               </td>
               <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.kontak ?? '—'}</td>
               <td class="px-3 py-2 text-right text-xs" style="color:{p.saldo_piutang > 0 ? 'var(--warn)' : 'var(--text-dim)'}">
                 {p.saldo_piutang > 0 ? rupiah(p.saldo_piutang) : '—'}
               </td>
-              <td class="px-3 py-2">
+              <td class="px-3 py-2 text-xs">
                 {#if p.no_kartu}
-                  <div class="text-xs">
-                    <span class="font-mono" style="color:var(--accent)">{p.no_kartu}</span>
-                    <span class="ml-1.5 font-bold" style="{TIER_COLOR[p.tier ?? 'reguler']}">{TIER_LABEL[p.tier ?? 'reguler']}</span>
-                    <span class="ml-1.5" style="color:var(--info)">{p.poin ?? 0} poin</span>
-                    {#if p.diskon_member && p.diskon_member > 0}
-                      <span class="ml-1.5" style="color:var(--accent)">−{p.diskon_member}%</span>
-                    {/if}
-                  </div>
+                  <span class="font-mono" style="color:var(--accent)">{p.no_kartu}</span>
+                  {#if p.tier}
+                    <span class="ml-1 font-bold" style="{TIER_COLOR[p.tier]}">{TIER_LABEL[p.tier]}</span>
+                  {/if}
                 {:else}
-                  <span class="text-xs" style="color:var(--text-dim)">—</span>
+                  <span style="color:var(--text-dim)">—</span>
                 {/if}
               </td>
               <td class="px-3 py-2">
-                <div class="flex items-center justify-center gap-1 flex-wrap">
-                  <button onclick={() => bukaEditPlg(p)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
+                <div class="flex items-center gap-1 justify-end flex-wrap">
+                  <button onclick={() => bukaEditPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
                   {#if p.no_kartu}
-                    <button onclick={() => unassignKartu(p)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--danger)">Lepas Kartu</button>
+                    <button onclick={() => unassignKartu(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Lepas Kartu</button>
                   {:else}
-                    <button onclick={() => bukaAssignKartu(p)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--accent)">+ Kartu</button>
+                    <button onclick={() => bukaAssignKartu(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--accent)">+ Kartu</button>
                   {/if}
-                  <button onclick={() => toggleAktifPlg(p)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}">
+                  <button onclick={() => toggleAktifPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}">
                     {p.is_active ? 'Nonaktif' : 'Aktifkan'}
                   </button>
                 </div>
@@ -265,8 +363,9 @@
   <div class="space-y-3">
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Kode * <span class="text-xs">(otomatis kapital)</span></label>
+        <label for="plg-kode" class="block text-xs mb-1" style="color:var(--text-dim)">Kode * <span class="text-xs">(otomatis kapital)</span></label>
         <input
+          id="plg-kode"
           bind:value={formPlg.kode_pelanggan}
           oninput={() => formPlg.kode_pelanggan = formPlg.kode_pelanggan.toUpperCase()}
           placeholder="PLG001"
@@ -275,8 +374,8 @@
         />
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Tipe</label>
-        <select bind:value={formPlg.tipe} class="w-full px-3 py-1.5 text-sm rounded border"
+        <label for="plg-tipe" class="block text-xs mb-1" style="color:var(--text-dim)">Tipe</label>
+        <select id="plg-tipe" bind:value={formPlg.tipe} class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)">
           <option value="eceran">Eceran</option>
           <option value="grosir">Grosir</option>
@@ -285,13 +384,13 @@
       </div>
     </div>
     <div>
-      <label class="block text-xs mb-1" style="color:var(--text-dim)">Nama *</label>
-      <input bind:value={formPlg.nama} placeholder="Nama pelanggan"
+      <label for="plg-nama" class="block text-xs mb-1" style="color:var(--text-dim)">Nama *</label>
+      <input id="plg-nama" bind:value={formPlg.nama} placeholder="Nama pelanggan"
         class="w-full px-3 py-1.5 text-sm rounded border"
         style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-xs mb-1" style="color:var(--text-dim)">Jenis Kelamin</label>
+      <p class="block text-xs mb-1" style="color:var(--text-dim)">Jenis Kelamin</p>
       <div class="flex gap-2">
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label for="gender-pria" class="flex items-center gap-1.5 text-sm cursor-pointer px-3 py-1.5 rounded border flex-1 justify-center"
@@ -309,27 +408,27 @@
         <label for="gender-kosong" class="flex items-center gap-1.5 text-sm cursor-pointer px-3 py-1.5 rounded border flex-1 justify-center"
           style="border-color:var(--border);{formPlg.gender === '' ? 'background:var(--surface2)' : ''}">
           <input id="gender-kosong" type="radio" bind:group={formPlg.gender} value="" class="sr-only" />
-          <span style="color:var(--text-dim)">— Tidak diisi</span>
+          <span style="color:var(--text-dim)">Tidak diisi</span>
         </label>
       </div>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">No. HP</label>
-        <input bind:value={formPlg.kontak} placeholder="08xx..."
+        <label for="plg-kontak" class="block text-xs mb-1" style="color:var(--text-dim)">No. HP</label>
+        <input id="plg-kontak" bind:value={formPlg.kontak} placeholder="08xx..."
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Limit Piutang (Rp)</label>
-        <input type="number" bind:value={formPlg.limit_piutang} min="0"
+        <label for="plg-limit" class="block text-xs mb-1" style="color:var(--text-dim)">Limit Piutang (Rp)</label>
+        <input id="plg-limit" type="number" bind:value={formPlg.limit_piutang} min="0"
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
     </div>
     <div>
-      <label class="block text-xs mb-1" style="color:var(--text-dim)">Alamat</label>
-      <textarea bind:value={formPlg.alamat} rows="2" placeholder="Opsional"
+      <label for="plg-alamat" class="block text-xs mb-1" style="color:var(--text-dim)">Alamat</label>
+      <textarea id="plg-alamat" bind:value={formPlg.alamat} rows="2" placeholder="Opsional"
         class="w-full px-3 py-1.5 text-sm rounded border resize-none"
         style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
     </div>
@@ -360,9 +459,10 @@
     {:else}
       <!-- Search kartu -->
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Cari No. Kartu (min. 3 digit)</label>
+        <label for="plg-cari-kartu" class="block text-xs mb-1" style="color:var(--text-dim)">Cari No. Kartu (min. 3 digit)</label>
         <div class="relative">
           <input
+            id="plg-cari-kartu"
             bind:value={kartuSearchQ}
             oninput={cariKartu}
             placeholder="Ketik min. 3 digit nomor kartu..."

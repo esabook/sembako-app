@@ -1,4 +1,7 @@
-const BASE_URL = import.meta.env.PUBLIC_API_URL ?? 'http://localhost:3000'
+// Relatif URL agar works dari device mana pun (HP, laptop, dll)
+// Di dev: Vite proxy forward /api → localhost:3000
+// Di prod: Nginx forward /api → localhost:3000
+const BASE_URL = import.meta.env.PUBLIC_API_URL ?? '/api'
 
 type ApiResponse<T> = { success: true; data: T } | { success: false; error: string }
 
@@ -20,4 +23,12 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  upload: async <T>(path: string, formData: FormData): Promise<ApiResponse<T>> => {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    })
+    return res.json() as Promise<ApiResponse<T>>
+  },
 }

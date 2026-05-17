@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc, sql, and, gte, lte } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, sqlite } from '../db/index.ts'
 import {
@@ -24,6 +24,79 @@ function tglSekarang(): string {
 keuanganRouter.get('/kas-bank', requirePermission('hutang.lihat'), async (c) => {
   const rows = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
   return c.json({ success: true, data: rows })
+})
+
+// ── GET /keuangan/kas-bank/saldo ─────────────────────────────────────────
+
+keuanganRouter.get('/kas-bank/saldo', requirePermission('hutang.lihat'), async (c) => {
+  const rows = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
+
+  const saldoList = rows.map((kb) => {
+    const masuk = db
+      .select({ total: sql<number>`COALESCE(SUM(jumlah), 0)` })
+      .from(jurnal_kas)
+      .where(and(eq(jurnal_kas.kas_bank_id, kb.id), eq(jurnal_kas.jenis, 'masuk')))
+      .get()?.total ?? 0
+
+    const keluar = db
+      .select({ total: sql<number>`COALESCE(SUM(jumlah), 0)` })
+      .from(jurnal_kas)
+      .where(and(eq(jurnal_kas.kas_bank_id, kb.id), eq(jurnal_kas.jenis, 'keluar')))
+      .get()?.total ?? 0
+
+    return {
+      ...kb,
+      total_masuk: masuk,
+      total_keluar: keluar,
+      saldo: kb.saldo_awal + masuk - keluar,
+    }
+  })
+
+  return c.json({ success: true, data: saldoList })
+})
+
+// ── POST /keuangan/kas-bank ───────────────────────────────────────────────
+
+keuanganRouter.post('/kas-bank', requirePermission('hutang.edit'), async (c) => {
+  const body = await c.req.json<{ nama: string; tipe: 'kas' | 'bank'; saldo_awal?: number }>()
+  if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama wajib diisi' })
+  if (!['kas', 'bank'].includes(body.tipe)) throw new HTTPException(400, { message: 'Tipe tidak valid' })
+
+  const row = db.insert(kas_bank).values({
+    nama: body.nama.trim(),
+    tipe: body.tipe,
+    saldo_awal: body.saldo_awal ?? 0,
+  }).returning().get()
+
+  return c.json({ success: true, data: row }, 201)
+})
+
+// ── PUT /keuangan/kas-bank/:id ────────────────────────────────────────────
+
+keuanganRouter.put('/kas-bank/:id', requirePermission('hutang.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json<{ nama?: string; saldo_awal?: number }>()
+
+  const kb = db.select().from(kas_bank).where(eq(kas_bank.id, id)).get()
+  if (!kb) throw new HTTPException(404, { message: 'Akun tidak ditemukan' })
+
+  const row = db.update(kas_bank)
+    .set({
+      nama: body.nama?.trim() ?? kb.nama,
+      saldo_awal: body.saldo_awal ?? kb.saldo_awal,
+    })
+    .where(eq(kas_bank.id, id))
+    .returning().get()
+
+  return c.json({ success: true, data: row })
+})
+
+// ── DELETE /keuangan/kas-bank/:id (soft) ─────────────────────────────────
+
+keuanganRouter.delete('/kas-bank/:id', requirePermission('hutang.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  db.update(kas_bank).set({ is_active: false }).where(eq(kas_bank.id, id)).run()
+  return c.json({ success: true })
 })
 
 // ── GET /keuangan/hutang ──────────────────────────────────────────────────
@@ -212,8 +285,16 @@ keuanganRouter.post('/piutang/:id/bayar', requirePermission('piutang.edit'), asy
 })
 
 // ── GET /keuangan/jurnal ──────────────────────────────────────────────────
+// Query params: dari=YYYY-MM-DD, sampai=YYYY-MM-DD, kas_bank_id=N
 
 keuanganRouter.get('/jurnal', requirePermission('hutang.lihat'), async (c) => {
+  const { dari, sampai, kas_bank_id } = c.req.query()
+
+  const conditions = []
+  if (dari) conditions.push(gte(jurnal_kas.tanggal, dari))
+  if (sampai) conditions.push(lte(jurnal_kas.tanggal, sampai))
+  if (kas_bank_id) conditions.push(eq(jurnal_kas.kas_bank_id, Number(kas_bank_id)))
+
   const rows = db
     .select({
       id: jurnal_kas.id,
@@ -229,8 +310,9 @@ keuanganRouter.get('/jurnal', requirePermission('hutang.lihat'), async (c) => {
     })
     .from(jurnal_kas)
     .leftJoin(kas_bank, eq(jurnal_kas.kas_bank_id, kas_bank.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(jurnal_kas.tanggal))
-    .limit(200)
+    .limit(500)
     .all()
 
   return c.json({ success: true, data: rows })

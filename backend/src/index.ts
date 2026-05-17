@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { HTTPException } from 'hono/http-exception'
+import { join } from 'node:path'
+import { Scalar } from '@scalar/hono-api-reference'
+import { openAPISpec } from './openapi.ts'
 import { authRouter } from './routes/auth.ts'
 import { barangRouter } from './routes/barang.ts'
 import { supplierRouter } from './routes/supplier.ts'
@@ -19,6 +22,14 @@ import { dashboardRouter } from './routes/dashboard.ts'
 import { absensiRouter } from './routes/absensi.ts'
 import { kasbonRouter } from './routes/kasbon.ts'
 import { penggajianRouter } from './routes/penggajian.ts'
+import { scanRelayRouter } from './routes/scan_relay.ts'
+import { shiftRouter } from './routes/shift.ts'
+import { pengaturanRouter } from './routes/pengaturan.ts'
+import { hargaRouter } from './routes/harga.ts'
+import { returPenjualanRouter } from './routes/retur-penjualan.ts'
+import { notifikasiRouter } from './routes/notifikasi.ts'
+import { auditRouter } from './routes/audit.ts'
+import { budgetTargetRouter } from './routes/budget-target.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
 type Variables = { user: JWTPayload }
@@ -41,6 +52,18 @@ app.onError((err, c) => {
 
 app.get('/health', (c) => c.json({ success: true, data: { status: 'ok' } }))
 
+app.get('/openapi.json', (c) => c.json(openAPISpec))
+app.get('/doc', Scalar({ spec: { url: '/openapi.json' }, pageTitle: 'Sembako App API' }))
+
+// Serve uploaded files
+app.get('/uploads/*', async (c) => {
+  const relativePath = c.req.path.replace(/^\/uploads\//, '')
+  const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../uploads')
+  const file = Bun.file(join(uploadDir, relativePath))
+  if (!await file.exists()) return c.notFound()
+  return new Response(file)
+})
+
 app.route('/auth', authRouter)
 app.route('/barang', barangRouter)
 app.route('/supplier', supplierRouter)
@@ -58,6 +81,14 @@ app.route('/dashboard', dashboardRouter)
 app.route('/absensi', absensiRouter)
 app.route('/kasbon', kasbonRouter)
 app.route('/penggajian', penggajianRouter)
+app.route('/scan-relay', scanRelayRouter)
+app.route('/shift', shiftRouter)
+app.route('/pengaturan', pengaturanRouter)
+app.route('/harga', hargaRouter)
+app.route('/retur-penjualan', returPenjualanRouter)
+app.route('/notifikasi', notifikasiRouter)
+app.route('/audit', auditRouter)
+app.route('/budget-target', budgetTargetRouter)
 
 const PORT = Number(process.env.PORT ?? 3000)
 console.log(`Backend berjalan di http://localhost:${PORT}`)

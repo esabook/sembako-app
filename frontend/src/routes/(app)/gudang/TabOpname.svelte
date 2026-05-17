@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
+	import { user } from '$lib/stores/auth.js';
+	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import TabOpnameGuide from './TabOpnameGuide.svelte';
 
 	type OpnameRow = { id: number; no_opname: string; tanggal_mulai: string; tanggal_selesai: string | null; status: string };
@@ -65,7 +67,10 @@
 		opnameAktif = null; await muatOpname();
 	}
 
-	onMount(() => muatOpname().then(() => muatOpnameAktif()));
+	onMount(() => {
+		muatOpname().then(() => muatOpnameAktif());
+		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => { opnameFilter = kode; });
+	});
 </script>
 
 <div class="flex flex-col gap-4">

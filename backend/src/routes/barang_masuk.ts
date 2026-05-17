@@ -10,6 +10,9 @@ import {
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
+import sharp from 'sharp'
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 export const barangMasukRouter = new Hono()
 
@@ -38,6 +41,7 @@ barangMasukRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
       nama_supplier: supplier.nama_supplier,
       no_faktur_supplier: barang_masuk.no_faktur_supplier,
       total_nilai: barang_masuk.total_nilai,
+      foto_faktur_path: barang_masuk.foto_faktur_path,
     })
     .from(barang_masuk)
     .leftJoin(supplier, eq(barang_masuk.supplier_id, supplier.id))
@@ -186,4 +190,35 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
   })()
 
   return c.json({ success: true, data: result }, 201)
+})
+
+// ── Upload Foto Faktur ────────────────────────────────────────────────────
+
+barangMasukRouter.post('/:id/foto', requirePermission('pembelian.buat'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const existing = db.select().from(barang_masuk).where(eq(barang_masuk.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Penerimaan tidak ditemukan' })
+
+  const formData = await c.req.formData()
+  const file = formData.get('foto') as File | null
+  if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
+  if (!file.type.startsWith('image/')) throw new HTTPException(400, { message: 'File harus berupa gambar' })
+
+  const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../../uploads')
+  const invoiceDir = join(uploadDir, 'invoice')
+  mkdirSync(invoiceDir, { recursive: true })
+
+  const filename = `${id}_${Date.now()}.jpg`
+  const buf = Buffer.from(await file.arrayBuffer())
+
+  // Invoice disimpan resolusi tinggi (teks faktur harus terbaca)
+  await sharp(buf).jpeg({ quality: 90 }).toFile(join(invoiceDir, filename))
+
+  const fotoPath = `invoice/${filename}`
+  db.update(barang_masuk)
+    .set({ foto_faktur_path: fotoPath })
+    .where(eq(barang_masuk.id, id))
+    .run()
+
+  return c.json({ success: true, data: { foto_faktur_path: fotoPath } })
 })

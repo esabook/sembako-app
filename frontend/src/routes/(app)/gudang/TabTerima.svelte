@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
+	import { user } from '$lib/stores/auth.js';
+	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import TabTerimaGuide from './TabTerimaGuide.svelte';
 
 	type Barang = { id: number; kode_barang: string; nama_barang: string; harga_beli_terakhir: number; stok_sekarang: number; };
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean; };
-	type BarangMasuk = { id: number; no_penerimaan: string; tanggal_terima: string; nama_supplier: string | null; no_faktur_supplier: string | null; total_nilai: number; };
+	type BarangMasuk = { id: number; no_penerimaan: string; tanggal_terima: string; nama_supplier: string | null; no_faktur_supplier: string | null; total_nilai: number; foto_faktur_path: string | null; };
 
 	let bmList = $state<BarangMasuk[]>([]);
 	let supplierList = $state<Supplier[]>([]);
@@ -17,6 +19,14 @@
 	let bmSearchRes = $state<Barang[]>([]);
 	let bmLoading = $state(false);
 	let error = $state('');
+	let fotoFakturFile = $state<File | null>(null);
+	let fotoFakturPreview = $state('');
+
+	function handleFotoFakturChange(e: Event) {
+		const file = (e.target as HTMLInputElement).files?.[0] ?? null;
+		fotoFakturFile = file;
+		if (file) fotoFakturPreview = URL.createObjectURL(file);
+	}
 
 	function rupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
 
@@ -51,11 +61,27 @@
 		});
 		bmLoading = false;
 		if (!r.success) { error = (r as { success: false; error: string }).error; return; }
+
+		const savedId = (r as { success: true; data: { id: number } }).data.id;
+		if (fotoFakturFile && savedId) {
+			const fd = new FormData();
+			fd.append('foto', fotoFakturFile);
+			await api.upload(`/barang-masuk/${savedId}/foto`, fd);
+		}
+
 		bmSupplier = ''; bmNoFaktur = ''; bmTerms = ''; bmItems = [];
+		fotoFakturFile = null; fotoFakturPreview = '';
 		muatBM();
 	}
 
-	onMount(() => { muatBM(); muatSupplier(); });
+	onMount(() => {
+		muatBM();
+		muatSupplier();
+		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => {
+			bmSearchVal = kode;
+			cariBM(kode);
+		});
+	});
 </script>
 
 <div class="flex gap-6">
@@ -78,6 +104,18 @@
 				<label for="bm-terms" class="text-xs" style="color:var(--text-dim)">TEMPO BAYAR (hari)</label>
 				<input id="bm-terms" type="number" min="0" bind:value={bmTerms} placeholder="dari supplier" class="px-2 py-1.5 rounded border outline-none text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
 			</div>
+		</div>
+		<!-- Foto faktur -->
+		<div class="flex items-center gap-3">
+			<div class="flex flex-col gap-1">
+				<label for="bm-foto" class="text-xs" style="color:var(--text-dim)">FOTO FAKTUR</label>
+				<input id="bm-foto" type="file" accept="image/*" onchange={handleFotoFakturChange} class="text-xs" style="color:var(--text)" />
+			</div>
+			{#if fotoFakturPreview}
+				<img src={fotoFakturPreview} alt="preview faktur"
+					class="rounded object-contain mt-4 shrink-0"
+					style="height:64px;max-width:100px;border:1px solid var(--border);background:var(--surface2)" />
+			{/if}
 		</div>
 		<div class="relative">
 			<input type="text" placeholder="Cari / scan barang..." bind:value={bmSearchVal} oninput={() => cariBM(bmSearchVal)} class="w-full px-3 py-1.5 rounded border text-sm outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
@@ -128,7 +166,13 @@
 		<div class="flex flex-col gap-2">
 			{#each bmList.slice(0, 10) as bm}
 			<div class="rounded border p-3 text-xs" style="background:var(--surface);border-color:var(--border)">
-				<div class="font-bold" style="color:var(--accent)">{bm.no_penerimaan}</div>
+				<div class="flex justify-between items-start">
+					<div class="font-bold" style="color:var(--accent)">{bm.no_penerimaan}</div>
+					{#if bm.foto_faktur_path}
+						<a href="/uploads/{bm.foto_faktur_path}" target="_blank" title="Lihat faktur"
+							style="color:var(--info)">🧾</a>
+					{/if}
+				</div>
 				<div style="color:var(--text-dim)">{bm.nama_supplier ?? '-'} · {bm.tanggal_terima.slice(0, 10)}</div>
 				<div class="mt-1 font-bold">{rupiah(bm.total_nilai)}</div>
 			</div>

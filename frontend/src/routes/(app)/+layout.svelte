@@ -1,15 +1,17 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { api } from '$lib/utils/api.js';
+	import { page } from '$app/state';
 	import { user, type Role } from '$lib/stores/auth.js';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import NavClock from '$lib/components/NavClock.svelte';
 	import NavUser from '$lib/components/NavUser.svelte';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
-	let navExpanded = $state(true);
+	$effect(() => {
+		user.set(data.user as import('$lib/stores/auth.js').User);
+	});
+
+	let navExpanded = $state(false);
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const IDLE_MS = 10_000;
@@ -30,26 +32,17 @@
 		}
 	}
 
-	onMount(async () => {
-		if (!$user) {
-			const res = await api.get<{ id: number; nama: string; role: string }>('/auth/me');
-			if (res.success) {
-				user.set(res.data as import('$lib/stores/auth.js').User);
-			} else {
-				goto('/login');
-			}
-		}
+	onMount(() => {
 		resetIdle();
 		window.addEventListener('mousemove', resetIdle, { passive: true });
 		window.addEventListener('keydown', resetIdle, { passive: true });
 		window.addEventListener('pointerdown', resetIdle, { passive: true });
-	});
-
-	onDestroy(() => {
-		if (idleTimer) clearTimeout(idleTimer);
-		window.removeEventListener('mousemove', resetIdle);
-		window.removeEventListener('keydown', resetIdle);
-		window.removeEventListener('pointerdown', resetIdle);
+		return () => {
+			if (idleTimer) clearTimeout(idleTimer);
+			window.removeEventListener('mousemove', resetIdle);
+			window.removeEventListener('keydown', resetIdle);
+			window.removeEventListener('pointerdown', resetIdle);
+		};
 	});
 
 	const NAV: { href: string; label: string; roles: Role[] }[] = [
@@ -59,7 +52,9 @@
 		{ href: '/gudang', label: 'Gudang', roles: ['pemilik', 'manajer', 'gudang'] },
 		{ href: '/karyawan', label: 'Karyawan', roles: ['pemilik', 'manajer'] },
 		{ href: '/keuangan', label: 'Keuangan', roles: ['pemilik', 'manajer'] },
-		{ href: '/laporan', label: 'Laporan', roles: ['pemilik', 'manajer'] }
+		{ href: '/laporan', label: 'Laporan', roles: ['pemilik', 'manajer'] },
+		{ href: '/harga', label: 'Harga', roles: ['pemilik', 'manajer'] },
+		{ href: '/pengaturan', label: 'Pengaturan', roles: ['pemilik'] }
 	];
 
 	function bolehAkses(roles: Role[]): boolean {
@@ -113,15 +108,15 @@
 			</svg>
 		</button>
 
-		<!-- Nav links -->
+		<!-- Nav links — desktop only -->
 		{#if navExpanded}
-			<div class="flex items-center gap-1 overflow-x-auto">
+			<div class="hidden items-center gap-1 overflow-x-auto md:flex">
 				{#each NAV as item}
 					{#if bolehAkses(item.roles)}
 						<a
 							href={item.href}
 							class="rounded px-2 py-1 whitespace-nowrap transition-colors"
-							style={$page.url.pathname.startsWith(item.href)
+							style={page.url.pathname.startsWith(item.href)
 								? 'background:var(--surface2);color:var(--text)'
 								: 'color:var(--text-dim)'}>{item.label}</a
 						>
@@ -135,6 +130,29 @@
 			<NavUser />
 		</div>
 	</nav>
+
+	<!-- Nav links — mobile dropdown -->
+	{#if navExpanded}
+		<div
+			class="flex flex-col border-b md:hidden"
+			style="background:var(--surface);border-color:var(--border)"
+		>
+			{#each NAV as item}
+				{#if bolehAkses(item.roles)}
+					<a
+						href={item.href}
+						onclick={() => {
+							navExpanded = false;
+						}}
+						class="border-b px-4 py-3 text-sm transition-colors last:border-0"
+						style={page.url.pathname.startsWith(item.href)
+							? 'background:var(--surface2);color:var(--text);border-color:var(--border)'
+							: 'color:var(--text-dim);border-color:var(--border)'}>{item.label}</a
+					>
+				{/if}
+			{/each}
+		</div>
+	{/if}
 
 	<!-- Konten -->
 	<main class="flex min-h-0 flex-1 flex-col p-4">

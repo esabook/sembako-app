@@ -27,6 +27,7 @@
   let kartuQuery   = $state('')
   let kartuFilter  = $state<'semua' | 'assigned' | 'available'>('semua')
   let kartuLoading = $state(false)
+  let viewMode     = $state<'grid' | 'list'>('grid')
 
   let modalGenerateOpen = $state(false)
   let formGenerate      = $state({ tier: 'reguler' as Kartu['tier'], diskon_member: '0', jumlah: '1' })
@@ -159,78 +160,163 @@
   }
 </script>
 
+<!-- action bar -->
 <div class="space-y-3">
-  <div class="flex items-center justify-between flex-wrap gap-2">
-    <div class="flex gap-2 flex-wrap flex-1">
-      <input
-        bind:value={kartuQuery}
-        placeholder="Cari nomor kartu..."
-        class="px-3 py-1.5 text-sm rounded border flex-1 min-w-40"
-        style="background:var(--surface);border-color:var(--border);color:var(--text)"
-      />
+  <div class="flex items-center gap-2">
+    <input
+      bind:value={kartuQuery}
+      placeholder="Cari nomor kartu..."
+      class="px-3 py-1.5 text-sm rounded border flex-1 min-w-0 outline-none"
+      style="background:var(--surface);border-color:var(--border);color:var(--text)"
+    />
+    <div class="flex items-center gap-1.5 shrink-0">
       <select
         bind:value={kartuFilter}
-        class="px-3 py-1.5 text-sm rounded border"
+        class="px-2 py-1.5 text-sm rounded border"
         style="background:var(--surface);border-color:var(--border);color:var(--text)"
       >
         <option value="semua">Semua</option>
         <option value="available">Tersedia</option>
-        <option value="assigned">Sudah Assign</option>
+        <option value="assigned">Assigned</option>
       </select>
+      <button
+        onclick={() => (viewMode = 'grid')}
+        title="Tampilan grid"
+        class="p-1.5 rounded border transition-colors"
+        style="{viewMode === 'grid' ? 'background:var(--surface2);border-color:var(--accent);color:var(--accent)' : 'border-color:var(--border);color:var(--text-dim)'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <rect x="0" y="0" width="6" height="6" rx="1"/><rect x="8" y="0" width="6" height="6" rx="1"/>
+          <rect x="0" y="8" width="6" height="6" rx="1"/><rect x="8" y="8" width="6" height="6" rx="1"/>
+        </svg>
+      </button>
+      <button
+        onclick={() => (viewMode = 'list')}
+        title="Tampilan list"
+        class="p-1.5 rounded border transition-colors"
+        style="{viewMode === 'list' ? 'background:var(--surface2);border-color:var(--accent);color:var(--accent)' : 'border-color:var(--border);color:var(--text-dim)'}"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+          <rect x="0" y="1" width="14" height="2" rx="1"/><rect x="0" y="6" width="14" height="2" rx="1"/>
+          <rect x="0" y="11" width="14" height="2" rx="1"/>
+        </svg>
+      </button>
+      <button
+        onclick={bukaGenerate}
+        class="px-3 py-1.5 text-sm rounded font-medium whitespace-nowrap"
+        style="background:var(--accent);color:var(--bg)"
+      >+ Generate</button>
     </div>
-    <button
-      onclick={bukaGenerate}
-      class="px-3 py-1.5 text-sm rounded font-medium"
-      style="background:var(--accent);color:var(--bg)"
-    >+ Generate Kartu</button>
   </div>
 
   {#if kartuLoading}
     <p class="text-sm" style="color:var(--text-dim)">Memuat...</p>
   {:else if kartuList.length === 0}
     <p class="text-sm" style="color:var(--text-dim)">Belum ada kartu. Klik "Generate Kartu" untuk membuat.</p>
+  {:else if viewMode === 'grid'}
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {#each kartuList as k (k.id)}
+        <div
+          class="flex flex-col gap-2 rounded border p-3 text-sm"
+          style="background:var(--surface);border-color:var(--border)"
+        >
+          <!-- No. Kartu + Tier -->
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono font-bold tracking-widest" style="color:var(--accent)">{k.no_kartu}</span>
+            <span class="font-bold text-xs" style="{TIER_COLOR[k.tier]}">{TIER_LABEL[k.tier]}</span>
+          </div>
+
+          <!-- Diskon + Poin -->
+          <div class="flex items-center justify-between text-xs">
+            <span style="color:{k.diskon_member > 0 ? 'var(--accent)' : 'var(--text-dim)'}">
+              {k.diskon_member > 0 ? `−${k.diskon_member}%` : '—'}
+            </span>
+            <span style="color:var(--info)">{k.poin} poin</span>
+          </div>
+
+          <!-- Pelanggan / Tersedia -->
+          <div class="flex items-center justify-between gap-2 border-t pt-2 text-xs" style="border-color:var(--border)">
+            {#if k.pelanggan_nama}
+              <div class="min-w-0">
+                <div class="truncate font-medium" style="color:var(--text)">{k.pelanggan_nama}</div>
+                <div class="font-mono" style="color:var(--text-dim)">{k.pelanggan_kode}</div>
+              </div>
+              <button
+                onclick={() => unassignKartu(k)}
+                class="shrink-0 rounded border px-2 py-1 transition-colors"
+                style="border-color:var(--border);color:var(--warn)"
+              >Lepas</button>
+            {:else}
+              <span class="rounded px-1.5 py-0.5" style="background:var(--surface2);color:var(--accent)">Tersedia</span>
+              <button
+                onclick={() => bukaAssignKartu(k)}
+                class="shrink-0 rounded border px-2 py-1 transition-colors"
+                style="border-color:var(--border);color:var(--accent)"
+              >Assign</button>
+            {/if}
+          </div>
+
+          <!-- Aksi bawah -->
+          <div class="flex items-center gap-1.5 border-t pt-2" style="border-color:var(--border)">
+            <button
+              onclick={() => bukaEditKartu(k)}
+              class="rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:var(--text-dim)"
+            >Edit</button>
+            <button
+              onclick={() => bukaPoin(k)}
+              class="rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:var(--info)"
+            >Poin</button>
+            <button
+              onclick={() => nonaktifkanKartu(k)}
+              class="ml-auto rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:var(--danger)"
+            >Nonaktif</button>
+          </div>
+        </div>
+      {/each}
+    </div>
   {:else}
-    <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
-      <table class="w-full text-sm">
+    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
+      <table class="w-full text-sm border-collapse">
         <thead>
-          <tr style="background:var(--surface2);color:var(--text-dim)">
-            <th class="text-left px-3 py-2 font-medium">No. Kartu</th>
-            <th class="text-left px-3 py-2 font-medium">Tier</th>
-            <th class="text-center px-3 py-2 font-medium">Diskon</th>
-            <th class="text-center px-3 py-2 font-medium">Poin</th>
-            <th class="text-left px-3 py-2 font-medium">Pelanggan</th>
-            <th class="text-center px-3 py-2 font-medium">Aksi</th>
+          <tr style="background:var(--surface2)">
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">No. Kartu</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Tier</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Diskon</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Poin</th>
+            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Pelanggan</th>
+            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Aksi</th>
           </tr>
         </thead>
         <tbody>
           {#each kartuList as k (k.id)}
             <tr class="border-t" style="border-color:var(--border)">
               <td class="px-3 py-2 font-mono font-bold tracking-widest" style="color:var(--accent)">{k.no_kartu}</td>
-              <td class="px-3 py-2">
-                <span class="font-bold text-xs" style="{TIER_COLOR[k.tier]}">{TIER_LABEL[k.tier]}</span>
-              </td>
-              <td class="px-3 py-2 text-center text-xs" style="color:{k.diskon_member > 0 ? 'var(--accent)' : 'var(--text-dim)'}">
+              <td class="px-3 py-2 text-xs font-bold" style="{TIER_COLOR[k.tier]}">{TIER_LABEL[k.tier]}</td>
+              <td class="px-3 py-2 text-right text-xs" style="color:{k.diskon_member > 0 ? 'var(--accent)' : 'var(--text-dim)'}">
                 {k.diskon_member > 0 ? `−${k.diskon_member}%` : '—'}
               </td>
-              <td class="px-3 py-2 text-center text-xs" style="color:var(--info)">{k.poin}</td>
+              <td class="px-3 py-2 text-right text-xs" style="color:var(--info)">{k.poin}</td>
               <td class="px-3 py-2 text-xs">
                 {#if k.pelanggan_nama}
-                  <div style="color:var(--text)">{k.pelanggan_nama}</div>
-                  <div style="color:var(--text-dim)">{k.pelanggan_kode}</div>
+                  <div class="font-medium" style="color:var(--text)">{k.pelanggan_nama}</div>
+                  <div class="font-mono text-xs" style="color:var(--text-dim)">{k.pelanggan_kode}</div>
                 {:else}
-                  <span class="px-1.5 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--accent)">Tersedia</span>
+                  <span class="rounded px-1.5 py-0.5" style="background:var(--surface2);color:var(--accent)">Tersedia</span>
                 {/if}
               </td>
               <td class="px-3 py-2">
-                <div class="flex items-center justify-center gap-1 flex-wrap">
-                  <button onclick={() => bukaEditKartu(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
-                  <button onclick={() => bukaPoin(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--info)">Poin</button>
-                  {#if k.pelanggan_id}
-                    <button onclick={() => unassignKartu(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--warn)">Lepas</button>
+                <div class="flex items-center gap-1 justify-end flex-wrap">
+                  <button onclick={() => bukaEditKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
+                  <button onclick={() => bukaPoin(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--info)">Poin</button>
+                  {#if k.pelanggan_nama}
+                    <button onclick={() => unassignKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--warn)">Lepas</button>
                   {:else}
-                    <button onclick={() => bukaAssignKartu(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--accent)">Assign</button>
+                    <button onclick={() => bukaAssignKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--accent)">Assign</button>
                   {/if}
-                  <button onclick={() => nonaktifkanKartu(k)} class="text-xs px-2 py-0.5 rounded border" style="border-color:var(--border);color:var(--danger)">Nonaktif</button>
+                  <button onclick={() => nonaktifkanKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Nonaktif</button>
                 </div>
               </td>
             </tr>
@@ -247,8 +333,8 @@
     <p class="text-xs" style="color:var(--text-dim)">Nomor kartu 10 digit akan di-generate otomatis secara acak dan unik.</p>
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Tier Default</label>
-        <select bind:value={formGenerate.tier} class="w-full px-3 py-1.5 text-sm rounded border"
+        <label for="kartu-tier-default" class="block text-xs mb-1" style="color:var(--text-dim)">Tier Default</label>
+        <select id="kartu-tier-default" bind:value={formGenerate.tier} class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)">
           <option value="reguler">Reguler</option>
           <option value="silver">Silver</option>
@@ -256,15 +342,15 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Diskon Member (%)</label>
-        <input type="number" bind:value={formGenerate.diskon_member} min="0" max="100" step="0.5" placeholder="0"
+        <label for="kartu-diskon-member" class="block text-xs mb-1" style="color:var(--text-dim)">Diskon Member (%)</label>
+        <input id="kartu-diskon-member" type="number" bind:value={formGenerate.diskon_member} min="0" max="100" step="0.5" placeholder="0"
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
     </div>
     <div>
-      <label class="block text-xs mb-1" style="color:var(--text-dim)">Jumlah Kartu (maks. 50)</label>
-      <input type="number" bind:value={formGenerate.jumlah} min="1" max="50" placeholder="1"
+      <label for="kartu-jumlah" class="block text-xs mb-1" style="color:var(--text-dim)">Jumlah Kartu (maks. 50)</label>
+      <input id="kartu-jumlah" type="number" bind:value={formGenerate.jumlah} min="1" max="50" placeholder="1"
         class="w-full px-3 py-1.5 text-sm rounded border"
         style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
@@ -281,8 +367,8 @@
   <div class="space-y-3">
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Tier</label>
-        <select bind:value={formEditKartu.tier} class="w-full px-3 py-1.5 text-sm rounded border"
+        <label for="kartu-tier" class="block text-xs mb-1" style="color:var(--text-dim)">Tier</label>
+        <select id="kartu-tier" bind:value={formEditKartu.tier} class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)">
           <option value="reguler">Reguler</option>
           <option value="silver">Silver</option>
@@ -290,8 +376,8 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Diskon (%)</label>
-        <input type="number" bind:value={formEditKartu.diskon_member} min="0" max="100" step="0.5"
+        <label for="kartu-diskon" class="block text-xs mb-1" style="color:var(--text-dim)">Diskon (%)</label>
+        <input id="kartu-diskon" type="number" bind:value={formEditKartu.diskon_member} min="0" max="100" step="0.5"
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
@@ -313,7 +399,7 @@
         <p class="text-2xl font-bold" style="color:var(--info)">{poinTarget.poin}</p>
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Operasi</label>
+        <p class="block text-xs mb-1" style="color:var(--text-dim)">Operasi</p>
         <div class="flex gap-3">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label for="poin-tambah" class="flex items-center gap-1.5 text-sm cursor-pointer" style="color:var(--text)">
@@ -326,8 +412,8 @@
         </div>
       </div>
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Jumlah Poin</label>
-        <input type="number" bind:value={formPoin.delta} min="1" placeholder="0"
+        <label for="kartu-poin-delta" class="block text-xs mb-1" style="color:var(--text-dim)">Jumlah Poin</label>
+        <input id="kartu-poin-delta" type="number" bind:value={formPoin.delta} min="1" placeholder="0"
           class="w-full px-3 py-1.5 text-sm rounded border"
           style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       </div>
@@ -356,9 +442,10 @@
     {:else}
       <!-- Search pelanggan -->
       <div>
-        <label class="block text-xs mb-1" style="color:var(--text-dim)">Cari Pelanggan (nama / no. HP / kode)</label>
+        <label for="kartu-cari-plg" class="block text-xs mb-1" style="color:var(--text-dim)">Cari Pelanggan (nama / no. HP / kode)</label>
         <div class="relative">
           <input
+            id="kartu-cari-plg"
             bind:value={plgSearchQ}
             oninput={cariPelanggan}
             placeholder="Ketik min. 2 karakter..."
