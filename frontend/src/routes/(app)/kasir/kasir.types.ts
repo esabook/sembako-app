@@ -5,6 +5,7 @@ export type BarangResult = {
 	id: number;
 	kode_barang: string;
 	nama_barang: string;
+	kategori_id: number | null;
 	harga_jual_eceran: number;
 	harga_jual_grosir: number;
 	stok_sekarang: number;
@@ -25,6 +26,17 @@ export type PelangganResult = {
 };
 
 export type ScannerStatus = 'idle' | 'connected' | 'disconnected';
+
+export type PromoAktif = {
+	id: number;
+	nama: string;
+	tipe: 'item' | 'kategori' | 'total';
+	nilai: number;
+	tipe_nilai: 'persen' | 'rupiah';
+	min_qty: number;
+	min_total: number;
+	targets: { target_tipe: 'barang' | 'kategori'; target_id: number }[];
+};
 
 export type Snap = {
 	items: import('$lib/stores/kasir').ItemKeranjang[];

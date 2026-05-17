@@ -527,3 +527,30 @@ export const budget_operasional = sqliteTable('budget_operasional', {
   dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
   ...timestamps,
 })
+
+// ─── Promo & Diskon ───────────────────────────────────────────────────────────
+
+export const promo = sqliteTable('promo', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama: text('nama').notNull(),
+  deskripsi: text('deskripsi'),
+  tipe: text('tipe', { enum: ['item', 'kategori', 'total'] }).notNull(),
+  nilai: real('nilai').notNull(),
+  tipe_nilai: text('tipe_nilai', { enum: ['persen', 'rupiah'] }).notNull().default('persen'),
+  min_qty: integer('min_qty').notNull().default(1),
+  min_total: real('min_total').notNull().default(0),
+  berlaku_mulai: text('berlaku_mulai'),
+  berlaku_sampai: text('berlaku_sampai'),
+  max_penggunaan: integer('max_penggunaan'),
+  jumlah_dipakai: integer('jumlah_dipakai').notNull().default(0),
+  aktif: integer('aktif', { mode: 'boolean' }).notNull().default(true),
+  dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...timestamps,
+})
+
+export const promo_target = sqliteTable('promo_target', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  promo_id: integer('promo_id').notNull().references(() => promo.id),
+  target_tipe: text('target_tipe', { enum: ['barang', 'kategori'] }).notNull(),
+  target_id: integer('target_id').notNull(),
+})

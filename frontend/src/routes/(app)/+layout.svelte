@@ -54,6 +54,7 @@
 		{ href: '/keuangan', label: 'Keuangan', roles: ['pemilik', 'manajer'] },
 		{ href: '/laporan', label: 'Laporan', roles: ['pemilik', 'manajer'] },
 		{ href: '/harga', label: 'Harga', roles: ['pemilik', 'manajer'] },
+		{ href: '/promo', label: 'Promo', roles: ['pemilik', 'manajer'] },
 		{ href: '/pengaturan', label: 'Pengaturan', roles: ['pemilik'] }
 	];
 

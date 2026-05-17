@@ -25,6 +25,7 @@
 		initKasirScan, cleanupKasirScan,
 		kirimStrukWA,
 		kirimNotifHutangWA,
+		loadPromoAktif, promoTotalBerlaku,
 	} from './kasir.store';
 	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
 	import { api } from '$lib/utils/api';
@@ -326,6 +327,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 
 	onMount(() => {
 		initKasirMode();
+		void loadPromoAktif();
 		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
 		void muatShiftAktif();
 		void api.get<Record<string, string>>('/pengaturan').then((res) => {
@@ -813,6 +815,21 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 									<span class="font-bold font-mono" style="color:var(--accent)">Rp {rupiah($kembalian)}</span>
 								</div>
 							{/if}
+						</div>
+					{/if}
+
+					<!-- Promo total berlaku -->
+					{#if $promoTotalBerlaku.length > 0}
+						<div class="flex flex-col gap-1">
+							{#each $promoTotalBerlaku as p (p.id)}
+								<div class="flex items-center gap-2 px-2 py-1.5 rounded text-xs"
+									style="background:var(--surface2);border:1px solid var(--accent);color:var(--accent)">
+									<span>🎁</span>
+									<span class="font-bold">{p.nama}</span>
+									<span style="color:var(--text-dim)">—</span>
+									<span>Diskon {p.tipe_nilai === 'persen' ? `${p.nilai}%` : `Rp ${new Intl.NumberFormat('id-ID').format(p.nilai)}`} berlaku!</span>
+								</div>
+							{/each}
 						</div>
 					{/if}
 

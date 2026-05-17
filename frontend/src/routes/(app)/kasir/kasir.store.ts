@@ -14,7 +14,39 @@ import { loading, toast } from '$lib/stores/ui.store';
 import { withLoading } from '$lib/utils/async';
 import { bukaWhatsApp } from '$lib/utils/wa';
 import { fetchBarang, fetchPelanggan, submitPenjualan } from './kasir.api';
-import type { BarangResult, PelangganResult, ScannerStatus, Snap } from './kasir.types';
+import type { BarangResult, PelangganResult, ScannerStatus, Snap, PromoAktif } from './kasir.types';
+import { api } from '$lib/utils/api';
+
+// ── Promo aktif ──────────────────────────────────────────────────────────────
+
+export const promoAktif = writable<PromoAktif[]>([]);
+
+export async function loadPromoAktif() {
+	const res = await api.get<PromoAktif[]>('/promo/aktif');
+	if (res.success) promoAktif.set(res.data);
+}
+
+function hitungDiskonPromo(br: BarangResult, harga: number, qty: number): number {
+	const promos = get(promoAktif);
+	let best = 0;
+	for (const p of promos) {
+		if (p.tipe === 'total') continue;
+		if (qty < p.min_qty) continue;
+		const match =
+			(p.tipe === 'item' && p.targets.some((t) => t.target_tipe === 'barang' && t.target_id === br.id)) ||
+			(p.tipe === 'kategori' && p.targets.some((t) => t.target_tipe === 'kategori' && t.target_id === br.kategori_id));
+		if (!match) continue;
+		const diskon = p.tipe_nilai === 'persen' ? Math.round(harga * p.nilai / 100) : p.nilai;
+		if (diskon > best) best = diskon;
+	}
+	return Math.min(best, harga);
+}
+
+// Promo tipe 'total' yang berlaku saat ini (dipake di checkout)
+export const promoTotalBerlaku = derived(
+	[promoAktif, total],
+	([$promos, $total]) => $promos.filter((p) => p.tipe === 'total' && $total >= p.min_total)
+);
 
 // ── UI state ─────────────────────────────────────────────────────────────────
 
@@ -102,11 +134,14 @@ export async function scanDariPhone(kode: string, qty = 1) {
 export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 	const harga =
 		get(tipeTransaksi) === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
+	const jumlahAktual = Math.min(qty, br.stok_sekarang);
+	const diskonPromo = hitungDiskonPromo(br, harga, jumlahAktual);
 	keranjang.update((k) => {
 		const idx = k.findIndex((i) => i.barang_id === br.id);
 		if (idx >= 0) {
 			const u = [...k];
-			u[idx] = { ...u[idx]!, jumlah: Math.min(u[idx]!.jumlah + qty, u[idx]!.stok_sekarang) };
+			const newJumlah = Math.min(u[idx]!.jumlah + qty, u[idx]!.stok_sekarang);
+			u[idx] = { ...u[idx]!, jumlah: newJumlah, diskon_item: hitungDiskonPromo(br, harga, newJumlah) };
 			itemAktifIdx.set(idx);
 			return u;
 		}
@@ -119,9 +154,9 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 				nama_barang: br.nama_barang,
 				satuan_id: br.satuan_dasar_id,
 				singkatan_satuan: br.singkatan_satuan ?? '',
-				jumlah: Math.min(qty, br.stok_sekarang),
+				jumlah: jumlahAktual,
 				harga_jual: harga,
-				diskon_item: 0,
+				diskon_item: diskonPromo,
 				stok_sekarang: br.stok_sekarang,
 			},
 		];
