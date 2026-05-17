@@ -6,6 +6,12 @@ import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
 export const pengaturanRouter = new Hono()
 
+// ── GET /pengaturan/publik — tanpa auth, untuk login page ─────────────────
+pengaturanRouter.get('/publik', async (c) => {
+  const row = db.select().from(toko_settings).all().find((r) => r.key === 'nama_toko')
+  return c.json({ success: true, data: { nama_toko: row?.value ?? 'Toko Sembako' } })
+})
+
 pengaturanRouter.use('*', authMiddleware)
 
 // Nilai default untuk semua key settings

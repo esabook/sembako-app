@@ -9,7 +9,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun run src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "bun run src/db/seed.ts"
+    "db:seed": "bun run src/db/seed.ts",
+    "stop": "pkill -f 'bun run src/index.ts' || true"
   },
   "dependencies": {
     "@scalar/hono-api-reference": "^0.10.16",
