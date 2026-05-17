@@ -99,6 +99,13 @@
       "when": 1779023737104,
       "tag": "0013_magical_warstar",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1779027041480,
+      "tag": "0014_clever_centennial",
+      "breakpoints": true
     }
   ]
 }

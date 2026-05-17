@@ -10,7 +10,7 @@
   import Modal from '$lib/components/Modal.svelte'
 
   // ── Tab ─────────────────────────────────────────────────────────────────────
-  type Tab = 'data' | 'absensi' | 'penggajian' | 'kasbon'
+  type Tab = 'data' | 'absensi' | 'penggajian' | 'kasbon' | 'jadwal'
   let tab = $state<Tab>('data')
 
   const canManageGaji = $derived($user?.role === 'pemilik' || $user?.role === 'manajer')
@@ -450,12 +450,139 @@
     if (!res.success) { alert((res as { success: false; error: string }).error); return }
     muatKasbon()
   }
+
+  // ── Jadwal & Shift ──────────────────────────────────────────────────────────
+
+  type TipeShift = { id: number; nama: string; jam_mulai: string; jam_selesai: string; warna: string }
+  type JadwalRow = { id: number; karyawan_id: number; nama_karyawan: string; tipe_shift_id: number; nama_shift: string; jam_mulai: string; jam_selesai: string; warna: string; tanggal: string; catatan: string | null }
+  type TukarRow = { id: number; pengaju_id: number; nama_pengaju: string; penerima_id: number; nama_penerima: string; jadwal_id: number; jadwal_penerima_id: number | null; tanggal_jadwal: string; nama_shift: string; alasan: string | null; status: 'menunggu' | 'disetujui' | 'ditolak'; created_at: string }
+
+  let tipeShiftList = $state<TipeShift[]>([])
+  let jadwalKerjaList = $state<JadwalRow[]>([])
+  let tukarList = $state<TukarRow[]>([])
+  let loadingJadwal = $state(false)
+
+  // Week navigation
+  function getMondayOf(d: Date) {
+    const day = d.getDay()
+    const diff = (day === 0 ? -6 : 1 - day)
+    const m = new Date(d)
+    m.setDate(d.getDate() + diff)
+    m.setHours(0, 0, 0, 0)
+    return m
+  }
+  let weekStart = $state(getMondayOf(new Date()))
+  const weekDays = $derived(
+    Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(weekStart)
+      d.setDate(weekStart.getDate() + i)
+      return d.toISOString().slice(0, 10)
+    })
+  )
+  const DAY_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
+
+  function prevWeek() { const d = new Date(weekStart); d.setDate(d.getDate() - 7); weekStart = d }
+  function nextWeek() { const d = new Date(weekStart); d.setDate(d.getDate() + 7); weekStart = d }
+  function thisWeek() { weekStart = getMondayOf(new Date()) }
+
+  function jadwalFor(karyawanId: number, tanggal: string) {
+    return jadwalKerjaList.filter(j => j.karyawan_id === karyawanId && j.tanggal === tanggal)
+  }
+
+  async function muatJadwal() {
+    loadingJadwal = true
+    const dari = weekDays[0]
+    const sampai = weekDays[6]
+    const [r1, r2, r3] = await Promise.all([
+      api.get<TipeShift[]>('/jadwal/tipe'),
+      api.get<JadwalRow[]>(`/jadwal?dari=${dari}&sampai=${sampai}`),
+      api.get<TukarRow[]>('/jadwal/tukar'),
+    ])
+    if (r1.success) tipeShiftList = r1.data
+    if (r2.success) jadwalKerjaList = r2.data
+    if (r3.success) tukarList = r3.data
+    loadingJadwal = false
+  }
+
+  $effect(() => { if (tab === 'jadwal') { weekStart; muatJadwal() } })
+
+  // Assign shift
+  let assignCell = $state<{ karyawan_id: number; tanggal: string } | null>(null)
+
+  async function assignShift(karyawanId: number, tanggal: string, tipeId: number) {
+    const res = await api.post('/jadwal', { karyawan_id: karyawanId, tipe_shift_id: tipeId, tanggal })
+    if (!res.success) { alert((res as { success: false; error: string }).error); return }
+    assignCell = null
+    muatJadwal()
+  }
+
+  async function hapusJadwal(id: number) {
+    if (!confirm('Hapus jadwal ini?')) return
+    await api.delete(`/jadwal/${id}`)
+    muatJadwal()
+  }
+
+  // Tipe shift CRUD
+  let modalTipeOpen = $state(false)
+  let editTipe = $state<TipeShift | null>(null)
+  let formTipe = $state({ nama: '', jam_mulai: '08:00', jam_selesai: '15:00', warna: '#00e676' })
+
+  function bukaModalTipe(t?: TipeShift) {
+    editTipe = t ?? null
+    formTipe = t ? { nama: t.nama, jam_mulai: t.jam_mulai, jam_selesai: t.jam_selesai, warna: t.warna } : { nama: '', jam_mulai: '08:00', jam_selesai: '15:00', warna: '#00e676' }
+    modalTipeOpen = true
+  }
+
+  async function simpanTipe() {
+    if (editTipe) {
+      await api.put(`/jadwal/tipe/${editTipe.id}`, formTipe)
+    } else {
+      await api.post('/jadwal/tipe', formTipe)
+    }
+    modalTipeOpen = false
+    muatJadwal()
+  }
+
+  async function hapusTipe(id: number) {
+    if (!confirm('Nonaktifkan tipe shift ini?')) return
+    await api.delete(`/jadwal/tipe/${id}`)
+    muatJadwal()
+  }
+
+  // Tukar shift
+  let modalTukarOpen = $state(false)
+  let formTukar = $state({ jadwal_id: '', penerima_id: '', alasan: '' })
+  let errorTukar = $state('')
+  const jadwalSendiri = $derived(jadwalKerjaList.filter(j => $user && j.karyawan_id === $user.id))
+
+  async function ajukanTukar() {
+    errorTukar = ''
+    if (!formTukar.jadwal_id || !formTukar.penerima_id) { errorTukar = 'Pilih jadwal dan penerima'; return }
+    const res = await api.post('/jadwal/tukar', {
+      jadwal_id: Number(formTukar.jadwal_id),
+      penerima_id: Number(formTukar.penerima_id),
+      alasan: formTukar.alasan || undefined,
+    })
+    if (!res.success) { errorTukar = (res as { success: false; error: string }).error; return }
+    modalTukarOpen = false
+    muatJadwal()
+  }
+
+  async function setujuiTukar(id: number) {
+    await api.put(`/jadwal/tukar/${id}/setujui`, {})
+    muatJadwal()
+  }
+
+  async function tolakTukar(id: number) {
+    await api.put(`/jadwal/tukar/${id}/tolak`, {})
+    muatJadwal()
+  }
 </script>
 
 <!-- ── Tab bar ──────────────────────────────────────────────────────────────── -->
 <div class="flex flex-col gap-4">
   <div class="flex gap-1 border-b" style="border-color:var(--border)">
-    {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon']] as const) as [key, label]}
+    {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift']] as const) as [key, label]}
       <button
         onclick={() => tab = key}
         class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
@@ -846,6 +973,153 @@
       </table>
     </div>
   {/if}
+
+  <!-- ════════ TAB: JADWAL SHIFT ════════════════════════════════════════════ -->
+  {#if tab === 'jadwal'}
+    <!-- Tipe Shift master -->
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-sm font-bold" style="color:var(--text-dim)">TIPE SHIFT</span>
+      <button onclick={() => bukaModalTipe()} class="text-xs px-2 py-1 rounded border"
+        style="border-color:var(--border);color:var(--accent)">+ Tambah Tipe</button>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-4">
+      {#each tipeShiftList as ts (ts.id)}
+        <div class="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-bold border"
+          style="border-color:{ts.warna};color:{ts.warna}">
+          <span>{ts.nama}</span>
+          <span style="color:var(--text-dim);font-weight:normal">{ts.jam_mulai}–{ts.jam_selesai}</span>
+          <button onclick={() => bukaModalTipe(ts)} class="ml-1 opacity-60 hover:opacity-100" title="Edit">✎</button>
+          <button onclick={() => hapusTipe(ts.id)} class="opacity-60 hover:opacity-100" title="Hapus" style="color:var(--danger)">✕</button>
+        </div>
+      {/each}
+      {#if tipeShiftList.length === 0}
+        <p class="text-xs" style="color:var(--text-dim)">Belum ada tipe shift. Tambah dulu sebelum membuat jadwal.</p>
+      {/if}
+    </div>
+
+    <!-- Week navigator -->
+    <div class="flex items-center gap-2 mb-3">
+      <button onclick={prevWeek} class="px-2 py-1 rounded text-sm border"
+        style="border-color:var(--border);color:var(--text-dim)">←</button>
+      <button onclick={thisWeek} class="px-3 py-1 rounded text-xs border"
+        style="border-color:var(--border);color:var(--text-dim)">Minggu Ini</button>
+      <button onclick={nextWeek} class="px-2 py-1 rounded text-sm border"
+        style="border-color:var(--border);color:var(--text-dim)">→</button>
+      <span class="text-sm ml-1" style="color:var(--text)">
+        {weekDays[0]} – {weekDays[6]}
+      </span>
+    </div>
+
+    <!-- Grid mingguan -->
+    {#if loadingJadwal}
+      <p class="text-xs py-4 text-center" style="color:var(--text-dim)">Memuat...</p>
+    {:else}
+      <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
+        <table class="w-full text-xs border-collapse" style="min-width:680px">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th class="px-3 py-2 text-left font-medium" style="color:var(--text-dim);min-width:120px">Karyawan</th>
+              {#each weekDays as d, i}
+                <th class="px-2 py-2 text-center font-medium" style="color:var(--text-dim);min-width:90px">
+                  <span>{DAY_LABELS[i]}</span>
+                  <span class="block text-xs opacity-60">{d.slice(5)}</span>
+                </th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each karyawanList as k (k.id)}
+              <tr style="border-top:1px solid var(--border)">
+                <td class="px-3 py-2 font-medium" style="color:var(--text)">{k.nama}</td>
+                {#each weekDays as d}
+                  {@const entries = jadwalFor(k.id, d)}
+                  <td class="px-1 py-1 text-center align-top" style="border-left:1px solid var(--border)">
+                    <div class="flex flex-col gap-1 items-center">
+                      {#each entries as entry (entry.id)}
+                        <div class="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-bold"
+                          style="background:{entry.warna}22;color:{entry.warna};border:1px solid {entry.warna}">
+                          <span>{entry.nama_shift}</span>
+                          <button onclick={() => hapusJadwal(entry.id)} class="ml-0.5 opacity-50 hover:opacity-100 text-xs leading-none" title="Hapus">✕</button>
+                        </div>
+                      {/each}
+                      {#if tipeShiftList.length > 0}
+                        {#if assignCell?.karyawan_id === k.id && assignCell?.tanggal === d}
+                          <div class="flex flex-col gap-0.5 p-1 rounded border z-10"
+                            style="background:var(--surface);border-color:var(--border)">
+                            {#each tipeShiftList as ts (ts.id)}
+                              <button onclick={() => assignShift(k.id, d, ts.id)}
+                                class="text-xs px-2 py-0.5 rounded text-left"
+                                style="color:{ts.warna};background:{ts.warna}11">
+                                {ts.nama}
+                              </button>
+                            {/each}
+                            <button onclick={() => assignCell = null} class="text-xs mt-0.5" style="color:var(--text-dim)">Batal</button>
+                          </div>
+                        {:else}
+                          <button onclick={() => assignCell = { karyawan_id: k.id, tanggal: d }}
+                            class="text-xs w-6 h-6 rounded border opacity-30 hover:opacity-100"
+                            style="border-color:var(--border);color:var(--text-dim)">+</button>
+                        {/if}
+                      {/if}
+                    </div>
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+            {#if karyawanList.length === 0}
+              <tr><td colspan="8" class="px-3 py-4 text-center text-xs" style="color:var(--text-dim)">Belum ada karyawan.</td></tr>
+            {/if}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+
+    <!-- Tukar Shift -->
+    <div class="flex items-center justify-between mt-6 mb-2">
+      <span class="text-sm font-bold" style="color:var(--text-dim)">PERMINTAAN TUKAR SHIFT</span>
+      <button onclick={() => { formTukar = { jadwal_id: '', penerima_id: '', alasan: '' }; errorTukar = ''; modalTukarOpen = true }}
+        class="text-xs px-2 py-1 rounded border" style="border-color:var(--border);color:var(--accent)">+ Ajukan Tukar</button>
+    </div>
+    {#if tukarList.length === 0}
+      <p class="text-xs" style="color:var(--text-dim)">Tidak ada permintaan tukar shift.</p>
+    {:else}
+      <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
+        <table class="w-full text-xs border-collapse">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th class="px-3 py-2 text-left" style="color:var(--text-dim)">Pengaju</th>
+              <th class="px-3 py-2 text-left" style="color:var(--text-dim)">Penerima</th>
+              <th class="px-3 py-2 text-left" style="color:var(--text-dim)">Tanggal / Shift</th>
+              <th class="px-3 py-2 text-left" style="color:var(--text-dim)">Alasan</th>
+              <th class="px-3 py-2 text-left" style="color:var(--text-dim)">Status</th>
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each tukarList as t (t.id)}
+              <tr style="border-top:1px solid var(--border)">
+                <td class="px-3 py-2">{t.nama_pengaju}</td>
+                <td class="px-3 py-2">{t.nama_penerima}</td>
+                <td class="px-3 py-2">{t.tanggal_jadwal} <span style="color:var(--text-dim)">{t.nama_shift}</span></td>
+                <td class="px-3 py-2" style="color:var(--text-dim)">{t.alasan ?? '—'}</td>
+                <td class="px-3 py-2">
+                  <span class="font-bold" style="color:{t.status === 'disetujui' ? 'var(--accent)' : t.status === 'ditolak' ? 'var(--danger)' : 'var(--warn)'}">
+                    {t.status}
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  {#if t.status === 'menunggu'}
+                    <button onclick={() => setujuiTukar(t.id)} class="mr-1.5" style="color:var(--accent)">Setujui</button>
+                    <button onclick={() => tolakTukar(t.id)} style="color:var(--danger)">Tolak</button>
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  {/if}
 </div>
 
 <!-- ── Modal: Form Karyawan ─────────────────────────────────────────────────── -->
@@ -1168,5 +1442,96 @@
         style="color:var(--text-dim)">Tutup</button>
     </div>
   </div>
+  {/snippet}
+</Modal>
+
+<!-- ── Modal: Form Tipe Shift ────────────────────────────────────────────────── -->
+<Modal bind:open={modalTipeOpen} title={editTipe ? 'Edit Tipe Shift' : 'Tambah Tipe Shift'}>
+  {#snippet children()}
+  <form onsubmit={(e) => { e.preventDefault(); simpanTipe() }} class="flex flex-col gap-3 text-sm">
+    <div class="grid grid-cols-2 gap-3">
+      <div class="flex flex-col gap-1 col-span-2">
+        <label for="ft-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label>
+        <input id="ft-nama" bind:value={formTipe.nama} required placeholder="mis. Pagi, Sore, Malam"
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="ft-mulai" class="text-xs" style="color:var(--text-dim)">JAM MULAI *</label>
+        <input id="ft-mulai" type="time" bind:value={formTipe.jam_mulai} required
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="ft-selesai" class="text-xs" style="color:var(--text-dim)">JAM SELESAI *</label>
+        <input id="ft-selesai" type="time" bind:value={formTipe.jam_selesai} required
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      <div class="flex flex-col gap-1 col-span-2">
+        <label for="ft-warna" class="text-xs" style="color:var(--text-dim)">WARNA BADGE</label>
+        <div class="flex items-center gap-2">
+          <input id="ft-warna" type="color" bind:value={formTipe.warna}
+            class="w-10 h-8 rounded border cursor-pointer"
+            style="border-color:var(--border)" />
+          <span class="text-xs px-2 py-1 rounded font-bold" style="color:{formTipe.warna};border:1px solid {formTipe.warna}">
+            {formTipe.nama || 'Preview'}
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 mt-1">
+      <button type="button" onclick={() => modalTipeOpen = false} class="px-3 py-1 rounded text-sm"
+        style="color:var(--text-dim)">Batal</button>
+      <button type="submit" class="px-3 py-1 rounded text-sm font-bold"
+        style="background:var(--accent);color:var(--bg)">Simpan</button>
+    </div>
+  </form>
+  {/snippet}
+</Modal>
+
+<!-- ── Modal: Ajukan Tukar Shift ─────────────────────────────────────────────── -->
+<Modal bind:open={modalTukarOpen} title="Ajukan Tukar Shift">
+  {#snippet children()}
+  <form onsubmit={(e) => { e.preventDefault(); ajukanTukar() }} class="flex flex-col gap-3 text-sm">
+    {#if errorTukar}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{errorTukar}</p>{/if}
+    <div class="flex flex-col gap-1">
+      <label for="ftu-jadwal" class="text-xs" style="color:var(--text-dim)">JADWAL SAYA (yang ingin ditukar) *</label>
+      <select id="ftu-jadwal" bind:value={formTukar.jadwal_id} required
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+        <option value="">-- Pilih Jadwal --</option>
+        {#each jadwalSendiri as j (j.id)}
+          <option value={String(j.id)}>{j.tanggal} — {j.nama_shift}</option>
+        {/each}
+      </select>
+      {#if jadwalSendiri.length === 0}
+        <p class="text-xs" style="color:var(--text-dim)">Tidak ada jadwal di minggu ini.</p>
+      {/if}
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="ftu-penerima" class="text-xs" style="color:var(--text-dim)">DITUKAR DENGAN *</label>
+      <select id="ftu-penerima" bind:value={formTukar.penerima_id} required
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+        <option value="">-- Pilih Karyawan --</option>
+        {#each karyawanList.filter(k => $user && k.id !== $user.id) as k}
+          <option value={String(k.id)}>{k.nama}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="ftu-alasan" class="text-xs" style="color:var(--text-dim)">ALASAN</label>
+      <input id="ftu-alasan" bind:value={formTukar.alasan} placeholder="Opsional"
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    <div class="flex justify-end gap-2 mt-1">
+      <button type="button" onclick={() => modalTukarOpen = false} class="px-3 py-1 rounded text-sm"
+        style="color:var(--text-dim)">Batal</button>
+      <button type="submit" class="px-3 py-1 rounded text-sm font-bold"
+        style="background:var(--accent);color:var(--bg)">Kirim</button>
+    </div>
+  </form>
   {/snippet}
 </Modal>

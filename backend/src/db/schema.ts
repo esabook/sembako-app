@@ -559,3 +559,38 @@ export const promo_target = sqliteTable('promo_target', {
   target_tipe: text('target_tipe', { enum: ['barang', 'kategori'] }).notNull(),
   target_id: integer('target_id').notNull(),
 })
+
+// ─── Jadwal & Shift Kerja ─────────────────────────────────────────────────────
+
+export const tipe_shift = sqliteTable('tipe_shift', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama: text('nama').notNull(),
+  jam_mulai: text('jam_mulai').notNull(),   // HH:MM
+  jam_selesai: text('jam_selesai').notNull(), // HH:MM
+  warna: text('warna').notNull().default('#00e676'), // hex color for UI badge
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...timestamps,
+})
+
+export const jadwal_kerja = sqliteTable('jadwal_kerja', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  tipe_shift_id: integer('tipe_shift_id').notNull().references(() => tipe_shift.id),
+  tanggal: text('tanggal').notNull(),       // YYYY-MM-DD
+  catatan: text('catatan'),
+  dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...timestamps,
+})
+
+export const tukar_shift = sqliteTable('tukar_shift', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pengaju_id: integer('pengaju_id').notNull().references(() => karyawan.id),
+  jadwal_id: integer('jadwal_id').notNull().references(() => jadwal_kerja.id),
+  penerima_id: integer('penerima_id').notNull().references(() => karyawan.id),
+  jadwal_penerima_id: integer('jadwal_penerima_id').references(() => jadwal_kerja.id),
+  alasan: text('alasan'),
+  status: text('status', { enum: ['menunggu', 'disetujui', 'ditolak'] }).notNull().default('menunggu'),
+  diproses_oleh: integer('diproses_oleh').references(() => karyawan.id),
+  catatan_proses: text('catatan_proses'),
+  ...timestamps,
+})
