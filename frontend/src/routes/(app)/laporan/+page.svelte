@@ -128,27 +128,29 @@
   function exportLabaRugiCsv() {
     if (!labaRugi) return
     const lr = labaRugi
-    const rows = [
-      ['LAPORAN LABA RUGI'],
-      [`Periode,${tglFmt(lr.periode.dari)} - ${tglFmt(lr.periode.sampai)}`],
+    const rows: (string | number)[][] = [
+      ['LAPORAN LABA RUGI', ''],
+      ['Periode', `${tglFmt(lr.periode.dari)} - ${tglFmt(lr.periode.sampai)}`],
       [],
-      ['PENJUALAN'],
-      [`Penjualan Bruto,${lr.penjualan.bruto}`],
-      [`Diskon,(${lr.penjualan.diskon})`],
-      [`Penjualan Bersih,${lr.penjualan.bersih}`],
-      [`Jumlah Transaksi,${lr.penjualan.jumlah_transaksi}`],
+      ['PENJUALAN', ''],
+      ['Penjualan Bruto', fmtRp(lr.penjualan.bruto)],
+      ['Diskon', `(${fmtRp(lr.penjualan.diskon)})`],
+      ['Penjualan Bersih', fmtRp(lr.penjualan.bersih)],
+      ['Jumlah Transaksi', `${lr.penjualan.jumlah_transaksi} transaksi`],
       [],
-      ['HARGA POKOK PENJUALAN'],
-      [`HPP (estimasi),(${lr.hpp})`],
-      [`Laba Kotor,${lr.laba_kotor}`],
-      [`Margin Kotor,${lr.margin_kotor_persen}%`],
+      ['HARGA POKOK PENJUALAN', ''],
+      ['HPP (estimasi)', `(${fmtRp(lr.hpp)})`],
+      ['Laba Kotor', fmtRp(lr.laba_kotor)],
+      ['Margin Kotor', `${lr.margin_kotor_persen.toFixed(1)}%`],
       [],
-      ['BIAYA OPERASIONAL'],
-      ...Object.entries(lr.biaya_operasional.per_kategori).map(([k, v]) => [`${k.replace(/_/g, ' ')},(${v})`]),
-      [`Total Biaya,(${lr.biaya_operasional.total})`],
+      ['BIAYA OPERASIONAL', ''],
+      ...Object.entries(lr.biaya_operasional.per_kategori).map(([k, v]) => [
+        k.replace(/_/g, ' '), `(${fmtRp(v)})`
+      ]),
+      ['Total Biaya', `(${fmtRp(lr.biaya_operasional.total)})`],
       [],
-      [`LABA BERSIH,${lr.laba_bersih}`],
-      [`Margin Bersih,${lr.margin_bersih_persen}%`],
+      ['LABA BERSIH', fmtRp(lr.laba_bersih)],
+      ['Margin Bersih', `${lr.margin_bersih_persen.toFixed(1)}%`],
     ]
     downloadCsv(rows.map((r) => r.join(',')).join('\n'), `laba-rugi-${lr.periode.dari}-${lr.periode.sampai}.csv`)
   }
@@ -156,18 +158,27 @@
   function exportArusKasCsv() {
     if (!arusKas) return
     const ak = arusKas
-    const rows = [
-      ['LAPORAN ARUS KAS'],
-      [`Periode,${tglFmt(ak.periode.dari)} - ${tglFmt(ak.periode.sampai)}`],
+    const rows: (string | number)[][] = [
+      ['LAPORAN ARUS KAS', ''],
+      ['Periode', `${tglFmt(ak.periode.dari)} - ${tglFmt(ak.periode.sampai)}`],
       [],
-      ['PER AKUN KAS/BANK'],
+      ['RINGKASAN', ''],
+      ['Saldo Awal', fmtRp(ak.saldo_awal)],
+      ['Total Masuk', fmtRp(ak.total_masuk)],
+      ['Total Keluar', `(${fmtRp(ak.total_keluar)})`],
+      ['Net Periode', fmtRp(ak.net)],
+      ['Saldo Akhir', fmtRp(ak.saldo_akhir)],
+      [],
+      ['PER AKUN KAS/BANK', '', '', '', '', ''],
       ['Akun', 'Saldo Awal', 'Masuk', 'Keluar', 'Net', 'Saldo Akhir'],
-      ...ak.per_akun.map((a) => [a.nama, a.saldo_awal, a.masuk, a.keluar, a.net, a.saldo_akhir]),
-      ['TOTAL', ak.saldo_awal, ak.total_masuk, ak.total_keluar, ak.net, ak.saldo_akhir],
+      ...ak.per_akun.map((a) => [a.nama, fmtRp(a.saldo_awal), fmtRp(a.masuk), fmtRp(a.keluar), fmtRp(a.net), fmtRp(a.saldo_akhir)]),
+      ['TOTAL', fmtRp(ak.saldo_awal), fmtRp(ak.total_masuk), fmtRp(ak.total_keluar), fmtRp(ak.net), fmtRp(ak.saldo_akhir)],
       [],
-      ['RINCIAN PER KATEGORI'],
+      ['RINCIAN PER KATEGORI', '', ''],
       ['Kategori', 'Masuk', 'Keluar'],
-      ...Object.entries(ak.per_kategori).map(([k, v]) => [k.replace(/_/g, ' '), v.masuk, v.keluar]),
+      ...Object.entries(ak.per_kategori).map(([k, v]) => [
+        k.replace(/_/g, ' '), v.masuk > 0 ? fmtRp(v.masuk) : '-', v.keluar > 0 ? fmtRp(v.keluar) : '-'
+      ]),
     ]
     downloadCsv(rows.map((r) => r.join(',')).join('\n'), `arus-kas-${ak.periode.dari}-${ak.periode.sampai}.csv`)
   }
@@ -175,23 +186,29 @@
   function exportNeracaCsv() {
     if (!neraca) return
     const n = neraca
-    const rows = [
-      ['NERACA'],
-      [`Per Tanggal,${tglFmt(n.per_tanggal)}`],
+    const rows: (string | number)[][] = [
+      ['NERACA', ''],
+      ['Per Tanggal', tglFmt(n.per_tanggal)],
       [],
-      ['ASET'],
-      ...n.aset.kas_bank.map((a) => [a.nama, a.saldo]),
-      [`Total Kas/Bank,${n.aset.total_kas_bank}`],
-      [`Piutang Pelanggan,${n.aset.piutang_pelanggan}`],
-      [`Nilai Persediaan,${n.aset.nilai_persediaan}`],
-      [`TOTAL ASET,${n.aset.total}`],
+      ['ASET', ''],
+      ['Kas & Bank', ''],
+      ...n.aset.kas_bank.map((a) => [`  ${a.nama}`, fmtRp(a.saldo)]),
+      ['Subtotal Kas/Bank', fmtRp(n.aset.total_kas_bank)],
+      ['Piutang Pelanggan', fmtRp(n.aset.piutang_pelanggan)],
+      ['Nilai Persediaan', fmtRp(n.aset.nilai_persediaan)],
+      ['TOTAL ASET', fmtRp(n.aset.total)],
       [],
-      ['LIABILITAS'],
-      [`Hutang Supplier,${n.liabilitas.hutang_supplier}`],
-      [`TOTAL LIABILITAS,${n.liabilitas.total}`],
+      ['LIABILITAS', ''],
+      ['Hutang Supplier', fmtRp(n.liabilitas.hutang_supplier)],
+      ['TOTAL LIABILITAS', fmtRp(n.liabilitas.total)],
       [],
-      ['MODAL'],
-      [`TOTAL MODAL,${n.modal.total}`],
+      ['MODAL', ''],
+      ['TOTAL MODAL', fmtRp(n.modal.total)],
+      [],
+      ['CEK BALANCE', ''],
+      ['Total Aset', fmtRp(n.check.aset)],
+      ['Liabilitas + Modal', fmtRp(n.check.liabilitas_plus_modal)],
+      ['Status', n.check.balanced ? 'BALANCE' : 'TIDAK BALANCE'],
     ]
     downloadCsv(rows.map((r) => r.join(',')).join('\n'), `neraca-${n.per_tanggal}.csv`)
   }
@@ -212,6 +229,10 @@
     return `${n > 0 ? '+' : ''}${n.toFixed(1)}%`
   }
 
+  function fmtRp(n: number): string {
+    return `Rp ${new Intl.NumberFormat('id-ID').format(Math.round(n))}`
+  }
+
   function tglFmt(t: string): string {
     return new Date(t).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
   }
@@ -219,8 +240,35 @@
 
 <style>
   @media print {
+    @page { margin: 1.5cm; }
+
     :global(nav), :global(.no-print) { display: none !important; }
-    :global(body) { background: white !important; color: black !important; }
+
+    /* Override CSS variables ke warna cetak — semua inline var() ikut otomatis */
+    :global(:root), :global([data-theme]) {
+      --bg: #ffffff !important;
+      --surface: #ffffff !important;
+      --surface2: #f4f4f4 !important;
+      --border: #999999 !important;
+      --text: #000000 !important;
+      --text-dim: #444444 !important;
+      --accent: #006600 !important;
+      --danger: #cc0000 !important;
+      --info: #004499 !important;
+    }
+
+    :global(body) {
+      background: white !important;
+      color: black !important;
+      font-size: 11pt !important;
+    }
+
+    /* Pastikan tabel punya border saat cetak */
+    :global(table) { border-collapse: collapse !important; width: 100% !important; }
+    :global(td), :global(th) {
+      border: 1px solid #999 !important;
+      padding: .3rem .5rem !important;
+    }
   }
 </style>
 
