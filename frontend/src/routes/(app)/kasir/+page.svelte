@@ -6,6 +6,8 @@
 		pelangganDipilih, nominalBayar, itemAktifIdx,
 		subtotal, diskonMember, diskonTotal, total, kembalian,
 		resetKasir,
+		kasirMode, initKasirMode, setModeOverride,
+		type KasirMode,
 	} from '$lib/stores/kasir';
 	import {
 		// state
@@ -44,6 +46,18 @@
 	const strukNominal  = $derived($snap ? $snap.nominal  : Number($nominalBayar));
 	const strukKembali  = $derived($snap ? $snap.kembalian : $kembalian);
 	const strukPelanggan = $derived($snap?.pelanggan ?? $pelangganDipilih);
+
+	// ── Mode GUIDED / NORMAL / PRO ────────────────────────────────────────────
+	const MODE_ORDER: KasirMode[] = ['guided', 'normal', 'pro'];
+	const MODE_LABEL: Record<KasirMode, string> = { guided: 'GUIDED', normal: 'NORMAL', pro: 'PRO' };
+	function cycleMode() {
+		const cur = $kasirMode;
+		const next = MODE_ORDER[(MODE_ORDER.indexOf(cur) + 1) % MODE_ORDER.length]!;
+		setModeOverride(next);
+	}
+
+	// Reset confirm (GUIDED mode only)
+	let konfirmasiReset = $state(false);
 
 	// ── DOM refs ──────────────────────────────────────────────────────────────
 	let searchInputEl:   HTMLInputElement | undefined = $state();
@@ -116,6 +130,12 @@
 
 	// ── Keyboard: global ──────────────────────────────────────────────────────
 	function onKeydown(e: KeyboardEvent) {
+		if (konfirmasiReset) {
+			if (e.key === 'Enter') { e.preventDefault(); konfirmasiReset = false; resetKasir(); }
+			else if (e.key === 'Escape') { e.preventDefault(); konfirmasiReset = false; }
+			return;
+		}
+
 		if ($konfirmasiHapusIdx !== null) {
 			if (e.key === 'Enter') { e.preventDefault(); hapusItem($konfirmasiHapusIdx); }
 			else if (e.key === 'Escape') { e.preventDefault(); konfirmasiHapusIdx.set(null); }
@@ -161,7 +181,10 @@
 				break;
 			case 'F12':
 				e.preventDefault();
-				if (!$popupSearch && !$popupCheckout) resetKasir();
+				if (!$popupSearch && !$popupCheckout && $keranjang.length > 0) {
+					if ($kasirMode === 'guided') konfirmasiReset = true;
+					else resetKasir();
+				}
 				break;
 			case 'Escape':
 				e.preventDefault();
@@ -302,6 +325,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 	}
 
 	onMount(() => {
+		initKasirMode();
 		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
 		void muatShiftAktif();
 		void api.get<Record<string, string>>('/pengaturan').then((res) => {
@@ -330,7 +354,25 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 	<div class="flex-1 overflow-y-auto min-h-0 rounded border" style="border-color:var(--border)">
 		{#if $keranjang.length === 0}
 			<div class="flex flex-col items-center justify-center h-full gap-3" style="color:var(--text-dim)">
-				<p class="text-sm">Keranjang kosong</p>
+				{#if $kasirMode === 'guided'}
+					<p class="text-xs font-bold tracking-widest" style="color:var(--text-dim)">PANDUAN KASIR</p>
+					<div class="flex flex-col gap-2 text-sm text-left">
+						<div class="flex items-center gap-3">
+							<span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:var(--accent);color:var(--bg)">1</span>
+							<span>Tekan <kbd class="px-1.5 py-0.5 rounded border font-mono text-xs" style="border-color:var(--border)">F3</kbd> atau klik tombol di bawah untuk cari barang</span>
+						</div>
+						<div class="flex items-center gap-3" style="opacity:0.5">
+							<span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:var(--surface2);color:var(--text-dim)">2</span>
+							<span>Tekan <kbd class="px-1.5 py-0.5 rounded border font-mono text-xs" style="border-color:var(--border)">Enter</kbd> untuk tambah barang ke keranjang</span>
+						</div>
+						<div class="flex items-center gap-3" style="opacity:0.5">
+							<span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style="background:var(--surface2);color:var(--text-dim)">3</span>
+							<span>Tekan <kbd class="px-1.5 py-0.5 rounded border font-mono text-xs" style="border-color:var(--border)">F10</kbd> untuk proses pembayaran</span>
+						</div>
+					</div>
+				{:else}
+					<p class="text-sm">Keranjang kosong</p>
+				{/if}
 				<button
 					onclick={openSearch}
 					class="px-4 py-2 rounded border text-sm font-mono transition-all"
@@ -427,10 +469,22 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 			</span>
 		</div>
 		<div class="flex items-center gap-2">
+			<!-- mode badge: klik untuk ganti manual -->
+			<button
+				onclick={cycleMode}
+				title="Mode kasir — klik untuk ganti"
+				class="px-2 py-0.5 rounded text-xs font-bold font-mono border transition-all"
+				style="{$kasirMode === 'guided'
+					? 'border-color:var(--info);color:var(--info)'
+					: $kasirMode === 'pro'
+					? 'border-color:var(--accent);color:var(--accent)'
+					: 'border-color:var(--border);color:var(--text-dim)'}">
+				{MODE_LABEL[$kasirMode]}
+			</button>
 			<a href="/kasir/retur"
 				class="px-3 py-1 rounded text-xs border transition-all"
 				style="border-color:var(--border);color:var(--text-dim)">
-				Retur
+				{$kasirMode === 'pro' ? 'Retur' : 'Retur'}
 			</a>
 			<!-- Shift indicator + buka/tutup -->
 			{#if shiftAktif}
@@ -438,28 +492,30 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 					onclick={bukaTutupShift}
 					class="px-3 py-1 rounded text-xs border transition-all"
 					style="border-color:var(--warn);color:var(--warn)">
-					F11 · Tutup Shift
+					{$kasirMode === 'pro' ? 'F11' : 'F11 · Tutup Shift'}
 				</button>
 			{:else}
 				<button
 					onclick={bukaBukaShift}
 					class="px-3 py-1 rounded text-xs border transition-all"
 					style="border-color:var(--border);color:var(--text-dim)">
-					F11 · Buka Shift
+					{$kasirMode === 'pro' ? 'F11' : 'F11 · Buka Shift'}
 				</button>
 			{/if}
 			{#if $keranjang.length > 0}
 				<button
-					onclick={() => resetKasir()}
+					onclick={() => { if ($kasirMode === 'guided') konfirmasiReset = true; else resetKasir(); }}
 					class="px-3 py-1 rounded text-xs border transition-all"
-					style="border-color:var(--border);color:var(--danger)">F12 · Reset</button>
+					style="border-color:var(--border);color:var(--danger)">
+					{$kasirMode === 'pro' ? 'F12' : 'F12 · Reset'}
+				</button>
 			{/if}
 			<button
 				onclick={openCheckout}
 				disabled={$keranjang.length === 0}
 				class="px-3 py-1 rounded font-bold text-xs disabled:opacity-40 transition-all active:scale-95"
 				style="background:var(--accent);color:var(--bg)">
-				F10 · PROSES BAYAR
+				{$kasirMode === 'pro' ? 'F10' : 'F10 · PROSES BAYAR'}
 			</button>
 		</div>
 	</div>
@@ -751,6 +807,17 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						</div>
 					{/if}
 
+					<!-- GUIDED: step hint di checkout -->
+					{#if $kasirMode === 'guided'}
+						<div class="flex gap-1 text-xs" style="color:var(--text-dim)">
+							<span class="px-1.5 rounded" style="background:var(--surface2)">① Pilih metode</span>
+							<span>→</span>
+							<span class="px-1.5 rounded" style="background:var(--surface2)">② Input nominal</span>
+							<span>→</span>
+							<span class="px-1.5 rounded" style="background:var(--surface2)">③ Klik SELESAI</span>
+						</div>
+					{/if}
+
 					<!-- actions -->
 					<div class="flex gap-2 mt-auto pt-2">
 						<button
@@ -951,6 +1018,26 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 					style="background:var(--warn);color:var(--bg)">
 					{savingShift ? 'Menyimpan...' : 'Tutup Shift'}
 				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- ─── Modal konfirmasi reset (GUIDED mode) ────────────────────────────────── -->
+{#if konfirmasiReset}
+	<div class="fixed inset-0 z-40 flex items-center justify-center" style="background:rgba(0,0,0,0.55)">
+		<div class="rounded-lg border p-6 text-center w-72" style="background:var(--surface);border-color:var(--border)">
+			<p class="font-bold mb-1">Reset keranjang?</p>
+			<p class="text-sm mb-5" style="color:var(--text-dim)">{$keranjang.length} item akan dihapus dari keranjang</p>
+			<div class="flex gap-2 justify-center">
+				<button
+					onclick={() => { konfirmasiReset = false; resetKasir(); }}
+					class="px-4 py-1.5 rounded font-bold text-sm active:scale-95 transition-all"
+					style="background:var(--danger);color:#fff">Ya, reset (Enter)</button>
+				<button
+					onclick={() => konfirmasiReset = false}
+					class="px-4 py-1.5 rounded text-sm border active:scale-95 transition-all"
+					style="border-color:var(--border);color:var(--text-dim)">Batal (ESC)</button>
 			</div>
 		</div>
 	</div>

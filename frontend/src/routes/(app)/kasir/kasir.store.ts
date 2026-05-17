@@ -8,7 +8,7 @@ import {
 	keranjang, tipeTransaksi, metodeBayar,
 	pelangganDipilih, nominalBayar, itemAktifIdx,
 	subtotal, diskonMember, kembalian, total,
-	resetKasir,
+	resetKasir, incrementTrxCount,
 } from '$lib/stores/kasir';
 import { loading, toast } from '$lib/stores/ui.store';
 import { withLoading } from '$lib/utils/async';
@@ -260,6 +260,7 @@ export async function prosesBayar() {
 		noTransaksi: hasil.no_transaksi,
 		waktu: $waktu,
 	});
+	incrementTrxCount();
 	resetKasir();
 }
 
