@@ -130,6 +130,14 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
 
   const akunList = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
 
+  // Jurnal sebelum periode (untuk saldo awal)
+  const jurnalSebelum = db
+    .select({ kas_bank_id: jurnal_kas.kas_bank_id, jenis: jurnal_kas.jenis, jumlah: jurnal_kas.jumlah })
+    .from(jurnal_kas)
+    .where(sql`${jurnal_kas.tanggal} < ${dari}`)
+    .all()
+
+  // Jurnal dalam periode
   const jurnalRows = db
     .select({
       kas_bank_id: jurnal_kas.kas_bank_id,
@@ -146,12 +154,19 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
     )
     .all()
 
-  // Per akun kas/bank
+  // Per akun kas/bank (dengan saldo awal & saldo akhir)
   const perAkun = akunList.map((akun) => {
+    const sebelum = jurnalSebelum.filter((r) => r.kas_bank_id === akun.id)
+    const mutasiSebelumMasuk = sebelum.filter((r) => r.jenis === 'masuk').reduce((s, r) => s + r.jumlah, 0)
+    const mutasiSebelumKeluar = sebelum.filter((r) => r.jenis === 'keluar').reduce((s, r) => s + r.jumlah, 0)
+    const saldo_awal = akun.saldo_awal + mutasiSebelumMasuk - mutasiSebelumKeluar
+
     const rows = jurnalRows.filter((r) => r.kas_bank_id === akun.id)
     const masuk = rows.filter((r) => r.jenis === 'masuk').reduce((s, r) => s + r.jumlah, 0)
     const keluar = rows.filter((r) => r.jenis === 'keluar').reduce((s, r) => s + r.jumlah, 0)
-    return { id: akun.id, nama: akun.nama, tipe: akun.tipe, masuk, keluar, net: masuk - keluar }
+    const saldo_akhir = saldo_awal + masuk - keluar
+
+    return { id: akun.id, nama: akun.nama, tipe: akun.tipe, saldo_awal, masuk, keluar, net: masuk - keluar, saldo_akhir }
   })
 
   // Ringkasan per kategori
@@ -164,6 +179,7 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
 
   const totalMasuk = jurnalRows.filter((r) => r.jenis === 'masuk').reduce((s, r) => s + r.jumlah, 0)
   const totalKeluar = jurnalRows.filter((r) => r.jenis === 'keluar').reduce((s, r) => s + r.jumlah, 0)
+  const saldoAwal = perAkun.reduce((s, a) => s + a.saldo_awal, 0)
 
   return c.json({
     success: true,
@@ -171,9 +187,11 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
       periode: { dari, sampai },
       per_akun: perAkun,
       per_kategori: kategoriMap,
+      saldo_awal: saldoAwal,
       total_masuk: totalMasuk,
       total_keluar: totalKeluar,
       net: totalMasuk - totalKeluar,
+      saldo_akhir: saldoAwal + totalMasuk - totalKeluar,
     },
   })
 })

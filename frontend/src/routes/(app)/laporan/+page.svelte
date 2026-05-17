@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { untrack } from 'svelte'
   import { goto } from '$app/navigation'
   import { api } from '$lib/utils/api'
   import { user } from '$lib/stores/auth.js'
@@ -26,11 +26,16 @@
 
   type ArusKas = {
     periode: { dari: string; sampai: string }
-    per_akun: { id: number; nama: string; tipe: string; masuk: number; keluar: number; net: number }[]
+    per_akun: {
+      id: number; nama: string; tipe: string
+      saldo_awal: number; masuk: number; keluar: number; net: number; saldo_akhir: number
+    }[]
     per_kategori: Record<string, { masuk: number; keluar: number }>
+    saldo_awal: number
     total_masuk: number
     total_keluar: number
     net: number
+    saldo_akhir: number
   }
 
   type Neraca = {
@@ -55,7 +60,6 @@
   let loading = $state(false)
   let error = $state('')
 
-  // Filter periode
   function defaultPeriode() {
     const now = new Date()
     const y = now.getFullYear()
@@ -69,34 +73,31 @@
   // ── Load data ─────────────────────────────────────────────────────────────
 
   async function muatLabaRugi() {
-    loading = true
-    error = ''
+    loading = true; error = ''
     const res = await api.get<LabaRugi>(
       `/laporan/laba-rugi?dari=${periode.dari}&sampai=${periode.sampai}`
     )
     loading = false
     if (res.success) labaRugi = res.data!
-    else error = res.error
+    else error = res.error ?? 'Gagal memuat laporan'
   }
 
   async function muatArusKas() {
-    loading = true
-    error = ''
+    loading = true; error = ''
     const res = await api.get<ArusKas>(
       `/laporan/arus-kas?dari=${periode.dari}&sampai=${periode.sampai}`
     )
     loading = false
     if (res.success) arusKas = res.data!
-    else error = res.error
+    else error = res.error ?? 'Gagal memuat laporan'
   }
 
   async function muatNeraca() {
-    loading = true
-    error = ''
+    loading = true; error = ''
     const res = await api.get<Neraca>('/laporan/neraca')
     loading = false
     if (res.success) neraca = res.data!
-    else error = res.error
+    else error = res.error ?? 'Gagal memuat laporan'
   }
 
   async function muat() {
@@ -105,12 +106,101 @@
     else await muatNeraca()
   }
 
-  onMount(() => muat())
-
+  // Hanya track perubahan `tab`, bukan `periode` (periode diubah manual via tombol Tampilkan)
   $effect(() => {
-    tab; // reaktif terhadap perubahan tab
-    muat()
+    tab
+    untrack(() => muat())
   })
+
+  // ── Export CSV ────────────────────────────────────────────────────────────
+
+  function downloadCsv(content: string, nama: string) {
+    const bom = '﻿' // BOM agar Excel baca UTF-8 dengan benar
+    const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nama
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function exportLabaRugiCsv() {
+    if (!labaRugi) return
+    const lr = labaRugi
+    const rows = [
+      ['LAPORAN LABA RUGI'],
+      [`Periode,${tglFmt(lr.periode.dari)} - ${tglFmt(lr.periode.sampai)}`],
+      [],
+      ['PENJUALAN'],
+      [`Penjualan Bruto,${lr.penjualan.bruto}`],
+      [`Diskon,(${lr.penjualan.diskon})`],
+      [`Penjualan Bersih,${lr.penjualan.bersih}`],
+      [`Jumlah Transaksi,${lr.penjualan.jumlah_transaksi}`],
+      [],
+      ['HARGA POKOK PENJUALAN'],
+      [`HPP (estimasi),(${lr.hpp})`],
+      [`Laba Kotor,${lr.laba_kotor}`],
+      [`Margin Kotor,${lr.margin_kotor_persen}%`],
+      [],
+      ['BIAYA OPERASIONAL'],
+      ...Object.entries(lr.biaya_operasional.per_kategori).map(([k, v]) => [`${k.replace(/_/g, ' ')},(${v})`]),
+      [`Total Biaya,(${lr.biaya_operasional.total})`],
+      [],
+      [`LABA BERSIH,${lr.laba_bersih}`],
+      [`Margin Bersih,${lr.margin_bersih_persen}%`],
+    ]
+    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `laba-rugi-${lr.periode.dari}-${lr.periode.sampai}.csv`)
+  }
+
+  function exportArusKasCsv() {
+    if (!arusKas) return
+    const ak = arusKas
+    const rows = [
+      ['LAPORAN ARUS KAS'],
+      [`Periode,${tglFmt(ak.periode.dari)} - ${tglFmt(ak.periode.sampai)}`],
+      [],
+      ['PER AKUN KAS/BANK'],
+      ['Akun', 'Saldo Awal', 'Masuk', 'Keluar', 'Net', 'Saldo Akhir'],
+      ...ak.per_akun.map((a) => [a.nama, a.saldo_awal, a.masuk, a.keluar, a.net, a.saldo_akhir]),
+      ['TOTAL', ak.saldo_awal, ak.total_masuk, ak.total_keluar, ak.net, ak.saldo_akhir],
+      [],
+      ['RINCIAN PER KATEGORI'],
+      ['Kategori', 'Masuk', 'Keluar'],
+      ...Object.entries(ak.per_kategori).map(([k, v]) => [k.replace(/_/g, ' '), v.masuk, v.keluar]),
+    ]
+    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `arus-kas-${ak.periode.dari}-${ak.periode.sampai}.csv`)
+  }
+
+  function exportNeracaCsv() {
+    if (!neraca) return
+    const n = neraca
+    const rows = [
+      ['NERACA'],
+      [`Per Tanggal,${tglFmt(n.per_tanggal)}`],
+      [],
+      ['ASET'],
+      ...n.aset.kas_bank.map((a) => [a.nama, a.saldo]),
+      [`Total Kas/Bank,${n.aset.total_kas_bank}`],
+      [`Piutang Pelanggan,${n.aset.piutang_pelanggan}`],
+      [`Nilai Persediaan,${n.aset.nilai_persediaan}`],
+      [`TOTAL ASET,${n.aset.total}`],
+      [],
+      ['LIABILITAS'],
+      [`Hutang Supplier,${n.liabilitas.hutang_supplier}`],
+      [`TOTAL LIABILITAS,${n.liabilitas.total}`],
+      [],
+      ['MODAL'],
+      [`TOTAL MODAL,${n.modal.total}`],
+    ]
+    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `neraca-${n.per_tanggal}.csv`)
+  }
+
+  function exportCsv() {
+    if (tab === 'laba-rugi') exportLabaRugiCsv()
+    else if (tab === 'arus-kas') exportArusKasCsv()
+    else exportNeracaCsv()
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -125,17 +215,12 @@
   function tglFmt(t: string): string {
     return new Date(t).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
   }
-
-  function printPage() {
-    window.print()
-  }
 </script>
 
 <style>
   @media print {
     :global(nav), :global(.no-print) { display: none !important; }
     :global(body) { background: white !important; color: black !important; }
-    :global([style*="--bg"]) { background: white !important; }
   }
 </style>
 
@@ -143,10 +228,16 @@
 <div style="padding:1rem 1.25rem 0" class="no-print">
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem">
     <h1 style="font-size:1.1rem; font-weight:700; color:var(--text)">Laporan</h1>
-    <button
-      onclick={printPage}
-      style="padding:.4rem .9rem; background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:4px; font-family:inherit; font-size:.8rem; cursor:pointer"
-    >Print</button>
+    <div style="display:flex; gap:.5rem">
+      <button
+        onclick={exportCsv}
+        style="padding:.4rem .9rem; background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:4px; font-family:inherit; font-size:.8rem; cursor:pointer"
+      >Export CSV</button>
+      <button
+        onclick={() => window.print()}
+        style="padding:.4rem .9rem; background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:4px; font-family:inherit; font-size:.8rem; cursor:pointer"
+      >Print / PDF</button>
+    </div>
   </div>
 
   <!-- Filter Periode -->
@@ -166,11 +257,10 @@
         onclick={muat}
         style="padding:.35rem .8rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
       >Tampilkan</button>
-      <!-- Shortcut periode -->
       {#each [
-        { label: 'Hari ini', fn: () => { const t = new Date().toLocaleDateString('sv-SE'); periode = { dari: t, sampai: t } } },
-        { label: 'Minggu ini', fn: () => { const now = new Date(); const mon = new Date(now); mon.setDate(now.getDate() - now.getDay() + 1); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); periode = { dari: mon.toLocaleDateString('sv-SE'), sampai: sun.toLocaleDateString('sv-SE') } } },
-        { label: 'Bulan ini', fn: () => { periode = defaultPeriode() } },
+        { label: 'Hari ini', fn: () => { const t = new Date().toLocaleDateString('sv-SE'); periode = { dari: t, sampai: t }; muat() } },
+        { label: 'Minggu ini', fn: () => { const now = new Date(); const mon = new Date(now); mon.setDate(now.getDate() - now.getDay() + 1); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); periode = { dari: mon.toLocaleDateString('sv-SE'), sampai: sun.toLocaleDateString('sv-SE') }; muat() } },
+        { label: 'Bulan ini', fn: () => { periode = defaultPeriode(); muat() } },
       ] as s}
         <button
           onclick={s.fn}
@@ -276,12 +366,26 @@
 
 <!-- ═══════════════════════════════════════ ARUS KAS ═════ -->
 {:else if tab === 'arus-kas' && arusKas}
-  <div style="padding:0 1.25rem 2rem; max-width:680px">
+  <div style="padding:0 1.25rem 2rem; max-width:720px">
     <div style="text-align:center; margin-bottom:1.5rem">
       <div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN ARUS KAS</div>
       <div style="font-size:.8rem; color:var(--text-dim)">
         Periode {tglFmt(arusKas.periode.dari)} — {tglFmt(arusKas.periode.sampai)}
       </div>
+    </div>
+
+    <!-- Ringkasan saldo -->
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; margin-bottom:1.5rem">
+      {#each [
+        ['Saldo Awal', arusKas.saldo_awal, 'var(--text)'],
+        ['Net Periode', arusKas.net, arusKas.net >= 0 ? 'var(--accent)' : 'var(--danger)'],
+        ['Saldo Akhir', arusKas.saldo_akhir, arusKas.saldo_akhir >= 0 ? 'var(--accent)' : 'var(--danger)'],
+      ] as [label, val, warna]}
+        <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.75rem 1rem">
+          <div style="font-size:.7rem; color:var(--text-dim); margin-bottom:.25rem">{label}</div>
+          <div style="font-size:1rem; font-weight:700; color:{warna}">Rp {fmt(val as number)}</div>
+        </div>
+      {/each}
     </div>
 
     <!-- Per akun -->
@@ -292,11 +396,8 @@
       <table style="width:100%; border-collapse:collapse; font-size:.83rem">
         <thead>
           <tr>
-            {#each ['Akun','Masuk','Keluar','Net'] as h}
-              <th style="padding:.4rem .5rem; text-align:right; color:var(--text-dim); font-size:.72rem; font-weight:600">
-                {h === 'Akun' ? '' : h}
-                {#if h === 'Akun'}<span style="text-align:left; display:block">{h}</span>{/if}
-              </th>
+            {#each ['Akun','Saldo Awal','Masuk','Keluar','Saldo Akhir'] as h}
+              <th style="padding:.4rem .5rem; text-align:{h==='Akun'?'left':'right'}; color:var(--text-dim); font-size:.72rem; font-weight:600">{h}</th>
             {/each}
           </tr>
         </thead>
@@ -304,19 +405,21 @@
           {#each arusKas.per_akun as akun}
             <tr style="border-bottom:1px solid var(--border)">
               <td style="padding:.4rem .5rem; color:var(--text)">{akun.nama}</td>
-              <td style="padding:.4rem .5rem; text-align:right; color:var(--accent)">Rp {fmt(akun.masuk)}</td>
-              <td style="padding:.4rem .5rem; text-align:right; color:var(--danger)">Rp {fmt(akun.keluar)}</td>
-              <td style="padding:.4rem .5rem; text-align:right; font-weight:700; color:{akun.net >= 0 ? 'var(--accent)' : 'var(--danger)'}">
-                Rp {fmt(akun.net)}
+              <td style="padding:.4rem .5rem; text-align:right; color:var(--text-dim)">Rp {fmt(akun.saldo_awal)}</td>
+              <td style="padding:.4rem .5rem; text-align:right; color:var(--accent)">+Rp {fmt(akun.masuk)}</td>
+              <td style="padding:.4rem .5rem; text-align:right; color:var(--danger)">−Rp {fmt(akun.keluar)}</td>
+              <td style="padding:.4rem .5rem; text-align:right; font-weight:700; color:{akun.saldo_akhir >= 0 ? 'var(--accent)' : 'var(--danger)'}">
+                Rp {fmt(akun.saldo_akhir)}
               </td>
             </tr>
           {/each}
-          <tr style="font-weight:700">
+          <tr style="font-weight:700; border-top:2px solid var(--border)">
             <td style="padding:.5rem .5rem; color:var(--text)">TOTAL</td>
-            <td style="padding:.5rem .5rem; text-align:right; color:var(--accent)">Rp {fmt(arusKas.total_masuk)}</td>
-            <td style="padding:.5rem .5rem; text-align:right; color:var(--danger)">Rp {fmt(arusKas.total_keluar)}</td>
-            <td style="padding:.5rem .5rem; text-align:right; color:{arusKas.net >= 0 ? 'var(--accent)' : 'var(--danger)'}">
-              Rp {fmt(arusKas.net)}
+            <td style="padding:.5rem .5rem; text-align:right; color:var(--text-dim)">Rp {fmt(arusKas.saldo_awal)}</td>
+            <td style="padding:.5rem .5rem; text-align:right; color:var(--accent)">+Rp {fmt(arusKas.total_masuk)}</td>
+            <td style="padding:.5rem .5rem; text-align:right; color:var(--danger)">−Rp {fmt(arusKas.total_keluar)}</td>
+            <td style="padding:.5rem .5rem; text-align:right; color:{arusKas.saldo_akhir >= 0 ? 'var(--accent)' : 'var(--danger)'}">
+              Rp {fmt(arusKas.saldo_akhir)}
             </td>
           </tr>
         </tbody>
@@ -342,10 +445,10 @@
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:.35rem .5rem; color:var(--text); text-transform:capitalize">{kat.replace(/_/g,' ')}</td>
                 <td style="padding:.35rem .5rem; text-align:right; color:{val.masuk>0?'var(--accent)':'var(--text-dim)'}">
-                  {val.masuk > 0 ? `Rp ${fmt(val.masuk)}` : '—'}
+                  {val.masuk > 0 ? `+Rp ${fmt(val.masuk)}` : '—'}
                 </td>
                 <td style="padding:.35rem .5rem; text-align:right; color:{val.keluar>0?'var(--danger)':'var(--text-dim)'}">
-                  {val.keluar > 0 ? `Rp ${fmt(val.keluar)}` : '—'}
+                  {val.keluar > 0 ? `−Rp ${fmt(val.keluar)}` : '—'}
                 </td>
               </tr>
             {/each}
