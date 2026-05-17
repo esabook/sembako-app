@@ -52,7 +52,8 @@
 		{ href: '/gudang', label: 'Gudang', roles: ['pemilik', 'manajer', 'gudang'] },
 		{ href: '/karyawan', label: 'Karyawan', roles: ['pemilik', 'manajer'] },
 		{ href: '/keuangan', label: 'Keuangan', roles: ['pemilik', 'manajer'] },
-		{ href: '/laporan', label: 'Laporan', roles: ['pemilik', 'manajer'] }
+		{ href: '/laporan', label: 'Laporan', roles: ['pemilik', 'manajer'] },
+		{ href: '/pengaturan', label: 'Pengaturan', roles: ['pemilik'] }
 	];
 
 	function bolehAkses(roles: Role[]): boolean {

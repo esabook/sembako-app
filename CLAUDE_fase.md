@@ -27,7 +27,7 @@ Fase 1–4 selesai: Fondasi → Operasional Inti → Keuangan → Laporan
 | WhatsApp struk & notif | ✅ SELESAI | |
 | Absensi & penggajian | ✅ SELESAI | |
 | Kartu anggota pelanggan | ✅ SELESAI | |
-| **Pengaturan Toko** | ❌ BELUM | **PRIORITAS TINGGI** |
+| **Pengaturan Toko** | ✅ SELESAI | **PRIORITAS TINGGI** |
 | **Manajemen Harga** | ❌ BELUM | **PRIORITAS TINGGI** |
 | **Retur Penjualan** | ❌ BELUM | **PRIORITAS TINGGI** |
 | **Notifikasi Terpusat** | ❌ BELUM | **PRIORITAS TINGGI** |
@@ -35,16 +35,6 @@ Fase 1–4 selesai: Fondasi → Operasional Inti → Keuangan → Laporan
 | Label & Barcode cetak | ❌ BELUM | Fase 6 |
 | Audit Trail UI | ❌ BELUM | Fase 6 (data log_aktivitas sudah ada) |
 | Budget & Target | ❌ BELUM | Fase 6 |
-
----
-
-## WIP / UNCOMMITTED
-
-```
-M  backend/src/routes/laporan.ts   ← +20 baris, belum di-commit
-```
-
-Commit ini sebelum mulai modul baru.
 
 ---
 
@@ -151,5 +141,4 @@ onMount(() => {
 
 Tiap awal session baru atau setelah modul selesai:
 1. Update kolom Status di tabel implementasi (❌ → ✅)
-2. Update section WIP (file yang sedang dimodifikasi)
-3. Update Versi & Tanggal di header
+2. Update Versi & Tanggal di header

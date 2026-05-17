@@ -415,3 +415,12 @@ export const shift_kasir = sqliteTable('shift_kasir', {
   status: text('status', { enum: ['buka', 'tutup'] }).notNull().default('buka'),
   ...timestamps,
 })
+
+// ─── Pengaturan Toko ─────────────────────────────────────────────────────────
+
+export const toko_settings = sqliteTable('toko_settings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  key: text('key').notNull().unique(),
+  value: text('value'),
+  updated_at: text('updated_at').default(sql`(datetime('now','localtime'))`),
+})
