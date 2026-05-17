@@ -15,6 +15,7 @@ export type BarangResult = {
 export type PelangganResult = {
 	id: number;
 	nama: string;
+	kontak: string | null;
 	saldo_piutang: number;
 	gender: 'pria' | 'wanita' | null;
 	no_kartu: string | null;

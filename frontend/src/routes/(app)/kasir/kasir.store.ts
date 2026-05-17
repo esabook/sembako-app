@@ -12,6 +12,7 @@ import {
 } from '$lib/stores/kasir';
 import { loading, toast } from '$lib/stores/ui.store';
 import { withLoading } from '$lib/utils/async';
+import { bukaWhatsApp } from '$lib/utils/wa';
 import { fetchBarang, fetchPelanggan, submitPenjualan } from './kasir.api';
 import type { BarangResult, PelangganResult, ScannerStatus, Snap } from './kasir.types';
 
@@ -260,6 +261,43 @@ export async function prosesBayar() {
 		waktu: $waktu,
 	});
 	resetKasir();
+}
+
+// ── Kirim Struk WhatsApp ─────────────────────────────────────────────────────
+
+function rupiah(n: number): string {
+	return new Intl.NumberFormat('id-ID').format(Math.round(n));
+}
+
+export function kirimStrukWA(s: Snap): void {
+	const tgl = s.waktu.toLocaleString('id-ID', {
+		day: '2-digit', month: 'short', year: 'numeric',
+		hour: '2-digit', minute: '2-digit',
+	});
+	const metodeTeks: Record<string, string> = {
+		tunai: 'Tunai', transfer: 'Transfer', qris: 'QRIS', hutang: 'Hutang',
+	};
+	const lines: string[] = [
+		'*STRUK BELANJA*',
+		`No: ${s.noTransaksi}`,
+		`Tgl: ${tgl}`,
+		'─────────────────',
+		...s.items.map((i) => {
+			const sub = (i.harga_jual - (i.diskon_item ?? 0)) * i.jumlah;
+			return `${i.nama_barang}\n  ${i.jumlah} × Rp ${rupiah(i.harga_jual)}${i.diskon_item ? ` -${rupiah(i.diskon_item)}` : ''} = Rp ${rupiah(sub)}`;
+		}),
+		'─────────────────',
+		s.diskon > 0 ? `Subtotal : Rp ${rupiah(s.subtotal)}` : '',
+		s.diskon > 0 ? `Diskon   : -Rp ${rupiah(s.diskon)}` : '',
+		`*Total   : Rp ${rupiah(s.total)}*`,
+		`Bayar    : ${metodeTeks[s.metode] ?? s.metode}${s.metode === 'tunai' ? ` Rp ${rupiah(s.nominal)}` : ''}`,
+		s.metode === 'tunai' && s.kembalian > 0 ? `Kembali  : Rp ${rupiah(s.kembalian)}` : '',
+		'',
+		'Terima kasih atas pembeliannya! 🙏',
+	].filter(Boolean);
+
+	const pesan = lines.join('\n');
+	bukaWhatsApp(s.pelanggan?.kontak ?? null, pesan);
 }
 
 // ── SSE Scanner ───────────────────────────────────────────────────────────────

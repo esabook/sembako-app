@@ -19,7 +19,7 @@ export const keranjang = writable<ItemKeranjang[]>([])
 export const tipeTransaksi = writable<TipeTransaksi>('eceran')
 export const metodeBayar = writable<MetodeBayar>('tunai')
 export type PelangganDipilih = {
-  id: number; nama: string; saldo_piutang: number
+  id: number; nama: string; kontak: string | null; saldo_piutang: number
   gender: 'pria' | 'wanita' | null
   no_kartu: string | null
   tier: 'reguler' | 'silver' | 'gold' | null
