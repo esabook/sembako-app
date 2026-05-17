@@ -23,7 +23,7 @@
   type Karyawan = {
     id: number; kode_karyawan: string; nama: string
     role: string; username: string; gaji_pokok: number
-    tipe_gaji: string; kontak: string | null; is_active: boolean
+    tipe_gaji: string; kontak: string | null; foto_path: string | null; is_active: boolean
   }
 
   let karyawanList = $state<Karyawan[]>([])
@@ -36,6 +36,14 @@
     password: '', gaji_pokok: '', tipe_gaji: 'bulanan', kontak: '',
   })
   let errorKaryawan = $state('')
+  let fotoKaryawanFile = $state<File | null>(null)
+  let fotoKaryawanPreview = $state('')
+
+  function handleFotoKaryawanChange(e: Event) {
+    const file = (e.target as HTMLInputElement).files?.[0] ?? null
+    fotoKaryawanFile = file
+    if (file) fotoKaryawanPreview = URL.createObjectURL(file)
+  }
 
   async function muatKaryawan() {
     loadingKaryawan = true
@@ -49,6 +57,8 @@
 
   function bukaFormKaryawan(item?: Karyawan) {
     editKaryawan = item ?? null
+    fotoKaryawanFile = null
+    fotoKaryawanPreview = item?.foto_path ? `/uploads/${item.foto_path}` : ''
     formKaryawan = {
       kode_karyawan: item?.kode_karyawan ?? '',
       nama: item?.nama ?? '',
@@ -81,6 +91,14 @@
       : await api.post('/karyawan', payload)
 
     if (!res.success) { errorKaryawan = (res as { success: false; error: string }).error; return }
+
+    const savedId = editKaryawan?.id ?? (res as { success: true; data: { id: number } }).data.id
+    if (fotoKaryawanFile && savedId) {
+      const fd = new FormData()
+      fd.append('foto', fotoKaryawanFile)
+      await api.upload(`/karyawan/${savedId}/foto`, fd)
+    }
+
     modalKaryawanOpen = false
     muatKaryawan()
   }
@@ -440,7 +458,21 @@
             {#each karyawanList as item}
               <tr class="border-t" style="border-color:var(--border)">
                 <td class="px-3 py-2" style="color:var(--text-dim)">{item.kode_karyawan}</td>
-                <td class="px-3 py-2">{item.nama}</td>
+                <td class="px-3 py-2">
+                  <div class="flex items-center gap-2">
+                    {#if item.foto_path}
+                      <img src="/uploads/{item.foto_path.replace('med_', 'thumb_')}" alt={item.nama}
+                        class="rounded-full object-cover shrink-0"
+                        style="width:28px;height:28px;background:var(--surface2)" />
+                    {:else}
+                      <span class="rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                        style="width:28px;height:28px;background:var(--surface2);color:var(--text-dim);font-size:10px">
+                        {item.nama.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+                      </span>
+                    {/if}
+                    {item.nama}
+                  </div>
+                </td>
                 <td class="px-3 py-2">
                   <span class="text-xs font-bold" style="color:{ROLE_COLOR[item.role] ?? 'var(--text-dim)'}">
                     {item.role.toUpperCase()}
@@ -800,6 +832,23 @@
           <option value="bulanan">Bulanan</option>
           <option value="harian">Harian</option>
         </select>
+      </div>
+    </div>
+    <!-- Foto karyawan -->
+    <div class="flex flex-col gap-1">
+      <label for="f-foto" class="text-xs" style="color:var(--text-dim)">FOTO</label>
+      <div class="flex items-center gap-3">
+        {#if fotoKaryawanPreview}
+          <img src={fotoKaryawanPreview} alt="preview"
+            class="rounded-full object-cover shrink-0"
+            style="width:48px;height:48px;border:1px solid var(--border)" />
+        {:else}
+          <div class="rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+            style="width:48px;height:48px;background:var(--surface2);border:1px dashed var(--border);color:var(--text-dim)">
+            {formKaryawan.nama ? formKaryawan.nama.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase() : '?'}
+          </div>
+        {/if}
+        <input id="f-foto" type="file" accept="image/*" onchange={handleFotoKaryawanChange} class="text-xs" style="color:var(--text)" />
       </div>
     </div>
     <div class="flex justify-end gap-2 mt-1">

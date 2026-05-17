@@ -5,6 +5,9 @@ import { db } from '../db/index.ts'
 import { karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
+import sharp from 'sharp'
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 export const karyawanRouter = new Hono()
 
@@ -135,6 +138,35 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
   }).get()
 
   return c.json({ success: true, data: row })
+})
+
+karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const existing = db.select().from(karyawan).where(eq(karyawan.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
+
+  const formData = await c.req.formData()
+  const file = formData.get('foto') as File | null
+  if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
+  if (!file.type.startsWith('image/')) throw new HTTPException(400, { message: 'File harus berupa gambar' })
+
+  const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../../uploads')
+  const karyawanDir = join(uploadDir, 'karyawan')
+  mkdirSync(karyawanDir, { recursive: true })
+
+  const filename = `${id}_${Date.now()}.jpg`
+  const buf = Buffer.from(await file.arrayBuffer())
+
+  await sharp(buf).resize(300, 300, { fit: 'cover' }).jpeg({ quality: 85 }).toFile(join(karyawanDir, `med_${filename}`))
+  await sharp(buf).resize(60, 60, { fit: 'cover' }).jpeg({ quality: 80 }).toFile(join(karyawanDir, `thumb_${filename}`))
+
+  const fotoPath = `karyawan/med_${filename}`
+  db.update(karyawan)
+    .set({ foto_path: fotoPath, updated_at: sql`(datetime('now','localtime'))` })
+    .where(eq(karyawan.id, id))
+    .run()
+
+  return c.json({ success: true, data: { foto_path: fotoPath } })
 })
 
 karyawanRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
