@@ -1,7 +1,11 @@
 # CLAUDE.md — Toko Sembako App
 
-File ini adalah konteks lengkap project untuk Claude Code.
-Baca seluruh file ini sebelum menulis kode apapun.
+File ini adalah konteks UTAMA project untuk Claude Code.
+Baca seluruh file ini terlebih dahulu, kemudian baca CLAUDE_v2.md.
+
+> **Update tersedia:** Baca `CLAUDE_v2.md` untuk modul tambahan,
+> update roadmap Fase 1-7, dan tabel database baru.
+> Jika ada konflik antara kedua file, CLAUDE_v2.md yang berlaku.
 
 ---
 
