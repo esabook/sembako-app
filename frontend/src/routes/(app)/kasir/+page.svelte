@@ -353,6 +353,11 @@
 			</span>
 		</div>
 		<div class="flex items-center gap-2">
+			<a href="/kasir/retur"
+				class="px-3 py-1 rounded text-xs border transition-all"
+				style="border-color:var(--border);color:var(--text-dim)">
+				Retur
+			</a>
 			<!-- Shift indicator + buka/tutup -->
 			{#if shiftAktif}
 				<button

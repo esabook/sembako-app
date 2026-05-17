@@ -438,3 +438,32 @@ export const toko_settings = sqliteTable('toko_settings', {
   value: text('value'),
   updated_at: text('updated_at').default(sql`(datetime('now','localtime'))`),
 })
+
+// ─── Retur Penjualan ──────────────────────────────────────────────────────────
+
+export const retur_penjualan = sqliteTable('retur_penjualan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  no_retur: text('no_retur').notNull().unique(),
+  penjualan_id: integer('penjualan_id').notNull().references(() => penjualan.id),
+  tanggal: text('tanggal').notNull(),
+  kasir_id: integer('kasir_id').references(() => karyawan.id),
+  total_retur: real('total_retur').notNull().default(0),
+  alasan: text('alasan'),
+  // tunai = uang kembali ke pelanggan, kurang_piutang = kurangi piutang, tukar_barang = stok saja
+  metode_refund: text('metode_refund', {
+    enum: ['tunai', 'kurang_piutang', 'tukar_barang'],
+  }).notNull().default('tunai'),
+  kas_bank_id: integer('kas_bank_id').references(() => kas_bank.id),
+  catatan: text('catatan'),
+  ...timestamps,
+})
+
+export const retur_penjualan_detail = sqliteTable('retur_penjualan_detail', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  retur_id: integer('retur_id').notNull().references(() => retur_penjualan.id),
+  barang_id: integer('barang_id').notNull().references(() => barang.id),
+  satuan_id: integer('satuan_id').references(() => satuan.id),
+  jumlah_retur: real('jumlah_retur').notNull(),
+  harga_jual: real('harga_jual').notNull(), // snapshot dari penjualan_detail
+  subtotal: real('subtotal').notNull(),
+})
