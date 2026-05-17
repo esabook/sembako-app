@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, sqlite } from '../db/index.ts'
+import { catatLog } from '../utils/log.ts'
 import {
   penjualan, penjualan_detail,
   barang, mutasi_stok,
@@ -284,5 +285,9 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
   })
 
   voidFn()
+  catatLog(user.id, 'void', 'penjualan', id, {
+    no_transaksi: trx.no_transaksi,
+    total: trx.total,
+  })
   return c.json({ success: true, data: null })
 })

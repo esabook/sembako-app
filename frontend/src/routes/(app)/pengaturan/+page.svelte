@@ -251,6 +251,17 @@
 				</div>
 				<span style="color:var(--text-dim)">→</span>
 			</a>
+			<a
+				href="/pengaturan/audit"
+				class="flex items-center justify-between px-4 py-3 border-t"
+				style="border-color:var(--border);color:var(--text)"
+			>
+				<div>
+					<p class="text-sm font-medium">Audit Trail</p>
+					<p class="text-xs" style="color:var(--text-dim)">Riwayat aktivitas void, koreksi stok, dan aksi kritis lainnya</p>
+				</div>
+				<span style="color:var(--text-dim)">→</span>
+			</a>
 		</section>
 	{/if}
 </div>

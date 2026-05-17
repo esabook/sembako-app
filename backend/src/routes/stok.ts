@@ -3,6 +3,7 @@ import { eq, desc, and } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, sqlite } from '../db/index.ts'
 import { barang, mutasi_stok, kategori, satuan } from '../db/schema.ts'
+import { catatLog } from '../utils/log.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
@@ -88,5 +89,12 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
       .run()
   })()
 
+  catatLog(user.id, 'koreksi_stok', 'stok', body.barang_id, {
+    nama_barang: br.nama_barang,
+    stok_sebelum: br.stok_sekarang,
+    stok_sesudah: body.stok_baru,
+    selisih,
+    alasan: body.alasan,
+  })
   return c.json({ success: true, data: { selisih } })
 })

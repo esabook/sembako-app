@@ -3,6 +3,8 @@ import { eq, like, and, or, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
 import { barang, kategori, satuan } from '../db/schema.ts'
+import { catatLog } from '../utils/log.ts'
+import type { JWTPayload } from './auth.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import sharp from 'sharp'
 import { mkdirSync } from 'node:fs'
@@ -216,6 +218,7 @@ barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
 
 barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
   const id = Number(c.req.param('id'))
+  const user = c.get('user') as JWTPayload
   const existing = db.select().from(barang).where(eq(barang.id, id)).get()
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
 
@@ -224,6 +227,7 @@ barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
     .where(eq(barang.id, id))
     .run()
 
+  catatLog(user.id, 'nonaktifkan', 'barang', id, { nama_barang: existing.nama_barang, kode: existing.kode_barang })
   return c.json({ success: true, data: null })
 })
 
