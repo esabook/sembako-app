@@ -396,3 +396,22 @@ export const kasbon = sqliteTable('kasbon', {
   status: text('status', { enum: ['aktif', 'lunas'] }).notNull().default('aktif'),
   ...timestamps,
 })
+
+// ─── Shift Kasir ────────────────────────────────────────────────────────────
+
+export const shift_kasir = sqliteTable('shift_kasir', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  tanggal: text('tanggal').notNull(),
+  jam_buka: text('jam_buka').notNull(),
+  jam_tutup: text('jam_tutup'),
+  kas_awal: real('kas_awal').notNull().default(0),
+  kas_fisik: real('kas_fisik'),
+  kas_sistem: real('kas_sistem'),    // dihitung: kas_awal + penjualan_tunai
+  selisih_kas: real('selisih_kas'),  // kas_fisik - kas_sistem
+  jumlah_transaksi: integer('jumlah_transaksi').notNull().default(0),
+  total_penjualan: real('total_penjualan').notNull().default(0),
+  catatan: text('catatan'),
+  status: text('status', { enum: ['buka', 'tutup'] }).notNull().default('buka'),
+  ...timestamps,
+})
