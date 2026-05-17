@@ -343,22 +343,37 @@
   // TAB: KASBON
   // ═══════════════════════════════════════════════════════════════════════════
 
+  type KasbonStatus = 'pengajuan' | 'disetujui' | 'ditolak' | 'aktif' | 'lunas'
   type KasbonRow = {
     id: number; karyawan_id: number; nama_karyawan: string
-    tanggal_pinjam: string; jumlah: number; cicilan_per_bulan: number
-    sisa_kasbon: number; status: 'aktif' | 'lunas'
+    tanggal_pinjam: string; tanggal_cair: string | null
+    jumlah: number; cicilan_per_bulan: number
+    sisa_kasbon: number; status: KasbonStatus
+    catatan: string | null
+  }
+  type JadwalCicilan = { bulan_ke: number; bulan: string; jumlah_cicil: number; sudah_lunas: boolean }
+
+  const STATUS_KB: Record<KasbonStatus, { label: string; color: string }> = {
+    pengajuan: { label: 'PENGAJUAN', color: 'var(--info)' },
+    disetujui: { label: 'DISETUJUI', color: 'var(--warn)' },
+    ditolak:   { label: 'DITOLAK',   color: 'var(--danger)' },
+    aktif:     { label: 'AKTIF',     color: 'var(--accent)' },
+    lunas:     { label: 'LUNAS',     color: 'var(--text-dim)' },
   }
 
-  let filterStatusKasbon = $state<'aktif' | 'lunas' | ''>('aktif')
+  let filterStatusKasbon = $state<KasbonStatus | ''>('pengajuan')
   let kasbonList = $state<KasbonRow[]>([])
   let loadingKasbon = $state(false)
   let modalKasbonOpen = $state(false)
   let modalCicilOpen = $state(false)
+  let modalJadwalOpen = $state(false)
+  let jadwalList = $state<JadwalCicilan[]>([])
+  let jadwalNama = $state('')
   let cicilKasbonId = $state<number | null>(null)
   let cicilJumlah = $state('')
   let formKasbon = $state({
     karyawan_id: '', tanggal_pinjam: new Date().toISOString().slice(0, 10),
-    jumlah: '', cicilan_per_bulan: '',
+    jumlah: '', cicilan_per_bulan: '', catatan: '',
   })
   let errorKasbon = $state('')
 
@@ -380,9 +395,32 @@
       tanggal_pinjam: formKasbon.tanggal_pinjam,
       jumlah: Number(formKasbon.jumlah),
       cicilan_per_bulan: Number(formKasbon.cicilan_per_bulan) || 0,
+      catatan: formKasbon.catatan || undefined,
     })
     if (!res.success) { errorKasbon = (res as { success: false; error: string }).error; return }
     modalKasbonOpen = false
+    filterStatusKasbon = 'pengajuan'
+    muatKasbon()
+  }
+
+  async function setujuiKasbon(id: number) {
+    const res = await api.put(`/kasbon/${id}/setujui`, {})
+    if (!res.success) { alert((res as { success: false; error: string }).error); return }
+    muatKasbon()
+  }
+
+  async function tolakKasbon(id: number) {
+    const catatan = prompt('Alasan penolakan (opsional):') ?? ''
+    const res = await api.put(`/kasbon/${id}/tolak`, { catatan })
+    if (!res.success) { alert((res as { success: false; error: string }).error); return }
+    muatKasbon()
+  }
+
+  async function cairkanKasbon(id: number) {
+    if (!confirm('Cairkan kasbon ini? Dana akan diberikan ke karyawan.')) return
+    const res = await api.put(`/kasbon/${id}/cair`, {})
+    if (!res.success) { alert((res as { success: false; error: string }).error); return }
+    filterStatusKasbon = 'aktif'
     muatKasbon()
   }
 
@@ -400,9 +438,16 @@
     muatKasbon()
   }
 
+  async function lihatJadwal(item: KasbonRow) {
+    jadwalNama = item.nama_karyawan
+    const res = await api.get<JadwalCicilan[]>(`/kasbon/${item.id}/jadwal`)
+    if (res.success) { jadwalList = res.data; modalJadwalOpen = true }
+  }
+
   async function hapusKasbon(id: number) {
     if (!confirm('Hapus data kasbon ini?')) return
-    await api.delete(`/kasbon/${id}`)
+    const res = await api.delete(`/kasbon/${id}`)
+    if (!res.success) { alert((res as { success: false; error: string }).error); return }
     muatKasbon()
   }
 </script>
@@ -710,18 +755,24 @@
        TAB: KASBON
   ═════════════════════════════════════════════════════════════════════════ -->
   {#if tab === 'kasbon'}
-    <div class="flex items-center gap-3">
-      <div class="flex gap-1 text-sm">
-        {#each ([['aktif','Aktif'],['lunas','Lunas'],['','Semua']] as const) as [v, l]}
+    <div class="flex items-center gap-2 flex-wrap">
+      <div class="flex gap-1 text-sm flex-wrap">
+        {#each ([['pengajuan','Pengajuan'],['disetujui','Disetujui'],['aktif','Aktif'],['lunas','Lunas'],['ditolak','Ditolak'],['','Semua']] as const) as [v, l]}
           <button onclick={() => filterStatusKasbon = v}
-            class="px-3 py-1 rounded"
-            style="{filterStatusKasbon === v ? 'background:var(--surface2);color:var(--text)' : 'color:var(--text-dim)'}">
+            class="px-3 py-1 rounded text-xs border"
+            style="{filterStatusKasbon === v
+              ? 'background:var(--surface2);color:var(--text);border-color:var(--accent)'
+              : 'color:var(--text-dim);border-color:var(--border)'}">
             {l}
           </button>
         {/each}
       </div>
       {#if canManageGaji}
-        <button onclick={() => { formKasbon = { karyawan_id: '', tanggal_pinjam: new Date().toISOString().slice(0,10), jumlah: '', cicilan_per_bulan: '' }; errorKasbon = ''; modalKasbonOpen = true }}
+        <button onclick={() => {
+            formKasbon = { karyawan_id: '', tanggal_pinjam: new Date().toISOString().slice(0,10),
+              jumlah: '', cicilan_per_bulan: '', catatan: '' };
+            errorKasbon = ''; modalKasbonOpen = true
+          }}
           class="px-3 py-1 rounded text-sm font-bold ml-auto"
           style="background:var(--accent);color:var(--bg)">+ Kasbon</button>
       {/if}
@@ -744,28 +795,48 @@
           {#if loadingKasbon}
             <tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
           {:else if kasbonList.length === 0}
-            <tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada data</td></tr>
+            <tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada kasbon</td></tr>
           {:else}
             {#each kasbonList as item}
+              {@const st = STATUS_KB[item.status]}
               <tr class="border-t" style="border-color:var(--border)">
-                <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
-                <td class="px-3 py-2" style="color:var(--text-dim)">{item.tanggal_pinjam}</td>
+                <td class="px-3 py-2">
+                  <div class="font-medium">{item.nama_karyawan}</div>
+                  {#if item.catatan && (item.status === 'ditolak' || item.status === 'pengajuan')}
+                    <div class="text-xs mt-0.5" style="color:var(--text-dim)">📝 {item.catatan}</div>
+                  {/if}
+                </td>
+                <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">
+                  <div>{item.tanggal_pinjam}</div>
+                  {#if item.tanggal_cair}<div style="color:var(--accent)">cair: {item.tanggal_cair}</div>{/if}
+                </td>
                 <td class="px-3 py-2 text-right">{rp(item.jumlah)}</td>
-                <td class="px-3 py-2 text-right" style="color:var(--text-dim)">{item.cicilan_per_bulan > 0 ? rp(item.cicilan_per_bulan) : '-'}</td>
-                <td class="px-3 py-2 text-right font-bold" style="color:{item.sisa_kasbon > 0 ? 'var(--warn)' : 'var(--accent)'}">
+                <td class="px-3 py-2 text-right" style="color:var(--text-dim)">
+                  {item.cicilan_per_bulan > 0 ? rp(item.cicilan_per_bulan) : '—'}
+                </td>
+                <td class="px-3 py-2 text-right font-bold"
+                  style="color:{item.sisa_kasbon > 0 ? 'var(--warn)' : 'var(--accent)'}">
                   {rp(item.sisa_kasbon)}
                 </td>
                 <td class="px-3 py-2">
-                  <span class="text-xs font-bold" style="color:{item.status === 'aktif' ? 'var(--warn)' : 'var(--accent)'}">
-                    {item.status.toUpperCase()}
-                  </span>
+                  <span class="text-xs font-bold" style="color:{st.color}">{st.label}</span>
                 </td>
                 {#if canManageGaji}
-                  <td class="px-3 py-2 text-right">
-                    {#if item.status === 'aktif'}
-                      <button onclick={() => bukaCicil(item)} class="text-xs mr-2" style="color:var(--info)">Bayar Cicil</button>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    {#if item.status === 'pengajuan'}
+                      <button onclick={() => setujuiKasbon(item.id)} class="text-xs mr-1.5" style="color:var(--accent)">Setujui</button>
+                      <button onclick={() => tolakKasbon(item.id)} class="text-xs" style="color:var(--danger)">Tolak</button>
+                    {:else if item.status === 'disetujui'}
+                      <button onclick={() => cairkanKasbon(item.id)} class="text-xs mr-1.5" style="color:var(--warn)">Cairkan</button>
+                      <button onclick={() => tolakKasbon(item.id)} class="text-xs" style="color:var(--danger)">Tolak</button>
+                    {:else if item.status === 'aktif'}
+                      <button onclick={() => bukaCicil(item)} class="text-xs mr-1.5" style="color:var(--info)">Cicil</button>
+                      {#if item.cicilan_per_bulan > 0}
+                        <button onclick={() => lihatJadwal(item)} class="text-xs mr-1.5" style="color:var(--text-dim)">Jadwal</button>
+                      {/if}
+                    {:else if item.status === 'ditolak' || item.status === 'lunas'}
+                      <button onclick={() => hapusKasbon(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
                     {/if}
-                    <button onclick={() => hapusKasbon(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
                   </td>
                 {/if}
               </tr>
@@ -1018,6 +1089,12 @@
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>
+      <div class="flex flex-col gap-1 col-span-2">
+        <label for="fk-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
+        <input id="fk-catatan" bind:value={formKasbon.catatan} placeholder="Opsional"
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
     </div>
     <div class="flex justify-end gap-2 mt-1">
       <button type="button" onclick={() => modalKasbonOpen = false} class="px-3 py-1 rounded text-sm"
@@ -1044,6 +1121,51 @@
         style="color:var(--text-dim)">Batal</button>
       <button onclick={simpanCicil} class="px-3 py-1 rounded text-sm font-bold"
         style="background:var(--accent);color:var(--bg)">Bayar</button>
+    </div>
+  </div>
+  {/snippet}
+</Modal>
+
+<!-- ── Modal: Jadwal Cicilan ────────────────────────────────────────────────── -->
+<Modal bind:open={modalJadwalOpen} title="Jadwal Cicilan Kasbon">
+  {#snippet children()}
+  <div class="flex flex-col gap-3 text-sm">
+    <p class="text-xs font-bold" style="color:var(--text-dim)">{jadwalNama}</p>
+    {#if jadwalList.length === 0}
+      <p class="text-xs" style="color:var(--text-dim)">Cicilan per bulan belum diset atau kasbon belum cair.</p>
+    {:else}
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs border-collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th class="py-1 pr-3 text-left" style="color:var(--text-dim)">Bulan ke</th>
+              <th class="py-1 pr-3 text-left" style="color:var(--text-dim)">Bulan</th>
+              <th class="py-1 pr-3 text-right" style="color:var(--text-dim)">Cicilan</th>
+              <th class="py-1 text-center" style="color:var(--text-dim)">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each jadwalList as j (j.bulan_ke)}
+              <tr style="border-bottom:1px solid var(--border);opacity:{j.sudah_lunas ? 0.5 : 1}">
+                <td class="py-1 pr-3">{j.bulan_ke}</td>
+                <td class="py-1 pr-3">{j.bulan}</td>
+                <td class="py-1 pr-3 text-right">{rp(j.jumlah_cicil)}</td>
+                <td class="py-1 text-center">
+                  {#if j.sudah_lunas}
+                    <span style="color:var(--accent)">✓ Lunas</span>
+                  {:else}
+                    <span style="color:var(--text-dim)">Belum</span>
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+    <div class="flex justify-end mt-1">
+      <button onclick={() => modalJadwalOpen = false} class="px-3 py-1 rounded text-sm"
+        style="color:var(--text-dim)">Tutup</button>
     </div>
   </div>
   {/snippet}

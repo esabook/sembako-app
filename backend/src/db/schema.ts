@@ -393,7 +393,12 @@ export const kasbon = sqliteTable('kasbon', {
   jumlah: real('jumlah').notNull(),
   cicilan_per_bulan: real('cicilan_per_bulan').notNull().default(0),
   sisa_kasbon: real('sisa_kasbon').notNull(),
-  status: text('status', { enum: ['aktif', 'lunas'] }).notNull().default('aktif'),
+  status: text('status', {
+    enum: ['pengajuan', 'disetujui', 'ditolak', 'aktif', 'lunas'],
+  }).notNull().default('pengajuan'),
+  disetujui_oleh: integer('disetujui_oleh').references(() => karyawan.id),
+  tanggal_cair: text('tanggal_cair'),
+  catatan: text('catatan'),
   ...timestamps,
 })
 
