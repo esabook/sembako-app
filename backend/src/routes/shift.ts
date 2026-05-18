@@ -18,6 +18,72 @@ function tglSekarang(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 }
 
+// ── GET /shift/rekap-aktif ────────────────────────────────────────────────
+// Live penjualan stats untuk shift yang sedang buka (tanpa menutup shift)
+// Digunakan oleh modal tutup shift agar kasir bisa lihat rekap sebelum tutup
+
+shiftRouter.get('/rekap-aktif', async (c) => {
+  const user = c.get('user') as JWTPayload
+
+  const shift = db
+    .select()
+    .from(shift_kasir)
+    .where(
+      and(
+        eq(shift_kasir.karyawan_id, user.id),
+        eq(shift_kasir.status, 'buka'),
+        eq(shift_kasir.tanggal, tglSekarang()),
+      )
+    )
+    .get()
+
+  if (!shift) return c.json({ success: true, data: null })
+
+  const rows = db
+    .select({
+      metode: penjualan.metode_bayar,
+      jumlah_trx: sql<number>`count(*)`,
+      total: sql<number>`COALESCE(sum(${penjualan.total}), 0)`,
+    })
+    .from(penjualan)
+    .where(
+      and(
+        ne(penjualan.status, 'void'),
+        eq(penjualan.kasir_id, user.id),
+        gte(penjualan.tanggal, `${shift.tanggal} ${shift.jam_buka}`),
+      )
+    )
+    .groupBy(penjualan.metode_bayar)
+    .all()
+
+  let tunai = 0, transfer = 0, qris = 0, hutang = 0
+  let total_trx = 0, total_semua = 0
+  for (const r of rows) {
+    total_trx += r.jumlah_trx
+    total_semua += r.total
+    if (r.metode === 'tunai') tunai = r.total
+    else if (r.metode === 'transfer') transfer = r.total
+    else if (r.metode === 'qris') qris = r.total
+    else if (r.metode === 'hutang') hutang = r.total
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      shift_id: shift.id,
+      jam_buka: shift.jam_buka,
+      kas_awal: shift.kas_awal,
+      kas_sistem: shift.kas_awal + tunai,
+      jumlah_transaksi: total_trx,
+      total_semua,
+      tunai,
+      transfer,
+      qris,
+      hutang,
+    },
+  })
+})
+
 // ── GET /shift/aktif ──────────────────────────────────────────────────────
 // Cek apakah user punya shift yang sedang buka hari ini
 
