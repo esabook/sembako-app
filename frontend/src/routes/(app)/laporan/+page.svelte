@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { goto } from '$app/navigation'
+  import { page } from '$app/state'
   import { api } from '$lib/utils/api'
   import { user } from '$lib/stores/auth.js'
 
@@ -9,7 +10,9 @@
   })
 
   type TabKey = 'laba-rugi' | 'arus-kas' | 'neraca'
-  let tab = $state<TabKey>('laba-rugi')
+  let tab = $derived<TabKey>(
+    (page.url.searchParams.get('tab') as TabKey) ?? 'laba-rugi'
+  )
 
   // ── Tipe data ─────────────────────────────────────────────────────────────
 
@@ -322,7 +325,7 @@
   <div style="display:flex; gap:.5rem; border-bottom:1px solid var(--border); margin-bottom:1rem">
     {#each ([['laba-rugi','Laba Rugi'],['arus-kas','Arus Kas'],['neraca','Neraca']] as [TabKey, string][]) as [t, label]}
       <button
-        onclick={() => tab = t}
+        onclick={() => goto(`?tab=${t}`, { replaceState: true, keepFocus: true, noScroll: true })}
         style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em"
       >{label}</button>
     {/each}

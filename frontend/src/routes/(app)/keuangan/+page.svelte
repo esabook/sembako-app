@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
+  import { page } from '$app/state'
   import { api } from '$lib/utils/api'
   import { user } from '$lib/stores/auth.js'
   import { createBudgetStore } from './budget/budget.store.svelte.js'
@@ -17,7 +18,9 @@
   })
 
   type TabKey = 'hutang' | 'piutang' | 'jurnal' | 'kasbank' | 'budget'
-  let tab = $state<TabKey>('hutang')
+  let tab = $derived<TabKey>(
+    (page.url.searchParams.get('tab') as TabKey) ?? 'hutang'
+  )
 
   // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -350,7 +353,7 @@
     <div style="display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:-1px">
       {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank'],['budget','Budget & Target']] as [TabKey, string][]) as [t, label]}
         <button
-          onclick={() => tab = t}
+          onclick={() => goto(`?tab=${t}`, { replaceState: true, keepFocus: true, noScroll: true })}
           style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; flex-shrink:0"
         >{label}</button>
       {/each}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { goto } from '$app/navigation'
+	import { page } from '$app/state'
 	import { api } from '$lib/utils/api.js'
 	import { user } from '$lib/stores/auth.js'
 	import { toast } from '$lib/stores/ui.store.js'
@@ -51,7 +52,9 @@
 	// ── State ──────────────────────────────────────────────────────────────────
 
 	type Tab = 'daftar' | 'massal'
-	let tab = $state<Tab>('daftar')
+	let tab = $derived<Tab>(
+		(page.url.searchParams.get('tab') as Tab) ?? 'daftar'
+	)
 
 	// Daftar Harga
 	let loading = $state(true)
@@ -197,7 +200,7 @@
 			massalNilaiEceran = 0
 			massalNilaiGrosir = 0
 			await reload()
-			tab = 'daftar'
+			goto('?tab=daftar', { replaceState: true, noScroll: true })
 		} else {
 			toast.error('Gagal memperbarui harga')
 		}
@@ -232,7 +235,7 @@
 	<div class="flex gap-1 border-b" style="border-color:var(--border)">
 		{#each [['daftar', 'DAFTAR HARGA'], ['massal', 'UPDATE MASSAL']] as [id, label]}
 			<button
-				onclick={() => (tab = id as Tab)}
+				onclick={() => goto(`?tab=${id}`, { replaceState: true, keepFocus: true, noScroll: true })}
 				class="px-3 py-2 text-xs font-bold border-b-2 -mb-px"
 				style="{tab === id ? 'border-color:var(--accent);color:var(--accent)' : 'border-color:transparent;color:var(--text-dim)'}"
 			>

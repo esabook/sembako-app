@@ -1,17 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
+  import { page } from '$app/state'
   import { api } from '$lib/utils/api.js'
   import { user } from '$lib/stores/auth.js'
+  import Modal from '$lib/components/Modal.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
   })
-  import Modal from '$lib/components/Modal.svelte'
 
   // ── Tab ─────────────────────────────────────────────────────────────────────
   type Tab = 'data' | 'absensi' | 'penggajian' | 'kasbon' | 'jadwal'
-  let tab = $state<Tab>('data')
+  let tab = $derived<Tab>(
+    (page.url.searchParams.get('tab') as Tab) ?? 'data'
+  )
 
   const canManageGaji = $derived($user?.role === 'pemilik' || $user?.role === 'manajer')
   const canSemua = $derived($user?.role === 'pemilik' || $user?.role === 'manajer')
@@ -584,7 +587,7 @@
   <div class="flex gap-1 border-b" style="border-color:var(--border)">
     {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift']] as const) as [key, label]}
       <button
-        onclick={() => tab = key}
+        onclick={() => goto(`?tab=${key}`, { replaceState: true, keepFocus: true, noScroll: true })}
         class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
         style="{tab === key
           ? 'border-color:var(--accent);color:var(--accent)'

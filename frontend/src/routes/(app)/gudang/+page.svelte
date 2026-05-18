@@ -1,11 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
+	import { page } from '$app/state'
 	import { user } from '$lib/stores/auth.js'
 	import TabStok from './TabStok.svelte';
-
-	$effect(() => {
-		if ($user && !['pemilik', 'manajer', 'gudang'].includes($user.role)) goto('/kasir')
-	})
 	import TabTerima from './TabTerima.svelte';
 	import TabPO from './TabPO.svelte';
 	import TabOpname from './TabOpname.svelte';
@@ -14,8 +11,14 @@
 	import TabPengaturan from './TabPengaturan.svelte';
 	import TabLabel from './TabLabel.svelte';
 
+	$effect(() => {
+		if ($user && !['pemilik', 'manajer', 'gudang'].includes($user.role)) goto('/kasir')
+	})
+
 	type TabId = 'stok' | 'terima' | 'po' | 'opname' | 'barang' | 'supplier' | 'label' | 'pengaturan';
-	let tab = $state<TabId>('stok');
+	let tab = $derived<TabId>(
+		(page.url.searchParams.get('tab') as TabId) ?? 'stok'
+	);
 
 	const TABS: { id: TabId; label: string }[] = [
 		{ id: 'stok',        label: 'STOK' },
@@ -32,7 +35,7 @@
 <div class="flex gap-1 mb-4 border-b overflow-x-auto" style="border-color:var(--border);scrollbar-width:none">
 	{#each TABS as t}
 		<button
-			onclick={() => tab = t.id}
+			onclick={() => goto(`?tab=${t.id}`, { replaceState: true, keepFocus: true, noScroll: true })}
 			class="px-3 py-2 text-xs font-bold border-b-2 -mb-px shrink-0 whitespace-nowrap"
 			style="{tab === t.id ? 'border-color:var(--accent);color:var(--accent)' : 'border-color:transparent;color:var(--text-dim)'}">
 			{t.label}

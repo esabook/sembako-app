@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
+  import { page } from '$app/state'
   import { user } from '$lib/stores/auth.js'
   import TabPelanggan from './TabPelanggan.svelte'
   import TabKartu from './TabKartu.svelte'
@@ -9,12 +10,14 @@
   })
 
   type Tab = 'pelanggan' | 'kartu'
-  let tab = $state<Tab>('pelanggan')
+  let tab = $derived<Tab>(
+    (page.url.searchParams.get('tab') as Tab) ?? 'pelanggan'
+  )
 
   let tabKartuRef = $state<{ muat: () => void } | null>(null)
 
   function gantiTab(t: Tab) {
-    tab = t
+    goto(`?tab=${t}`, { replaceState: true, keepFocus: true, noScroll: true })
     if (t === 'kartu') tabKartuRef?.muat()
   }
 
