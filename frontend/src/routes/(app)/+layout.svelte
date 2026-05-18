@@ -71,7 +71,7 @@
 	>
 		<!-- Logo + Brand -->
 		<div class="flex shrink-0 items-center gap-1.5">
-			<img src="logo.png" alt="Logo Sembako" class="h-[32px] w-[32px]" />
+			<img src="/logo.png" alt="Logo Sembako" class="h-[32px] w-[32px]" />
 			<span class="font-bold" style="color:var(--accent)">SEMBAKO</span>
 		</div>
 
