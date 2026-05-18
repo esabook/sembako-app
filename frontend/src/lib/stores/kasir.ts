@@ -50,6 +50,7 @@ export function setModeOverride(mode: KasirMode | null) {
 
 export type ItemKeranjang = {
   barang_id: number
+  tipe_harga: 'eceran' | 'grosir'
   kode_barang: string
   nama_barang: string
   satuan_id: number | null

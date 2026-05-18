@@ -14,7 +14,6 @@
 		diskonTotal,
 		total,
 		kembalian,
-		resetKasir,
 		kasirMode,
 		initKasirMode,
 		setModeOverride,
@@ -40,6 +39,7 @@
 		qrLarge,
 		scannerStatus,
 		prosesLoading,
+		draftStatus,
 		// actions
 		cariBarang,
 		openSearch,
@@ -62,7 +62,10 @@
 		promoTotalBerlaku,
 		diskonPromoTotal,
 		totalAkhir,
-		kasBankDipilih
+		kasBankDipilih,
+		initDraftSync,
+		restoreDraft,
+		resetKasirDenganDraft
 	} from './kasir.store';
 	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
 	import { api } from '$lib/utils/api';
@@ -108,6 +111,8 @@
 	let pelangganInputEl: HTMLInputElement | undefined = $state();
 	let bayarInputEl: HTMLInputElement | undefined = $state();
 	let helpCloseBtnEl: HTMLButtonElement | undefined = $state();
+	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
+	function focusEl(el: HTMLElement) { el.focus(); }
 
 	// ── Fokus otomatis saat popup terbuka ─────────────────────────────────────
 	$effect(() => {
@@ -189,11 +194,12 @@
 	}
 
 	function onKeydown(e: KeyboardEvent) {
+		console.log(e.key);
 		if (konfirmasiReset) {
 			if (e.key === 'Enter') {
 				e.preventDefault();
 				konfirmasiReset = false;
-				resetKasir();
+				resetKasirDenganDraft();
 			} else if (e.key === 'Escape') {
 				e.preventDefault();
 				konfirmasiReset = false;
@@ -201,7 +207,7 @@
 			return;
 		}
 
-		if ($konfirmasiHapusIdx !== null) {
+		if ($konfirmasiHapusIdx !== null && (e.key !== 'F1')) {
 			if (e.key === 'Enter') {
 				e.preventDefault();
 				hapusItem($konfirmasiHapusIdx);
@@ -284,7 +290,7 @@
 				if ($keranjang.length === 0) break;
 				closeAll();
 				if ($kasirMode === 'guided') konfirmasiReset = true;
-				else resetKasir();
+				else resetKasirDenganDraft();
 				break;
 			case 'Escape':
 				e.preventDefault();
@@ -320,7 +326,7 @@
 			if (e.key === 'ArrowRight' && $itemAktifIdx >= 0) {
 				e.preventDefault();
 				ubahJumlah($itemAktifIdx, 1);
-			} else if (e.key === 'ArrowLeft' && $itemAktifIdx >= 0) {
+			} else if ((e.key === 'ArrowLeft') && $itemAktifIdx >= 0) {
 				e.preventDefault();
 				const cur = $keranjang[$itemAktifIdx];
 				if (cur && cur.jumlah <= 1) konfirmasiHapusIdx.set($itemAktifIdx);
@@ -331,6 +337,14 @@
 			} else if (e.key === 'ArrowUp') {
 				e.preventDefault();
 				itemAktifIdx.update((i) => Math.max(i - 1, 0));
+			} else if (e.key === 'Enter' && $itemAktifIdx >= 0) {
+				e.preventDefault();
+				const el = diskonInputRefs[$itemAktifIdx];
+				el?.focus();
+				el?.select();
+			} else if (e.key === 'Delete'){
+				e.stopPropagation();
+				konfirmasiHapusIdx.set($itemAktifIdx);
 			}
 		}
 	}
@@ -524,6 +538,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 	onMount(() => {
 		initKasirMode();
 		void loadPromoAktif();
+		void restoreDraft();
 		void api.get<{ id: number; nama: string; tipe: string }[]>('/keuangan/kas-bank').then((res) => {
 			if (res.success) daftarKasBank = res.data;
 		});
@@ -538,10 +553,12 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 			if (s.struk_footer) strFooter = s.struk_footer;
 			if (s.struk_ukuran) strUkuran = s.struk_ukuran;
 		});
+		const cleanupDraft = initDraftSync();
 		return () => {
 			clearTimeout(cariTimer);
 			clearTimeout(pelangganTimer);
 			cleanupKasirScan();
+			cleanupDraft();
 		};
 	});
 </script>
@@ -600,7 +617,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						</div>
 					</div>
 				{:else}
-					<p class="text-sm">Keranjang kosong</p>
+					<p class="text-sm"><br/><br/>Keranjang kosong</p>
 				{/if}
 				<button
 					onclick={openSearch}
@@ -624,7 +641,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 					</tr>
 				</thead>
 				<tbody>
-					{#each $keranjang as item, idx (item.barang_id)}
+					{#each $keranjang as item, idx (`${item.barang_id}-${item.tipe_harga}`)}
 						<tr
 							class="cursor-pointer border-t"
 							style={$itemAktifIdx === idx
@@ -634,7 +651,10 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						>
 							<td class="px-3 py-2" style="color:var(--text-dim)">{idx + 1}</td>
 							<td class="px-3 py-2">
-								<div>{item.nama_barang}</div>
+								<div class="flex items-center gap-1.5">
+									<span>{item.nama_barang}</span>
+									<span class="rounded px-1 text-xs font-bold" style="background:var(--surface2);color:var(--accent)">{item.tipe_harga === 'grosir' ? 'GRS' : 'ECR'}</span>
+								</div>
 								<div class="text-xs" style="color:var(--text-dim)">{item.kode_barang}</div>
 							</td>
 							<td class="px-3 py-2 text-right font-mono">{rupiah(item.harga_jual)}</td>
@@ -647,7 +667,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 											else ubahJumlah(idx, -1);
 										}}
 										class="h-6 w-6 rounded text-center leading-none"
-										style="background:var(--surface);color:var(--text-dim)">−</button
+										style="background:var(--surface);color:var(--text-dim)">&lt;</button
 									>
 									<span class="w-8 text-center font-mono">{item.jumlah}</span>
 									<button
@@ -656,7 +676,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 											ubahJumlah(idx, 1);
 										}}
 										class="h-6 w-6 rounded text-center leading-none"
-										style="background:var(--surface);color:var(--text-dim)">+</button
+										style="background:var(--surface);color:var(--text-dim)">&gt;</button
 									>
 								</div>
 								<div class="mt-0.5 text-center text-xs" style="color:var(--text-dim)">
@@ -665,12 +685,20 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 							</td>
 							<td class="px-3 py-1 text-right">
 								<input
+									bind:this={diskonInputRefs[idx]}
 									type="number"
 									min="0"
 									step="500"
 									value={item.diskon_item}
 									oninput={(e) => ubahDiskon(idx, (e.target as HTMLInputElement).value)}
 									onclick={(e) => e.stopPropagation()}
+									onkeydown={(e) => {
+										if (e.key === 'Enter' || e.key === 'Escape') {
+											e.preventDefault();
+											e.stopPropagation();
+											(e.target as HTMLInputElement).blur();
+										}
+									}}
 									class="w-20 [appearance:textfield] rounded border px-2 py-0.5 text-right text-xs outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 									style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 								/>
@@ -678,13 +706,13 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 							<td class="px-3 py-2 text-right font-mono font-medium">
 								{rupiah(item.harga_jual * item.jumlah - item.diskon_item)}
 							</td>
-							<td class="px-2 py-2 text-center">
+							<td class="px-4 py-4 text-center">
 								<button
 									onclick={(e) => {
 										e.stopPropagation();
 										konfirmasiHapusIdx.set(idx);
 									}}
-									class="text-xs"
+									class="text-m"
 									style="color:var(--danger)">✕</button
 								>
 							</td>
@@ -701,6 +729,14 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 		style="border-color:var(--border)"
 	>
 		<div class="flex items-center gap-2">
+			<!-- draft status indicator -->
+			{#if $draftStatus === 'saving'}
+				<span class="font-mono text-xs" style="color:var(--text-dim)">Menyimpan...</span>
+			{:else if $draftStatus === 'saved'}
+				<span class="font-mono text-xs" style="color:var(--text-dim)">✓ Tersimpan</span>
+			{:else if $draftStatus === 'error'}
+				<span class="font-mono text-xs" style="color:var(--danger)">Gagal simpan</span>
+			{/if}
 			<!-- mode badge: klik untuk ganti manual -->
 			<button
 				onclick={cycleMode}
@@ -743,7 +779,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 				<button
 					onclick={() => {
 						if ($kasirMode === 'guided') konfirmasiReset = true;
-						else resetKasir();
+						else resetKasirDenganDraft();
 					}}
 					class="rounded border px-3 py-1 text-xs transition-all"
 					style="border-color:var(--border);color:var(--danger)"
@@ -753,7 +789,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 			{/if}
 			<button
 				onclick={handleProsesBayar}
-				disabled={$keranjang.length === 0}
+				disabled={$keranjang.length === 0 || !shiftAktif}
 				class="rounded px-3 py-1 text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
 				style="background:var(--accent);color:var(--bg)"
 			>
@@ -768,15 +804,15 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 				<tbody>
 					<tr>
 						<td style="color:var(--text-dim)">Subtotal</td>
-						<td class="font-mono" style="color:var(--text)">&nbsp;&nbsp;{rupiah($subtotal)}</td>
+						<td class="font-mono" style="color:var(--text)">&nbsp;{rupiah($subtotal)}</td>
 					</tr>
 					<tr>
 						<td style="color:var(--text-dim)">Diskon</td>
-						<td class="font-mono">&nbsp;−{rupiah($diskonTotal)}</td>
+						<td class="font-mono">&nbsp;{rupiah($diskonTotal)}</td>
 					</tr>
 					<tr>
 						<td style="color:var(--text-dim)">Total</td>
-						<td class="font-mono">&nbsp;&nbsp;{rupiah($totalAkhir)}</td>
+						<td class="font-mono">&nbsp;{rupiah($totalAkhir)}</td>
 					</tr>
 				</tbody>
 			</table>
@@ -1156,7 +1192,10 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 					<!-- akun kas/bank (hanya untuk transfer/QRIS) -->
 					{#if $metodeBayar === 'transfer' || $metodeBayar === 'qris'}
 						<div class="flex flex-col gap-1.5">
-							<p class="text-xs" style="color:var(--text-dim)">AKUN TUJUAN</p>
+							<p class="text-xs" style="color:var(--text-dim)">
+								AKUN TUJUAN
+								<span style="opacity:0.5;font-weight:normal"> — rekening yang menerima</span>
+							</p>
 							<div class="flex flex-wrap gap-1.5">
 								{#each daftarKasBank as kb (kb.id)}
 									<button
@@ -1167,6 +1206,15 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 											: 'border-color:var(--border);color:var(--text-dim)'}>{kb.nama}</button
 									>
 								{/each}
+								{#if daftarKasBank.length === 0}
+									<a
+										href="/keuangan"
+										class="rounded border px-3 py-1.5 text-xs transition-all"
+										style="border-color:var(--warn);color:var(--warn)"
+									>
+										+ Tambah akun di Keuangan → tab Kas/Bank
+									</a>
+								{/if}
 							</div>
 						</div>
 					{/if}
@@ -1180,12 +1228,19 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 							<input
 								id="nominal-checkout"
 								bind:this={bayarInputEl}
-								type="number"
-								min="0"
-								step="500"
-								bind:value={$nominalBayar}
+								type="text"
+								inputmode="numeric"
+								pattern="[0-9]*"
+								value={$nominalBayar ? new Intl.NumberFormat('id-ID').format(Number($nominalBayar)) : ''}
+								oninput={(e) => {
+									const raw = (e.target as HTMLInputElement).value.replace(/\D/g, '');
+									nominalBayar.set(raw);
+									(e.target as HTMLInputElement).value = raw
+										? new Intl.NumberFormat('id-ID').format(Number(raw))
+										: '';
+								}}
 								placeholder="0"
-								class="w-full [appearance:textfield] rounded border px-3 py-3 text-right font-mono text-xl font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+								class="w-full rounded border px-3 py-3 text-right font-mono text-xl font-bold outline-none"
 								style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 							/>
 							{#if Number($nominalBayar) >= $totalAkhir && $totalAkhir > 0}
@@ -1216,17 +1271,6 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						</div>
 					{/if}
 
-					<!-- GUIDED: step hint di checkout -->
-					{#if $kasirMode === 'guided'}
-						<div class="flex gap-1 text-xs" style="color:var(--text-dim)">
-							<span class="rounded px-1.5" style="background:var(--surface2)">① Pilih metode</span>
-							<span>→</span>
-							<span class="rounded px-1.5" style="background:var(--surface2)">② Input nominal</span>
-							<span>→</span>
-							<span class="rounded px-1.5" style="background:var(--surface2)">③ Klik SELESAI</span>
-						</div>
-					{/if}
-
 					<!-- actions -->
 					<div class="mt-auto flex gap-2 pt-2">
 						<button
@@ -1245,6 +1289,17 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 							{$prosesLoading ? 'MEMPROSES...' : 'SELESAI ✓'}
 						</button>
 					</div>
+					<!-- GUIDED: step hint di checkout -->
+					{#if $kasirMode === 'guided'}
+						<div class="flex gap-1 text-xs" style="color:var(--text-dim)">
+							<span class="rounded px-1.5" style="background:var(--surface2)">① Pilih metode</span>
+							<span>→</span>
+							<span class="rounded px-1.5" style="background:var(--surface2)">② Input nominal</span>
+							<span>→</span>
+							<span class="rounded px-1.5" style="background:var(--surface2)">③ Klik SELESAI</span>
+						</div>
+					{/if}
+
 				{/if}
 			</div>
 
@@ -1272,7 +1327,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						style="border-color:var(--text-dim);opacity:0.3"
 					></div>
 
-					{#each strukItems as item (item.barang_id)}
+					{#each strukItems as item (`${item.barang_id}-${item.tipe_harga}`)}
 						<div class="mb-1.5">
 							<div class="truncate font-medium">{item.nama_barang}</div>
 							<div class="flex justify-between" style="color:var(--text-dim)">
@@ -1402,7 +1457,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						min="0"
 						step="1000"
 						bind:value={kasAwal}
-						autofocus
+						use:focusEl
 						class="w-full rounded border px-3 py-2 text-sm outline-none"
 						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 					/>
@@ -1570,7 +1625,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 							min="0"
 							step="1000"
 							bind:value={kasFisik}
-							autofocus
+							use:focusEl
 							class="w-full rounded border px-3 py-2 text-sm outline-none"
 							style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 						/>
@@ -1682,7 +1737,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 				<button
 					onclick={() => {
 						konfirmasiReset = false;
-						resetKasir();
+						resetKasirDenganDraft();
 					}}
 					class="rounded px-4 py-1.5 text-sm font-bold transition-all active:scale-95"
 					style="background:var(--danger);color:#fff">Ya, reset (Enter)</button
@@ -1759,7 +1814,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 			onkeydown={() => {}}
 		>
 			<div class="mb-5 flex items-center justify-between">
-				<span class="font-bold">Panduan Shortcut Keyboard</span>
+				<span class="font-bold">Shortcut Keyboard</span>
 				<button
 					bind:this={helpCloseBtnEl}
 					onclick={() => (showHelp = false)}

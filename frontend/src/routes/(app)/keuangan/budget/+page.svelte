@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
-	import { createBudgetStore } from './budget.store.js'
+	import { createBudgetStore } from './budget.store.svelte.js'
 	import {
 		rupiah,
 		pctRealisasi,

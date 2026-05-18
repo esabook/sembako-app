@@ -13,7 +13,7 @@ import {
 import { loading, toast } from '$lib/stores/ui.store';
 import { withLoading } from '$lib/utils/async';
 import { bukaWhatsApp } from '$lib/utils/wa';
-import { fetchBarang, fetchPelanggan, submitPenjualan } from './kasir.api';
+import { fetchBarang, fetchPelanggan, submitPenjualan, getDraft, saveDraft, deleteDraft } from './kasir.api';
 import type { BarangResult, PelangganResult, ScannerStatus, Snap, PromoAktif } from './kasir.types';
 import { api } from '$lib/utils/api';
 
@@ -65,6 +65,80 @@ export const totalAkhir = derived(
 	([$t, $d]) => $t - $d
 );
 
+// ── Draft persistence ────────────────────────────────────────────────────────
+
+export const draftStatus = writable<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+let _draftTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleDraftSave() {
+	if (_draftTimer) clearTimeout(_draftTimer);
+	draftStatus.set('saving');
+	_draftTimer = setTimeout(async () => {
+		const items = get(keranjang);
+		try {
+			if (items.length === 0) {
+				await deleteDraft();
+				draftStatus.set('idle');
+			} else {
+				await saveDraft({
+					tipe: get(tipeTransaksi),
+					pelanggan_id: get(pelangganDipilih)?.id ?? null,
+					items: items.map((i) => ({
+						barang_id: i.barang_id,
+						tipe_harga: i.tipe_harga,
+						satuan_id: i.satuan_id,
+						jumlah: i.jumlah,
+						harga_jual: i.harga_jual,
+						diskon_item: i.diskon_item,
+					})),
+				});
+				draftStatus.set('saved');
+			}
+		} catch {
+			draftStatus.set('error');
+		}
+	}, 1500);
+}
+
+export function initDraftSync(): () => void {
+	const unsub1 = keranjang.subscribe(() => scheduleDraftSave());
+	const unsub2 = tipeTransaksi.subscribe(() => {
+		if (get(keranjang).length > 0) scheduleDraftSave();
+	});
+	return () => {
+		unsub1();
+		unsub2();
+		if (_draftTimer) clearTimeout(_draftTimer);
+	};
+}
+
+export async function restoreDraft(): Promise<void> {
+	try {
+		const draft = await getDraft();
+		if (!draft || draft.items.length === 0) return;
+		keranjang.set(
+			draft.items.map((i) => ({
+				barang_id: i.barang_id,
+				tipe_harga: i.tipe_harga,
+				kode_barang: i.kode_barang,
+				nama_barang: i.nama_barang,
+				satuan_id: i.satuan_id,
+				singkatan_satuan: i.singkatan_satuan ?? '',
+				jumlah: i.jumlah,
+				harga_jual: i.harga_jual,
+				diskon_item: i.diskon_item,
+				stok_sekarang: i.stok_sekarang,
+			}))
+		);
+		tipeTransaksi.set(draft.tipe);
+		draftStatus.set('saved');
+		toast.info('Keranjang dipulihkan');
+	} catch {
+		// silent — jangan ganggu kasir jika draft gagal dimuat
+	}
+}
+
 // ── UI state ─────────────────────────────────────────────────────────────────
 
 export const kasBankDipilih = writable<number | null>(null);
@@ -99,6 +173,13 @@ let kasirSse: EventSource | null = null;
 let lastSseEventMs = 0;
 let sseWatchdog: ReturnType<typeof setInterval> | null = null;
 const SSE_TIMEOUT_MS = 15_000;
+
+export function resetKasirDenganDraft() {
+	if (_draftTimer) clearTimeout(_draftTimer);
+	void deleteDraft().catch(() => {});
+	draftStatus.set('idle');
+	resetKasir();
+}
 
 // ── Cari barang ───────────────────────────────────────────────────────────────
 
@@ -151,12 +232,12 @@ export async function scanDariPhone(kode: string, qty = 1) {
 // ── Keranjang ─────────────────────────────────────────────────────────────────
 
 export function tambahKeKeranjang(br: BarangResult, qty = 1) {
-	const harga =
-		get(tipeTransaksi) === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
+	const tipe = get(tipeTransaksi);
+	const harga = tipe === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
 	const jumlahAktual = Math.min(qty, br.stok_sekarang);
 	const diskonPromo = hitungDiskonPromo(br, harga, jumlahAktual);
 	keranjang.update((k) => {
-		const idx = k.findIndex((i) => i.barang_id === br.id);
+		const idx = k.findIndex((i) => i.barang_id === br.id && i.tipe_harga === tipe);
 		if (idx >= 0) {
 			const u = [...k];
 			const newJumlah = Math.min(u[idx]!.jumlah + qty, u[idx]!.stok_sekarang);
@@ -169,6 +250,7 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 			...k,
 			{
 				barang_id: br.id,
+				tipe_harga: tipe,
 				kode_barang: br.kode_barang,
 				nama_barang: br.nama_barang,
 				satuan_id: br.satuan_dasar_id,
@@ -317,6 +399,8 @@ export async function prosesBayar() {
 		waktu: $waktu,
 	});
 	incrementTrxCount();
+	void deleteDraft().catch(() => {});
+	draftStatus.set('idle');
 	resetKasir();
 }
 

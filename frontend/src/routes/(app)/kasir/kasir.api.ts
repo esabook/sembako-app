@@ -32,3 +32,36 @@ export async function submitPenjualan(body: SubmitPenjualanBody): Promise<{ no_t
 	if (!res.success) throw new Error(res.error);
 	return res.data;
 }
+
+// ── Draft keranjang ───────────────────────────────────────────────────────
+
+export type DraftItem = Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'> & {
+	kode_barang: string;
+	nama_barang: string;
+	stok_sekarang: number;
+	singkatan_satuan: string | null;
+};
+
+export type DraftResponse = {
+	tipe: TipeTransaksi;
+	pelanggan_id: number | null;
+	items: DraftItem[];
+};
+
+export async function getDraft(): Promise<DraftResponse | null> {
+	const res = await api.get<DraftResponse | null>('/draft/keranjang');
+	if (!res.success) return null;
+	return res.data ?? null;
+}
+
+export async function saveDraft(payload: {
+	tipe: TipeTransaksi;
+	pelanggan_id?: number | null;
+	items: Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'>[];
+}): Promise<void> {
+	await api.put('/draft/keranjang', payload);
+}
+
+export async function deleteDraft(): Promise<void> {
+	await api.delete('/draft/keranjang');
+}

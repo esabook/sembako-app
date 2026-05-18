@@ -594,3 +594,26 @@ export const tukar_shift = sqliteTable('tukar_shift', {
   catatan_proses: text('catatan_proses'),
   ...timestamps,
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAFT KERANJANG KASIR
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const draft_keranjang = sqliteTable('draft_keranjang', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  kasir_id: integer('kasir_id').notNull().unique().references(() => karyawan.id),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  tipe: text('tipe', { enum: ['eceran', 'grosir'] }).notNull().default('eceran'),
+  ...timestamps,
+})
+
+export const draft_keranjang_item = sqliteTable('draft_keranjang_item', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  draft_id: integer('draft_id').notNull().references(() => draft_keranjang.id),
+  barang_id: integer('barang_id').notNull().references(() => barang.id),
+  tipe_harga: text('tipe_harga', { enum: ['eceran', 'grosir'] }).notNull().default('eceran'),
+  satuan_id: integer('satuan_id').references(() => satuan.id),
+  jumlah: real('jumlah').notNull(),
+  harga_jual: real('harga_jual').notNull(),
+  diskon_item: real('diskon_item').notNull().default(0),
+})
