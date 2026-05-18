@@ -4,7 +4,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 
-	type Kategori = { id: number; nama: string; contoh: string | null; is_preset: boolean };
+	type Kategori = { id: number; nama: string; contoh: string | null;kode: string | null; is_preset: boolean };
 	type Satuan = { id: number; nama: string; singkatan: string; contoh: string | null; is_preset: boolean };
 
 	const PREDEFINED_KATEGORI: { nama: string; kode: string; contoh: string }[] = [
@@ -100,17 +100,17 @@
 	let sortDirSatuan = $state<'asc' | 'desc'>('asc');
 
 	const kolKategori: Column[] = [
-		{ key: 'nama', label: 'Nama Kategori' },
-		{ key: '', label: 'Kode', width: 80, sortable: false },
+		{ key: 'nama',   label: 'Nama Kategori' },
+		{ key: 'kode',   label: 'Kode', width: 80, sortable: true },
 		{ key: 'contoh', label: 'Contoh Penggunaan' },
-		{ key: '', label: '', width: 116, sortable: false, align: 'right' },
+		{ key: 'aksi',   label: '', width: 116, sortable: false, align: 'right', hideable: false },
 	];
 
 	const kolSatuan: Column[] = [
-		{ key: 'nama', label: 'Nama Satuan' },
+		{ key: 'nama',      label: 'Nama Satuan' },
 		{ key: 'singkatan', label: 'Singkatan', width: 90 },
-		{ key: 'contoh', label: 'Contoh Penggunaan' },
-		{ key: '', label: '', width: 116, sortable: false, align: 'right' },
+		{ key: 'contoh',    label: 'Contoh Penggunaan' },
+		{ key: 'aksi',      label: '', width: 116, sortable: false, align: 'right', hideable: false },
 	];
 
 	function sortList<T extends Record<string, unknown>>(list: T[], key: string, dir: 'asc' | 'desc'): T[] {
@@ -127,9 +127,11 @@
 	let sortedSatuan = $derived(sortList(satuanList, sortKeySatuan, sortDirSatuan));
 
 	let newKategori = $state('');
+	let newKategoriKode = $state('');
 	let newKategoriContoh = $state('');
 	let editKategoriId = $state<number | null>(null);
 	let editKategoriNama = $state('');
+	let editKategoriKode = $state('');
 	let editKategoriContoh = $state('');
 
 	let newSatuanNama = $state('');
@@ -149,15 +151,15 @@
 	async function tambahKategori() {
 		errorPengaturan = '';
 		if (!newKategori.trim()) return;
-		const r = await api.post('/barang/kategori', { nama: newKategori.trim(), contoh: newKategoriContoh.trim() || undefined });
+		const r = await api.post('/barang/kategori', { nama: newKategori.trim(), kode: newKategoriKode.trim() || undefined, contoh: newKategoriContoh.trim() || undefined });
 		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
-		newKategori = ''; newKategoriContoh = '';
+		newKategori = ''; newKategoriKode = ''; newKategoriContoh = '';
 		muatMeta();
 	}
 
 	async function simpanEditKategori(id: number) {
 		errorPengaturan = '';
-		const r = await api.put(`/barang/kategori/${id}`, { nama: editKategoriNama.trim(), contoh: editKategoriContoh.trim() || undefined });
+		const r = await api.put(`/barang/kategori/${id}`, { nama: editKategoriNama.trim(), kode: editKategoriKode.trim() || undefined, contoh: editKategoriContoh.trim() || undefined });
 		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
 		editKategoriId = null;
 		muatMeta();
@@ -197,12 +199,12 @@
 	async function importPresetKategori() {
 		importingPreset = true;
 		const r = await api.post('/barang/kategori/import-preset', {
-			items: PREDEFINED_KATEGORI.map((p) => ({ nama: p.nama, contoh: p.contoh })),
+			items: PREDEFINED_KATEGORI.map((p) => ({ nama: p.nama, kode: p.kode, contoh: p.contoh })),
 		});
 		importingPreset = false;
 		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
-		const { inserted } = (r as { success: true; data: { inserted: number } }).data;
-		if (inserted === 0) errorPengaturan = 'Semua data bawaan sudah ada.';
+		const { inserted, updated } = (r as { success: true; data: { inserted: number; updated: number } }).data;
+		if (inserted === 0 && updated === 0) errorPengaturan = 'Tidak ada perubahan.';
 		muatMeta();
 	}
 
@@ -213,8 +215,8 @@
 		});
 		importingPreset = false;
 		if (!r.success) { errorPengaturan = (r as { success: false; error: string }).error; return; }
-		const { inserted } = (r as { success: true; data: { inserted: number } }).data;
-		if (inserted === 0) errorPengaturan = 'Semua data bawaan sudah ada.';
+		const { inserted, updated } = (r as { success: true; data: { inserted: number; updated: number } }).data;
+		if (inserted === 0 && updated === 0) errorPengaturan = 'Tidak ada perubahan.';
 		muatMeta();
 	}
 
@@ -254,6 +256,9 @@
 			<input bind:value={newKategori} placeholder="Nama kategori baru..." required
 				class="px-2 py-1 rounded border text-sm outline-none"
 				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:160px;flex:1" />
+			<input bind:value={newKategoriKode} placeholder="Kode (mis: BERAS)" maxlength="8"
+				class="px-2 py-1 rounded border text-sm outline-none font-mono uppercase"
+				style="background:var(--surface);border-color:var(--border);color:var(--text);flex-shrink:0" />
 			<input bind:value={newKategoriContoh} placeholder="Contoh penggunaan (opsional)"
 				class="px-2 py-1 rounded border text-sm outline-none"
 				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:200px;flex:2" />
@@ -268,19 +273,29 @@
 			rowCount={sortedKategori.length + (showPredefinedKategori ? PREDEFINED_KATEGORI.length : 0)}
 			emptyText="Belum ada kategori. Tambah di atas atau tampilkan data bawaan."
 		>
-			{#snippet body()}
+			{#snippet body(hidden)}
 				{#each sortedKategori as item}
 					<tr class="border-t" style="border-color:var(--border)">
 						{#if editKategoriId === item.id}
-							<td class="px-2 py-1.5" colspan="2">
-								<input bind:value={editKategoriNama} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-							</td>
-							<td class="px-2 py-1.5">
-								<input bind:value={editKategoriContoh} placeholder="contoh penggunaan..."
-									class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-							</td>
+							{#if !hidden.has('nama')}
+								<td class="px-2 py-1.5">
+									<input bind:value={editKategoriNama} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+								</td>
+							{/if}
+							{#if !hidden.has('kode')}
+								<td class="px-2 py-1.5">
+									<input bind:value={editKategoriKode} placeholder="kode..." class="w-full px-2 py-0.5 rounded border text-sm outline-none font-mono"
+										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+								</td>
+							{/if}
+							{#if !hidden.has('contoh')}
+								<td class="px-2 py-1.5">
+									<input bind:value={editKategoriContoh} placeholder="contoh penggunaan..."
+										class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+								</td>
+							{/if}
 							<td class="px-2 py-1.5">
 								<div class="flex gap-1.5 justify-end">
 									<button onclick={() => simpanEditKategori(item.id)} class="px-2 py-0.5 text-xs rounded" style="background:var(--accent);color:var(--bg)">simpan</button>
@@ -288,17 +303,23 @@
 								</div>
 							</td>
 						{:else}
-							<td class="px-3 py-2">
-								{item.nama}
-								{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
-							</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">—</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
+							{#if !hidden.has('nama')}
+								<td class="px-3 py-2">
+									{item.nama}
+									{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
+								</td>
+							{/if}
+							{#if !hidden.has('kode')}
+								<td class="px-3 py-2 text-xs font-mono" style="color:var(--text-dim)">{item.kode ?? '—'}</td>
+							{/if}
+							{#if !hidden.has('contoh')}
+								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
+							{/if}
 							<td class="px-2 py-2">
 								{#if !item.is_preset}
 									<div class="flex gap-1.5 justify-end">
 										<button
-											onclick={() => { editKategoriId = item.id; editKategoriNama = item.nama; editKategoriContoh = item.contoh ?? ''; errorPengaturan = '' }}
+											onclick={() => { editKategoriId = item.id; editKategoriNama = item.nama; editKategoriKode = item.kode ?? ''; editKategoriContoh = item.contoh ?? ''; errorPengaturan = '' }}
 											class="px-2 py-0.5 text-xs rounded border"
 											style="border-color:var(--info);color:var(--info)">edit</button>
 										<button
@@ -314,12 +335,18 @@
 				{#if showPredefinedKategori}
 					{#each PREDEFINED_KATEGORI as p}
 						<tr class="border-t" style="border-color:var(--border);background:color-mix(in srgb, var(--surface2) 60%, transparent)">
-							<td class="px-3 py-2 text-xs">
-								{p.nama}
-								<span class="ml-1 px-1 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>
-							</td>
-							<td class="px-3 py-2 text-xs font-mono" style="color:var(--text-dim)">{p.kode}</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.contoh}</td>
+							{#if !hidden.has('nama')}
+								<td class="px-3 py-2 text-xs">
+									{p.nama}
+									<span class="ml-1 px-1 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>
+								</td>
+							{/if}
+							{#if !hidden.has('kode')}
+								<td class="px-3 py-2 text-xs font-mono" style="color:var(--text-dim)">{p.kode}</td>
+							{/if}
+							{#if !hidden.has('contoh')}
+								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.contoh}</td>
+							{/if}
 							<td class="px-3 py-2"></td>
 						</tr>
 					{/each}
@@ -354,7 +381,7 @@
 				class="px-2 py-1 rounded border text-sm outline-none"
 				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:140px;flex:1" />
 			<input bind:value={newSatuanSingkatan} placeholder="Singkatan" required
-				class="px-2 py-1 rounded border text-sm outline-none"
+				class="px-2 py-1 rounded border text-sm outline-none uppercase font-mono"
 				style="background:var(--surface);border-color:var(--border);color:var(--text);width:100px;flex-shrink:0" />
 			<input bind:value={newSatuanContoh} placeholder="Contoh penggunaan (opsional)"
 				class="px-2 py-1 rounded border text-sm outline-none"
@@ -370,23 +397,29 @@
 			rowCount={sortedSatuan.length + (showPredefinedSatuan ? PREDEFINED_SATUAN.length : 0)}
 			emptyText="Belum ada satuan. Tambah di atas atau tampilkan data bawaan."
 		>
-			{#snippet body()}
+			{#snippet body(hidden)}
 				{#each sortedSatuan as item}
 					<tr class="border-t" style="border-color:var(--border)">
 						{#if editSatuanId === item.id}
-							<td class="px-2 py-1.5">
-								<input bind:value={editSatuanNama} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-							</td>
-							<td class="px-2 py-1.5">
-								<input bind:value={editSatuanSingkatan} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-							</td>
-							<td class="px-2 py-1.5">
-								<input bind:value={editSatuanContoh} placeholder="contoh penggunaan..."
-									class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-							</td>
+							{#if !hidden.has('nama')}
+								<td class="px-2 py-1.5">
+									<input bind:value={editSatuanNama} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+								</td>
+							{/if}
+							{#if !hidden.has('singkatan')}
+								<td class="px-2 py-1.5">
+									<input bind:value={editSatuanSingkatan} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+								</td>
+							{/if}
+							{#if !hidden.has('contoh')}
+								<td class="px-2 py-1.5">
+									<input bind:value={editSatuanContoh} placeholder="contoh penggunaan..."
+										class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+								</td>
+							{/if}
 							<td class="px-2 py-1.5">
 								<div class="flex gap-1.5 justify-end">
 									<button onclick={() => simpanEditSatuan(item.id)} class="px-2 py-0.5 text-xs rounded" style="background:var(--accent);color:var(--bg)">simpan</button>
@@ -394,14 +427,20 @@
 								</div>
 							</td>
 						{:else}
-							<td class="px-3 py-2">
-								{item.nama}
-								{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
-							</td>
-							<td class="px-3 py-2">
-								<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{item.singkatan}</span>
-							</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
+							{#if !hidden.has('nama')}
+								<td class="px-3 py-2">
+									{item.nama}
+									{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
+								</td>
+							{/if}
+							{#if !hidden.has('singkatan')}
+								<td class="px-3 py-2">
+									<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{item.singkatan}</span>
+								</td>
+							{/if}
+							{#if !hidden.has('contoh')}
+								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
+							{/if}
 							<td class="px-2 py-2">
 								{#if !item.is_preset}
 									<div class="flex gap-1.5 justify-end">
@@ -422,14 +461,20 @@
 				{#if showPredefinedSatuan}
 					{#each PREDEFINED_SATUAN as p}
 						<tr class="border-t" style="border-color:var(--border);background:color-mix(in srgb, var(--surface2) 60%, transparent)">
-							<td class="px-3 py-2 text-xs">
-								{p.nama}
-								<span class="ml-1 px-1 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>
-							</td>
-							<td class="px-3 py-2">
-								<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{p.singkatan}</span>
-							</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.contoh}</td>
+							{#if !hidden.has('nama')}
+								<td class="px-3 py-2 text-xs">
+									{p.nama}
+									<span class="ml-1 px-1 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>
+								</td>
+							{/if}
+							{#if !hidden.has('singkatan')}
+								<td class="px-3 py-2">
+									<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{p.singkatan}</span>
+								</td>
+							{/if}
+							{#if !hidden.has('contoh')}
+								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.contoh}</td>
+							{/if}
 							<td class="px-3 py-2"></td>
 						</tr>
 					{/each}

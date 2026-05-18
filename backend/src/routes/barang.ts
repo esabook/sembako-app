@@ -22,19 +22,19 @@ barangRouter.get('/kategori', async (c) => {
 })
 
 barangRouter.post('/kategori', requirePermission('stok.edit'), async (c) => {
-  const body = await c.req.json<{ nama: string; contoh?: string }>()
+  const body = await c.req.json<{ nama: string; kode?: string; contoh?: string }>()
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama kategori wajib diisi' })
 
-  const row = db.insert(kategori).values({ nama: body.nama.trim(), contoh: body.contoh?.trim() || null }).returning().get()
+  const row = db.insert(kategori).values({ nama: body.nama.trim(), kode: body.kode?.trim().toUpperCase() || null, contoh: body.contoh?.trim() || null }).returning().get()
   return c.json({ success: true, data: row }, 201)
 })
 
 barangRouter.put('/kategori/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const body = await c.req.json<{ nama: string; contoh?: string }>()
+  const body = await c.req.json<{ nama: string; kode?: string; contoh?: string }>()
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama wajib diisi' })
 
-  const row = db.update(kategori).set({ nama: body.nama.trim(), contoh: body.contoh?.trim() || null }).where(eq(kategori.id, id)).returning().get()
+  const row = db.update(kategori).set({ nama: body.nama.trim(), kode: body.kode?.trim().toUpperCase() || null, contoh: body.contoh?.trim() || null }).where(eq(kategori.id, id)).returning().get()
   if (!row) throw new HTTPException(404, { message: 'Kategori tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
@@ -51,16 +51,21 @@ barangRouter.delete('/kategori/:id', requirePermission('stok.edit'), async (c) =
 })
 
 barangRouter.post('/kategori/import-preset', requirePermission('stok.edit'), async (c) => {
-  const body = await c.req.json<{ items: { nama: string; contoh?: string }[] }>()
+  const body = await c.req.json<{ items: { nama: string; kode?: string; contoh?: string }[] }>()
   let inserted = 0
+  let updated = 0
   for (const item of body.items) {
+    const kode = item.kode?.trim().toUpperCase() || null
     const existing = db.select({ id: kategori.id }).from(kategori).where(eq(kategori.nama, item.nama)).get()
     if (!existing) {
-      db.insert(kategori).values({ nama: item.nama, contoh: item.contoh ?? null, is_preset: true }).run()
+      db.insert(kategori).values({ nama: item.nama, kode, contoh: item.contoh ?? null, is_preset: true }).run()
       inserted++
+    } else {
+      db.update(kategori).set({ kode, contoh: item.contoh ?? null, is_preset: true }).where(eq(kategori.id, existing.id)).run()
+      updated++
     }
   }
-  return c.json({ success: true, data: { inserted } })
+  return c.json({ success: true, data: { inserted, updated } })
 })
 
 // ── Satuan ────────────────────────────────────────────────────────────────
@@ -111,14 +116,18 @@ barangRouter.delete('/satuan/:id', requirePermission('stok.edit'), async (c) => 
 barangRouter.post('/satuan/import-preset', requirePermission('stok.edit'), async (c) => {
   const body = await c.req.json<{ items: { nama: string; singkatan: string; contoh?: string }[] }>()
   let inserted = 0
+  let updated = 0
   for (const item of body.items) {
     const existing = db.select({ id: satuan.id }).from(satuan).where(eq(satuan.nama, item.nama)).get()
     if (!existing) {
       db.insert(satuan).values({ nama: item.nama, singkatan: item.singkatan, contoh: item.contoh ?? null, is_preset: true }).run()
       inserted++
+    } else {
+      db.update(satuan).set({ singkatan: item.singkatan, contoh: item.contoh ?? null, is_preset: true }).where(eq(satuan.id, existing.id)).run()
+      updated++
     }
   }
-  return c.json({ success: true, data: { inserted } })
+  return c.json({ success: true, data: { inserted, updated } })
 })
 
 // ── Barang ────────────────────────────────────────────────────────────────

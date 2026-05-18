@@ -3,11 +3,27 @@
 	import { api } from '$lib/utils/api.js';
 	import { bukaWhatsApp } from '$lib/utils/wa.js';
 	import Modal from '$lib/components/Modal.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabPOGuide from './TabPOGuide.svelte';
 
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean; };
 	type PORow = { id: number; no_po: string; tanggal_po: string; nama_supplier: string | null; kontak_supplier: string | null; status: string; total_nilai: number; };
 	type SuggestItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; harga_beli_terakhir: number; saran_pesan: number; };
+
+	const kolPO: Column[] = [
+		{ key: 'no_po',          label: 'No PO',    width: 130 },
+		{ key: 'tanggal_po',     label: 'Tanggal',  width: 100, priority: 2 },
+		{ key: 'nama_supplier',  label: 'Supplier', minWidth: 100 },
+		{ key: 'status',         label: 'Status',   width: 90 },
+		{ key: 'total_nilai',    label: 'Total',    width: 130, align: 'right' },
+		{ key: 'aksi',           label: '',         width: 130, sortable: false, hideable: false, align: 'right' },
+	];
+
+	let pagePO = $state(1);
+	let pageSizePO = $state(25);
+	let sortKeyPO = $state('tanggal_po');
+	let sortDirPO = $state<'asc' | 'desc'>('desc');
 
 	let poList = $state<PORow[]>([]);
 	let supplierList = $state<Supplier[]>([]);
@@ -71,6 +87,19 @@
 		bukaWhatsApp(po.kontak_supplier, pesan)
 	}
 
+	let sortedPO = $derived.by(() => {
+		const key = sortKeyPO as keyof PORow;
+		return [...poList].sort((a, b) => {
+			const va = String(a[key] ?? '');
+			const vb = String(b[key] ?? '');
+			const cmp = va.localeCompare(vb, 'id', { numeric: true });
+			return sortDirPO === 'asc' ? cmp : -cmp;
+		});
+	});
+	let pagedPO = $derived(
+		pageSizePO === 0 ? sortedPO : sortedPO.slice((pagePO - 1) * pageSizePO, pagePO * pageSizePO)
+	);
+
 	onMount(() => { muatPO(); muatSupplier(); muatSuggest(); });
 </script>
 
@@ -131,38 +160,47 @@
 		</div>
 	</div>
 	{/if}
-	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-		<table class="w-full text-sm">
-			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
-				<th class="text-left px-3 py-2 font-medium">No PO</th>
-				<th class="text-left px-3 py-2 font-medium">Tanggal</th>
-				<th class="text-left px-3 py-2 font-medium">Supplier</th>
-				<th class="text-left px-3 py-2 font-medium">Status</th>
-				<th class="text-right px-3 py-2 font-medium">Total</th>
-				<th class="px-3 py-2"></th>
-			</tr></thead>
-			<tbody>
-				{#if loading}<tr><td colspan="6" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-				{:else if poList.length === 0}<tr><td colspan="6" class="px-3 py-4 text-center" style="color:var(--text-dim)">Belum ada PO</td></tr>
-				{:else}
-					{#each poList as po}
-					<tr class="border-t" style="border-color:var(--border)">
-						<td class="px-3 py-2 font-mono text-xs">{po.no_po}</td>
-						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{po.tanggal_po}</td>
-						<td class="px-3 py-2">{po.nama_supplier ?? '-'}</td>
-						<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{SPC[po.status] ?? 'var(--text-dim)'}">{po.status.toUpperCase()}</span></td>
-						<td class="px-3 py-2 text-right">{rupiah(po.total_nilai)}</td>
-						<td class="px-3 py-2 text-right">
-							<button onclick={() => lihatPO(po.id)} class="text-xs mr-2" style="color:var(--info)">Detail</button>
-							{#if po.status === 'draft'}<button onclick={() => ubahStatusPO(po.id, 'dikirim')} class="text-xs mr-2" style="color:var(--warn)">Kirim</button>{/if}
-							<button onclick={() => kirimPOWA(po)} class="text-xs" style="color:var(--accent)" title="Kirim ke supplier via WhatsApp">WA</button>
-						</td>
-					</tr>
-					{/each}
+	<DataTable
+		columns={kolPO}
+		tableId="gudang_po"
+		bind:sortKey={sortKeyPO}
+		bind:sortDir={sortDirPO}
+		bind:currentPage={pagePO}
+		bind:pageSize={pageSizePO}
+		totalRows={poList.length}
+		rowCount={pagedPO.length}
+		emptyText={loading ? 'Memuat...' : 'Belum ada PO'}
+		maxRows={12}
+	>
+		{#snippet body(hidden)}
+			{#each pagedPO as po}
+			<tr class="border-t" style="border-color:var(--border)">
+				{#if !hidden.has('no_po')}
+					<td class="px-3 py-2 font-mono text-xs">{po.no_po}</td>
 				{/if}
-			</tbody>
-		</table>
-	</div>
+				{#if !hidden.has('tanggal_po')}
+					<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{po.tanggal_po}</td>
+				{/if}
+				{#if !hidden.has('nama_supplier')}
+					<td class="px-3 py-2">{po.nama_supplier ?? '-'}</td>
+				{/if}
+				{#if !hidden.has('status')}
+					<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{SPC[po.status] ?? 'var(--text-dim)'}">{po.status.toUpperCase()}</span></td>
+				{/if}
+				{#if !hidden.has('total_nilai')}
+					<td class="px-3 py-2 text-right">{rupiah(po.total_nilai)}</td>
+				{/if}
+				{#if !hidden.has('aksi')}
+					<td class="px-3 py-2 text-right">
+						<button onclick={() => lihatPO(po.id)} class="text-xs mr-2" style="color:var(--info)">Detail</button>
+						{#if po.status === 'draft'}<button onclick={() => ubahStatusPO(po.id, 'dikirim')} class="text-xs mr-2" style="color:var(--warn)">Kirim</button>{/if}
+						<button onclick={() => kirimPOWA(po)} class="text-xs" style="color:var(--accent)" title="Kirim ke supplier via WhatsApp">WA</button>
+					</td>
+				{/if}
+			</tr>
+			{/each}
+		{/snippet}
+	</DataTable>
 </div>
 
 <Modal bind:open={showPoDetail} title="Detail PO — {poDetail?.no_po ?? ''}">

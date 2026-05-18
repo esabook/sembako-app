@@ -4,6 +4,8 @@
   import { page } from '$app/state'
   import { api } from '$lib/utils/api'
   import { user } from '$lib/stores/auth.js'
+  import DataTable from '$lib/components/DataTable.svelte'
+  import type { Column } from '$lib/components/DataTable.svelte'
   import { createBudgetStore } from './budget/budget.store.svelte.js'
   import {
     rupiah, pctRealisasi, statusPenjualan, statusPengeluaran,
@@ -52,6 +54,46 @@
 
   // ── State ─────────────────────────────────────────────────────────────────
 
+  // ── Table columns ─────────────────────────────────────────────────────────
+
+  const kolHutang: Column[] = [
+    { key: 'nama_supplier',       label: 'Supplier',     minWidth: 120 },
+    { key: 'tanggal_hutang',      label: 'Tgl Hutang',   width: 100, priority: 2 },
+    { key: 'tanggal_jatuh_tempo', label: 'Jatuh Tempo',  width: 110 },
+    { key: 'total_hutang',        label: 'Total',        width: 110, align: 'right', priority: 3 },
+    { key: 'sisa_hutang',         label: 'Sisa',         width: 110, align: 'right' },
+    { key: 'status_hutang',       label: 'Status',       width: 90 },
+    { key: 'aksi_hutang',         label: '',             width: 70, sortable: false, hideable: false },
+  ]
+
+  const kolPiutang: Column[] = [
+    { key: 'nama_pelanggan',      label: 'Pelanggan',    minWidth: 120 },
+    { key: 'no_transaksi',        label: 'No Trx',       width: 110, priority: 3 },
+    { key: 'tanggal_piutang',     label: 'Tgl Piutang',  width: 100, priority: 2 },
+    { key: 'tanggal_jatuh_tempo', label: 'Jatuh Tempo',  width: 110 },
+    { key: 'total_piutang',       label: 'Total',        width: 110, align: 'right', priority: 3 },
+    { key: 'sisa_piutang',        label: 'Sisa',         width: 110, align: 'right' },
+    { key: 'status_piutang',      label: 'Status',       width: 90 },
+    { key: 'aksi_piutang',        label: '',             width: 70, sortable: false, hideable: false },
+  ]
+
+  const kolJurnal: Column[] = [
+    { key: 'tanggal',    label: 'Tanggal',   width: 100, priority: 2 },
+    { key: 'nama_akun',  label: 'Akun',      width: 110, priority: 2 },
+    { key: 'jenis',      label: 'Jenis',     width: 90 },
+    { key: 'kategori',   label: 'Kategori',  width: 110, priority: 3 },
+    { key: 'keterangan', label: 'Keterangan', minWidth: 100, priority: 3 },
+    { key: 'jumlah',     label: 'Jumlah',    width: 120, align: 'right' },
+  ]
+
+  // ── Pagination state ──────────────────────────────────────────────────────
+
+  let pageHutang = $state(1); let pageSizeHutang = $state(25)
+  let pagePiutang = $state(1); let pageSizePiutang = $state(25)
+  let pageJurnal = $state(1); let pageSizeJurnal = $state(25)
+
+  // ── State ─────────────────────────────────────────────────────────────────
+
   let hutangList = $state<Hutang[]>([])
   let piutangList = $state<Piutang[]>([])
   let jurnalList = $state<Jurnal[]>([])
@@ -82,6 +124,16 @@
     filterStatusPiutang === 'semua'
       ? piutangList
       : piutangList.filter((p) => p.status === filterStatusPiutang)
+  )
+
+  let pagedHutang = $derived(
+    pageSizeHutang === 0 ? hutangFiltered : hutangFiltered.slice((pageHutang - 1) * pageSizeHutang, pageHutang * pageSizeHutang)
+  )
+  let pagedPiutang = $derived(
+    pageSizePiutang === 0 ? piutangFiltered : piutangFiltered.slice((pagePiutang - 1) * pageSizePiutang, pagePiutang * pageSizePiutang)
+  )
+  let pagedJurnal = $derived(
+    pageSizeJurnal === 0 ? jurnalList : jurnalList.slice((pageJurnal - 1) * pageSizeJurnal, pageJurnal * pageSizeJurnal)
   )
 
   // ── Ringkasan ─────────────────────────────────────────────────────────────
@@ -382,50 +434,58 @@
       {/each}
     </div>
 
-    {#if loading}
-      <p style="color:var(--text-dim); font-size:.85rem">Memuat...</p>
-    {:else if hutangFiltered.length === 0}
-      <p style="color:var(--text-dim); font-size:.85rem">Tidak ada data hutang.</p>
-    {:else}
-      <div style="overflow-x:auto">
-        <table style="width:100%; border-collapse:collapse; font-size:.82rem">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border)">
-              {#each ['Supplier','Tgl Hutang','Jatuh Tempo','Total','Sisa','Status',''] as h}
-                <th style="padding:.5rem .6rem; text-align:left; color:var(--text-dim); font-weight:600; font-size:.72rem; white-space:nowrap">{h}</th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody>
-            {#each hutangFiltered as h}
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:.55rem .6rem; color:var(--text)">{h.nama_supplier ?? '—'}</td>
-                <td style="padding:.55rem .6rem; color:var(--text-dim)">{tglFmt(h.tanggal_hutang)}</td>
-                <td style="padding:.55rem .6rem; color:{isJatuhTempo(h.tanggal_jatuh_tempo) && h.status !== 'lunas' ? 'var(--danger)' : 'var(--text-dim)'}">
-                  {tglFmt(h.tanggal_jatuh_tempo)}
-                  {#if isJatuhTempo(h.tanggal_jatuh_tempo) && h.status !== 'lunas'} ⚠{/if}
-                </td>
-                <td style="padding:.55rem .6rem; color:var(--text); text-align:right">Rp {fmt(h.total_hutang)}</td>
-                <td style="padding:.55rem .6rem; font-weight:700; text-align:right; color:{h.sisa_hutang > 0 ? 'var(--danger)' : 'var(--text-dim)'}">
-                  Rp {fmt(h.sisa_hutang)}
-                </td>
-                <td style="padding:.55rem .6rem">
-                  <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; {statusBadge(h.status)}">{h.status}</span>
-                </td>
-                <td style="padding:.55rem .6rem">
-                  {#if h.status !== 'lunas'}
-                    <button
-                      onclick={() => bukaBayarHutang(h)}
-                      style="padding:.25rem .65rem; background:var(--accent); color:var(--bg); border:none; border-radius:3px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer"
-                    >Bayar</button>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
+    <DataTable
+      columns={kolHutang}
+      tableId="keuangan_hutang"
+      bind:currentPage={pageHutang}
+      bind:pageSize={pageSizeHutang}
+      totalRows={hutangFiltered.length}
+      rowCount={pagedHutang.length}
+      emptyText={loading ? 'Memuat...' : 'Tidak ada data hutang.'}
+      maxRows={12}
+    >
+      {#snippet body(hidden)}
+        {#each pagedHutang as h}
+          <tr style="border-bottom:1px solid var(--border)">
+            {#if !hidden.has('nama_supplier')}
+              <td style="padding:.55rem .6rem; color:var(--text)">{h.nama_supplier ?? '—'}</td>
+            {/if}
+            {#if !hidden.has('tanggal_hutang')}
+              <td style="padding:.55rem .6rem; color:var(--text-dim)">{tglFmt(h.tanggal_hutang)}</td>
+            {/if}
+            {#if !hidden.has('tanggal_jatuh_tempo')}
+              <td style="padding:.55rem .6rem; color:{isJatuhTempo(h.tanggal_jatuh_tempo) && h.status !== 'lunas' ? 'var(--danger)' : 'var(--text-dim)'}">
+                {tglFmt(h.tanggal_jatuh_tempo)}
+                {#if isJatuhTempo(h.tanggal_jatuh_tempo) && h.status !== 'lunas'} ⚠{/if}
+              </td>
+            {/if}
+            {#if !hidden.has('total_hutang')}
+              <td style="padding:.55rem .6rem; color:var(--text); text-align:right">Rp {fmt(h.total_hutang)}</td>
+            {/if}
+            {#if !hidden.has('sisa_hutang')}
+              <td style="padding:.55rem .6rem; font-weight:700; text-align:right; color:{h.sisa_hutang > 0 ? 'var(--danger)' : 'var(--text-dim)'}">
+                Rp {fmt(h.sisa_hutang)}
+              </td>
+            {/if}
+            {#if !hidden.has('status_hutang')}
+              <td style="padding:.55rem .6rem">
+                <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; {statusBadge(h.status)}">{h.status}</span>
+              </td>
+            {/if}
+            {#if !hidden.has('aksi_hutang')}
+              <td style="padding:.55rem .6rem">
+                {#if h.status !== 'lunas'}
+                  <button
+                    onclick={() => bukaBayarHutang(h)}
+                    style="padding:.25rem .65rem; background:var(--accent); color:var(--bg); border:none; border-radius:3px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer"
+                  >Bayar</button>
+                {/if}
+              </td>
+            {/if}
+          </tr>
+        {/each}
+      {/snippet}
+    </DataTable>
   {/if}
 
   <!-- ═══════════════════════════════════════ TAB PIUTANG ══ -->
@@ -440,51 +500,61 @@
       {/each}
     </div>
 
-    {#if loading}
-      <p style="color:var(--text-dim); font-size:.85rem">Memuat...</p>
-    {:else if piutangFiltered.length === 0}
-      <p style="color:var(--text-dim); font-size:.85rem">Tidak ada data piutang.</p>
-    {:else}
-      <div style="overflow-x:auto">
-        <table style="width:100%; border-collapse:collapse; font-size:.82rem">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border)">
-              {#each ['Pelanggan','No Transaksi','Tgl Piutang','Jatuh Tempo','Total','Sisa','Status',''] as h}
-                <th style="padding:.5rem .6rem; text-align:left; color:var(--text-dim); font-weight:600; font-size:.72rem; white-space:nowrap">{h}</th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody>
-            {#each piutangFiltered as p}
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:.55rem .6rem; color:var(--text)">{p.nama_pelanggan ?? '—'}</td>
-                <td style="padding:.55rem .6rem; color:var(--text-dim); font-size:.75rem">{p.no_transaksi ?? '—'}</td>
-                <td style="padding:.55rem .6rem; color:var(--text-dim)">{tglFmt(p.tanggal_piutang)}</td>
-                <td style="padding:.55rem .6rem; color:{isJatuhTempo(p.tanggal_jatuh_tempo) && p.status !== 'lunas' ? 'var(--danger)' : 'var(--text-dim)'}">
-                  {tglFmt(p.tanggal_jatuh_tempo)}
-                  {#if isJatuhTempo(p.tanggal_jatuh_tempo) && p.status !== 'lunas'} ⚠{/if}
-                </td>
-                <td style="padding:.55rem .6rem; color:var(--text); text-align:right">Rp {fmt(p.total_piutang)}</td>
-                <td style="padding:.55rem .6rem; font-weight:700; text-align:right; color:{p.sisa_piutang > 0 ? 'var(--warn)' : 'var(--text-dim)'}">
-                  Rp {fmt(p.sisa_piutang)}
-                </td>
-                <td style="padding:.55rem .6rem">
-                  <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; {statusBadge(p.status)}">{p.status}</span>
-                </td>
-                <td style="padding:.55rem .6rem">
-                  {#if p.status !== 'lunas'}
-                    <button
-                      onclick={() => bukaBayarPiutang(p)}
-                      style="padding:.25rem .65rem; background:var(--accent); color:var(--bg); border:none; border-radius:3px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer"
-                    >Terima</button>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
+    <DataTable
+      columns={kolPiutang}
+      tableId="keuangan_piutang"
+      bind:currentPage={pagePiutang}
+      bind:pageSize={pageSizePiutang}
+      totalRows={piutangFiltered.length}
+      rowCount={pagedPiutang.length}
+      emptyText={loading ? 'Memuat...' : 'Tidak ada data piutang.'}
+      maxRows={12}
+    >
+      {#snippet body(hidden)}
+        {#each pagedPiutang as p}
+          <tr style="border-bottom:1px solid var(--border)">
+            {#if !hidden.has('nama_pelanggan')}
+              <td style="padding:.55rem .6rem; color:var(--text)">{p.nama_pelanggan ?? '—'}</td>
+            {/if}
+            {#if !hidden.has('no_transaksi')}
+              <td style="padding:.55rem .6rem; color:var(--text-dim); font-size:.75rem">{p.no_transaksi ?? '—'}</td>
+            {/if}
+            {#if !hidden.has('tanggal_piutang')}
+              <td style="padding:.55rem .6rem; color:var(--text-dim)">{tglFmt(p.tanggal_piutang)}</td>
+            {/if}
+            {#if !hidden.has('tanggal_jatuh_tempo')}
+              <td style="padding:.55rem .6rem; color:{isJatuhTempo(p.tanggal_jatuh_tempo) && p.status !== 'lunas' ? 'var(--danger)' : 'var(--text-dim)'}">
+                {tglFmt(p.tanggal_jatuh_tempo)}
+                {#if isJatuhTempo(p.tanggal_jatuh_tempo) && p.status !== 'lunas'} ⚠{/if}
+              </td>
+            {/if}
+            {#if !hidden.has('total_piutang')}
+              <td style="padding:.55rem .6rem; color:var(--text); text-align:right">Rp {fmt(p.total_piutang)}</td>
+            {/if}
+            {#if !hidden.has('sisa_piutang')}
+              <td style="padding:.55rem .6rem; font-weight:700; text-align:right; color:{p.sisa_piutang > 0 ? 'var(--warn)' : 'var(--text-dim)'}">
+                Rp {fmt(p.sisa_piutang)}
+              </td>
+            {/if}
+            {#if !hidden.has('status_piutang')}
+              <td style="padding:.55rem .6rem">
+                <span style="font-size:.7rem; font-weight:700; text-transform:uppercase; {statusBadge(p.status)}">{p.status}</span>
+              </td>
+            {/if}
+            {#if !hidden.has('aksi_piutang')}
+              <td style="padding:.55rem .6rem">
+                {#if p.status !== 'lunas'}
+                  <button
+                    onclick={() => bukaBayarPiutang(p)}
+                    style="padding:.25rem .65rem; background:var(--accent); color:var(--bg); border:none; border-radius:3px; font-family:inherit; font-size:.72rem; font-weight:700; cursor:pointer"
+                  >Terima</button>
+                {/if}
+              </td>
+            {/if}
+          </tr>
+        {/each}
+      {/snippet}
+    </DataTable>
   {/if}
 
   <!-- ═══════════════════════════════════════ TAB JURNAL ═══ -->
@@ -529,41 +599,47 @@
       </div>
     </div>
 
-    {#if loading}
-      <p style="color:var(--text-dim); font-size:.85rem">Memuat...</p>
-    {:else if jurnalList.length === 0}
-      <p style="color:var(--text-dim); font-size:.85rem">Tidak ada jurnal untuk periode ini.</p>
-    {:else}
-      <div style="overflow-x:auto">
-        <table style="width:100%; border-collapse:collapse; font-size:.82rem">
-          <thead>
-            <tr style="border-bottom:1px solid var(--border)">
-              {#each ['Tanggal','Akun','Jenis','Kategori','Keterangan','Jumlah'] as h}
-                <th style="padding:.5rem .6rem; text-align:left; color:var(--text-dim); font-weight:600; font-size:.72rem; white-space:nowrap">{h}</th>
-              {/each}
-            </tr>
-          </thead>
-          <tbody>
-            {#each jurnalList as j}
-              <tr style="border-bottom:1px solid var(--border)">
-                <td style="padding:.55rem .6rem; color:var(--text-dim)">{tglFmt(j.tanggal)}</td>
-                <td style="padding:.55rem .6rem; color:var(--text)">{j.nama_akun ?? '—'}</td>
-                <td style="padding:.55rem .6rem">
-                  <span style="font-size:.7rem; font-weight:700; color:{j.jenis === 'masuk' ? 'var(--accent)' : 'var(--danger)'}">
-                    {j.jenis === 'masuk' ? '▲ MASUK' : '▼ KELUAR'}
-                  </span>
-                </td>
-                <td style="padding:.55rem .6rem; color:var(--text-dim); font-size:.78rem">{j.kategori}</td>
-                <td style="padding:.55rem .6rem; color:var(--text-dim); font-size:.78rem">{j.keterangan ?? '—'}</td>
-                <td style="padding:.55rem .6rem; text-align:right; font-weight:700; color:{j.jenis === 'masuk' ? 'var(--accent)' : 'var(--danger)'}">
-                  Rp {fmt(j.jumlah)}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
+    <DataTable
+      columns={kolJurnal}
+      tableId="keuangan_jurnal"
+      bind:currentPage={pageJurnal}
+      bind:pageSize={pageSizeJurnal}
+      totalRows={jurnalList.length}
+      rowCount={pagedJurnal.length}
+      emptyText={loading ? 'Memuat...' : 'Tidak ada jurnal untuk periode ini.'}
+      maxRows={14}
+    >
+      {#snippet body(hidden)}
+        {#each pagedJurnal as j}
+          <tr style="border-bottom:1px solid var(--border)">
+            {#if !hidden.has('tanggal')}
+              <td style="padding:.55rem .6rem; color:var(--text-dim)">{tglFmt(j.tanggal)}</td>
+            {/if}
+            {#if !hidden.has('nama_akun')}
+              <td style="padding:.55rem .6rem; color:var(--text)">{j.nama_akun ?? '—'}</td>
+            {/if}
+            {#if !hidden.has('jenis')}
+              <td style="padding:.55rem .6rem">
+                <span style="font-size:.7rem; font-weight:700; color:{j.jenis === 'masuk' ? 'var(--accent)' : 'var(--danger)'}">
+                  {j.jenis === 'masuk' ? '▲ MASUK' : '▼ KELUAR'}
+                </span>
+              </td>
+            {/if}
+            {#if !hidden.has('kategori')}
+              <td style="padding:.55rem .6rem; color:var(--text-dim); font-size:.78rem">{j.kategori}</td>
+            {/if}
+            {#if !hidden.has('keterangan')}
+              <td style="padding:.55rem .6rem; color:var(--text-dim); font-size:.78rem">{j.keterangan ?? '—'}</td>
+            {/if}
+            {#if !hidden.has('jumlah')}
+              <td style="padding:.55rem .6rem; text-align:right; font-weight:700; color:{j.jenis === 'masuk' ? 'var(--accent)' : 'var(--danger)'}">
+                Rp {fmt(j.jumlah)}
+              </td>
+            {/if}
+          </tr>
+        {/each}
+      {/snippet}
+    </DataTable>
   {/if}
 
   <!-- ═══════════════════════════════════════ TAB KAS/BANK ═ -->

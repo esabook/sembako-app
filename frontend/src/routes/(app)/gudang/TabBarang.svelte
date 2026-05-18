@@ -4,6 +4,8 @@
 	import { user } from '$lib/stores/auth.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import Modal from '$lib/components/Modal.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabBarangGuide from './TabBarangGuide.svelte';
 
 	type Barang = {
@@ -26,6 +28,22 @@
 	};
 	type Kategori = { id: number; nama: string; contoh: string | null; is_preset: boolean };
 	type Satuan = { id: number; nama: string; singkatan: string; contoh: string | null; is_preset: boolean };
+
+	const kolBarang: Column[] = [
+		{ key: 'foto',              label: '',          width: 52, sortable: false, hideable: false },
+		{ key: 'kode_barang',       label: 'Kode',      width: 100, priority: 2 },
+		{ key: 'nama_barang',       label: 'Nama',      minWidth: 120 },
+		{ key: 'nama_kategori',     label: 'Kategori',  minWidth: 100, priority: 2 },
+		{ key: 'stok_sekarang',     label: 'Stok',      width: 90, align: 'right' },
+		{ key: 'status_stok',       label: 'Status',    width: 110, priority: 2 },
+		{ key: 'harga_jual_eceran', label: 'Harga',     width: 110, align: 'right', priority: 3 },
+		{ key: 'aksi',              label: '',          width: 90, sortable: false, hideable: false, align: 'right' },
+	];
+
+	let pageBarang = $state(1);
+	let pageSizeBarang = $state(25);
+	let sortKeyBarang = $state('nama_barang');
+	let sortDirBarang = $state<'asc' | 'desc'>('asc');
 
 	let barangList = $state<Barang[]>([]);
 	let kategoriList = $state<Kategori[]>([]);
@@ -72,9 +90,26 @@
 		return { label: 'AMAN', color: 'var(--accent)' };
 	}
 
+	function sortBarang(list: Barang[], key: string, dir: 'asc' | 'desc') {
+		if (!key) return list;
+		return [...list].sort((a, b) => {
+			const va = String((a as Record<string, unknown>)[key] ?? '');
+			const vb = String((b as Record<string, unknown>)[key] ?? '');
+			const cmp = va.localeCompare(vb, 'id', { numeric: true });
+			return dir === 'asc' ? cmp : -cmp;
+		});
+	}
+
+	let sortedBarang = $derived(sortBarang(barangList, sortKeyBarang, sortDirBarang));
+	let pagedBarang = $derived(
+		pageSizeBarang === 0
+			? sortedBarang
+			: sortedBarang.slice((pageBarang - 1) * pageSizeBarang, pageBarang * pageSizeBarang)
+	);
+
 	async function muatBarang(q = '') {
 		const r = await api.get<Barang[]>(`/barang?q=${q}${tampilNonAktif ? '&aktif=0' : ''}`);
-		if (r.success) barangList = r.data;
+		if (r.success) { barangList = r.data; pageBarang = 1; }
 	}
 	async function muatMeta() {
 		const [k, s] = await Promise.all([
@@ -172,55 +207,66 @@
 		</button>
 		<button onclick={() => bukaFormBarang()} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
 	</div>
-	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-		<table class="w-full text-sm">
-			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
-				<th class="px-3 py-2 w-10"></th>
-				<th class="text-left px-3 py-2 font-medium">Kode</th>
-				<th class="text-left px-3 py-2 font-medium">Nama</th>
-				<th class="text-left px-3 py-2 font-medium">Kategori</th>
-				<th class="text-right px-3 py-2 font-medium">Stok</th>
-				<th class="text-left px-3 py-2 font-medium">Status</th>
-				<th class="text-right px-3 py-2 font-medium">Harga Jual</th>
-				<th class="px-3 py-2"></th>
-			</tr></thead>
-			<tbody>
-				{#if loading}<tr><td colspan="8" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-				{:else if barangList.length === 0}<tr><td colspan="8" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada data</td></tr>
-				{:else}
-					{#each barangList as item (item.id)}
-						{@const st = statusStok(item)}
-						<tr class="border-t" style="border-color:var(--border);opacity:{item.is_active ? 1 : 0.45}">
-							<td class="px-2 py-1">
-								{#if item.foto_path}
-									<img src="/uploads/{item.foto_path.replace('med_', 'thumb_')}" alt={item.nama_barang} class="w-9 h-9 rounded object-cover" style="border:1px solid var(--border)" />
-								{:else}
-									<div class="w-9 h-9 rounded flex items-center justify-center text-xs" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim)">—</div>
-								{/if}
-							</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
-							<td class="px-3 py-2">
-								{item.nama_barang}
-								{#if !item.is_active}<span class="ml-1 text-xs" style="color:var(--text-dim)">[non-aktif]</span>{/if}
-							</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
-							<td class="px-3 py-2 text-right">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
-							<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td>
-							<td class="px-3 py-2 text-right">{rupiah(item.harga_jual_eceran)}</td>
-							<td class="px-3 py-2 text-right">
-								{#if item.is_active}
-									<button onclick={() => bukaFormBarang(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-									<button onclick={() => hapusBarang(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
-								{:else}
-									<button onclick={async () => { await api.put(`/barang/${item.id}`, { is_active: true }); muatBarang(query) }} class="text-xs" style="color:var(--accent)">Aktifkan</button>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
-	</div>
+	<DataTable
+		columns={kolBarang}
+		tableId="gudang_barang"
+		bind:sortKey={sortKeyBarang}
+		bind:sortDir={sortDirBarang}
+		bind:currentPage={pageBarang}
+		bind:pageSize={pageSizeBarang}
+		totalRows={sortedBarang.length}
+		rowCount={pagedBarang.length}
+		emptyText={loading ? 'Memuat...' : 'Tidak ada data'}
+		maxRows={12}
+	>
+		{#snippet body(hidden)}
+			{#each pagedBarang as item (item.id)}
+				{@const st = statusStok(item)}
+				<tr class="border-t" style="border-color:var(--border);opacity:{item.is_active ? 1 : 0.45}">
+					{#if !hidden.has('foto')}
+						<td class="px-2 py-1">
+							{#if item.foto_path}
+								<img src="/uploads/{item.foto_path.replace('med_', 'thumb_')}" alt={item.nama_barang} class="w-9 h-9 rounded object-cover" style="border:1px solid var(--border)" />
+							{:else}
+								<div class="w-9 h-9 rounded flex items-center justify-center text-xs" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim)">—</div>
+							{/if}
+						</td>
+					{/if}
+					{#if !hidden.has('kode_barang')}
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
+					{/if}
+					{#if !hidden.has('nama_barang')}
+						<td class="px-3 py-2">
+							{item.nama_barang}
+							{#if !item.is_active}<span class="ml-1 text-xs" style="color:var(--text-dim)">[non-aktif]</span>{/if}
+						</td>
+					{/if}
+					{#if !hidden.has('nama_kategori')}
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
+					{/if}
+					{#if !hidden.has('stok_sekarang')}
+						<td class="px-3 py-2 text-right">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
+					{/if}
+					{#if !hidden.has('status_stok')}
+						<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td>
+					{/if}
+					{#if !hidden.has('harga_jual_eceran')}
+						<td class="px-3 py-2 text-right">{rupiah(item.harga_jual_eceran)}</td>
+					{/if}
+					{#if !hidden.has('aksi')}
+						<td class="px-3 py-2 text-right">
+							{#if item.is_active}
+								<button onclick={() => bukaFormBarang(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
+								<button onclick={() => hapusBarang(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+							{:else}
+								<button onclick={async () => { await api.put(`/barang/${item.id}`, { is_active: true }); muatBarang(query) }} class="text-xs" style="color:var(--accent)">Aktifkan</button>
+							{/if}
+						</td>
+					{/if}
+				</tr>
+			{/each}
+		{/snippet}
+	</DataTable>
 </div>
 
 <TabBarangGuide />

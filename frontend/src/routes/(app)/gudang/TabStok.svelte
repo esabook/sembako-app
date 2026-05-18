@@ -4,10 +4,28 @@
 	import { user } from '$lib/stores/auth.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import Modal from '$lib/components/Modal.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabStokGuide from './TabStokGuide.svelte';
 
 	type StokItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; lokasi_rak: string | null; nama_kategori: string | null; singkatan_satuan: string | null; };
 	type MutasiItem = { id: number; tanggal: string; jenis: string; referensi_tipe: string | null; jumlah_perubahan: number; jumlah_sesudah: number; };
+
+	const kolStok: Column[] = [
+		{ key: 'kode_barang',    label: 'Kode',     width: 100, priority: 2 },
+		{ key: 'nama_barang',    label: 'Nama',     minWidth: 120 },
+		{ key: 'nama_kategori',  label: 'Kategori', minWidth: 90, priority: 3 },
+		{ key: 'lokasi_rak',     label: 'Rak',      width: 80, priority: 3 },
+		{ key: 'stok_sekarang',  label: 'Stok',     width: 90, align: 'right' },
+		{ key: 'stok_minimum',   label: 'Min',      width: 70, align: 'right', priority: 2 },
+		{ key: 'status_stok',    label: 'Status',   width: 110 },
+		{ key: 'aksi',           label: '',         width: 80, sortable: false, hideable: false, align: 'right' },
+	];
+
+	let pageStok = $state(1);
+	let pageSizeStok = $state(25);
+	let sortKeyStok = $state('nama_barang');
+	let sortDirStok = $state<'asc' | 'desc'>('asc');
 
 	let stokList = $state<StokItem[]>([]);
 	let mutasiList = $state<MutasiItem[]>([]);
@@ -15,6 +33,31 @@
 	let showMutasi = $state(false);
 	let query = $state('');
 	let loading = $state(false);
+
+	function sortStok(list: StokItem[], key: string, dir: 'asc' | 'desc') {
+		if (!key) return list;
+		return [...list].sort((a, b) => {
+			const va = String((a as Record<string, unknown>)[key] ?? '');
+			const vb = String((b as Record<string, unknown>)[key] ?? '');
+			const cmp = va.localeCompare(vb, 'id', { numeric: true });
+			return dir === 'asc' ? cmp : -cmp;
+		});
+	}
+
+	let filteredStok = $derived(
+		!query
+			? stokList
+			: stokList.filter((s) =>
+				s.nama_barang.toLowerCase().includes(query.toLowerCase()) ||
+				s.kode_barang.includes(query)
+			)
+	);
+	let sortedStok = $derived(sortStok(filteredStok, sortKeyStok, sortDirStok));
+	let pagedStok = $derived(
+		pageSizeStok === 0
+			? sortedStok
+			: sortedStok.slice((pageStok - 1) * pageSizeStok, pageStok * pageSizeStok)
+	);
 
 	async function muatStok() { loading = true; const r = await api.get<StokItem[]>('/stok'); if (r.success) stokList = r.data; loading = false; }
 
@@ -34,44 +77,55 @@
 
 <div class="flex flex-col gap-3">
 	<div class="flex items-center gap-3">
-		<input type="search" placeholder="Filter nama..." bind:value={query} class="px-3 py-1 rounded border text-sm max-w-xs outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
-		<span class="text-xs" style="color:var(--text-dim)">{stokList.length} barang aktif</span>
+		<input type="search" placeholder="Filter nama/kode..." bind:value={query} oninput={() => { pageStok = 1; }} class="px-3 py-1 rounded border text-sm max-w-xs outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+		<span class="text-xs" style="color:var(--text-dim)">{filteredStok.length} barang</span>
 	</div>
-	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-		<table class="w-full text-sm">
-			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
-				<th class="text-left px-3 py-2 font-medium">Kode</th>
-				<th class="text-left px-3 py-2 font-medium">Nama</th>
-				<th class="text-left px-3 py-2 font-medium">Kategori</th>
-				<th class="text-left px-3 py-2 font-medium">Rak</th>
-				<th class="text-right px-3 py-2 font-medium">Stok</th>
-				<th class="text-right px-3 py-2 font-medium">Min</th>
-				<th class="text-left px-3 py-2 font-medium">Status</th>
-				<th class="px-3 py-2"></th>
-			</tr></thead>
-			<tbody>
-				{#if loading}
-					<tr><td colspan="8" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-				{:else}
-					{#each stokList.filter((s) => !query || s.nama_barang.toLowerCase().includes(query.toLowerCase()) || s.kode_barang.includes(query)) as item}
-						{@const st = statusStok(item)}
-						<tr class="border-t" style="border-color:var(--border)">
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
-							<td class="px-3 py-2">{item.nama_barang}</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.lokasi_rak ?? '-'}</td>
-							<td class="px-3 py-2 text-right font-bold" style="color:{st.color}">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
-							<td class="px-3 py-2 text-right text-xs" style="color:var(--text-dim)">{item.stok_minimum}</td>
-							<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td>
-							<td class="px-3 py-2 text-right">
-								<button onclick={() => muatMutasi(item.id, item.nama_barang)} class="text-xs" style="color:var(--info)">Riwayat</button>
-							</td>
-						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
-	</div>
+	<DataTable
+		columns={kolStok}
+		tableId="gudang_stok"
+		bind:sortKey={sortKeyStok}
+		bind:sortDir={sortDirStok}
+		bind:currentPage={pageStok}
+		bind:pageSize={pageSizeStok}
+		totalRows={filteredStok.length}
+		rowCount={pagedStok.length}
+		emptyText={loading ? 'Memuat...' : 'Tidak ada data'}
+		maxRows={14}
+	>
+		{#snippet body(hidden)}
+			{#each pagedStok as item}
+				{@const st = statusStok(item)}
+				<tr class="border-t" style="border-color:var(--border)">
+					{#if !hidden.has('kode_barang')}
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
+					{/if}
+					{#if !hidden.has('nama_barang')}
+						<td class="px-3 py-2">{item.nama_barang}</td>
+					{/if}
+					{#if !hidden.has('nama_kategori')}
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
+					{/if}
+					{#if !hidden.has('lokasi_rak')}
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.lokasi_rak ?? '-'}</td>
+					{/if}
+					{#if !hidden.has('stok_sekarang')}
+						<td class="px-3 py-2 text-right font-bold" style="color:{st.color}">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
+					{/if}
+					{#if !hidden.has('stok_minimum')}
+						<td class="px-3 py-2 text-right text-xs" style="color:var(--text-dim)">{item.stok_minimum}</td>
+					{/if}
+					{#if !hidden.has('status_stok')}
+						<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td>
+					{/if}
+					{#if !hidden.has('aksi')}
+						<td class="px-3 py-2 text-right">
+							<button onclick={() => muatMutasi(item.id, item.nama_barang)} class="text-xs" style="color:var(--info)">Riwayat</button>
+						</td>
+					{/if}
+				</tr>
+			{/each}
+		{/snippet}
+	</DataTable>
 </div>
 
 <Modal bind:open={showMutasi} title="Riwayat Mutasi — {mutasiNama}">

@@ -2,14 +2,44 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import Modal from '$lib/components/Modal.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
 
 	type Supplier = { id: number; kode_supplier: string; nama_supplier: string; kontak: string | null; alamat: string | null; terms_bayar: number; limit_hutang: number; is_active: boolean; };
+
+	const kolSupplier: Column[] = [
+		{ key: 'kode_supplier',  label: 'Kode',    width: 100, priority: 2 },
+		{ key: 'nama_supplier',  label: 'Nama',    minWidth: 120 },
+		{ key: 'kontak',         label: 'Kontak',  minWidth: 100, priority: 2 },
+		{ key: 'terms_bayar',    label: 'Tempo',   width: 80, align: 'right' },
+		{ key: 'aksi',           label: '',        width: 110, sortable: false, hideable: false, align: 'right' },
+	];
+
+	let pageSupplier = $state(1);
+	let pageSizeSupplier = $state(25);
+	let sortKeySupplier = $state('nama_supplier');
+	let sortDirSupplier = $state<'asc' | 'desc'>('asc');
 
 	let supplierList = $state<Supplier[]>([]);
 	let error = $state('');
 	let modalSupplier = $state(false);
 	let editSupplier = $state<Partial<Supplier> | null>(null);
 	let fs = $state({ kode_supplier: '', nama_supplier: '', kontak: '', alamat: '', terms_bayar: '', limit_hutang: '' });
+
+	let sortedSupplier = $derived.by(() => {
+		const key = sortKeySupplier as keyof Supplier;
+		return [...supplierList].sort((a, b) => {
+			const va = String(a[key] ?? '');
+			const vb = String(b[key] ?? '');
+			const cmp = va.localeCompare(vb, 'id', { numeric: true });
+			return sortDirSupplier === 'asc' ? cmp : -cmp;
+		});
+	});
+	let pagedSupplier = $derived(
+		pageSizeSupplier === 0
+			? sortedSupplier
+			: sortedSupplier.slice((pageSupplier - 1) * pageSizeSupplier, pageSupplier * pageSizeSupplier)
+	);
 
 	async function muatSupplier() { const r = await api.get<Supplier[]>('/supplier'); if (r.success) supplierList = r.data; }
 
@@ -36,34 +66,43 @@
 	<div class="flex justify-end">
 		<button onclick={() => bukaFormSupplier()} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
 	</div>
-	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-		<table class="w-full text-sm">
-			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
-				<th class="text-left px-3 py-2 font-medium">Kode</th>
-				<th class="text-left px-3 py-2 font-medium">Nama</th>
-				<th class="text-left px-3 py-2 font-medium">Kontak</th>
-				<th class="text-right px-3 py-2 font-medium">Tempo</th>
-				<th class="px-3 py-2"></th>
-			</tr></thead>
-			<tbody>
-				{#if supplierList.length === 0}<tr><td colspan="5" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada data</td></tr>
-				{:else}
-					{#each supplierList as item}
-					<tr class="border-t" style="border-color:var(--border)">
-						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_supplier}</td>
-						<td class="px-3 py-2">{item.nama_supplier}</td>
-						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kontak ?? '-'}</td>
-						<td class="px-3 py-2 text-right text-xs">{item.terms_bayar} hari</td>
-						<td class="px-3 py-2 text-right">
-							<button onclick={() => bukaFormSupplier(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-							<button onclick={() => hapusSupplier(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
-						</td>
-					</tr>
-					{/each}
+	<DataTable
+		columns={kolSupplier}
+		tableId="gudang_supplier"
+		bind:sortKey={sortKeySupplier}
+		bind:sortDir={sortDirSupplier}
+		bind:currentPage={pageSupplier}
+		bind:pageSize={pageSizeSupplier}
+		totalRows={supplierList.length}
+		rowCount={pagedSupplier.length}
+		emptyText="Tidak ada data"
+		maxRows={12}
+	>
+		{#snippet body(hidden)}
+			{#each pagedSupplier as item}
+			<tr class="border-t" style="border-color:var(--border)">
+				{#if !hidden.has('kode_supplier')}
+					<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_supplier}</td>
 				{/if}
-			</tbody>
-		</table>
-	</div>
+				{#if !hidden.has('nama_supplier')}
+					<td class="px-3 py-2">{item.nama_supplier}</td>
+				{/if}
+				{#if !hidden.has('kontak')}
+					<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kontak ?? '-'}</td>
+				{/if}
+				{#if !hidden.has('terms_bayar')}
+					<td class="px-3 py-2 text-right text-xs">{item.terms_bayar} hari</td>
+				{/if}
+				{#if !hidden.has('aksi')}
+					<td class="px-3 py-2 text-right">
+						<button onclick={() => bukaFormSupplier(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
+						<button onclick={() => hapusSupplier(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+					</td>
+				{/if}
+			</tr>
+			{/each}
+		{/snippet}
+	</DataTable>
 </div>
 
 <Modal bind:open={modalSupplier} title={editSupplier?.id ? 'Edit Supplier' : 'Tambah Supplier'}>

@@ -2,6 +2,17 @@
 	import { onMount } from 'svelte';
 	import JsBarcode from 'jsbarcode';
 	import { api } from '$lib/utils/api.js';
+	import DataTable from '$lib/components/DataTable.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
+
+	const kolBarang: Column[] = [
+		{ key: 'pilih',            label: '',       width: 24,  sortable: false, hideable: false },
+		{ key: 'nama_barang',      label: 'Nama',   minWidth: 80, sortable: false, hideable: false },
+		{ key: 'harga_jual_eceran', label: 'Harga', width: 80,  sortable: false, hideable: false, align: 'right' },
+	];
+
+	let pageBarang = $state(1);
+	let pageSizeBarang = $state(25);
 
 	type Barang = {
 		id: number;
@@ -175,6 +186,12 @@
 
 	const antrianItems = $derived([...antrian.values()]);
 	const totalLabel = $derived(antrianItems.reduce((s, i) => s + i.qty, 0));
+
+	let pagedBarang = $derived(
+		pageSizeBarang === 0
+			? barangList
+			: barangList.slice((pageBarang - 1) * pageSizeBarang, pageBarang * pageSizeBarang)
+	);
 </script>
 
 <div class="flex flex-col gap-3 lg:flex-row" style="min-height:64vh">
@@ -197,31 +214,37 @@
 			{/if}
 		</div>
 
-		<div class="overflow-y-auto rounded border" style="border-color:var(--border);max-height:calc(100vh - 260px)">
-			{#each barangList as b (b.id)}
-				{@const dipilih = antrian.has(b.id)}
-				<button
-					onclick={() => togglePilih(b)}
-					class="w-full flex items-center gap-2 px-2 py-2 text-left border-b text-xs transition-colors"
-					style="border-color:var(--border);background:{dipilih ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'transparent'};color:var(--text)"
-				>
-					<span style="color:{dipilih ? 'var(--accent)' : 'var(--text-dim)'}">
-						{dipilih ? '☑' : '☐'}
-					</span>
-					<div class="flex-1 min-w-0">
-						<div class="font-mono truncate">{b.nama_barang}</div>
-						<div class="font-mono" style="color:var(--text-dim);font-size:10px">{b.kode_barang}</div>
-					</div>
-					<div class="font-mono" style="color:{dipilih ? 'var(--accent)' : 'var(--text-dim)'}">
-						{rupiah(b.harga_jual_eceran)}
-					</div>
-				</button>
-			{:else}
-				<div class="p-4 text-center text-xs" style="color:var(--text-dim)">
-					{loading ? 'Memuat...' : 'Tidak ada barang'}
-				</div>
-			{/each}
-		</div>
+		<DataTable
+			columns={kolBarang}
+			bind:currentPage={pageBarang}
+			bind:pageSize={pageSizeBarang}
+			totalRows={barangList.length}
+			rowCount={pagedBarang.length}
+			emptyText={loading ? 'Memuat...' : 'Tidak ada barang'}
+			maxRows={12}
+		>
+			{#snippet body(_hidden)}
+				{#each pagedBarang as b (b.id)}
+					{@const dipilih = antrian.has(b.id)}
+					<tr
+						onclick={() => togglePilih(b)}
+						class="border-t cursor-pointer"
+						style="border-color:var(--border);background:{dipilih ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'transparent'}"
+					>
+						<td class="px-2 py-2 text-xs" style="color:{dipilih ? 'var(--accent)' : 'var(--text-dim)'}">
+							{dipilih ? '☑' : '☐'}
+						</td>
+						<td class="px-2 py-2">
+							<div class="font-mono text-xs truncate" style="color:var(--text)">{b.nama_barang}</div>
+							<div class="font-mono" style="color:var(--text-dim);font-size:10px">{b.kode_barang}</div>
+						</td>
+						<td class="px-2 py-2 text-right font-mono text-xs" style="color:{dipilih ? 'var(--accent)' : 'var(--text-dim)'}">
+							{rupiah(b.harga_jual_eceran)}
+						</td>
+					</tr>
+				{/each}
+			{/snippet}
+		</DataTable>
 	</div>
 
 	<!-- Panel tengah: Antrian + Pengaturan -->
