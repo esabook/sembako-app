@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { user, type Role } from '$lib/stores/auth.js';
+	import { api } from '$lib/utils/api.js';
 	import { onMount } from 'svelte';
 	import NavClock from '$lib/components/NavClock.svelte';
 	import NavUser from '$lib/components/NavUser.svelte';
@@ -13,6 +14,7 @@
 
 	let navExpanded = $state(false);
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
+	let namaToko = $state('');
 
 	const IDLE_MS = 10_000;
 
@@ -33,6 +35,10 @@
 	}
 
 	onMount(() => {
+		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
+			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
+		});
+
 		resetIdle();
 		window.addEventListener('mousemove', resetIdle, { passive: true });
 		window.addEventListener('keydown', resetIdle, { passive: true });
@@ -72,7 +78,7 @@
 		<!-- Logo + Brand -->
 		<div class="flex shrink-0 items-center gap-1.5">
 			<img src="/logo.png" alt="Logo Sembako" class="h-[32px] w-[32px]" />
-			<span class="font-bold" style="color:var(--accent)">SEMBAKO</span>
+			<span class="font-bold" style="color:var(--accent)">{namaToko}</span>
 		</div>
 
 		<!-- Toggle button -->

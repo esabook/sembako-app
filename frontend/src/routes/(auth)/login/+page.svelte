@@ -15,7 +15,7 @@
 	let usernameInput!: HTMLInputElement;
 	let passwordInput!: HTMLInputElement;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
-	let namaToko = $state('TOKO SEMBAKO');
+	let namaToko = $state('');
 	let timeStr = $state('--:--:--');
 	let dateStr = $state('');
 
