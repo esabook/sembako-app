@@ -9,8 +9,8 @@ atau dipersingkat karena pola di bawah ini sudah diverifikasi dari implementasi 
 ## CARA PAKAI FILE INI
 
 Ketika feature-dev ingin eksplorasi codebase (Phase 2), instruksikan agent:
-> "Baca CLAUDE_SKILL_FEATURE_DEV.md terlebih dahulu. Fokus eksplorasi hanya
->  pada hal yang BELUM tercakup di file tersebut."
+> "Baca CLAUDE.md dan CLAUDE_SKILL_FEATURE_DEV.md terlebih dahulu. Fokus eksplorasi
+>  hanya pada hal yang BELUM tercakup di file tersebut."
 
 Ini mempersingkat Phase 2 dari 2-3 agent paralel menjadi 1 agent ringan
 (atau skip sama sekali jika fitur baru mirip dengan yang sudah ada).
@@ -22,7 +22,7 @@ Ini mempersingkat Phase 2 dari 2-3 agent paralel menjadi 1 agent ringan
 ### Stack Aktual
 ```
 Runtime  : Bun (bukan Node)
-DB       : bun:sqlite — bukan better-sqlite3 (meski CLAUDE.md bilang sebaliknya)
+DB       : bun:sqlite (bukan better-sqlite3)
 ORM      : drizzle-orm/bun-sqlite
 HTTP     : Hono.js
 Auth     : jose JWT di httpOnly cookie `auth_token`
@@ -175,16 +175,18 @@ sql`kolom IN (${sql.join(arr.map(v => sql`${v}`), sql`, `)})`
 ### Struktur File Per Modul (wajib)
 ```
 src/routes/(app)/[modul]/
-├── +page.svelte        ← UI template. HANYA bind store, event, #if, #each
-├── [modul].types.ts    ← interface, type, const arrays/maps. Tanpa import selain TS built-in
-├── [modul].api.ts      ← fetch ke backend. Selalu unwrap ApiResponse, throw on error
-├── [modul].logic.ts    ← pure functions: format, hitung, validasi. Tanpa fetch/store/DOM
-└── [modul].store.ts    ← createXStore() factory dengan $state runes + withLoading()
+├── +page.svelte             ← UI template. HANYA bind store, event, #if, #each
+├── [modul].types.ts         ← interface, type, const arrays/maps. Tanpa import selain TS built-in
+├── [modul].api.ts           ← fetch ke backend. Selalu unwrap ApiResponse, throw on error
+├── [modul].logic.ts         ← pure functions: format, hitung, validasi. Tanpa fetch/store/DOM
+└── [modul].store.svelte.ts  ← createXStore() factory dengan $state runes + withLoading()
 ```
+
+> Penamaan `.store.svelte.ts` (bukan `.store.ts`) agar Svelte compiler tahu file ini pakai runes (`$state`, `$derived`). File `.store.ts` lama (kasir, gudang) masih pakai Svelte 4 `writable()` — jangan dicampur.
 
 ### Store Factory (Svelte 5 — pola terbaru codebase)
 ```typescript
-// [modul].store.ts
+// [modul].store.svelte.ts
 import { withLoading } from '$lib/utils/async'
 import { fetchSesuatu, simpanSesuatu } from './[modul].api'
 
@@ -368,10 +370,9 @@ Ketika perlu contoh pola spesifik, baca file ini:
 | Route backend sederhana (CRUD) | `backend/src/routes/barang.ts` |
 | Route keuangan (bayar hutang/piutang) | `backend/src/routes/keuangan.ts` |
 | Schema Drizzle lengkap | `backend/src/db/schema.ts` |
-| Store factory Svelte 5 | `frontend/src/routes/(app)/pengaturan/notifikasi/notifikasi.store.ts` |
-| Store kompleks + keyboard + SSE | `frontend/src/routes/(app)/kasir/kasir.store.ts` |
-| Page Svelte 5 lengkap (895 baris) | `frontend/src/routes/(app)/kasir/+page.svelte` |
+| Store factory Svelte 5 runes (terbaru) | `frontend/src/routes/(app)/keuangan/budget/budget.store.svelte.ts` |
+| Store kompleks + keyboard + SSE (Svelte 4 writable) | `frontend/src/routes/(app)/kasir/kasir.store.ts` |
+| Page Svelte 5 lengkap | `frontend/src/routes/(app)/kasir/+page.svelte` |
 | withLoading() implementation | `frontend/src/lib/utils/async.ts` |
 | api.ts wrapper | `frontend/src/lib/utils/api.ts` |
-| Budget & Target (modul terbaru) | `frontend/src/routes/(app)/keuangan/budget/` |
-```
+| Modul lengkap terbaru (Svelte 5 runes) | `frontend/src/routes/(app)/keuangan/budget/` |
