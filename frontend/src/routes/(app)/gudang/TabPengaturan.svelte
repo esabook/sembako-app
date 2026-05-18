@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
+	import DataTable from '$lib/components/DataTable.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
 
 	type Kategori = { id: number; nama: string; contoh: string | null; is_preset: boolean };
 	type Satuan = { id: number; nama: string; singkatan: string; contoh: string | null; is_preset: boolean };
@@ -91,6 +93,38 @@
 	let importingPreset = $state(false);
 	let showPredefinedKategori = $state(false);
 	let showPredefinedSatuan = $state(false);
+
+	let sortKeyKategori = $state('nama');
+	let sortDirKategori = $state<'asc' | 'desc'>('asc');
+	let sortKeySatuan = $state('nama');
+	let sortDirSatuan = $state<'asc' | 'desc'>('asc');
+
+	const kolKategori: Column[] = [
+		{ key: 'nama', label: 'Nama Kategori' },
+		{ key: '', label: 'Kode', width: 80, sortable: false },
+		{ key: 'contoh', label: 'Contoh Penggunaan' },
+		{ key: '', label: '', width: 116, sortable: false, align: 'right' },
+	];
+
+	const kolSatuan: Column[] = [
+		{ key: 'nama', label: 'Nama Satuan' },
+		{ key: 'singkatan', label: 'Singkatan', width: 90 },
+		{ key: 'contoh', label: 'Contoh Penggunaan' },
+		{ key: '', label: '', width: 116, sortable: false, align: 'right' },
+	];
+
+	function sortList<T extends Record<string, unknown>>(list: T[], key: string, dir: 'asc' | 'desc'): T[] {
+		if (!key) return list;
+		return [...list].sort((a, b) => {
+			const va = String(a[key] ?? '');
+			const vb = String(b[key] ?? '');
+			const cmp = va.localeCompare(vb, 'id', { numeric: true });
+			return dir === 'asc' ? cmp : -cmp;
+		});
+	}
+
+	let sortedKategori = $derived(sortList(kategoriList, sortKeyKategori, sortDirKategori));
+	let sortedSatuan = $derived(sortList(satuanList, sortKeySatuan, sortDirSatuan));
 
 	let newKategori = $state('');
 	let newKategoriContoh = $state('');
@@ -227,78 +261,71 @@
 				style="background:var(--accent);color:var(--bg)">+ Tambah</button>
 		</form>
 
-		<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-			<table class="w-full text-sm">
-				<thead>
-					<tr style="background:var(--surface2);color:var(--text-dim)">
-						<th class="text-left px-3 py-2 font-medium">Nama Kategori</th>
-						<th class="text-left px-3 py-2 font-medium w-28">Kode</th>
-						<th class="text-left px-3 py-2 font-medium">Contoh Penggunaan</th>
-						<th class="px-3 py-2 w-16"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#if kategoriList.length === 0 && !showPredefinedKategori}
-						<tr><td colspan="4" class="px-3 py-4 text-center text-xs" style="color:var(--text-dim)">Belum ada kategori. Tambah di atas atau tampilkan data bawaan.</td></tr>
-					{/if}
-
-					{#each kategoriList as item}
-						<tr class="border-t" style="border-color:var(--border)">
-							{#if editKategoriId === item.id}
-								<td class="px-2 py-1.5" colspan="2">
-									<input bind:value={editKategoriNama} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-								</td>
-								<td class="px-2 py-1.5">
-									<input bind:value={editKategoriContoh} placeholder="contoh penggunaan..."
-										class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-								</td>
-								<td class="px-2 py-1.5 text-right whitespace-nowrap">
-									<button onclick={() => simpanEditKategori(item.id)} class="text-xs mr-2" style="color:var(--accent)">Simpan</button>
-									<button onclick={() => editKategoriId = null} class="text-xs" style="color:var(--text-dim)">Batal</button>
-								</td>
-							{:else}
-								<td class="px-3 py-2">
-									{item.nama}
-									{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
-								</td>
-								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">—</td>
-								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
-								<td class="px-3 py-2 text-right whitespace-nowrap">
-									{#if !item.is_preset}
+		<DataTable
+			columns={kolKategori}
+			bind:sortKey={sortKeyKategori}
+			bind:sortDir={sortDirKategori}
+			rowCount={sortedKategori.length + (showPredefinedKategori ? PREDEFINED_KATEGORI.length : 0)}
+			emptyText="Belum ada kategori. Tambah di atas atau tampilkan data bawaan."
+		>
+			{#snippet body()}
+				{#each sortedKategori as item}
+					<tr class="border-t" style="border-color:var(--border)">
+						{#if editKategoriId === item.id}
+							<td class="px-2 py-1.5" colspan="2">
+								<input bind:value={editKategoriNama} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+							</td>
+							<td class="px-2 py-1.5">
+								<input bind:value={editKategoriContoh} placeholder="contoh penggunaan..."
+									class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+							</td>
+							<td class="px-2 py-1.5">
+								<div class="flex gap-1.5 justify-end">
+									<button onclick={() => simpanEditKategori(item.id)} class="px-2 py-0.5 text-xs rounded" style="background:var(--accent);color:var(--bg)">simpan</button>
+									<button onclick={() => editKategoriId = null} class="px-2 py-0.5 text-xs rounded border" style="border-color:var(--border);color:var(--text-dim)">batal</button>
+								</div>
+							</td>
+						{:else}
+							<td class="px-3 py-2">
+								{item.nama}
+								{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
+							</td>
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">—</td>
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
+							<td class="px-2 py-2">
+								{#if !item.is_preset}
+									<div class="flex gap-1.5 justify-end">
 										<button
 											onclick={() => { editKategoriId = item.id; editKategoriNama = item.nama; editKategoriContoh = item.contoh ?? ''; errorPengaturan = '' }}
-											title="Edit kategori"
-											class="inline-flex items-center justify-center w-6 h-6 rounded text-xs mr-1"
-											style="color:var(--info)">✎</button>
+											class="px-2 py-0.5 text-xs rounded border"
+											style="border-color:var(--info);color:var(--info)">edit</button>
 										<button
 											onclick={() => hapusKategori(item.id)}
-											title="Hapus kategori"
-											class="inline-flex items-center justify-center w-6 h-6 rounded text-xs"
-											style="color:var(--danger)">✕</button>
-									{/if}
-								</td>
-							{/if}
+											class="px-2 py-0.5 text-xs rounded border"
+											style="border-color:var(--danger);color:var(--danger)">hapus</button>
+									</div>
+								{/if}
+							</td>
+						{/if}
+					</tr>
+				{/each}
+				{#if showPredefinedKategori}
+					{#each PREDEFINED_KATEGORI as p}
+						<tr class="border-t" style="border-color:var(--border);background:color-mix(in srgb, var(--surface2) 60%, transparent)">
+							<td class="px-3 py-2 text-xs">
+								{p.nama}
+								<span class="ml-1 px-1 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>
+							</td>
+							<td class="px-3 py-2 text-xs font-mono" style="color:var(--text-dim)">{p.kode}</td>
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.contoh}</td>
+							<td class="px-3 py-2"></td>
 						</tr>
 					{/each}
-
-					{#if showPredefinedKategori}
-						{#each PREDEFINED_KATEGORI as p}
-							<tr class="border-t" style="border-color:var(--border);background:color-mix(in srgb, var(--surface2) 60%, transparent)">
-								<td class="px-3 py-2 text-xs">
-									{p.nama}
-									<span class="ml-1 px-1 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>
-								</td>
-								<td class="px-3 py-2 text-xs font-mono" style="color:var(--text-dim)">{p.kode}</td>
-								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.contoh}</td>
-								<td class="px-3 py-2"></td>
-							</tr>
-						{/each}
-					{/if}
-				</tbody>
-			</table>
-		</div>
+				{/if}
+			{/snippet}
+		</DataTable>
 	</div>
 
 	<!-- Satuan Barang -->
@@ -326,9 +353,9 @@
 			<input bind:value={newSatuanNama} placeholder="Nama satuan (mis: Karton)" required
 				class="px-2 py-1 rounded border text-sm outline-none"
 				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:140px;flex:1" />
-			<input bind:value={newSatuanSingkatan} placeholder="Singkatan (KTN)" required
+			<input bind:value={newSatuanSingkatan} placeholder="Singkatan" required
 				class="px-2 py-1 rounded border text-sm outline-none"
-				style="background:var(--surface);border-color:var(--border);color:var(--text);width:80px;flex-shrink:0" />
+				style="background:var(--surface);border-color:var(--border);color:var(--text);width:100px;flex-shrink:0" />
 			<input bind:value={newSatuanContoh} placeholder="Contoh penggunaan (opsional)"
 				class="px-2 py-1 rounded border text-sm outline-none"
 				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:200px;flex:2" />
@@ -336,86 +363,79 @@
 				style="background:var(--accent);color:var(--bg)">+ Tambah</button>
 		</form>
 
-		<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-			<table class="w-full text-sm">
-				<thead>
-					<tr style="background:var(--surface2);color:var(--text-dim)">
-						<th class="text-left px-3 py-2 font-medium">Nama Satuan</th>
-						<th class="text-left px-3 py-2 font-medium w-20">Singkatan</th>
-						<th class="text-left px-3 py-2 font-medium">Contoh Penggunaan</th>
-						<th class="px-3 py-2 w-16"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#if satuanList.length === 0 && !showPredefinedSatuan}
-						<tr><td colspan="4" class="px-3 py-4 text-center text-xs" style="color:var(--text-dim)">Belum ada satuan. Tambah di atas atau tampilkan data bawaan.</td></tr>
-					{/if}
-
-					{#each satuanList as item}
-						<tr class="border-t" style="border-color:var(--border)">
-							{#if editSatuanId === item.id}
-								<td class="px-2 py-1.5">
-									<input bind:value={editSatuanNama} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-								</td>
-								<td class="px-2 py-1.5">
-									<input bind:value={editSatuanSingkatan} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-								</td>
-								<td class="px-2 py-1.5">
-									<input bind:value={editSatuanContoh} placeholder="contoh penggunaan..."
-										class="w-full px-2 py-0.5 rounded border text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-								</td>
-								<td class="px-2 py-1.5 text-right whitespace-nowrap">
-									<button onclick={() => simpanEditSatuan(item.id)} class="text-xs mr-2" style="color:var(--accent)">Simpan</button>
-									<button onclick={() => editSatuanId = null} class="text-xs" style="color:var(--text-dim)">Batal</button>
-								</td>
-							{:else}
-								<td class="px-3 py-2">
-									{item.nama}
-									{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
-								</td>
-								<td class="px-3 py-2">
-									<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{item.singkatan}</span>
-								</td>
-								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
-								<td class="px-3 py-2 text-right whitespace-nowrap">
-									{#if !item.is_preset}
+		<DataTable
+			columns={kolSatuan}
+			bind:sortKey={sortKeySatuan}
+			bind:sortDir={sortDirSatuan}
+			rowCount={sortedSatuan.length + (showPredefinedSatuan ? PREDEFINED_SATUAN.length : 0)}
+			emptyText="Belum ada satuan. Tambah di atas atau tampilkan data bawaan."
+		>
+			{#snippet body()}
+				{#each sortedSatuan as item}
+					<tr class="border-t" style="border-color:var(--border)">
+						{#if editSatuanId === item.id}
+							<td class="px-2 py-1.5">
+								<input bind:value={editSatuanNama} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+							</td>
+							<td class="px-2 py-1.5">
+								<input bind:value={editSatuanSingkatan} class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+							</td>
+							<td class="px-2 py-1.5">
+								<input bind:value={editSatuanContoh} placeholder="contoh penggunaan..."
+									class="w-full px-2 py-0.5 rounded border text-sm outline-none"
+									style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+							</td>
+							<td class="px-2 py-1.5">
+								<div class="flex gap-1.5 justify-end">
+									<button onclick={() => simpanEditSatuan(item.id)} class="px-2 py-0.5 text-xs rounded" style="background:var(--accent);color:var(--bg)">simpan</button>
+									<button onclick={() => editSatuanId = null} class="px-2 py-0.5 text-xs rounded border" style="border-color:var(--border);color:var(--text-dim)">batal</button>
+								</div>
+							</td>
+						{:else}
+							<td class="px-3 py-2">
+								{item.nama}
+								{#if item.is_preset}<span class="ml-1 text-xs px-1 py-0.5 rounded" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>{/if}
+							</td>
+							<td class="px-3 py-2">
+								<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{item.singkatan}</span>
+							</td>
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.contoh ?? '—'}</td>
+							<td class="px-2 py-2">
+								{#if !item.is_preset}
+									<div class="flex gap-1.5 justify-end">
 										<button
 											onclick={() => { editSatuanId = item.id; editSatuanNama = item.nama; editSatuanSingkatan = item.singkatan; editSatuanContoh = item.contoh ?? ''; errorPengaturan = '' }}
-											title="Edit satuan"
-											class="inline-flex items-center justify-center w-6 h-6 rounded text-xs mr-1"
-											style="color:var(--info)">✎</button>
+											class="px-2 py-0.5 text-xs rounded border"
+											style="border-color:var(--info);color:var(--info)">edit</button>
 										<button
 											onclick={() => hapusSatuan(item.id)}
-											title="Hapus satuan"
-											class="inline-flex items-center justify-center w-6 h-6 rounded text-xs"
-											style="color:var(--danger)">✕</button>
-									{/if}
-								</td>
-							{/if}
+											class="px-2 py-0.5 text-xs rounded border"
+											style="border-color:var(--danger);color:var(--danger)">hapus</button>
+									</div>
+								{/if}
+							</td>
+						{/if}
+					</tr>
+				{/each}
+				{#if showPredefinedSatuan}
+					{#each PREDEFINED_SATUAN as p}
+						<tr class="border-t" style="border-color:var(--border);background:color-mix(in srgb, var(--surface2) 60%, transparent)">
+							<td class="px-3 py-2 text-xs">
+								{p.nama}
+								<span class="ml-1 px-1 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>
+							</td>
+							<td class="px-3 py-2">
+								<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{p.singkatan}</span>
+							</td>
+							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.contoh}</td>
+							<td class="px-3 py-2"></td>
 						</tr>
 					{/each}
-
-					{#if showPredefinedSatuan}
-						{#each PREDEFINED_SATUAN as p}
-							<tr class="border-t" style="border-color:var(--border);background:color-mix(in srgb, var(--surface2) 60%, transparent)">
-								<td class="px-3 py-2 text-xs">
-									{p.nama}
-									<span class="ml-1 px-1 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">bawaan</span>
-								</td>
-								<td class="px-3 py-2">
-									<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:var(--surface2);color:var(--text-dim)">{p.singkatan}</span>
-								</td>
-								<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.contoh}</td>
-								<td class="px-3 py-2"></td>
-							</tr>
-						{/each}
-					{/if}
-				</tbody>
-			</table>
-		</div>
+				{/if}
+			{/snippet}
+		</DataTable>
 	</div>
 
 </div>
