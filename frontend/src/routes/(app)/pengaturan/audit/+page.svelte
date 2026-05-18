@@ -140,12 +140,11 @@
 	});
 </script>
 
-<div class="space-y-4 p-4 pb-16 max-w-7xl mx-auto">
+<div class="space-y-4">
 
 	<!-- Header -->
 	<div class="flex items-center justify-between flex-wrap gap-2">
 		<div>
-			<h1 class="text-lg font-bold" style="color:var(--text)">Audit Trail</h1>
 			<p class="text-xs" style="color:var(--text-dim)">Riwayat aktivitas kritis sistem</p>
 		</div>
 		<div class="flex gap-2">

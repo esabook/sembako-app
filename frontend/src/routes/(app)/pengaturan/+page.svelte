@@ -63,11 +63,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl space-y-6 p-4 pb-16">
-	<div class="flex items-center justify-between">
-		<h1 class="text-lg font-bold" style="color:var(--text)">Pengaturan Toko</h1>
-	</div>
-
+<div class="space-y-6">
 	{#if loading}
 		<div class="flex justify-center py-16">
 			<Spinner />
@@ -236,32 +232,5 @@
 				Simpan Pengaturan
 			</Button>
 		</div>
-
-		<!-- ── Menu Lanjutan ───────────────────────────────────────────── -->
-		<section class="rounded border" style="background:var(--surface);border-color:var(--border)">
-			<h2 class="text-sm font-bold uppercase tracking-widest px-4 pt-4 pb-2" style="color:var(--text-dim)">Menu Lanjutan</h2>
-			<a
-				href="/pengaturan/notifikasi"
-				class="flex items-center justify-between px-4 py-3 border-t"
-				style="border-color:var(--border);color:var(--text)"
-			>
-				<div>
-					<p class="text-sm font-medium">Notifikasi Terpusat</p>
-					<p class="text-xs" style="color:var(--text-dim)">Konfigurasi alert stok, hutang, laporan WA, dll</p>
-				</div>
-				<span style="color:var(--text-dim)">→</span>
-			</a>
-			<a
-				href="/pengaturan/audit"
-				class="flex items-center justify-between px-4 py-3 border-t"
-				style="border-color:var(--border);color:var(--text)"
-			>
-				<div>
-					<p class="text-sm font-medium">Audit Trail</p>
-					<p class="text-xs" style="color:var(--text-dim)">Riwayat aktivitas void, koreksi stok, dan aksi kritis lainnya</p>
-				</div>
-				<span style="color:var(--text-dim)">→</span>
-			</a>
-		</section>
 	{/if}
 </div>

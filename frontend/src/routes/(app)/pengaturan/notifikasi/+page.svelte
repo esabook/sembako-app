@@ -3,7 +3,7 @@
 	import { user } from '$lib/stores/auth.js'
 	import { toast } from '$lib/stores/ui.store.js'
 	import Spinner from '$lib/components/ui/Spinner.svelte'
-	import { createNotifikasiStore } from './notifikasi.store.js'
+	import { createNotifikasiStore } from './notifikasi.store.svelte.js'
 	import {
 		JENIS_THRESHOLD,
 		JENIS_SCHEDULED,
@@ -88,13 +88,7 @@
 	const HARI_OPTIONS = [1,2,3,4,5,6,7] as const
 </script>
 
-<div class="mx-auto max-w-2xl space-y-6 p-4 pb-16">
-	<!-- Header -->
-	<div class="flex items-center gap-3">
-		<a href="/pengaturan" class="text-sm" style="color:var(--text-dim)">← Pengaturan</a>
-		<h1 class="text-lg font-bold" style="color:var(--text)">Notifikasi Terpusat</h1>
-	</div>
-
+<div class="space-y-6">
 	<!-- Tabs -->
 	<div class="flex gap-1 rounded border p-1" style="background:var(--surface);border-color:var(--border)">
 		{#each TABS as tab (tab.id)}
