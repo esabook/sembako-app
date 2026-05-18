@@ -29,11 +29,11 @@
 	];
 </script>
 
-<div class="flex gap-1 mb-4 border-b" style="border-color:var(--border)">
+<div class="flex gap-1 mb-4 border-b overflow-x-auto" style="border-color:var(--border);scrollbar-width:none">
 	{#each TABS as t}
 		<button
 			onclick={() => tab = t.id}
-			class="px-3 py-2 text-xs font-bold border-b-2 -mb-px"
+			class="px-3 py-2 text-xs font-bold border-b-2 -mb-px shrink-0 whitespace-nowrap"
 			style="{tab === t.id ? 'border-color:var(--accent);color:var(--accent)' : 'border-color:transparent;color:var(--text-dim)'}">
 			{t.label}
 		</button>

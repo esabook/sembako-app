@@ -84,7 +84,7 @@
 	});
 </script>
 
-<div class="flex gap-6">
+<div class="flex flex-col gap-6 lg:flex-row">
 	<div class="flex-1 flex flex-col gap-4">
 		<h3 class="font-bold text-sm">Form Penerimaan Barang</h3>
 		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface);color:var(--danger)">{error}</p>{/if}
@@ -161,7 +161,7 @@
 		<button onclick={simpanBM} disabled={bmLoading} class="self-end px-6 py-2 rounded font-bold text-sm disabled:opacity-40" style="background:var(--accent);color:var(--bg)">{bmLoading ? 'Menyimpan...' : 'Simpan & Tambah Stok'}</button>
 		{/if}
 	</div>
-	<div class="w-64 shrink-0">
+	<div class="lg:w-64 lg:shrink-0">
 		<h3 class="font-bold text-sm mb-3">Riwayat Penerimaan</h3>
 		<div class="flex flex-col gap-2">
 			{#each bmList.slice(0, 10) as bm}

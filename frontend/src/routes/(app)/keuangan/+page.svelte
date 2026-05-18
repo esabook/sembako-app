@@ -321,19 +321,12 @@
 
 <!-- ───────────────────────────────────────────────── HEADER ── -->
 <div style="padding:1rem 1.25rem 0">
-  <div style="display:flex; align-items:top; justify-content:space-between; margin-bottom:1rem">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem">
     <h1 style="font-size:1.1rem; font-weight:700; color:var(--text)">Keuangan</h1>
-    {#if tab === 'jurnal'}
-      <button
-        onclick={bukaModalJurnal}
-        style="padding:.4rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
-      >+ Catat Jurnal</button>
-    {:else if tab === 'kasbank'}
-      <button
-        onclick={bukaTambahKasBank}
-        style="padding:.4rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
-      >+ Tambah Akun</button>
-    {/if}
+    <button
+      onclick={() => tab === 'jurnal' ? bukaModalJurnal() : bukaTambahKasBank()}
+      style="padding:.4rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer; visibility:{tab === 'jurnal' || tab === 'kasbank' ? 'visible' : 'hidden'}"
+    >{tab === 'kasbank' ? '+ Tambah Akun' : '+ Catat Jurnal'}</button>
   </div>
 
   <!-- Ringkasan -->
@@ -353,17 +346,15 @@
   </div>
 
   <!-- Tabs -->
-  <div style="display:flex; gap:.5rem; border-bottom:1px solid var(--border); margin-bottom:1rem; align-items:flex-end">
-    {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank']] as [TabKey, string][]) as [t, label]}
-      <button
-        onclick={() => tab = t}
-        style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap"
-      >{label}</button>
-    {/each}
-    <button
-      onclick={() => tab = 'budget'}
-      style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab==='budget' ? 'var(--accent)' : 'transparent'}; color:{tab==='budget' ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; margin-left:auto"
-    >Budget &amp; Target</button>
+  <div style="border-bottom:1px solid var(--border); margin-bottom:1rem">
+    <div style="display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:-1px">
+      {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank'],['budget','Budget & Target']] as [TabKey, string][]) as [t, label]}
+        <button
+          onclick={() => tab = t}
+          style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; flex-shrink:0"
+        >{label}</button>
+      {/each}
+    </div>
   </div>
 </div>
 

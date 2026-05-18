@@ -117,7 +117,7 @@
 
 		<!-- Nav links — desktop only -->
 		{#if navExpanded}
-			<div class="hidden items-center gap-1 overflow-x-auto md:flex">
+			<div class="hidden items-center gap-1 overflow-x-auto md:flex" style="scrollbar-width:none">
 				{#each NAV as item}
 					{#if bolehAkses(item.roles)}
 						<a

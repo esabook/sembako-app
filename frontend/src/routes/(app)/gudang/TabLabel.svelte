@@ -177,10 +177,10 @@
 	const totalLabel = $derived(antrianItems.reduce((s, i) => s + i.qty, 0));
 </script>
 
-<div class="flex gap-3" style="min-height:64vh">
+<div class="flex flex-col gap-3 lg:flex-row" style="min-height:64vh">
 
 	<!-- Panel kiri: Pilih Barang -->
-	<div class="flex flex-col gap-2" style="width:300px;flex-shrink:0">
+	<div class="flex flex-col gap-2 lg:w-[300px] lg:shrink-0">
 		<div class="text-xs font-bold" style="color:var(--text-dim)">PILIH BARANG</div>
 
 		<div class="relative">
@@ -225,7 +225,7 @@
 	</div>
 
 	<!-- Panel tengah: Antrian + Pengaturan -->
-	<div class="flex flex-col gap-3" style="width:210px;flex-shrink:0">
+	<div class="flex flex-col gap-3 lg:w-[210px] lg:shrink-0">
 
 		<div class="text-xs font-bold" style="color:var(--text-dim)">
 			ANTRIAN
