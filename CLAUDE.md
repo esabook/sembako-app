@@ -204,15 +204,22 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 | Kasir + Scanner + Shift | ✅ |
 | Gudang (PO, terima, opname, label) | ✅ |
 | Keuangan (jurnal, hutang, piutang) | ✅ |
-| Laporan (L/R, arus kas, neraca) | ✅ |
+| Laporan (L/R, arus kas, neraca, aging) | ✅ |
 | Absensi, Penggajian, Kasbon | ✅ |
 | Pengaturan Toko, Manajemen Harga | ✅ |
 | Retur Penjualan, Notifikasi, Audit Trail | ✅ |
-| WhatsApp, Kartu Anggota | ✅ |
+| WhatsApp (wa.me reminder piutang) | ✅ |
+| Kartu Anggota | ✅ |
 | Jadwal & Shift Kerja | ✅ |
 | Promo & Diskon (admin + kasir) | ✅ |
 | Budget & Target | ✅ |
 | Retur Penjualan dari UI kasir | ✅ |
+| History transaksi kasir (filter + cetak ulang) | ✅ |
+| Alert stok menipis di kasir | ✅ |
+| Info Server + QR koneksi HP | ✅ |
+| PWA installable (Add to Home Screen) | ✅ |
+| Backup database (download SQLite) | ✅ |
+| Dashboard chart toggle 7/30 hari + rata-rata | ✅ |
 
 Branch aktif: `development`
 
@@ -228,29 +235,24 @@ Branch aktif: `development`
 
 ---
 
-## FASE 8 — NEXT TASKS
+## BACKLOG — NEXT TASKS
 
 ```
-8A (Stabilisasi) — WIP
+Prioritas tinggi (langsung berguna di toko):
+  [ ] Riwayat mutasi stok per barang — klik barang → lihat histori masuk/keluar
+      (tabel mutasi_stok sudah ada, belum ada UI per-barang)
+  [ ] Shortcut keyboard kasir — F2 cari, F4 diskon, F5 bayar, F9 void
+      (untuk kasir yang pakai keyboard/kasir fisik)
 
-8B (Kasir Enhancement) — sebagian selesai
-  [x] Promo & Diskon (admin UI + integrasi kasir)
-  [x] Budget & Target (keuangan/budget/)
-  [x] Retur Penjualan dari UI kasir (kasir/retur/)
-  [ ] History transaksi: filter tanggal, cetak ulang struk
+Prioritas sedang:
+  [ ] WA alert tombol cepat pemilik — di notifikasi/dashboard: kirim WA
+      saat stok habis, void, atau diskon tinggi (pakai wa.me, pola sudah ada)
+  [ ] Absensi enhancement — (belum dikonfirmasi scope-nya)
 
-8C (Laporan)
-  [ ] Neraca dengan filter periode
-  [ ] Export PDF via window.print + @media print
-  [ ] Export CSV laporan
-
-8D (Stok & Gudang)
-  [ ] Alert stok hampir habis realtime di kasir
-  [ ] Riwayat mutasi stok per barang
-
-8E (WhatsApp)
-  [ ] Notifikasi WA pengingat hutang (H-3, H-1)
-  [ ] WA alert ke pemilik: stok habis, void, diskon tinggi
+Pertimbangan jangka panjang:
+  [ ] Service Worker / offline cache — agar kasir bisa tetap jalan saat WiFi putus
+  [ ] Multi-toko / multi-cabang
+  [ ] Migrasi ke Turso (libSQL) untuk akses remote
 ```
 
 ---
