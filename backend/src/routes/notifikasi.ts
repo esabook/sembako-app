@@ -1,10 +1,11 @@
+import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.ts'
 import { notifikasi_config, notifikasi_log, barang, hutang_supplier, piutang_pelanggan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
-export const notifikasiRouter = new Hono()
+export const notifikasiRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 notifikasiRouter.use('*', authMiddleware)
 
@@ -126,7 +127,7 @@ notifikasiRouter.get('/check', async (c) => {
         id: barang.id,
         nama_barang: barang.nama_barang,
         stok_sekarang: barang.stok_sekarang,
-      }).from(barang).where(eq(barang.is_active, 1)).all()
+      }).from(barang).where(eq(barang.is_active, true)).all()
 
       for (const item of stmt) {
         if ((item.stok_sekarang ?? 0) <= 0) {
@@ -146,7 +147,7 @@ notifikasiRouter.get('/check', async (c) => {
         nama_barang: barang.nama_barang,
         stok_sekarang: barang.stok_sekarang,
         stok_minimum: barang.stok_minimum,
-      }).from(barang).where(eq(barang.is_active, 1)).all()
+      }).from(barang).where(eq(barang.is_active, true)).all()
 
       for (const item of stmt) {
         const min = item.stok_minimum ?? 0

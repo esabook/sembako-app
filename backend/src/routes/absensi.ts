@@ -8,7 +8,7 @@ import { authMiddleware, hasPermission, requirePermission } from '../middleware/
 import type { JWTPayload } from './auth.ts'
 import type { Role } from '../middleware/auth.ts'
 
-export const absensiRouter = new Hono()
+export const absensiRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 absensiRouter.use('*', authMiddleware)
 
 function requireAbsensiAkses() {

@@ -1,3 +1,4 @@
+import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, and, gte, lte, ne, sql } from 'drizzle-orm'
 import { db } from '../db/index.ts'
@@ -9,7 +10,7 @@ import {
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
-export const laporanRouter = new Hono()
+export const laporanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 laporanRouter.use('*', authMiddleware)
 
@@ -130,56 +131,48 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
 
   const akunList = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
 
-  // Jurnal sebelum periode (untuk saldo awal)
-  const jurnalSebelum = db
-    .select({ kas_bank_id: jurnal_kas.kas_bank_id, jenis: jurnal_kas.jenis, jumlah: jurnal_kas.jumlah })
-    .from(jurnal_kas)
-    .where(sql`${jurnal_kas.tanggal} < ${dari}`)
-    .all()
+  // Saldo awal per akun: GROUP BY — tidak load seluruh tabel
+  const sebelumPerAkun = db.select({
+    kas_bank_id: jurnal_kas.kas_bank_id,
+    masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
+    keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
+  }).from(jurnal_kas).where(sql`${jurnal_kas.tanggal} < ${dari}`).groupBy(jurnal_kas.kas_bank_id).all()
+  const sebelumMap = new Map(sebelumPerAkun.map((r) => [r.kas_bank_id, r]))
 
-  // Jurnal dalam periode
-  const jurnalRows = db
-    .select({
-      kas_bank_id: jurnal_kas.kas_bank_id,
-      jenis: jurnal_kas.jenis,
-      kategori: jurnal_kas.kategori,
-      jumlah: jurnal_kas.jumlah,
-    })
-    .from(jurnal_kas)
-    .where(
-      and(
-        gte(jurnal_kas.tanggal, dari),
-        lte(jurnal_kas.tanggal, sampai)
-      )
-    )
-    .all()
+  // Mutasi periode per akun: GROUP BY
+  const mutasiPerAkun = db.select({
+    kas_bank_id: jurnal_kas.kas_bank_id,
+    masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
+    keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
+  }).from(jurnal_kas).where(and(gte(jurnal_kas.tanggal, dari), lte(jurnal_kas.tanggal, sampai))).groupBy(jurnal_kas.kas_bank_id).all()
+  const mutasiMap = new Map(mutasiPerAkun.map((r) => [r.kas_bank_id, r]))
 
-  // Per akun kas/bank (dengan saldo awal & saldo akhir)
-  const perAkun = akunList.map((akun) => {
-    const sebelum = jurnalSebelum.filter((r) => r.kas_bank_id === akun.id)
-    const mutasiSebelumMasuk = sebelum.filter((r) => r.jenis === 'masuk').reduce((s, r) => s + r.jumlah, 0)
-    const mutasiSebelumKeluar = sebelum.filter((r) => r.jenis === 'keluar').reduce((s, r) => s + r.jumlah, 0)
-    const saldo_awal = akun.saldo_awal + mutasiSebelumMasuk - mutasiSebelumKeluar
-
-    const rows = jurnalRows.filter((r) => r.kas_bank_id === akun.id)
-    const masuk = rows.filter((r) => r.jenis === 'masuk').reduce((s, r) => s + r.jumlah, 0)
-    const keluar = rows.filter((r) => r.jenis === 'keluar').reduce((s, r) => s + r.jumlah, 0)
-    const saldo_akhir = saldo_awal + masuk - keluar
-
-    return { id: akun.id, nama: akun.nama, tipe: akun.tipe, saldo_awal, masuk, keluar, net: masuk - keluar, saldo_akhir }
-  })
-
-  // Ringkasan per kategori
+  // Ringkasan per kategori: GROUP BY
+  const kategoriRows = db.select({
+    kategori: jurnal_kas.kategori,
+    jenis: jurnal_kas.jenis,
+    jumlah: sql<number>`COALESCE(SUM(${jurnal_kas.jumlah}),0)`,
+  }).from(jurnal_kas).where(and(gte(jurnal_kas.tanggal, dari), lte(jurnal_kas.tanggal, sampai))).groupBy(jurnal_kas.kategori, jurnal_kas.jenis).all()
   const kategoriMap: Record<string, { masuk: number; keluar: number }> = {}
-  for (const r of jurnalRows) {
-    if (!kategoriMap[r.kategori]) kategoriMap[r.kategori] = { masuk: 0, keluar: 0 }
-    if (r.jenis === 'masuk') kategoriMap[r.kategori].masuk += r.jumlah
-    else kategoriMap[r.kategori].keluar += r.jumlah
+  for (const r of kategoriRows) {
+    const entry = kategoriMap[r.kategori] ?? { masuk: 0, keluar: 0 }
+    kategoriMap[r.kategori] = r.jenis === 'masuk'
+      ? { ...entry, masuk: r.jumlah }
+      : { ...entry, keluar: r.jumlah }
   }
 
-  const totalMasuk = jurnalRows.filter((r) => r.jenis === 'masuk').reduce((s, r) => s + r.jumlah, 0)
-  const totalKeluar = jurnalRows.filter((r) => r.jenis === 'keluar').reduce((s, r) => s + r.jumlah, 0)
-  const saldoAwal = perAkun.reduce((s, a) => s + a.saldo_awal, 0)
+  // Hitung per akun dari maps
+  const perAkun = akunList.map((akun) => {
+    const sbl  = sebelumMap.get(akun.id) ?? { masuk: 0, keluar: 0 }
+    const mut  = mutasiMap.get(akun.id)  ?? { masuk: 0, keluar: 0 }
+    const saldo_awal  = akun.saldo_awal + sbl.masuk - sbl.keluar
+    const saldo_akhir = saldo_awal + mut.masuk - mut.keluar
+    return { id: akun.id, nama: akun.nama, tipe: akun.tipe, saldo_awal, masuk: mut.masuk, keluar: mut.keluar, net: mut.masuk - mut.keluar, saldo_akhir }
+  })
+
+  const totalMasuk  = perAkun.reduce((s, a) => s + a.masuk, 0)
+  const totalKeluar = perAkun.reduce((s, a) => s + a.keluar, 0)
+  const saldoAwal   = perAkun.reduce((s, a) => s + a.saldo_awal, 0)
 
   return c.json({
     success: true,
@@ -203,16 +196,17 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   // 1. Kas & Bank (saldo_awal + total masuk - total keluar dari jurnal)
   const akunList = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
 
-  const jurnalSemua = db
-    .select({ kas_bank_id: jurnal_kas.kas_bank_id, jenis: jurnal_kas.jenis, jumlah: jurnal_kas.jumlah })
-    .from(jurnal_kas)
-    .all()
+  // GROUP BY per akun — tidak load seluruh tabel
+  const jurnalPerAkun = db.select({
+    kas_bank_id: jurnal_kas.kas_bank_id,
+    masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
+    keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
+  }).from(jurnal_kas).groupBy(jurnal_kas.kas_bank_id).all()
+  const jurnalAkunMap = new Map(jurnalPerAkun.map((r) => [r.kas_bank_id, r]))
 
   const kasBank = akunList.map((akun) => {
-    const rows = jurnalSemua.filter((r) => r.kas_bank_id === akun.id)
-    const masuk = rows.filter((r) => r.jenis === 'masuk').reduce((s, r) => s + r.jumlah, 0)
-    const keluar = rows.filter((r) => r.jenis === 'keluar').reduce((s, r) => s + r.jumlah, 0)
-    const saldo = akun.saldo_awal + masuk - keluar
+    const j = jurnalAkunMap.get(akun.id) ?? { masuk: 0, keluar: 0 }
+    const saldo = akun.saldo_awal + j.masuk - j.keluar
     return { id: akun.id, nama: akun.nama, tipe: akun.tipe, saldo }
   })
   const totalKasBank = kasBank.reduce((s, a) => s + a.saldo, 0)

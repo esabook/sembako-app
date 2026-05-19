@@ -1,3 +1,4 @@
+import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, like, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
@@ -5,7 +6,7 @@ import { db } from '../db/index.ts'
 import { supplier } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
-export const supplierRouter = new Hono()
+export const supplierRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 supplierRouter.use('*', authMiddleware)
 

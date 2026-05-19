@@ -6,7 +6,7 @@ import { promo, promo_target, barang, kategori } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const promoRouter = new Hono()
+export const promoRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 promoRouter.use('*', authMiddleware)
 

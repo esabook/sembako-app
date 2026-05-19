@@ -1,5 +1,6 @@
+import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
-import { sql, eq, and, gte, lte, lt, desc, asc } from 'drizzle-orm'
+import { sql, eq, and, gte, lte, lt, desc, asc, notExists } from 'drizzle-orm'
 import { db } from '../db/index.ts'
 import {
   penjualan, penjualan_detail, barang,
@@ -8,7 +9,7 @@ import {
 } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 
-export const dashboardRouter = new Hono()
+export const dashboardRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 dashboardRouter.use('*', authMiddleware)
 
 dashboardRouter.get('/', async (c) => {
@@ -142,17 +143,16 @@ dashboardRouter.get('/', async (c) => {
   .all()
 
   // ── Karyawan belum absen hari ini ───────────────────────────────────────────
-  const sudahAbsen = db.select({ karyawan_id: absensi.karyawan_id })
-    .from(absensi)
-    .where(eq(absensi.tanggal, today))
-    .all()
-    .map(r => r.karyawan_id)
-
   const belumAbsen = db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
     .from(karyawan)
-    .where(eq(karyawan.is_active, true))
+    .where(and(
+      eq(karyawan.is_active, true),
+      notExists(
+        db.select({ _: absensi.id }).from(absensi)
+          .where(and(eq(absensi.karyawan_id, karyawan.id), eq(absensi.tanggal, today)))
+      )
+    ))
     .all()
-    .filter(k => !sudahAbsen.includes(k.id))
 
   // ── Ringkasan piutang & hutang total ───────────────────────────────────────
   const totalPiutang = db.select({

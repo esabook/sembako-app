@@ -14,7 +14,7 @@ import sharp from 'sharp'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-export const barangMasukRouter = new Hono()
+export const barangMasukRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 barangMasukRouter.use('*', authMiddleware)
 

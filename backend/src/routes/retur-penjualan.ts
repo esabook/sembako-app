@@ -13,7 +13,7 @@ import {
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const returPenjualanRouter = new Hono()
+export const returPenjualanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 returPenjualanRouter.use('*', authMiddleware)
 

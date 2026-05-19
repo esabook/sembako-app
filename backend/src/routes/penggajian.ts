@@ -6,7 +6,7 @@ import { penggajian, karyawan, absensi, kasbon, jurnal_kas } from '../db/schema.
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const penggajianRouter = new Hono()
+export const penggajianRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 penggajianRouter.use('*', authMiddleware)
 
 function hitungHariKerja(tahun: number, bulan: number): number {

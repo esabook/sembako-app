@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  index,
   integer,
   real,
   sqliteTable,
@@ -232,7 +233,11 @@ export const penjualan = sqliteTable('penjualan', {
   kembalian: real('kembalian').notNull().default(0),
   status: text('status', { enum: ['lunas', 'hutang', 'void'] }).notNull().default('lunas'),
   ...timestamps,
-})
+}, (t) => [
+  index('idx_penjualan_tanggal').on(t.tanggal),
+  index('idx_penjualan_status').on(t.status),
+  index('idx_penjualan_kasir').on(t.kasir_id),
+])
 
 export const penjualan_detail = sqliteTable('penjualan_detail', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -243,7 +248,9 @@ export const penjualan_detail = sqliteTable('penjualan_detail', {
   harga_jual: real('harga_jual').notNull(), // snapshot — jangan ambil dari master
   diskon_item: real('diskon_item').notNull().default(0),
   subtotal: real('subtotal').notNull(),
-})
+}, (t) => [
+  index('idx_penjualan_detail_trx').on(t.penjualan_id),
+])
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODUL STOK
@@ -260,7 +267,10 @@ export const mutasi_stok = sqliteTable('mutasi_stok', {
   jumlah_perubahan: real('jumlah_perubahan').notNull(),
   jumlah_sesudah: real('jumlah_sesudah').notNull(),
   dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
-})
+}, (t) => [
+  index('idx_mutasi_stok_barang').on(t.barang_id),
+  index('idx_mutasi_stok_tanggal').on(t.tanggal),
+])
 
 export const stok_opname = sqliteTable('stok_opname', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -309,7 +319,10 @@ export const jurnal_kas = sqliteTable('jurnal_kas', {
   jumlah: real('jumlah').notNull(),
   dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
   ...timestamps,
-})
+}, (t) => [
+  index('idx_jurnal_kas_tanggal').on(t.tanggal),
+  index('idx_jurnal_kas_akun').on(t.kas_bank_id),
+])
 
 export const hutang_supplier = sqliteTable('hutang_supplier', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -321,7 +334,10 @@ export const hutang_supplier = sqliteTable('hutang_supplier', {
   sisa_hutang: real('sisa_hutang').notNull(),
   status: text('status', { enum: ['belum', 'sebagian', 'lunas'] }).notNull().default('belum'),
   ...timestamps,
-})
+}, (t) => [
+  index('idx_hutang_status').on(t.status),
+  index('idx_hutang_jatuh').on(t.tanggal_jatuh_tempo),
+])
 
 export const pembayaran_hutang = sqliteTable('pembayaran_hutang', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -343,7 +359,10 @@ export const piutang_pelanggan = sqliteTable('piutang_pelanggan', {
   sisa_piutang: real('sisa_piutang').notNull(),
   status: text('status', { enum: ['belum', 'sebagian', 'lunas'] }).notNull().default('belum'),
   ...timestamps,
-})
+}, (t) => [
+  index('idx_piutang_status').on(t.status),
+  index('idx_piutang_jatuh').on(t.tanggal_jatuh_tempo),
+])
 
 export const pembayaran_piutang = sqliteTable('pembayaran_piutang', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -370,7 +389,10 @@ export const absensi = sqliteTable('absensi', {
     enum: ['hadir', 'izin', 'sakit', 'alpa'],
   }).notNull().default('hadir'),
   dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
-})
+}, (t) => [
+  index('idx_absensi_tanggal').on(t.tanggal),
+  index('idx_absensi_karyawan').on(t.karyawan_id),
+])
 
 export const penggajian = sqliteTable('penggajian', {
   id: integer('id').primaryKey({ autoIncrement: true }),

@@ -7,7 +7,7 @@ import { catatLog } from '../utils/log.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const stokRouter = new Hono()
+export const stokRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 stokRouter.use('*', authMiddleware)
 

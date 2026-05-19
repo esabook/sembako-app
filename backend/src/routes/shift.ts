@@ -6,7 +6,7 @@ import { shift_kasir, penjualan, karyawan } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const shiftRouter = new Hono()
+export const shiftRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 shiftRouter.use('*', authMiddleware)
 

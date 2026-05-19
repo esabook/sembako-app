@@ -1,10 +1,11 @@
+import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.ts'
 import { toko_settings } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
-export const pengaturanRouter = new Hono()
+export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 // ── GET /pengaturan/publik — tanpa auth, untuk login page ─────────────────
 pengaturanRouter.get('/publik', async (c) => {
@@ -47,7 +48,7 @@ pengaturanRouter.get('/', async (c) => {
 // ── PUT /pengaturan/:key ───────────────────────────────────────────────────
 
 pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
-  const key = c.req.param('key')
+  const key = c.req.param('key') ?? ''
   const body = await c.req.json<{ value: string }>()
 
   if (!(key in DEFAULTS)) {

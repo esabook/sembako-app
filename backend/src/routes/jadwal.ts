@@ -6,7 +6,7 @@ import { tipe_shift, jadwal_kerja, tukar_shift, karyawan } from '../db/schema.ts
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const jadwalRouter = new Hono()
+export const jadwalRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 jadwalRouter.use('*', authMiddleware)
 
 // ── GET /jadwal/tipe — list tipe shift ───────────────────────────────────────

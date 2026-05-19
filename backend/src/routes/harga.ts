@@ -12,7 +12,7 @@ import {
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const hargaRouter = new Hono()
+export const hargaRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 hargaRouter.use('*', authMiddleware)
 
@@ -97,7 +97,7 @@ hargaRouter.get('/:id/histori', requirePermission('harga_jual.lihat'), async (c)
 
 hargaRouter.put('/:id', requirePermission('harga_jual.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const payload = c.get('jwtPayload') as JWTPayload
+  const payload = c.get('user') as JWTPayload
   const body = await c.req.json<{
     harga_jual_eceran: number
     harga_jual_grosir: number
@@ -206,7 +206,7 @@ hargaRouter.post('/simulasi', requirePermission('harga_jual.lihat'), async (c) =
 // Apply kenaikan/penurunan harga ke banyak barang sekaligus
 
 hargaRouter.post('/massal', requirePermission('harga_jual.edit'), async (c) => {
-  const payload = c.get('jwtPayload') as JWTPayload
+  const payload = c.get('user') as JWTPayload
   const body = await c.req.json<{
     barang_ids: number[]
     tipe: 'persen' | 'rupiah'

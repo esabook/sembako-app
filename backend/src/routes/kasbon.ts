@@ -6,7 +6,7 @@ import { kasbon, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const kasbonRouter = new Hono()
+export const kasbonRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 kasbonRouter.use('*', authMiddleware)
 
 function tglHariIni(): string {

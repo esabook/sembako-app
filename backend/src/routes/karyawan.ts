@@ -9,7 +9,7 @@ import sharp from 'sharp'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-export const karyawanRouter = new Hono()
+export const karyawanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 karyawanRouter.use('*', authMiddleware)
 

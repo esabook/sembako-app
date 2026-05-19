@@ -61,7 +61,7 @@ budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'),
 // Ambil target penjualan + semua budget operasional untuk satu bulan
 
 budgetTargetRouter.get('/:periode', requirePermission('laporan.lihat'), async (c) => {
-  const periode = c.req.param('periode')
+  const periode = c.req.param('periode') ?? ''
   if (!/^\d{4}-\d{2}$/.test(periode)) {
     throw new HTTPException(400, { message: 'Format periode tidak valid. Gunakan YYYY-MM' })
   }
@@ -119,7 +119,7 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
     target_transaksi: body.target_transaksi ?? 0,
     target_margin_pct: body.target_margin_pct ?? 0,
     catatan: body.catatan,
-    dibuat_oleh: user.sub,
+    dibuat_oleh: Number(user.sub),
   }).returning().get()
 
   return c.json({ success: true, data: created }, 201)
@@ -172,7 +172,7 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
     kategori: body.kategori,
     nilai_budget: body.nilai_budget,
     catatan: body.catatan,
-    dibuat_oleh: user.sub,
+    dibuat_oleh: Number(user.sub),
   }).returning().get()
 
   return c.json({ success: true, data: created }, 201)
@@ -182,7 +182,7 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
 // Bandingkan target + budget vs realisasi aktual dari data transaksi
 
 budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat'), async (c) => {
-  const periode = c.req.param('periode')
+  const periode = c.req.param('periode') ?? ''
   if (!/^\d{4}-\d{2}$/.test(periode)) {
     throw new HTTPException(400, { message: 'Format periode tidak valid. Gunakan YYYY-MM' })
   }
@@ -259,12 +259,14 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
 // Proyeksi akhir bulan berdasarkan tren linear hari berjalan
 
 budgetTargetRouter.get('/:periode/proyeksi', requirePermission('laporan.lihat'), async (c) => {
-  const periode = c.req.param('periode')
+  const periode = c.req.param('periode') ?? ''
   if (!/^\d{4}-\d{2}$/.test(periode)) {
     throw new HTTPException(400, { message: 'Format periode tidak valid. Gunakan YYYY-MM' })
   }
 
-  const [tahun, bulan] = periode.split('-').map(Number)
+  const parts = periode.split('-')
+  const tahun = Number(parts[0])
+  const bulan = Number(parts[1])
   const hariDalamBulan = new Date(tahun, bulan, 0).getDate()
   const hariIni = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
   const hariSekarang = hariIni.startsWith(periode)
@@ -348,7 +350,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
         target_omzet: sumberTarget.target_omzet,
         target_transaksi: sumberTarget.target_transaksi,
         target_margin_pct: sumberTarget.target_margin_pct,
-        dibuat_oleh: user.sub,
+        dibuat_oleh: Number(user.sub),
       }).returning().get()
     }
   }
@@ -375,7 +377,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
         periode_bulan: body.ke,
         kategori: src.kategori,
         nilai_budget: src.nilai_budget,
-        dibuat_oleh: user.sub,
+        dibuat_oleh: Number(user.sub),
       }).returning().get()
       budgetBaru.push(created)
     }

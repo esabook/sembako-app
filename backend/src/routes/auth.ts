@@ -22,7 +22,7 @@ export type JWTPayload = {
   exp?: number
 }
 
-export const authRouter = new Hono()
+export const authRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 authRouter.post('/login', async (c) => {
   const body = await c.req.json<{ username: string; password: string }>()

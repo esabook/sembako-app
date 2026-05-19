@@ -1,3 +1,4 @@
+import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 
@@ -21,7 +22,7 @@ function cancelCleanup(sessionId: string) {
   if (t) { clearTimeout(t); cleanupTimers.delete(sessionId) }
 }
 
-export const scanRelayRouter = new Hono()
+export const scanRelayRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 // Kasir listen via SSE
 scanRelayRouter.get('/kasir/:sessionId', (c) => {

@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { compress } from 'hono/compress'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { HTTPException } from 'hono/http-exception'
@@ -40,6 +41,7 @@ type Variables = { user: JWTPayload }
 const app = new Hono<{ Variables: Variables }>()
 
 app.use('*', logger())
+app.use('*', compress())
 app.use('*', cors({
   origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
   credentials: true,
