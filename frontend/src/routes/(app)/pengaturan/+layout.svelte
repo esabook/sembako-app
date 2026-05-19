@@ -4,9 +4,10 @@
 	let { children } = $props()
 
 	const TABS = [
-		{ href: '/pengaturan',           label: 'Pengaturan' },
-		{ href: '/pengaturan/notifikasi', label: 'Notifikasi' },
-		{ href: '/pengaturan/audit',      label: 'Audit Trail' },
+		{ href: '/pengaturan',              label: 'Pengaturan' },
+		{ href: '/pengaturan/notifikasi',   label: 'Notifikasi' },
+		{ href: '/pengaturan/audit',        label: 'Audit Trail' },
+		{ href: '/pengaturan/info-server',  label: 'Info Server' },
 	]
 </script>
 

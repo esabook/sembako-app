@@ -1,9 +1,21 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
+import { networkInterfaces } from 'node:os'
 import { db } from '../db/index.ts'
 import { toko_settings } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+
+function getLanIps(): string[] {
+  const nets = networkInterfaces()
+  const results: string[] = []
+  for (const iface of Object.values(nets)) {
+    for (const net of iface ?? []) {
+      if (net.family === 'IPv4' && !net.internal) results.push(net.address)
+    }
+  }
+  return results
+}
 
 export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -11,6 +23,22 @@ export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 pengaturanRouter.get('/publik', async (c) => {
   const row = db.select().from(toko_settings).all().find((r) => r.key === 'nama_toko')
   return c.json({ success: true, data: { nama_toko: row?.value ?? 'Toko Sembako' } })
+})
+
+// ── GET /pengaturan/server-info — info jaringan & sistem ──────────────────
+pengaturanRouter.get('/server-info', async (c) => {
+  return c.json({
+    success: true,
+    data: {
+      lan_ips: getLanIps(),
+      port_frontend: Number(process.env.FRONTEND_PORT ?? 5173),
+      port_backend: Number(process.env.PORT ?? 3000),
+      bun_version: process.versions.bun ?? 'unknown',
+      platform: process.platform,
+      uptime_detik: Math.floor(process.uptime()),
+      app_version: '0.0.1',
+    },
+  })
 })
 
 pengaturanRouter.use('*', authMiddleware)
