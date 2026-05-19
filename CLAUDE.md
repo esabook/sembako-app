@@ -223,6 +223,7 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 | Riwayat mutasi stok per barang (filter + detail) | ✅ |
 | Absensi: durasi kerja, filter karyawan, export CSV rekap | ✅ |
 | WA alert tombol cepat ke pemilik dari notifikasi | ✅ |
+| Service Worker / offline cache (static + API stale-while-revalidate) | ✅ |
 
 Branch aktif: `development`
 
@@ -246,7 +247,7 @@ Prioritas tinggi:
       (untuk kasir yang pakai keyboard fisik / barcode scanner)
 
 Pertimbangan jangka panjang:
-  [ ] Service Worker / offline cache — agar kasir tetap jalan saat WiFi putus
+  [x] Service Worker / offline cache — agar kasir tetap jalan saat WiFi putus
   [ ] Multi-toko / multi-cabang
   [ ] Migrasi ke Turso (libSQL) untuk akses remote
 ```
