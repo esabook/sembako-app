@@ -27,6 +27,48 @@ export type PelangganResult = {
 
 export type ScannerStatus = 'idle' | 'connected' | 'disconnected';
 
+export type HistoriPenjualan = {
+	id: number;
+	no_transaksi: string;
+	tanggal: string;
+	tipe: 'eceran' | 'grosir';
+	total: number;
+	metode_bayar: 'tunai' | 'transfer' | 'qris' | 'hutang';
+	status: 'lunas' | 'hutang' | 'void';
+	kasir_id: number | null;
+};
+
+export type HistoriItem = {
+	id: number;
+	barang_id: number;
+	nama_barang: string | null;
+	kode_barang: string | null;
+	satuan_id: number | null;
+	jumlah: number;
+	harga_jual: number;
+	diskon_item: number;
+	subtotal: number;
+};
+
+export type HistoriDetail = HistoriPenjualan & {
+	pelanggan_id: number | null;
+	nama_pelanggan: string | null;
+	subtotal: number;
+	diskon_total: number;
+	bayar: number;
+	kembalian: number;
+	items: HistoriItem[];
+};
+
+export type StokMenipis = {
+	id: number;
+	kode_barang: string;
+	nama_barang: string;
+	stok_sekarang: number;
+	stok_minimum: number;
+	satuan: string | null;
+};
+
 export type PromoAktif = {
 	id: number;
 	nama: string;

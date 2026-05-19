@@ -3,7 +3,7 @@
 // Konsumsi oleh kasir.store.ts via withLoading().
 
 import { api } from '$lib/utils/api';
-import type { BarangResult, PelangganResult } from './kasir.types';
+import type { BarangResult, PelangganResult, HistoriPenjualan, HistoriDetail, StokMenipis } from './kasir.types';
 import type { ItemKeranjang, MetodeBayar, TipeTransaksi } from '$lib/stores/kasir';
 
 export async function fetchBarang(q: string): Promise<BarangResult[]> {
@@ -65,3 +65,25 @@ export async function saveDraft(payload: {
 export async function deleteDraft(): Promise<void> {
 	await api.delete('/draft/keranjang');
 }
+
+// ── History transaksi ─────────────────────────────────────────────────────
+
+export async function fetchHistoriPenjualan(dari: string, sampai: string): Promise<HistoriPenjualan[]> {
+	const res = await api.get<HistoriPenjualan[]>(`/penjualan?dari=${dari}&sampai=${sampai}`);
+	if (!res.success) throw new Error(res.error);
+	return res.data;
+}
+
+export async function fetchDetailPenjualan(id: number): Promise<HistoriDetail> {
+	const res = await api.get<HistoriDetail>(`/penjualan/${id}`);
+	if (!res.success) throw new Error(res.error);
+	return res.data;
+}
+
+export async function fetchStokMenipis(): Promise<StokMenipis[]> {
+	const res = await api.get<StokMenipis[]>('/barang/stok-menipis');
+	if (!res.success) throw new Error(res.error);
+	return res.data;
+}
+
+export type { HistoriPenjualan, HistoriDetail, StokMenipis };

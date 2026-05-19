@@ -65,7 +65,27 @@ penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
 
 penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const trx = db.select().from(penjualan).where(eq(penjualan.id, id)).get()
+  const trx = db
+    .select({
+      id: penjualan.id,
+      no_transaksi: penjualan.no_transaksi,
+      pelanggan_id: penjualan.pelanggan_id,
+      nama_pelanggan: pelanggan.nama,
+      tanggal: penjualan.tanggal,
+      tipe: penjualan.tipe,
+      kasir_id: penjualan.kasir_id,
+      subtotal: penjualan.subtotal,
+      diskon_total: penjualan.diskon_total,
+      total: penjualan.total,
+      metode_bayar: penjualan.metode_bayar,
+      bayar: penjualan.bayar,
+      kembalian: penjualan.kembalian,
+      status: penjualan.status,
+    })
+    .from(penjualan)
+    .leftJoin(pelanggan, eq(penjualan.pelanggan_id, pelanggan.id))
+    .where(eq(penjualan.id, id))
+    .get()
   if (!trx) throw new HTTPException(404, { message: 'Transaksi tidak ditemukan' })
 
   const items = db

@@ -70,6 +70,14 @@
 	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
+	import {
+		fetchHistoriPenjualan,
+		fetchDetailPenjualan,
+		fetchStokMenipis,
+		type HistoriPenjualan,
+		type HistoriDetail,
+		type StokMenipis
+	} from './kasir.api';
 
 	// ── Akun kas/bank (untuk selector checkout) ──────────────────────────────
 	let daftarKasBank = $state<{ id: number; nama: string; tipe: string }[]>([]);
@@ -113,6 +121,125 @@
 	let helpCloseBtnEl: HTMLButtonElement | undefined = $state();
 	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
 	function focusEl(el: HTMLElement) { el.focus(); }
+
+	// ── Stok menipis ─────────────────────────────────────────────────────────
+	let stokMenipis = $state<StokMenipis[]>([]);
+	let stokAlertDismissed = $state(false);
+
+	// ── History transaksi ─────────────────────────────────────────────────────
+	let modalHistori = $state(false);
+	function todayStr() {
+		return new Date().toLocaleDateString('sv-SE');
+	}
+	let historiDari = $state(todayStr());
+	let historiSampai = $state(todayStr());
+	let historiList = $state<HistoriPenjualan[]>([]);
+	let historiDetail = $state<HistoriDetail | null>(null);
+	let historiLoading = $state(false);
+	let historiDetailLoading = $state(false);
+
+	// ── Refresh stok menipis setelah checkout berhasil ───────────────────────
+	$effect(() => {
+		if ($snap) {
+			stokAlertDismissed = false;
+			fetchStokMenipis().then((d) => { stokMenipis = d; }).catch(() => {});
+		}
+	});
+
+	// ── History transaksi: muat list ─────────────────────────────────────────
+	async function muatHistori() {
+		historiLoading = true;
+		historiDetail = null;
+		try {
+			historiList = await fetchHistoriPenjualan(historiDari, historiSampai);
+		} catch {
+			toast.error('Gagal memuat riwayat transaksi');
+		} finally {
+			historiLoading = false;
+		}
+	}
+
+	async function pilihHistori(id: number) {
+		historiDetailLoading = true;
+		try {
+			historiDetail = await fetchDetailPenjualan(id);
+		} catch {
+			toast.error('Gagal memuat detail transaksi');
+		} finally {
+			historiDetailLoading = false;
+		}
+	}
+
+	function bukaTutupHistori() {
+		modalHistori = !modalHistori;
+		if (modalHistori) {
+			historiDari = todayStr();
+			historiSampai = todayStr();
+			historiDetail = null;
+			void muatHistori();
+		}
+	}
+
+	function cetakStrukHistori(d: HistoriDetail) {
+		const lebar = strUkuran === '58' ? '58mm' : '80mm';
+		const rp = (n: number) => new Intl.NumberFormat('id-ID').format(Math.round(n));
+		const tglObj = new Date(d.tanggal);
+		const tgl = tglObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+		const jam = d.tanggal.length >= 16 ? d.tanggal.slice(11, 16) : '';
+		const METODE_STR: Record<string, string> = { tunai: 'Tunai', transfer: 'Transfer', qris: 'QRIS', hutang: 'Hutang' };
+		const itemsHtml = d.items
+			.map(
+				(item) => `
+			<div style="font-weight:600">${item.nama_barang ?? '-'}</div>
+			<div style="display:flex;justify-content:space-between;font-size:8.5pt;color:#444">
+				<span>${item.jumlah} &times; ${rp(item.harga_jual)}</span>
+				<span style="color:#000">${rp(item.subtotal)}</span>
+			</div>
+			${item.diskon_item > 0 ? `<div style="font-size:8pt;color:#b36000">&nbsp;&nbsp;diskon &minus;${rp(item.diskon_item)}</div>` : ''}
+		`
+			)
+			.join('');
+		const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Struk</title>
+<style>
+@page{size:${lebar} auto;margin:4mm 5mm}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',Courier,monospace;font-size:9.5pt;color:#000;width:100%}
+hr{border:none;border-top:1px dashed #000;margin:5px 0}
+</style></head><body>
+<div style="text-align:center;font-weight:bold;font-size:12pt">${namaToko}</div>
+${alamatToko ? `<div style="text-align:center;font-size:8pt">${alamatToko}</div>` : ''}
+${strHeader ? `<div style="text-align:center;font-size:8pt">${strHeader}</div>` : ''}
+<div style="text-align:center;font-size:8pt;color:#555">${tgl} &middot; ${jam}</div>
+${d.nama_pelanggan ? `<div style="text-align:center;font-size:8.5pt">Pelanggan: <b>${d.nama_pelanggan}</b></div>` : ''}
+<hr>
+${itemsHtml}
+<hr>
+${d.diskon_total > 0 ? `<div style="display:flex;justify-content:space-between;font-size:8.5pt"><span>Diskon</span><span>&minus;${rp(d.diskon_total)}</span></div>` : ''}
+<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:11pt;margin-top:2px">
+	<span>TOTAL</span><span>Rp ${rp(d.total)}</span>
+</div>
+<hr>
+<div style="display:flex;justify-content:space-between;font-size:8.5pt">
+	<span>${METODE_STR[d.metode_bayar] ?? d.metode_bayar}</span><span>${rp(d.bayar)}</span>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:8.5pt">
+	<span>Kembali</span><span>${rp(d.kembalian)}</span>
+</div>
+${d.metode_bayar === 'hutang' ? '<div style="text-align:center;font-weight:bold;font-size:8.5pt;margin-top:3px">[ TRANSAKSI HUTANG ]</div>' : ''}
+<hr>
+<div style="text-align:center;font-size:8pt">${strFooter}</div>
+<div style="text-align:center;font-size:7.5pt;color:#888;margin-top:2px">${d.no_transaksi}</div>
+</body></html>`;
+		const w = window.open('', '_blank', 'width=420,height=700,menubar=no,toolbar=no');
+		if (!w) {
+			toast.error('Popup diblokir browser — izinkan popup untuk halaman ini');
+			return;
+		}
+		w.document.write(html);
+		w.document.close();
+		w.onload = () => { w.print(); w.close(); };
+	}
 
 	// ── Fokus otomatis saat popup terbuka ─────────────────────────────────────
 	$effect(() => {
@@ -544,6 +671,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 		});
 		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
 		void muatShiftAktif();
+		fetchStokMenipis().then((d) => { stokMenipis = d; }).catch(() => {});
 		void api.get<Record<string, string>>('/pengaturan').then((res) => {
 			if (!res.success) return;
 			const s = res.data;
@@ -564,6 +692,27 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 </script>
 
 <svelte:window onkeydown={onKeydown} />
+
+<!-- ─── Alert stok menipis ────────────────────────────────────────────────── -->
+{#if stokMenipis.length > 0 && !stokAlertDismissed}
+	<div
+		class="flex items-center justify-between gap-2 border-b px-4 py-2 text-sm"
+		style="background:color-mix(in srgb,var(--warn) 12%,var(--surface));border-color:var(--warn);color:var(--text)"
+	>
+		<div class="flex min-w-0 items-center gap-2">
+			<span class="shrink-0 font-bold" style="color:var(--warn)">⚠ Stok menipis</span>
+			<span class="truncate" style="color:var(--text-dim)">
+				{stokMenipis.slice(0, 3).map((b) => `${b.nama_barang} (${b.stok_sekarang}/${b.stok_minimum}${b.satuan ? ' ' + b.satuan : ''})`).join(' · ')}
+				{#if stokMenipis.length > 3}<span>+{stokMenipis.length - 3} lainnya</span>{/if}
+			</span>
+		</div>
+		<button
+			onclick={() => (stokAlertDismissed = true)}
+			class="shrink-0 rounded px-2 py-0.5 text-xs"
+			style="color:var(--text-dim)"
+		>✕</button>
+	</div>
+{/if}
 
 <!-- ─── Main: Keranjang + Bottom Bar ─────────────────────────────────────── -->
 <div class="flex min-h-0 flex-1 flex-col">
@@ -757,6 +906,13 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 			>
 				{$kasirMode === 'pro' ? 'F8' : 'F8 · Retur'}
 			</a>
+			<button
+				onclick={bukaTutupHistori}
+				class="rounded border px-3 py-1 text-xs transition-all"
+				style="border-color:var(--border);color:var(--text-dim)"
+			>
+				{$kasirMode === 'pro' ? 'Hist' : 'Riwayat'}
+			</button>
 			<!-- Shift indicator + buka/tutup -->
 			{#if shiftAktif}
 				<button
@@ -1837,6 +1993,199 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 			<p class="mt-5 text-center text-xs" style="color:var(--text-dim)">
 				Tekan ESC atau F1 untuk tutup
 			</p>
+		</div>
+	</div>
+{/if}
+
+<!-- ─── Modal Riwayat Transaksi ─────────────────────────────────────────────── -->
+{#if modalHistori}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		style="background:rgba(0,0,0,0.6)"
+		role="dialog"
+		aria-modal="true"
+		onclick={() => (modalHistori = false)}
+		onkeydown={(e) => { if (e.key === 'Escape') modalHistori = false; }}
+		tabindex="-1"
+	>
+		<div
+			class="flex h-full max-h-[90vh] w-full max-w-4xl flex-col rounded-lg border"
+			style="background:var(--surface);border-color:var(--border)"
+			role="presentation"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={() => {}}
+		>
+			<!-- Header -->
+			<div class="flex shrink-0 items-center justify-between border-b px-5 py-3" style="border-color:var(--border)">
+				<span class="font-bold">Riwayat Transaksi</span>
+				<button onclick={() => (modalHistori = false)} class="px-1 text-xl leading-none" style="color:var(--text-dim)">&times;</button>
+			</div>
+
+			<!-- Filter -->
+			<div class="flex shrink-0 flex-wrap items-center gap-3 border-b px-5 py-3" style="border-color:var(--border)">
+				<div class="flex items-center gap-2 text-sm">
+					<label for="histori-dari" style="color:var(--text-dim)">Dari</label>
+					<input
+						id="histori-dari"
+						type="date"
+						bind:value={historiDari}
+						class="rounded border px-2 py-1 text-sm outline-none"
+						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+					/>
+				</div>
+				<div class="flex items-center gap-2 text-sm">
+					<label for="histori-sampai" style="color:var(--text-dim)">Sampai</label>
+					<input
+						id="histori-sampai"
+						type="date"
+						bind:value={historiSampai}
+						class="rounded border px-2 py-1 text-sm outline-none"
+						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+					/>
+				</div>
+				<button
+					onclick={muatHistori}
+					disabled={historiLoading}
+					class="rounded px-3 py-1 text-sm font-bold disabled:opacity-60"
+					style="background:var(--accent);color:var(--bg)"
+				>
+					{historiLoading ? 'Memuat...' : 'Cari'}
+				</button>
+				{#if historiList.length > 0}
+					<span class="text-xs" style="color:var(--text-dim)">{historiList.length} transaksi</span>
+				{/if}
+			</div>
+
+			<!-- Content: list + detail -->
+			<div class="flex min-h-0 flex-1 overflow-hidden">
+				<!-- List transaksi -->
+				<div class="flex w-full min-w-0 flex-col overflow-y-auto {historiDetail ? 'hidden sm:flex sm:w-2/5 sm:border-r' : ''}" style="border-color:var(--border)">
+					{#if historiLoading}
+						<div class="flex flex-1 items-center justify-center py-10 text-sm" style="color:var(--text-dim)">Memuat...</div>
+					{:else if historiList.length === 0}
+						<div class="flex flex-1 items-center justify-center py-10 text-sm" style="color:var(--text-dim)">Tidak ada transaksi</div>
+					{:else}
+						<table class="w-full text-sm">
+							<thead class="sticky top-0" style="background:var(--surface2)">
+								<tr style="color:var(--text-dim)">
+									<th class="px-3 py-2 text-left font-medium">No. Transaksi</th>
+									<th class="px-3 py-2 text-left font-medium">Waktu</th>
+									<th class="hidden px-3 py-2 text-left font-medium sm:table-cell">Metode</th>
+									<th class="px-3 py-2 text-right font-medium">Total</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each historiList as trx (trx.id)}
+									<tr
+										class="cursor-pointer border-t transition-colors hover:brightness-110"
+										style={historiDetail?.id === trx.id
+											? 'background:color-mix(in srgb,var(--accent) 15%,var(--surface));border-color:var(--border)'
+											: `border-color:var(--border);${trx.status === 'void' ? 'opacity:0.5' : ''}`}
+										onclick={() => pilihHistori(trx.id)}
+									>
+										<td class="px-3 py-2 font-mono text-xs">{trx.no_transaksi}</td>
+										<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">
+											{trx.tanggal.slice(11, 16)}
+										</td>
+										<td class="hidden px-3 py-2 text-xs sm:table-cell" style="color:var(--text-dim)">
+											{trx.metode_bayar}
+											{#if trx.status === 'void'}<span style="color:var(--danger)"> [VOID]</span>{/if}
+										</td>
+										<td class="px-3 py-2 text-right font-mono font-bold">{rupiah(trx.total)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					{/if}
+				</div>
+
+				<!-- Detail transaksi -->
+				{#if historiDetail}
+					<div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 py-4">
+						<div class="mb-3 flex items-center justify-between">
+							<div>
+								<div class="font-bold">{historiDetail.no_transaksi}</div>
+								<div class="text-xs" style="color:var(--text-dim)">
+									{historiDetail.tanggal.slice(0, 16).replace('T', ' ')}
+									{#if historiDetail.nama_pelanggan} · {historiDetail.nama_pelanggan}{/if}
+								</div>
+							</div>
+							<div class="flex items-center gap-2">
+								{#if historiDetail.status === 'void'}
+									<span class="rounded px-2 py-0.5 text-xs font-bold" style="background:var(--danger);color:#fff">VOID</span>
+								{/if}
+								<button
+									onclick={() => cetakStrukHistori(historiDetail!)}
+									class="rounded border px-3 py-1 text-xs font-bold transition-all active:scale-95"
+									style="border-color:var(--accent);color:var(--accent)"
+								>
+									Cetak Ulang Struk
+								</button>
+								<button
+									onclick={() => { historiDetail = null; }}
+									class="rounded border px-2 py-1 text-xs sm:hidden"
+									style="border-color:var(--border);color:var(--text-dim)"
+								>← Kembali</button>
+							</div>
+						</div>
+
+						<!-- Items -->
+						<table class="w-full text-sm">
+							<thead style="background:var(--surface2)">
+								<tr style="color:var(--text-dim)">
+									<th class="px-3 py-1.5 text-left font-medium">Barang</th>
+									<th class="px-3 py-1.5 text-right font-medium">Harga</th>
+									<th class="px-3 py-1.5 text-center font-medium">Jml</th>
+									<th class="px-3 py-1.5 text-right font-medium">Subtotal</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each historiDetail.items as item (item.id)}
+									<tr class="border-t" style="border-color:var(--border)">
+										<td class="px-3 py-1.5">
+											<div>{item.nama_barang ?? '-'}</div>
+											{#if item.diskon_item > 0}
+												<div class="text-xs" style="color:var(--warn)">diskon −{rupiah(item.diskon_item)}</div>
+											{/if}
+										</td>
+										<td class="px-3 py-1.5 text-right font-mono text-xs">{rupiah(item.harga_jual)}</td>
+										<td class="px-3 py-1.5 text-center">{item.jumlah}</td>
+										<td class="px-3 py-1.5 text-right font-mono">{rupiah(item.subtotal)}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+
+						<!-- Ringkasan -->
+						<div class="mt-4 space-y-1 border-t pt-3 text-sm" style="border-color:var(--border)">
+							{#if historiDetail.diskon_total > 0}
+								<div class="flex justify-between">
+									<span style="color:var(--text-dim)">Diskon</span>
+									<span class="font-mono">−{rupiah(historiDetail.diskon_total)}</span>
+								</div>
+							{/if}
+							<div class="flex justify-between font-bold">
+								<span>Total</span>
+								<span class="font-mono" style="color:var(--accent)">{rupiah(historiDetail.total)}</span>
+							</div>
+							<div class="flex justify-between text-xs" style="color:var(--text-dim)">
+								<span>{historiDetail.metode_bayar}</span>
+								<span class="font-mono">{rupiah(historiDetail.bayar)}</span>
+							</div>
+							{#if historiDetail.kembalian > 0}
+								<div class="flex justify-between text-xs" style="color:var(--text-dim)">
+									<span>Kembali</span>
+									<span class="font-mono">{rupiah(historiDetail.kembalian)}</span>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{:else if !historiLoading && historiList.length > 0}
+					<div class="hidden flex-1 items-center justify-center text-sm sm:flex" style="color:var(--text-dim)">
+						Pilih transaksi untuk melihat detail
+					</div>
+				{/if}
+			</div>
 		</div>
 	</div>
 {/if}

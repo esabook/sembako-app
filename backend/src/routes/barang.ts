@@ -169,6 +169,30 @@ barangRouter.get('/', async (c) => {
   return c.json({ success: true, data: rows })
 })
 
+barangRouter.get('/stok-menipis', requirePermission('stok.lihat'), async (c) => {
+  const rows = db
+    .select({
+      id: barang.id,
+      kode_barang: barang.kode_barang,
+      nama_barang: barang.nama_barang,
+      stok_sekarang: barang.stok_sekarang,
+      stok_minimum: barang.stok_minimum,
+      satuan: satuan.singkatan,
+    })
+    .from(barang)
+    .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
+    .where(
+      and(
+        eq(barang.is_active, true),
+        sql`${barang.stok_minimum} > 0 AND ${barang.stok_sekarang} <= ${barang.stok_minimum}`
+      )
+    )
+    .orderBy(barang.nama_barang)
+    .all()
+
+  return c.json({ success: true, data: rows })
+})
+
 barangRouter.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const row = db.select().from(barang).where(eq(barang.id, id)).get()
