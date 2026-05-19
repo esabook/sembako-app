@@ -693,10 +693,11 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 
 <svelte:window onkeydown={onKeydown} />
 
+<div class="flex h-full flex-col">
 <!-- ─── Alert stok menipis ────────────────────────────────────────────────── -->
 {#if stokMenipis.length > 0 && !stokAlertDismissed}
 	<div
-		class="flex items-center justify-between gap-2 border-b px-4 py-2 text-sm"
+		class="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2 text-sm"
 		style="background:color-mix(in srgb,var(--warn) 12%,var(--surface));border-color:var(--warn);color:var(--text)"
 	>
 		<div class="flex min-w-0 items-center gap-2">
@@ -720,7 +721,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 	<div class="min-h-0 flex-1 overflow-y-auto rounded border" style="border-color:var(--border)">
 		{#if $keranjang.length === 0}
 			<div
-				class="flex h-full flex-col items-center justify-center gap-3"
+				class="flex h-full flex-col items-center justify-center gap-3 m-4"
 				style="color:var(--text-dim)"
 			>
 				{#if $kasirMode === 'guided'}
@@ -766,12 +767,12 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						</div>
 					</div>
 				{:else}
-					<p class="text-sm"><br/><br/>Keranjang kosong</p>
+					<p class="text-sm mt-4">Keranjang kosong</p>
 				{/if}
 				<button
 					onclick={openSearch}
 					class="rounded border px-4 py-2 font-mono text-sm transition-all"
-					style="border-color:var(--accent);color:var(--accent)"
+					style="border-color:var(--accent);color:var(--accent);margin-bottom:2rem"
 				>
 					F3 · Cari / scan barang
 				</button>
@@ -874,10 +875,28 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 
 	<!-- Bottom bar -->
 	<div
-		class="flex shrink-0 items-center justify-between gap-4 border-t px-4 py-3"
+		class="flex shrink-0 flex-col gap-2 border-t px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-4"
 		style="border-color:var(--border)"
 	>
-		<div class="flex items-center gap-2">
+		<!-- Totals: tampil di atas di HP, kanan di desktop -->
+		<div class="flex items-center justify-between gap-3 md:order-2 md:justify-end md:gap-5">
+			<table class="text-xs md:text-sm">
+				<tbody>
+					<tr>
+						<td style="color:var(--text-dim)">Subtotal</td>
+						<td class="font-mono" style="color:var(--text)">&nbsp;{rupiah($subtotal)}</td>
+					</tr>
+					<tr>
+						<td style="color:var(--text-dim)">Diskon</td>
+						<td class="font-mono">&nbsp;{rupiah($diskonTotal)}</td>
+					</tr>
+				</tbody>
+			</table>
+			<span class="font-mono text-3xl font-bold md:text-6xl">{rupiah($totalAkhir)}</span>
+		</div>
+
+		<!-- Buttons: wrap di HP, single row di desktop -->
+		<div class="flex flex-wrap items-center gap-2 md:order-1">
 			<!-- draft status indicator -->
 			{#if $draftStatus === 'saving'}
 				<span class="font-mono text-xs" style="color:var(--text-dim)">Menyimpan...</span>
@@ -946,34 +965,14 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 			<button
 				onclick={handleProsesBayar}
 				disabled={$keranjang.length === 0 || !shiftAktif}
-				class="rounded px-3 py-1 text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
+				class="rounded px-4 py-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 sm:px-3 sm:py-1"
 				style="background:var(--accent);color:var(--bg)"
 			>
 				{$kasirMode === 'pro' ? 'F10' : 'F10 · PROSES BAYAR'}
 			</button>
 		</div>
-		<div class="flex items-center gap-5 text-sm">
-			<span class="ml-5 flex items-center gap-1">
-				<span class="font-mono text-6xl font-bold">{rupiah($totalAkhir)}</span>
-			</span>
-			<table class="text-sm">
-				<tbody>
-					<tr>
-						<td style="color:var(--text-dim)">Subtotal</td>
-						<td class="font-mono" style="color:var(--text)">&nbsp;{rupiah($subtotal)}</td>
-					</tr>
-					<tr>
-						<td style="color:var(--text-dim)">Diskon</td>
-						<td class="font-mono">&nbsp;{rupiah($diskonTotal)}</td>
-					</tr>
-					<tr>
-						<td style="color:var(--text-dim)">Total</td>
-						<td class="font-mono">&nbsp;{rupiah($totalAkhir)}</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
 	</div>
+</div>
 </div>
 
 <!-- ─── Spotlight Search ──────────────────────────────────────────────────── -->

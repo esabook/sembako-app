@@ -12,7 +12,10 @@
 		user.set(data.user as import('$lib/stores/auth.js').User);
 	});
 
-	let sidebarOpen = $state(false);
+	type SidebarState = 'expanded' | 'icon' | 'hidden';
+	const SIDEBAR_KEY = 'sidebar_state';
+	let sidebarState = $state<SidebarState>('icon');
+	let sidebarReady = $state(false);
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 	let namaToko = $state('');
 
@@ -21,17 +24,28 @@
 	function resetIdle() {
 		if (idleTimer) clearTimeout(idleTimer);
 		idleTimer = setTimeout(() => {
-			sidebarOpen = false;
+			if (sidebarState === 'expanded') sidebarState = 'icon';
 		}, IDLE_MS);
 	}
 
 	function toggleSidebar() {
-		sidebarOpen = !sidebarOpen;
-		if (sidebarOpen) resetIdle();
-		else if (idleTimer) {
-			clearTimeout(idleTimer);
-			idleTimer = null;
+		if (sidebarState === 'expanded') {
+			sidebarState = 'icon';
+			if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+		} else if (sidebarState === 'icon') {
+			sidebarState = 'hidden';
+			if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+		} else {
+			sidebarState = 'expanded';
+			resetIdle();
 		}
+		localStorage.setItem(SIDEBAR_KEY, sidebarState);
+	}
+
+	function restoreSidebar() {
+		sidebarState = 'expanded';
+		localStorage.setItem(SIDEBAR_KEY, 'expanded');
+		resetIdle();
 	}
 
 	onMount(() => {
@@ -39,7 +53,14 @@
 			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
 		});
 
-		resetIdle();
+		// Baca preferensi sidebar dari localStorage tanpa transisi (instant)
+		const saved = localStorage.getItem(SIDEBAR_KEY);
+		if (saved === 'expanded' || saved === 'icon' || saved === 'hidden') {
+			sidebarState = saved;
+		}
+		sidebarReady = true;
+
+		if (sidebarState === 'expanded') resetIdle();
 		window.addEventListener('mousemove', resetIdle, { passive: true });
 		window.addEventListener('keydown', resetIdle, { passive: true });
 		window.addEventListener('pointerdown', resetIdle, { passive: true });
@@ -104,7 +125,7 @@
 <div class="flex min-h-screen flex-col" style="background:var(--bg);color:var(--text)">
 	<!-- Top Navbar -->
 	<nav
-		class="flex h-11 shrink-0 items-center gap-2 border-b px-3 text-sm"
+		class="flex h-11 shrink-0 items-center gap-2 border-b px-1.5 text-sm"
 		style="background:var(--surface);border-color:var(--border)"
 	>
 		<div class="flex shrink-0 items-center gap-1.5">
@@ -121,20 +142,21 @@
 	<!-- Body: sidebar selalu tampil + konten -->
 	<div class="flex min-h-0 flex-1">
 		<!-- Sidebar -->
+		{#if sidebarState !== 'hidden'}
 		<aside
-			class="relative flex shrink-0 flex-col border-r transition-all duration-200"
-			style="background:var(--surface);border-color:var(--border);width:{sidebarOpen ? '11rem' : '2.75rem'}"
+			class="relative flex shrink-0 flex-col border-r {sidebarReady ? 'transition-all duration-200' : ''}"
+			style="background:var(--surface);border-color:var(--border);width:{sidebarState === 'expanded' ? '11rem' : '2.75rem'}"
 		>
-			<!-- Tombol toggle: pojok kanan atas -->
+			<!-- Tombol toggle: pojok kanan atas (cycle: expanded→icon→hidden) -->
 			<button
 				onclick={toggleSidebar}
-				title={sidebarOpen ? 'Ciutkan' : 'Perluas'}
-				aria-label={sidebarOpen ? 'Ciutkan menu' : 'Perluas menu'}
+				title={sidebarState === 'expanded' ? 'Ciutkan' : sidebarState === 'icon' ? 'Sembunyikan' : ''}
+				aria-label={sidebarState === 'expanded' ? 'Ciutkan menu' : 'Sembunyikan menu'}
 				class="absolute -right-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-colors"
 				style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"
 			>
 				<svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-					{#if sidebarOpen}
+					{#if sidebarState === 'expanded'}
 						<path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 					{:else}
 						<path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -144,12 +166,11 @@
 
 			<!-- Nav links -->
 			<nav class="flex flex-col overflow-y-auto overflow-x-hidden py-2">
-				{#each visibleNav as item, i}
-					{@const isLast = i === visibleNav.length - 1}
+				{#each visibleNav as item}
 					{@const isActive = page.url.pathname.startsWith(item.href)}
 					<a
 						href={item.href}
-						title={!sidebarOpen ? item.label : undefined}
+						title={sidebarState === 'icon' ? item.label : undefined}
 						class="relative flex h-8 items-center text-sm transition-colors hover-nav-item"
 						style={isActive
 							? 'color:var(--accent);background:var(--surface2)'
@@ -164,17 +185,29 @@
 
 						<!-- Icon — posisi kiri selalu sama -->
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"
-							class="ml-4 shrink-0 {sidebarOpen ? 'ml-4' : 'mx-auto'} {isActive ? 'opacity-100' : 'opacity-70'}">
+							class="shrink-0 {sidebarState === 'expanded' ? 'ml-4' : 'mx-auto'} {isActive ? 'opacity-100' : 'opacity-70'}">
 							<path d={item.icon} />
 						</svg>
 						<!-- Label hanya saat expanded -->
-						{#if sidebarOpen}
+						{#if sidebarState === 'expanded'}
 							<span class="ml-2 truncate font-medium">{item.label}</span>
 						{/if}
 					</a>
 				{/each}
 			</nav>
 		</aside>
+		{/if}
+
+		<!-- Tombol restore saat sidebar hidden -->
+		{#if sidebarState === 'hidden'}
+			<button
+				onclick={restoreSidebar}
+				title="Tampilkan menu"
+				aria-label="Tampilkan menu"
+				class="fixed left-0 top-1/2 z-20 flex h-40 w-1 -translate-y-1/2 items-center justify-center rounded-r border-y border-r shadow-sm transition-colors"
+				style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"
+			>	</button>
+		{/if}
 
 		<!-- Konten utama -->
 		<main class="min-h-0 flex-1 overflow-auto p-4">
