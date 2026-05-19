@@ -192,16 +192,20 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
 // ── GET /laporan/neraca ───────────────────────────────────────────────────
 
 laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
+  const perTanggal = c.req.query('per_tanggal') || hariIni()
+  const batasTgl = perTanggal + ' 23:59:59'
+
   // ASET
-  // 1. Kas & Bank (saldo_awal + total masuk - total keluar dari jurnal)
+  // 1. Kas & Bank — filter jurnal sampai per_tanggal
   const akunList = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
 
-  // GROUP BY per akun — tidak load seluruh tabel
   const jurnalPerAkun = db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
-  }).from(jurnal_kas).groupBy(jurnal_kas.kas_bank_id).all()
+  }).from(jurnal_kas)
+    .where(lte(jurnal_kas.tanggal, batasTgl))
+    .groupBy(jurnal_kas.kas_bank_id).all()
   const jurnalAkunMap = new Map(jurnalPerAkun.map((r) => [r.kas_bank_id, r]))
 
   const kasBank = akunList.map((akun) => {
@@ -211,15 +215,18 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   })
   const totalKasBank = kasBank.reduce((s, a) => s + a.saldo, 0)
 
-  // 2. Piutang belum lunas
+  // 2. Piutang — dibuat sebelum per_tanggal dan belum lunas
   const piutangRows = db
     .select({ sisa: piutang_pelanggan.sisa_piutang })
     .from(piutang_pelanggan)
-    .where(ne(piutang_pelanggan.status, 'lunas'))
+    .where(and(
+      ne(piutang_pelanggan.status, 'lunas'),
+      lte(piutang_pelanggan.created_at, batasTgl),
+    ))
     .all()
   const totalPiutang = piutangRows.reduce((s, r) => s + r.sisa, 0)
 
-  // 3. Nilai stok (harga_beli_terakhir × stok_sekarang)
+  // 3. Nilai stok (estimasi — gunakan stok saat ini)
   const nilaiStokRow = db
     .select({ total: sql<number>`sum(${barang.stok_sekarang} * ${barang.harga_beli_terakhir})` })
     .from(barang)
@@ -229,11 +236,14 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
 
   const totalAset = totalKasBank + totalPiutang + totalNilaiStok
 
-  // LIABILITAS
+  // LIABILITAS — hutang dibuat sebelum per_tanggal dan belum lunas
   const hutangRows = db
     .select({ sisa: hutang_supplier.sisa_hutang })
     .from(hutang_supplier)
-    .where(ne(hutang_supplier.status, 'lunas'))
+    .where(and(
+      ne(hutang_supplier.status, 'lunas'),
+      lte(hutang_supplier.created_at, batasTgl),
+    ))
     .all()
   const totalHutang = hutangRows.reduce((s, r) => s + r.sisa, 0)
 
@@ -243,7 +253,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   return c.json({
     success: true,
     data: {
-      per_tanggal: hariIni(),
+      per_tanggal: perTanggal,
       aset: {
         kas_bank: kasBank,
         total_kas_bank: totalKasBank,

@@ -72,6 +72,7 @@
   }
 
   let periode = $state(defaultPeriode())
+  let neracaTanggal = $state(new Date().toLocaleDateString('sv-SE'))
 
   // ── Load data ─────────────────────────────────────────────────────────────
 
@@ -97,7 +98,7 @@
 
   async function muatNeraca() {
     loading = true; error = ''
-    const res = await api.get<Neraca>('/laporan/neraca')
+    const res = await api.get<Neraca>(`/laporan/neraca?per_tanggal=${neracaTanggal}`)
     loading = false
     if (res.success) neraca = res.data!
     else error = res.error ?? 'Gagal memuat laporan'
@@ -318,6 +319,28 @@
           style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
         >{s.label}</button>
       {/each}
+    </div>
+  {:else}
+    <div style="display:flex; gap:.75rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap">
+      <div style="display:flex; gap:.4rem; align-items:center">
+        <label for="neraca-tgl" style="font-size:.75rem; color:var(--text-dim)">Per Tanggal</label>
+        <input id="neraca-tgl" type="date" bind:value={neracaTanggal}
+          style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem" />
+      </div>
+      <button
+        onclick={muatNeraca}
+        style="padding:.35rem .8rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"
+      >Tampilkan</button>
+      {#each [
+        { label: 'Hari ini', fn: () => { neracaTanggal = new Date().toLocaleDateString('sv-SE'); muatNeraca() } },
+        { label: 'Akhir bulan lalu', fn: () => { const d = new Date(); d.setDate(0); neracaTanggal = d.toLocaleDateString('sv-SE'); muatNeraca() } },
+      ] as s}
+        <button
+          onclick={s.fn}
+          style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
+        >{s.label}</button>
+      {/each}
+      <span style="font-size:.72rem; color:var(--text-dim)">* nilai persediaan stok = kondisi saat ini</span>
     </div>
   {/if}
 
