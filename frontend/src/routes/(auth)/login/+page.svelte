@@ -62,6 +62,9 @@
 		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
 			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
 		});
+		api.get<{ lan_ips: string[] }>('/pengaturan/server-info').then((res) => {
+			if (res.success && res.data.lan_ips.length > 0) serverIP = res.data.lan_ips[0];
+		});
 
 		function onKeydown(e: KeyboardEvent) {
 			if (e.key === 'F2') { e.preventDefault(); nextTheme(); }
