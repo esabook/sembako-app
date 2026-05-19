@@ -180,6 +180,10 @@
 		}
 	}
 
+	function escHtml(s: string) {
+		return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c))
+	}
+
 	function cetakStrukHistori(d: HistoriDetail) {
 		const lebar = strUkuran === '58' ? '58mm' : '80mm';
 		const rp = (n: number) => new Intl.NumberFormat('id-ID').format(Math.round(n));
@@ -190,7 +194,7 @@
 		const itemsHtml = d.items
 			.map(
 				(item) => `
-			<div style="font-weight:600">${item.nama_barang ?? '-'}</div>
+			<div style="font-weight:600">${escHtml(item.nama_barang ?? '-')}</div>
 			<div style="display:flex;justify-content:space-between;font-size:8.5pt;color:#444">
 				<span>${item.jumlah} &times; ${rp(item.harga_jual)}</span>
 				<span style="color:#000">${rp(item.subtotal)}</span>
@@ -606,9 +610,9 @@ ${d.metode_bayar === 'hutang' ? '<div style="text-align:center;font-weight:bold;
 		const itemsHtml = strukItems
 			.map(
 				(item) => `
-			<div style="font-weight:600">${item.nama_barang}</div>
+			<div style="font-weight:600">${escHtml(item.nama_barang ?? '-')}</div>
 			<div style="display:flex;justify-content:space-between;font-size:8.5pt;color:#444">
-				<span>${item.jumlah}${item.singkatan_satuan ? ' ' + item.singkatan_satuan : ''} &times; ${rp(item.harga_jual)}</span>
+				<span>${item.jumlah}${item.singkatan_satuan ? ' ' + escHtml(item.singkatan_satuan) : ''} &times; ${rp(item.harga_jual)}</span>
 				<span style="color:#000">${rp(item.harga_jual * item.jumlah - item.diskon_item)}</span>
 			</div>
 			${item.diskon_item > 0 ? `<div style="font-size:8pt;color:#b36000">&nbsp;&nbsp;diskon &minus;${rp(item.diskon_item)}</div>` : ''}
