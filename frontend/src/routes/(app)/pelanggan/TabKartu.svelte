@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '$lib/utils/api.js'
   import Modal from '$lib/components/Modal.svelte'
+  import DataTable, { type Column } from '$lib/components/DataTable.svelte'
 
   type Kartu = {
     id: number; no_kartu: string
@@ -16,6 +17,15 @@
     kontak: string | null; no_kartu: string | null
   }
 
+  const KARTU_COLUMNS: Column[] = [
+    { key: 'no_kartu', label: 'No. Kartu', sortable: true, minWidth: 120 },
+    { key: 'tier', label: 'Tier', sortable: true, priority: 2 },
+    { key: 'diskon_member', label: 'Diskon', align: 'right', sortable: true, priority: 2 },
+    { key: 'poin', label: 'Poin', align: 'right', sortable: true },
+    { key: 'pelanggan_nama', label: 'Pelanggan', sortable: true, priority: 3 },
+    { key: 'aksi', label: 'Aksi', align: 'right', sortable: false, hideable: false },
+  ]
+
   const TIER_COLOR: Record<string, string> = {
     reguler: 'color:var(--text-dim)',
     silver:  'color:#b0b8c1',
@@ -28,6 +38,24 @@
   let kartuFilter  = $state<'semua' | 'assigned' | 'available'>('semua')
   let kartuLoading = $state(false)
   let viewMode     = $state<'grid' | 'list'>('grid')
+
+  let sortKey = $state('')
+  let sortDir = $state<'asc' | 'desc'>('asc')
+  let sortedList = $derived.by(() => {
+    if (!sortKey) return kartuList
+    const list = [...kartuList]
+    list.sort((a, b) => {
+      const av = a[sortKey as keyof Kartu]
+      const bv = b[sortKey as keyof Kartu]
+      if (av == null) return 1
+      if (bv == null) return -1
+      const cmp = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av).localeCompare(String(bv), 'id')
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return list
+  })
 
   let modalGenerateOpen = $state(false)
   let formGenerate      = $state({ tier: 'reguler' as Kartu['tier'], diskon_member: '0', jumlah: '1' })
@@ -278,27 +306,33 @@
       {/each}
     </div>
   {:else}
-    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-      <table class="w-full text-sm border-collapse">
-        <thead>
-          <tr style="background:var(--surface2)">
-            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">No. Kartu</th>
-            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Tier</th>
-            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Diskon</th>
-            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Poin</th>
-            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Pelanggan</th>
-            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each kartuList as k (k.id)}
-            <tr class="border-t" style="border-color:var(--border)">
+    <DataTable
+      columns={KARTU_COLUMNS}
+      bind:sortKey
+      bind:sortDir
+      rowCount={sortedList.length}
+      emptyText="Belum ada kartu. Klik &quot;Generate&quot; untuk membuat."
+      tableId="kartu-anggota-list"
+      maxRows={12}
+    >
+      {#snippet body(hidden)}
+        {#each sortedList as k (k.id)}
+          <tr class="border-t" style="border-color:var(--border)">
+            {#if !hidden.has('no_kartu')}
               <td class="px-3 py-2 font-mono font-bold tracking-widest" style="color:var(--accent)">{k.no_kartu}</td>
+            {/if}
+            {#if !hidden.has('tier')}
               <td class="px-3 py-2 text-xs font-bold" style="{TIER_COLOR[k.tier]}">{TIER_LABEL[k.tier]}</td>
+            {/if}
+            {#if !hidden.has('diskon_member')}
               <td class="px-3 py-2 text-right text-xs" style="color:{k.diskon_member > 0 ? 'var(--accent)' : 'var(--text-dim)'}">
                 {k.diskon_member > 0 ? `−${k.diskon_member}%` : '—'}
               </td>
+            {/if}
+            {#if !hidden.has('poin')}
               <td class="px-3 py-2 text-right text-xs" style="color:var(--info)">{k.poin}</td>
+            {/if}
+            {#if !hidden.has('pelanggan_nama')}
               <td class="px-3 py-2 text-xs">
                 {#if k.pelanggan_nama}
                   <div class="font-medium" style="color:var(--text)">{k.pelanggan_nama}</div>
@@ -307,6 +341,8 @@
                   <span class="rounded px-1.5 py-0.5" style="background:var(--surface2);color:var(--accent)">Tersedia</span>
                 {/if}
               </td>
+            {/if}
+            {#if !hidden.has('aksi')}
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1 justify-end flex-wrap">
                   <button onclick={() => bukaEditKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
@@ -319,11 +355,11 @@
                   <button onclick={() => nonaktifkanKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Nonaktif</button>
                 </div>
               </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+            {/if}
+          </tr>
+        {/each}
+      {/snippet}
+    </DataTable>
   {/if}
 </div>
 

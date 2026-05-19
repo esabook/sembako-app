@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { api } from '$lib/utils/api.js'
   import Modal from '$lib/components/Modal.svelte'
+  import DataTable, { type Column } from '$lib/components/DataTable.svelte'
 
   type Pelanggan = {
     id: number; kode_pelanggan: string; nama: string
@@ -20,6 +21,16 @@
     tier: 'reguler' | 'silver' | 'gold'
     diskon_member: number; poin: number
   }
+
+  const PLG_COLUMNS: Column[] = [
+    { key: 'kode_pelanggan', label: 'Kode', sortable: true, minWidth: 80 },
+    { key: 'nama', label: 'Nama', sortable: true, minWidth: 130 },
+    { key: 'tipe', label: 'Tipe', sortable: true, priority: 2 },
+    { key: 'kontak', label: 'Kontak', priority: 3 },
+    { key: 'saldo_piutang', label: 'Piutang', align: 'right', sortable: true, priority: 2 },
+    { key: 'no_kartu', label: 'Kartu', priority: 3 },
+    { key: 'aksi', label: 'Aksi', align: 'right', sortable: false, hideable: false },
+  ]
 
   const TIER_COLOR: Record<string, string> = {
     reguler: 'color:var(--text-dim)',
@@ -44,6 +55,24 @@
   let plgLoading      = $state(false)
   let plgShowNonAktif = $state(false)
   let viewMode        = $state<'grid' | 'list'>('grid')
+
+  let sortKey = $state('')
+  let sortDir = $state<'asc' | 'desc'>('asc')
+  let sortedList = $derived.by(() => {
+    if (!sortKey) return plgList
+    const list = [...plgList]
+    list.sort((a, b) => {
+      const av = a[sortKey as keyof Pelanggan]
+      const bv = b[sortKey as keyof Pelanggan]
+      if (av == null) return 1
+      if (bv == null) return -1
+      const cmp = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av).localeCompare(String(bv), 'id')
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return list
+  })
 
   let modalPlgOpen = $state(false)
   let editPlg      = $state<Pelanggan | null>(null)
@@ -297,36 +326,43 @@
       {/each}
     </div>
   {:else}
-    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-      <table class="w-full text-sm border-collapse">
-        <thead>
-          <tr style="background:var(--surface2)">
-            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kode</th>
-            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Nama</th>
-            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Tipe</th>
-            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kontak</th>
-            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Piutang</th>
-            <th class="text-left px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Kartu</th>
-            <th class="text-right px-3 py-2 text-xs font-medium" style="color:var(--text-dim)">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each plgList as p (p.id)}
-            <tr class="border-t" style="border-color:var(--border);{!p.is_active ? 'opacity:0.5' : ''}">
+    <DataTable
+      columns={PLG_COLUMNS}
+      bind:sortKey
+      bind:sortDir
+      rowCount={sortedList.length}
+      emptyText="Belum ada pelanggan."
+      tableId="pelanggan-list"
+      maxRows={12}
+    >
+      {#snippet body(hidden)}
+        {#each sortedList as p (p.id)}
+          <tr class="border-t" style="border-color:var(--border);{!p.is_active ? 'opacity:0.5' : ''}">
+            {#if !hidden.has('kode_pelanggan')}
               <td class="px-3 py-2 font-mono text-xs" style="color:var(--text-dim)">{p.kode_pelanggan}</td>
+            {/if}
+            {#if !hidden.has('nama')}
               <td class="px-3 py-2">
                 <span class="font-medium" style="color:var(--text)">{p.nama}</span>
                 {#if p.gender}
                   <span class="ml-1 text-xs" style="{genderColor(p.gender)}">{genderSymbol(p.gender)}</span>
                 {/if}
               </td>
+            {/if}
+            {#if !hidden.has('tipe')}
               <td class="px-3 py-2 text-xs">
                 <span class="rounded px-1.5 py-0.5" style="background:var(--surface2);color:var(--text-dim)">{p.tipe}</span>
               </td>
+            {/if}
+            {#if !hidden.has('kontak')}
               <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{p.kontak ?? '—'}</td>
+            {/if}
+            {#if !hidden.has('saldo_piutang')}
               <td class="px-3 py-2 text-right text-xs" style="color:{p.saldo_piutang > 0 ? 'var(--warn)' : 'var(--text-dim)'}">
                 {p.saldo_piutang > 0 ? rupiah(p.saldo_piutang) : '—'}
               </td>
+            {/if}
+            {#if !hidden.has('no_kartu')}
               <td class="px-3 py-2 text-xs">
                 {#if p.no_kartu}
                   <span class="font-mono" style="color:var(--accent)">{p.no_kartu}</span>
@@ -337,6 +373,8 @@
                   <span style="color:var(--text-dim)">—</span>
                 {/if}
               </td>
+            {/if}
+            {#if !hidden.has('aksi')}
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1 justify-end flex-wrap">
                   <button onclick={() => bukaEditPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
@@ -350,11 +388,11 @@
                   </button>
                 </div>
               </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+            {/if}
+          </tr>
+        {/each}
+      {/snippet}
+    </DataTable>
   {/if}
 </div>
 
