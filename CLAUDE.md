@@ -220,6 +220,9 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 | PWA installable (Add to Home Screen) | ✅ |
 | Backup database (download SQLite) | ✅ |
 | Dashboard chart toggle 7/30 hari + rata-rata | ✅ |
+| Riwayat mutasi stok per barang (filter + detail) | ✅ |
+| Absensi: durasi kerja, filter karyawan, export CSV rekap | ✅ |
+| WA alert tombol cepat ke pemilik dari notifikasi | ✅ |
 
 Branch aktif: `development`
 
@@ -238,19 +241,12 @@ Branch aktif: `development`
 ## BACKLOG — NEXT TASKS
 
 ```
-Prioritas tinggi (langsung berguna di toko):
-  [ ] Riwayat mutasi stok per barang — klik barang → lihat histori masuk/keluar
-      (tabel mutasi_stok sudah ada, belum ada UI per-barang)
-  [ ] Shortcut keyboard kasir — F2 cari, F4 diskon, F5 bayar, F9 void
-      (untuk kasir yang pakai keyboard/kasir fisik)
-
-Prioritas sedang:
-  [ ] WA alert tombol cepat pemilik — di notifikasi/dashboard: kirim WA
-      saat stok habis, void, atau diskon tinggi (pakai wa.me, pola sudah ada)
-  [ ] Absensi enhancement — (belum dikonfirmasi scope-nya)
+Prioritas tinggi:
+  [ ] Shortcut keyboard kasir — F2 cari, F5 bayar, F9 void, Esc tutup modal
+      (untuk kasir yang pakai keyboard fisik / barcode scanner)
 
 Pertimbangan jangka panjang:
-  [ ] Service Worker / offline cache — agar kasir bisa tetap jalan saat WiFi putus
+  [ ] Service Worker / offline cache — agar kasir tetap jalan saat WiFi putus
   [ ] Multi-toko / multi-cabang
   [ ] Migrasi ke Turso (libSQL) untuk akses remote
 ```
