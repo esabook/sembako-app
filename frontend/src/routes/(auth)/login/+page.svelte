@@ -16,6 +16,7 @@
 	let passwordInput!: HTMLInputElement;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 	let namaToko = $state('');
+	let serverIP = $state('');
 	let timeStr = $state('--:--:--');
 	let dateStr = $state('');
 
@@ -56,6 +57,7 @@
 	onMount(() => {
 		usernameInput?.focus();
 		tick();
+		serverIP = window.location.hostname;
 		const t = setInterval(tick, 1000);
 		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
 			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
@@ -109,7 +111,7 @@
 	<div class="status-strip">
 		<span class="s-item s-server">
 			<span class="s-dot">●</span>
-			SERVER <span class="s-val">192.168.1.42</span>
+			SERVER <span class="s-val">{serverIP}</span>
 		</span>
 		<span class="s-sep s-server">│</span>
 		<span class="s-val tnum">{dateStr} · {timeStr}</span>
