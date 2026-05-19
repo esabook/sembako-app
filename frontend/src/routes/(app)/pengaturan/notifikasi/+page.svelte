@@ -12,6 +12,7 @@
 	} from './notifikasi.types.js'
 	import { fetchPiutangReminder, type PiutangReminder } from './notifikasi.api.js'
 	import { bukaWhatsApp, renderTemplate } from '$lib/utils/wa.js'
+	import { api } from '$lib/utils/api.js'
 	import QRCode from 'qrcode'
 
 	// Redirect non-pemilik — dibaca saat render (tidak butuh $effect)
@@ -22,6 +23,9 @@
 	let editingJenis = $state<string | null>(null)
 	let editForm = $state<Partial<NotifikasiConfig>>({})
 	let activeTab = $state<'config' | 'log' | 'alerts' | 'wa'>('config')
+
+	// ── WA nomor pemilik ─────────────────────────────────────────────────────
+	let waNomorPemilik = $state('')
 
 	// ── Tab Kirim WA ─────────────────────────────────────────────────────────
 	const TEMPLATE_DEFAULT = 'Halo {{nama}}, kami mengingatkan bahwa piutang Anda sebesar Rp {{jumlah}} (No: {{no_transaksi}}) akan jatuh tempo pada {{jatuh_tempo}}. Mohon segera dilunasi. Terima kasih 🙏'
@@ -78,7 +82,21 @@
 			return
 		}
 		await store.loadConfigs()
+		const settRes = await api.get<Record<string, string>>('/pengaturan')
+		if (settRes.success) waNomorPemilik = settRes.data?.wa_nomor ?? ''
 	})
+
+	function kirimWaAlert() {
+		if (!store.alerts.length) return
+		const baris = store.alerts.map((a, i) => `${i + 1}. [${a.jenis.replace(/_/g, ' ')}] ${a.pesan}`).join('\n')
+		const tgl = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+		const pesan = `*ALERT TOKO — ${tgl}*\n\n${baris}\n\n_Dikirim dari aplikasi Sembako_`
+		const nomor = waNomorPemilik.replace(/\D/g, '')
+		const url = nomor
+			? `https://wa.me/${nomor}?text=${encodeURIComponent(pesan)}`
+			: `https://wa.me/?text=${encodeURIComponent(pesan)}`
+		window.open(url, '_blank')
+	}
 
 	async function handleTabChange(tab: typeof activeTab) {
 		activeTab = tab
@@ -445,16 +463,25 @@
 	<!-- ── Tab: Cek Kondisi ────────────────────────────────────────────── -->
 	{#if activeTab === 'alerts'}
 		<div class="space-y-4">
-			<div class="flex items-center justify-between">
+			<div class="flex items-center justify-between gap-3 flex-wrap">
 				<p class="text-sm" style="color:var(--text-dim)">Cek kondisi terkini berdasarkan config yang aktif</p>
-				<button
-					onclick={() => store.loadAlerts()}
-					disabled={store.loadingAlerts}
-					class="text-sm px-3 py-1.5 rounded border"
-					style="border-color:var(--border);color:var(--text)"
-				>
-					{store.loadingAlerts ? 'Mengecek...' : 'Cek Sekarang'}
-				</button>
+				<div class="flex gap-2">
+					{#if store.alerts.length > 0}
+						<button
+							onclick={kirimWaAlert}
+							class="text-sm px-3 py-1.5 rounded border font-medium"
+							style="border-color:var(--accent);color:var(--accent)"
+						>WA Pemilik ({store.alerts.length})</button>
+					{/if}
+					<button
+						onclick={() => store.loadAlerts()}
+						disabled={store.loadingAlerts}
+						class="text-sm px-3 py-1.5 rounded border"
+						style="border-color:var(--border);color:var(--text)"
+					>
+						{store.loadingAlerts ? 'Mengecek...' : 'Cek Sekarang'}
+					</button>
+				</div>
 			</div>
 
 			{#if store.loadingAlerts}
