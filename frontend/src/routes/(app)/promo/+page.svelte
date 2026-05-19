@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import Modal from '$lib/components/Modal.svelte';
+	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 
 	type PromoTarget = { id?: number; target_tipe: 'barang' | 'kategori'; target_id: number; nama?: string };
 	type Promo = {
@@ -16,6 +17,34 @@
 	};
 	type BarangOption = { id: number; kode_barang: string; nama_barang: string; kategori_id: number | null };
 	type KategoriOption = { id: number; nama: string };
+
+	const PROMO_COLUMNS: Column[] = [
+		{ key: 'nama', label: 'Nama', sortable: true, minWidth: 130 },
+		{ key: 'tipe', label: 'Tipe', sortable: true, priority: 2, minWidth: 90 },
+		{ key: 'nilai', label: 'Diskon', align: 'right', sortable: true, priority: 2, minWidth: 80 },
+		{ key: 'targets', label: 'Target', sortable: false, priority: 3 },
+		{ key: 'berlaku_mulai', label: 'Berlaku', sortable: true, priority: 3 },
+		{ key: 'aktif_status', label: 'Status', align: 'center', sortable: false },
+		{ key: 'aksi', label: '', align: 'right', sortable: false, hideable: false, minWidth: 80 },
+	]
+
+	let pSortKey = $state('')
+	let pSortDir = $state<'asc' | 'desc'>('asc')
+	let sortedPromo = $derived.by(() => {
+		if (!pSortKey) return promoList
+		const list = [...promoList]
+		list.sort((a, b) => {
+			const av = a[pSortKey as keyof Promo]
+			const bv = b[pSortKey as keyof Promo]
+			if (av == null) return 1
+			if (bv == null) return -1
+			const cmp = typeof av === 'number' && typeof bv === 'number'
+				? av - bv
+				: String(av).localeCompare(String(bv), 'id')
+			return pSortDir === 'asc' ? cmp : -cmp
+		})
+		return list
+	})
 
 	let promoList = $state<Promo[]>([]);
 	let barangList = $state<BarangOption[]>([]);
@@ -190,28 +219,25 @@
 	</div>
 
 	<!-- Tabel promo -->
-	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-		<table class="w-full text-sm">
-			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
-				<th class="text-left px-3 py-2 font-medium">Nama</th>
-				<th class="text-left px-3 py-2 font-medium w-28">Tipe</th>
-				<th class="text-right px-3 py-2 font-medium w-28">Diskon</th>
-				<th class="text-left px-3 py-2 font-medium w-32">Target</th>
-				<th class="text-left px-3 py-2 font-medium w-32">Berlaku</th>
-				<th class="text-center px-3 py-2 font-medium w-20">Status</th>
-				<th class="px-3 py-2 w-24"></th>
-			</tr></thead>
-			<tbody>
-				{#if loading}
-					<tr><td colspan="7" class="px-3 py-6 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-				{:else if promoList.length === 0}
-					<tr><td colspan="7" class="px-3 py-6 text-center" style="color:var(--text-dim)">Belum ada promo</td></tr>
-				{:else}
-					{#each promoList as p (p.id)}
-						{@const badge = badgeTipe(p.tipe)}
-						{@const aktifHariIni = isAktifHariIni(p)}
-						<tr class="border-t" style="border-color:var(--border);opacity:{p.aktif ? 1 : 0.5}">
-							<td class="px-3 py-2">
+	<DataTable
+		columns={PROMO_COLUMNS}
+		bind:sortKey={pSortKey}
+		bind:sortDir={pSortDir}
+		rowCount={loading ? 1 : sortedPromo.length}
+		emptyText="Belum ada promo"
+		tableId="promo-list"
+		maxRows={12}
+	>
+		{#snippet body(hidden)}
+			{#if loading}
+				<tr><td colspan="7" class="px-3 py-6 text-center text-xs" style="color:var(--text-dim)">Memuat...</td></tr>
+			{:else}
+				{#each sortedPromo as p (p.id)}
+					{@const badge = badgeTipe(p.tipe)}
+					{@const aktifHariIni = isAktifHariIni(p)}
+					<tr class="border-t" style="border-color:var(--border);opacity:{p.aktif ? 1 : 0.5}">
+						{#if !hidden.has('nama')}
+							<td class="px-3 py-2 text-sm">
 								<div class="font-medium">{p.nama}</div>
 								{#if p.deskripsi}<div class="text-xs" style="color:var(--text-dim)">{p.deskripsi}</div>{/if}
 								{#if p.min_qty > 1 || p.min_total > 0}
@@ -221,12 +247,18 @@
 									</div>
 								{/if}
 							</td>
+						{/if}
+						{#if !hidden.has('tipe')}
 							<td class="px-3 py-2">
 								<span class="text-xs font-bold" style="color:{badge.color}">{badge.label}</span>
 							</td>
-							<td class="px-3 py-2 text-right font-mono font-medium" style="color:var(--accent)">
+						{/if}
+						{#if !hidden.has('nilai')}
+							<td class="px-3 py-2 text-right text-sm font-mono font-medium" style="color:var(--accent)">
 								{p.tipe_nilai === 'persen' ? `${p.nilai}%` : rupiah(p.nilai)}
 							</td>
+						{/if}
+						{#if !hidden.has('targets')}
 							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">
 								{#if p.tipe === 'total'}
 									<span>Semua belanja</span>
@@ -234,12 +266,16 @@
 									{p.targets.length} {p.tipe === 'item' ? 'barang' : 'kategori'}
 								{/if}
 							</td>
+						{/if}
+						{#if !hidden.has('berlaku_mulai')}
 							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">
 								{tglStr(p.berlaku_mulai)} — {tglStr(p.berlaku_sampai)}
 								{#if p.max_penggunaan !== null}
 									<div>{p.jumlah_dipakai}/{p.max_penggunaan}×</div>
 								{/if}
 							</td>
+						{/if}
+						{#if !hidden.has('aktif_status')}
 							<td class="px-3 py-2 text-center">
 								<button
 									onclick={() => toggleAktif(p)}
@@ -250,16 +286,18 @@
 									{aktifHariIni ? 'AKTIF' : p.aktif ? 'belum berlaku' : 'nonaktif'}
 								</button>
 							</td>
+						{/if}
+						{#if !hidden.has('aksi')}
 							<td class="px-3 py-2 text-right">
 								<button onclick={() => bukaForm(p)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
 								<button onclick={() => hapus(p.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
 							</td>
-						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
-	</div>
+						{/if}
+					</tr>
+				{/each}
+			{/if}
+		{/snippet}
+	</DataTable>
 </div>
 
 <!-- ── Modal Form Promo ──────────────────────────────────────────────────────── -->

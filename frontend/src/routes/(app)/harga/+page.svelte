@@ -8,6 +8,7 @@
 	import Button from '$lib/components/ui/Button.svelte'
 	import Spinner from '$lib/components/ui/Spinner.svelte'
 	import Modal from '$lib/components/ui/Modal.svelte'
+	import DataTable, { type Column } from '$lib/components/DataTable.svelte'
 
 	$effect(() => {
 		if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -207,6 +208,36 @@
 		loadingMassal = false
 	}
 
+	// ── DataTable ──────────────────────────────────────────────────────────────
+
+	const HARGA_COLUMNS: Column[] = [
+		{ key: 'nama_barang', label: 'Barang', sortable: true, minWidth: 140 },
+		{ key: 'harga_beli_terakhir', label: 'H.Beli', align: 'right', sortable: true, priority: 3 },
+		{ key: 'harga_jual_eceran', label: 'Eceran', align: 'right', sortable: true },
+		{ key: 'margin_eceran', label: 'Margin E', align: 'right', sortable: true, priority: 2 },
+		{ key: 'harga_jual_grosir', label: 'Grosir', align: 'right', sortable: true, priority: 2 },
+		{ key: 'margin_grosir', label: 'Margin G', align: 'right', sortable: true, priority: 3 },
+		{ key: 'aksi', label: '', align: 'right', sortable: false, hideable: false, minWidth: 90 },
+	]
+
+	let hSortKey = $state('')
+	let hSortDir = $state<'asc' | 'desc'>('asc')
+	let sortedFiltered = $derived.by(() => {
+		if (!hSortKey) return filtered
+		const list = [...filtered]
+		list.sort((a, b) => {
+			const av = a[hSortKey as keyof BarangHarga]
+			const bv = b[hSortKey as keyof BarangHarga]
+			if (av == null) return 1
+			if (bv == null) return -1
+			const cmp = typeof av === 'number' && typeof bv === 'number'
+				? av - bv
+				: String(av).localeCompare(String(bv), 'id')
+			return hSortDir === 'asc' ? cmp : -cmp
+		})
+		return list
+	})
+
 	// ── Format ─────────────────────────────────────────────────────────────────
 
 	function rp(n: number) {
@@ -259,41 +290,50 @@
 		{#if loading}
 			<div class="flex justify-center py-12"><Spinner /></div>
 		{:else}
-			<div class="overflow-x-auto rounded border" style="border-color:var(--border)">
-				<table class="w-full text-xs">
-					<thead>
-						<tr style="background:var(--surface2);color:var(--text-dim)">
-							<th class="px-3 py-2 text-left font-bold">Barang</th>
-							<th class="px-3 py-2 text-right font-bold">H.Beli</th>
-							<th class="px-3 py-2 text-right font-bold">Eceran</th>
-							<th class="px-3 py-2 text-right font-bold">Margin</th>
-							<th class="px-3 py-2 text-right font-bold">Grosir</th>
-							<th class="px-3 py-2 text-right font-bold">Margin</th>
-							<th class="px-3 py-2"></th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each filtered as b (b.id)}
-							<tr class="border-t" style="border-color:var(--border)">
-								<td class="px-3 py-2" style="color:var(--text)">
+			<DataTable
+				columns={HARGA_COLUMNS}
+				bind:sortKey={hSortKey}
+				bind:sortDir={hSortDir}
+				rowCount={sortedFiltered.length}
+				emptyText="Tidak ada barang"
+				tableId="harga-daftar"
+				maxRows={15}
+			>
+				{#snippet body(hidden)}
+					{#each sortedFiltered as b (b.id)}
+						<tr class="border-t" style="border-color:var(--border)">
+							{#if !hidden.has('nama_barang')}
+								<td class="px-3 py-2 text-xs" style="color:var(--text)">
 									<div class="font-medium">{b.nama_barang}</div>
 									<div style="color:var(--text-dim)">{b.kode_barang} · {b.nama_kategori ?? '-'}</div>
 								</td>
-								<td class="px-3 py-2 text-right font-mono" style="color:var(--text-dim)">
+							{/if}
+							{#if !hidden.has('harga_beli_terakhir')}
+								<td class="px-3 py-2 text-right text-xs font-mono" style="color:var(--text-dim)">
 									{rp(b.harga_beli_terakhir)}
 								</td>
-								<td class="px-3 py-2 text-right font-mono font-bold" style="color:var(--text)">
+							{/if}
+							{#if !hidden.has('harga_jual_eceran')}
+								<td class="px-3 py-2 text-right text-xs font-mono font-bold" style="color:var(--text)">
 									{rp(b.harga_jual_eceran)}
 								</td>
-								<td class="px-3 py-2 text-right font-mono" style={marginColor(b.margin_eceran)}>
+							{/if}
+							{#if !hidden.has('margin_eceran')}
+								<td class="px-3 py-2 text-right text-xs font-mono" style={marginColor(b.margin_eceran)}>
 									{pct(b.margin_eceran)}
 								</td>
-								<td class="px-3 py-2 text-right font-mono font-bold" style="color:var(--text)">
+							{/if}
+							{#if !hidden.has('harga_jual_grosir')}
+								<td class="px-3 py-2 text-right text-xs font-mono font-bold" style="color:var(--text)">
 									{rp(b.harga_jual_grosir)}
 								</td>
-								<td class="px-3 py-2 text-right font-mono" style={marginColor(b.margin_grosir)}>
+							{/if}
+							{#if !hidden.has('margin_grosir')}
+								<td class="px-3 py-2 text-right text-xs font-mono" style={marginColor(b.margin_grosir)}>
 									{pct(b.margin_grosir)}
 								</td>
+							{/if}
+							{#if !hidden.has('aksi')}
 								<td class="px-3 py-2">
 									<div class="flex gap-1 justify-end">
 										<button
@@ -308,19 +348,13 @@
 										>Histori</button>
 									</div>
 								</td>
-							</tr>
-						{:else}
-							<tr>
-								<td colspan="7" class="py-8 text-center text-xs" style="color:var(--text-dim)">
-									Tidak ada barang
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
+							{/if}
+						</tr>
+					{/each}
+				{/snippet}
+			</DataTable>
 
-			<p class="text-xs" style="color:var(--text-dim)">{filtered.length} barang · Margin: <span style="color:var(--danger)">merah &lt;5%</span> · <span style="color:var(--warn)">kuning &lt;15%</span> · <span style="color:var(--accent)">hijau ≥15%</span></p>
+			<p class="text-xs" style="color:var(--text-dim)">{sortedFiltered.length} barang · Margin: <span style="color:var(--danger)">merah &lt;5%</span> · <span style="color:var(--warn)">kuning &lt;15%</span> · <span style="color:var(--accent)">hijau ≥15%</span></p>
 		{/if}
 	{/if}
 

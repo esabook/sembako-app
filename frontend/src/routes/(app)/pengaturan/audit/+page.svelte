@@ -4,6 +4,7 @@
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { toast } from '$lib/stores/ui.store.js';
+	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 
 	type LogRow = {
 		id: number;
@@ -127,6 +128,15 @@
 		return map[m] ?? m;
 	}
 
+	const AUDIT_COLUMNS: Column[] = [
+		{ key: 'waktu', label: 'Waktu', sortable: false, minWidth: 120 },
+		{ key: 'nama_karyawan', label: 'Karyawan', sortable: false },
+		{ key: 'modul', label: 'Modul', sortable: false, priority: 2 },
+		{ key: 'aksi_col', label: 'Aksi', sortable: false },
+		{ key: 'detail', label: 'Detail', sortable: false, priority: 3 },
+		{ key: 'ip_address', label: 'IP', sortable: false, priority: 3 },
+	]
+
 	let debounceTimer: ReturnType<typeof setTimeout>;
 	function onFilterChange() {
 		clearTimeout(debounceTimer);
@@ -246,42 +256,33 @@
 	</div>
 
 	<!-- Tabel -->
-	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-		<table class="w-full text-xs font-mono">
-			<thead>
-				<tr style="background:var(--surface2);border-bottom:1px solid var(--border)">
-					<th class="px-3 py-2 text-left" style="color:var(--text-dim)">Waktu</th>
-					<th class="px-3 py-2 text-left" style="color:var(--text-dim)">Karyawan</th>
-					<th class="px-3 py-2 text-left" style="color:var(--text-dim)">Modul</th>
-					<th class="px-3 py-2 text-left" style="color:var(--text-dim)">Aksi</th>
-					<th class="px-3 py-2 text-left" style="color:var(--text-dim)">Detail</th>
-					<th class="px-3 py-2 text-left" style="color:var(--text-dim)">IP</th>
+	<DataTable
+		columns={AUDIT_COLUMNS}
+		rowCount={loading ? 1 : rows.length}
+		emptyText={filterModul || filterAksi || filterKaryawanId || filterDari || filterSampai
+			? 'Tidak ada log untuk filter ini'
+			: 'Belum ada log aktivitas'}
+		tableId="audit-trail"
+		maxRows={20}
+	>
+		{#snippet body(hidden)}
+			{#if loading}
+				<tr>
+					<td colspan="6" class="px-3 py-8 text-center text-xs font-mono" style="color:var(--text-dim)">Memuat...</td>
 				</tr>
-			</thead>
-			<tbody>
-				{#if loading}
-					<tr>
-						<td colspan="6" class="px-3 py-8 text-center" style="color:var(--text-dim)">Memuat...</td>
-					</tr>
-				{:else if rows.length === 0}
-					<tr>
-						<td colspan="6" class="px-3 py-8 text-center" style="color:var(--text-dim)">
-							{#if filterModul || filterAksi || filterKaryawanId || filterDari || filterSampai}
-								Tidak ada log untuk filter ini
-							{:else}
-								Belum ada log aktivitas
-							{/if}
-						</td>
-					</tr>
-				{:else}
-					{#each rows as row (row.id)}
-						{@const risiko = badgeRisiko(row.aksi)}
-						<tr
-							onclick={() => detailItem = row}
-							class="border-b cursor-pointer"
-							style="border-color:var(--border);background:{risiko ? 'color-mix(in srgb,var(--danger) 6%,transparent)' : 'transparent'}"
-						>
+			{:else}
+				{#each rows as row (row.id)}
+					{@const risiko = badgeRisiko(row.aksi)}
+					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+					<tr
+						onclick={() => detailItem = row}
+						class="border-b cursor-pointer font-mono text-xs"
+						style="border-color:var(--border);background:{risiko ? 'color-mix(in srgb,var(--danger) 6%,transparent)' : 'transparent'}"
+					>
+						{#if !hidden.has('waktu')}
 							<td class="px-3 py-2 whitespace-nowrap" style="color:var(--text-dim)">{fmtWaktu(row.waktu)}</td>
+						{/if}
+						{#if !hidden.has('nama_karyawan')}
 							<td class="px-3 py-2">
 								{#if row.nama_karyawan}
 									<span style="color:var(--text)">{row.nama_karyawan}</span>
@@ -290,11 +291,15 @@
 									<span style="color:var(--text-dim)">—</span>
 								{/if}
 							</td>
+						{/if}
+						{#if !hidden.has('modul')}
 							<td class="px-3 py-2">
 								<span class="px-1.5 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">
 									{labelModul(row.modul)}
 								</span>
 							</td>
+						{/if}
+						{#if !hidden.has('aksi_col')}
 							<td class="px-3 py-2">
 								{#if risiko}
 									<span class="px-1.5 py-0.5 rounded font-bold text-xs" style="background:color-mix(in srgb,var(--danger) 20%,transparent);color:var(--danger)">
@@ -304,6 +309,8 @@
 									<span style="color:var(--text)">{labelAksi(row.aksi)}</span>
 								{/if}
 							</td>
+						{/if}
+						{#if !hidden.has('detail')}
 							<td class="px-3 py-2 max-w-xs truncate" style="color:var(--text-dim)">
 								{#if row.detail_json}
 									{Object.entries(row.detail_json).map(([k, v]) => `${k}: ${v}`).join(' · ')}
@@ -313,13 +320,15 @@
 									—
 								{/if}
 							</td>
+						{/if}
+						{#if !hidden.has('ip_address')}
 							<td class="px-3 py-2" style="color:var(--text-dim)">{row.ip_address ?? '—'}</td>
-						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
-	</div>
+						{/if}
+					</tr>
+				{/each}
+			{/if}
+		{/snippet}
+	</DataTable>
 
 	<!-- Pagination -->
 	{#if totalPages > 1}
