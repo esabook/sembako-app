@@ -41,6 +41,19 @@ pengaturanRouter.get('/server-info', async (c) => {
   })
 })
 
+// ── GET /pengaturan/backup-db — download file SQLite ─────────────────────
+pengaturanRouter.get('/backup-db', requirePermission('*'), async (c) => {
+  const dbPath = process.env.DATABASE_URL ?? './data.db'
+  const file = Bun.file(dbPath)
+  const tgl = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' })
+  return new Response(file, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="sembako-backup-${tgl}.db"`,
+    },
+  })
+})
+
 pengaturanRouter.use('*', authMiddleware)
 
 // Nilai default untuk semua key settings

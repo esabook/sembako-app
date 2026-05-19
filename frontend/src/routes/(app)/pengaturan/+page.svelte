@@ -226,6 +226,23 @@
 			</div>
 		</section>
 
+		<!-- ── Backup Database ──────────────────────────────────────── -->
+		<section class="rounded border p-4 space-y-3" style="background:var(--surface);border-color:var(--border)">
+			<h2 class="text-sm font-bold uppercase tracking-widest" style="color:var(--text-dim)">Backup Database</h2>
+			<p class="text-xs" style="color:var(--text-dim)">Download salinan database SQLite. Simpan di tempat aman sebagai cadangan.</p>
+			<div class="flex items-center gap-3">
+				<a
+					href="/api/pengaturan/backup-db"
+					download
+					class="inline-flex items-center gap-2 rounded border px-4 py-2 text-sm font-medium"
+					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+				>
+					↓ Download Backup (.db)
+				</a>
+			</div>
+			<p class="text-xs" style="color:var(--text-dim)">Untuk restore: ganti file <code class="font-mono">data.db</code> di server lalu restart aplikasi.</p>
+		</section>
+
 		<!-- ── Tombol Simpan ─────────────────────────────────────────── -->
 		<div class="flex justify-end">
 			<Button onclick={simpan} loading={saving}>

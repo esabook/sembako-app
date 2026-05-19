@@ -6,7 +6,7 @@ import {
   penjualan, penjualan_detail,
   jurnal_kas, kas_bank,
   hutang_supplier, piutang_pelanggan,
-  barang,
+  barang, pelanggan, supplier,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
@@ -273,6 +273,114 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
         liabilitas_plus_modal: totalHutang + modal,
         balanced: Math.abs(totalAset - (totalHutang + modal)) < 1,
       },
+    },
+  })
+})
+
+// ── GET /laporan/aging ────────────────────────────────────────────────────
+// Analisis umur piutang pelanggan & hutang supplier per bucket waktu
+
+laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
+  const today = hariIni()
+
+  function hitungHari(jatuhTempo: string | null): number {
+    if (!jatuhTempo) return 0
+    const diff = new Date(today).getTime() - new Date(jatuhTempo).getTime()
+    return Math.floor(diff / 86400000)
+  }
+
+  function bucket(hari: number): string {
+    if (hari < 0) return 'belum_jatuh'
+    if (hari <= 30) return '0_30'
+    if (hari <= 60) return '31_60'
+    if (hari <= 90) return '61_90'
+    return 'lebih_90'
+  }
+
+  const LABELS: Record<string, string> = {
+    belum_jatuh: 'Belum Jatuh Tempo',
+    '0_30': '1–30 Hari',
+    '31_60': '31–60 Hari',
+    '61_90': '61–90 Hari',
+    lebih_90: '>90 Hari',
+  }
+  const BUCKET_ORDER = ['belum_jatuh', '0_30', '31_60', '61_90', 'lebih_90']
+
+  type AgingItem = { nama: string; sisa: number; hari: number; jatuh_tempo: string }
+  type AgingBucket = { label: string; jumlah: number; total: number; items: AgingItem[] }
+
+  // Piutang pelanggan
+  const piutangRows = db
+    .select({
+      id: piutang_pelanggan.id,
+      sisa_piutang: piutang_pelanggan.sisa_piutang,
+      tanggal_jatuh_tempo: piutang_pelanggan.tanggal_jatuh_tempo,
+      nama: pelanggan.nama,
+    })
+    .from(piutang_pelanggan)
+    .leftJoin(pelanggan, eq(piutang_pelanggan.pelanggan_id, pelanggan.id))
+    .where(ne(piutang_pelanggan.status, 'lunas'))
+    .all()
+
+  const piutangBuckets: Record<string, AgingBucket> = {}
+  for (const key of BUCKET_ORDER) {
+    piutangBuckets[key] = { label: LABELS[key]!, jumlah: 0, total: 0, items: [] }
+  }
+  let totalPiutang = 0
+  for (const r of piutangRows) {
+    const hari = hitungHari(r.tanggal_jatuh_tempo)
+    const key = bucket(hari)
+    piutangBuckets[key]!.jumlah++
+    piutangBuckets[key]!.total += r.sisa_piutang ?? 0
+    piutangBuckets[key]!.items.push({
+      nama: r.nama ?? '(tanpa pelanggan)',
+      sisa: r.sisa_piutang ?? 0,
+      hari,
+      jatuh_tempo: r.tanggal_jatuh_tempo ?? '',
+    })
+    totalPiutang += r.sisa_piutang ?? 0
+  }
+
+  // Hutang supplier
+  const hutangRows = db
+    .select({
+      id: hutang_supplier.id,
+      sisa_hutang: hutang_supplier.sisa_hutang,
+      tanggal_jatuh_tempo: hutang_supplier.tanggal_jatuh_tempo,
+      nama: supplier.nama_supplier,
+    })
+    .from(hutang_supplier)
+    .leftJoin(supplier, eq(hutang_supplier.supplier_id, supplier.id))
+    .where(ne(hutang_supplier.status, 'lunas'))
+    .all()
+
+  const hutangBuckets: Record<string, AgingBucket> = {}
+  for (const key of BUCKET_ORDER) {
+    hutangBuckets[key] = { label: LABELS[key]!, jumlah: 0, total: 0, items: [] }
+  }
+  let totalHutangAging = 0
+  for (const r of hutangRows) {
+    const hari = hitungHari(r.tanggal_jatuh_tempo)
+    const key = bucket(hari)
+    hutangBuckets[key]!.jumlah++
+    hutangBuckets[key]!.total += r.sisa_hutang ?? 0
+    hutangBuckets[key]!.items.push({
+      nama: r.nama ?? '(tanpa supplier)',
+      sisa: r.sisa_hutang ?? 0,
+      hari,
+      jatuh_tempo: r.tanggal_jatuh_tempo ?? '',
+    })
+    totalHutangAging += r.sisa_hutang ?? 0
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      per_tanggal: today,
+      piutang: BUCKET_ORDER.map(k => piutangBuckets[k]),
+      hutang: BUCKET_ORDER.map(k => hutangBuckets[k]),
+      total_piutang: totalPiutang,
+      total_hutang: totalHutangAging,
     },
   })
 })

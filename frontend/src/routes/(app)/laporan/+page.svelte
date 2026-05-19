@@ -9,7 +9,7 @@
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
   })
 
-  type TabKey = 'laba-rugi' | 'arus-kas' | 'neraca'
+  type TabKey = 'laba-rugi' | 'arus-kas' | 'neraca' | 'aging'
   let tab = $derived<TabKey>(
     (page.url.searchParams.get('tab') as TabKey) ?? 'laba-rugi'
   )
@@ -41,6 +41,16 @@
     saldo_akhir: number
   }
 
+  type AgingItem = { nama: string; sisa: number; hari: number; jatuh_tempo: string }
+  type AgingBucket = { label: string; jumlah: number; total: number; items: AgingItem[] }
+  type AgingData = {
+    per_tanggal: string
+    piutang: AgingBucket[]
+    hutang: AgingBucket[]
+    total_piutang: number
+    total_hutang: number
+  }
+
   type Neraca = {
     per_tanggal: string
     aset: {
@@ -60,6 +70,9 @@
   let labaRugi = $state<LabaRugi | null>(null)
   let arusKas = $state<ArusKas | null>(null)
   let neraca = $state<Neraca | null>(null)
+  let aging = $state<AgingData | null>(null)
+  let agingExpanded = $state<Record<string, boolean>>({})
+
   let loading = $state(false)
   let error = $state('')
 
@@ -104,10 +117,19 @@
     else error = res.error ?? 'Gagal memuat laporan'
   }
 
+  async function muatAging() {
+    loading = true; error = ''
+    const res = await api.get<AgingData>('/laporan/aging')
+    loading = false
+    if (res.success) aging = res.data!
+    else error = res.error ?? 'Gagal memuat laporan aging'
+  }
+
   async function muat() {
     if (tab === 'laba-rugi') await muatLabaRugi()
     else if (tab === 'arus-kas') await muatArusKas()
-    else await muatNeraca()
+    else if (tab === 'neraca') await muatNeraca()
+    else await muatAging()
   }
 
   // Hanya track perubahan `tab`, bukan `periode` (periode diubah manual via tombol Tampilkan)
@@ -217,10 +239,31 @@
     downloadCsv(rows.map((r) => r.join(',')).join('\n'), `neraca-${n.per_tanggal}.csv`)
   }
 
+  function exportAgingCsv() {
+    if (!aging) return
+    const ag = aging
+    const rows: (string | number)[][] = [
+      ['LAPORAN AGING PIUTANG & HUTANG', ''],
+      ['Per Tanggal', tglFmt(ag.per_tanggal)],
+      [],
+      ['PIUTANG PELANGGAN', ''],
+      ['Bucket', 'Jumlah', 'Total'],
+      ...ag.piutang.map(b => [b.label, b.jumlah, fmtRp(b.total)]),
+      ['TOTAL PIUTANG', '', fmtRp(ag.total_piutang)],
+      [],
+      ['HUTANG SUPPLIER', ''],
+      ['Bucket', 'Jumlah', 'Total'],
+      ...ag.hutang.map(b => [b.label, b.jumlah, fmtRp(b.total)]),
+      ['TOTAL HUTANG', '', fmtRp(ag.total_hutang)],
+    ]
+    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `aging-${ag.per_tanggal}.csv`)
+  }
+
   function exportCsv() {
     if (tab === 'laba-rugi') exportLabaRugiCsv()
     else if (tab === 'arus-kas') exportArusKasCsv()
-    else exportNeracaCsv()
+    else if (tab === 'neraca') exportNeracaCsv()
+    else exportAgingCsv()
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -293,7 +336,7 @@
   </div>
 
   <!-- Filter Periode -->
-  {#if tab !== 'neraca'}
+  {#if tab !== 'neraca' && tab !== 'aging'}
     <div style="display:flex; gap:.75rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap">
       <div style="display:flex; gap:.4rem; align-items:center">
         <label for="dari" style="font-size:.75rem; color:var(--text-dim)">Dari</label>
@@ -346,7 +389,7 @@
 
   <!-- Tabs -->
   <div style="display:flex; gap:.5rem; border-bottom:1px solid var(--border); margin-bottom:1rem">
-    {#each ([['laba-rugi','Laba Rugi'],['arus-kas','Arus Kas'],['neraca','Neraca']] as [TabKey, string][]) as [t, label]}
+    {#each ([['laba-rugi','Laba Rugi'],['arus-kas','Arus Kas'],['neraca','Neraca'],['aging','Aging']] as [TabKey, string][]) as [t, label]}
       <button
         onclick={() => goto(`?tab=${t}`, { replaceState: true, keepFocus: true, noScroll: true })}
         style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em"
@@ -618,6 +661,89 @@
         </div>
       </div>
     </div>
+  </div>
+
+<!-- ═══════════════════════════════════════ AGING ════════ -->
+{:else if tab === 'aging' && aging}
+  <div style="padding:0 1.25rem 2rem; max-width:760px">
+    <div style="text-align:center; margin-bottom:1.25rem">
+      <div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN AGING</div>
+      <div style="font-size:.8rem; color:var(--text-dim)">Per {tglFmt(aging.per_tanggal)}</div>
+    </div>
+
+    {#each [
+      { title: 'Piutang Pelanggan', buckets: aging.piutang, total: aging.total_piutang, prefix: 'p' },
+      { title: 'Hutang Supplier', buckets: aging.hutang, total: aging.total_hutang, prefix: 'h' },
+    ] as section}
+      <div style="margin-bottom:1.75rem">
+        <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem; padding-bottom:.35rem; border-bottom:1px solid var(--border)">
+          {section.title} — Total Rp {fmt(section.total)}
+        </div>
+
+        {#each section.buckets as bucket, i}
+          {@const key = `${section.prefix}_${i}`}
+          {@const warna = i === 0 ? 'var(--accent)' : i === 1 ? 'var(--warn)' : 'var(--danger)'}
+          {#if bucket.jumlah > 0}
+            <div style="margin-bottom:.5rem; border:1px solid var(--border); border-radius:6px; overflow:hidden; background:var(--surface)">
+              <button
+                onclick={() => { agingExpanded[key] = !agingExpanded[key] }}
+                style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:.6rem .85rem; background:none; border:none; cursor:pointer; text-align:left"
+              >
+                <div style="display:flex; align-items:center; gap:.6rem">
+                  <span style="width:8px; height:8px; border-radius:50%; background:{warna}; display:inline-block; flex-shrink:0"></span>
+                  <span style="font-size:.85rem; font-weight:600; color:var(--text)">{bucket.label}</span>
+                  <span style="font-size:.75rem; color:var(--text-dim)">{bucket.jumlah} item</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:.75rem">
+                  <span style="font-size:.9rem; font-weight:700; color:{warna}">Rp {fmt(bucket.total)}</span>
+                  <span style="font-size:.8rem; color:var(--text-dim)">{agingExpanded[key] ? '▲' : '▼'}</span>
+                </div>
+              </button>
+
+              {#if agingExpanded[key]}
+                <div style="border-top:1px solid var(--border)">
+                  <table style="width:100%; font-size:.78rem; border-collapse:collapse">
+                    <thead>
+                      <tr style="background:var(--surface2)">
+                        <th style="padding:.4rem .85rem; text-align:left; color:var(--text-dim); font-weight:600">Nama</th>
+                        <th style="padding:.4rem .5rem; text-align:right; color:var(--text-dim); font-weight:600">Jatuh Tempo</th>
+                        <th style="padding:.4rem .5rem; text-align:right; color:var(--text-dim); font-weight:600">Hari</th>
+                        <th style="padding:.4rem .85rem; text-align:right; color:var(--text-dim); font-weight:600">Sisa</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each bucket.items as item}
+                        <tr style="border-top:1px solid var(--border)">
+                          <td style="padding:.35rem .85rem; color:var(--text)">{item.nama}</td>
+                          <td style="padding:.35rem .5rem; text-align:right; color:var(--text-dim); font-family:monospace">{item.jatuh_tempo || '—'}</td>
+                          <td style="padding:.35rem .5rem; text-align:right; color:{item.hari > 0 ? warna : 'var(--text-dim)'}; font-family:monospace">
+                            {item.hari < 0 ? `${Math.abs(item.hari)}h lagi` : item.hari === 0 ? 'Hari ini' : `${item.hari}h`}
+                          </td>
+                          <td style="padding:.35rem .85rem; text-align:right; color:var(--text); font-weight:600">Rp {fmt(item.sisa)}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {/if}
+            </div>
+          {:else}
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:.45rem .85rem; border-radius:4px; margin-bottom:.35rem; background:var(--surface)">
+              <div style="display:flex; align-items:center; gap:.6rem">
+                <span style="width:8px; height:8px; border-radius:50%; background:var(--border); display:inline-block"></span>
+                <span style="font-size:.82rem; color:var(--text-dim)">{bucket.label}</span>
+              </div>
+              <span style="font-size:.78rem; color:var(--text-dim)">Nihil</span>
+            </div>
+          {/if}
+        {/each}
+      </div>
+    {/each}
+
+    <button
+      onclick={muatAging}
+      style="font-size:.75rem; padding:.35rem .75rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text-dim); cursor:pointer; font-family:inherit"
+    >Refresh Data</button>
   </div>
 
 {:else if !loading}

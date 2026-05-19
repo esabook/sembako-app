@@ -63,19 +63,31 @@
     return 'var(--text-dim)'
   }
 
-  let chartMax = $derived(data ? Math.max(...data.penjualan_30hari.map(r => r.total), 1) : 1)
+  let chartPeriode = $state<7 | 30>(30)
 
-  function buildChartDays(penjualan30: Trend[], today: string) {
+  function buildChartDays(penjualan30: Trend[], today: string, n: 7 | 30 = 30) {
     const map = new Map(penjualan30.map(r => [r.tanggal, r]))
-    return Array.from({ length: 30 }, (_, i) => {
-      const d = new Date(Date.now() - (29 - i) * 86400000)
+    return Array.from({ length: n }, (_, i) => {
+      const d = new Date(Date.now() - (n - 1 - i) * 86400000)
       const tgl = d.toISOString().slice(0, 10)
-      const label = i === 0 || i === 14 || i === 29 || tgl === today
+      const mid = Math.floor(n / 2)
+      const label = i === 0 || i === mid || i === n - 1 || tgl === today
         ? d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
         : String(d.getDate())
       return { tanggal: tgl, total: map.get(tgl)?.total ?? 0, label, isToday: tgl === today }
     })
   }
+
+  let chartDaysComputed = $derived(
+    data ? buildChartDays(data.penjualan_30hari, data.today, chartPeriode) : []
+  )
+  let chartMax = $derived(Math.max(...chartDaysComputed.map(r => r.total), 1))
+  let chartAvg = $derived(
+    chartDaysComputed.length > 0
+      ? chartDaysComputed.reduce((s, d) => s + d.total, 0) / chartDaysComputed.length
+      : 0
+  )
+  let chartAvgPct = $derived(chartMax > 0 ? (chartAvg / chartMax) * 100 : 0)
 
   function hariDariToday(tgl: string): number {
     return Math.round((new Date(tgl).getTime() - Date.now()) / 86400000)
@@ -85,7 +97,6 @@
 {#if loading}
   <div class="flex items-center justify-center h-40 text-sm" style="color:var(--text-dim)">Memuat dashboard...</div>
 {:else if data}
-  {@const chartDays = buildChartDays(data.penjualan_30hari, data.today)}
   <div class="flex flex-col gap-5">
 
     <!-- ── Header ───────────────────────────────────────────────────────────── -->
@@ -216,34 +227,61 @@
       </div>
     </div>
 
-    <!-- ── GRAFIK 30 HARI ─────────────────────────────────────────────────────── -->
+    <!-- ── GRAFIK PENJUALAN ──────────────────────────────────────────────────── -->
     <div class="flex flex-col gap-2">
-      <h3 class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-dim)">Penjualan 30 Hari</h3>
-      <div class="rounded border p-4" style="background:var(--surface);border-color:var(--border)">
-        <div class="flex items-end gap-px" style="height:72px">
-          {#each chartDays as day}
-            {@const pct = chartMax > 0 ? (day.total / chartMax) * 100 : 0}
-            <div class="flex-1 flex flex-col justify-end" style="min-width:0;height:72px" title="{day.tanggal}: {rpFull(day.total)}">
-              <div style="
-                width:100%;
-                background:{day.isToday ? 'var(--accent)' : day.total > 0 ? 'var(--surface2)' : 'transparent'};
-                height:{Math.max(pct, day.total > 0 ? 3 : 0)}%;
-                border-radius:1px 1px 0 0;
-                border-top:{day.isToday ? 'none' : day.total > 0 ? '1px solid var(--border)' : 'none'}
-              "></div>
-            </div>
+      <div class="flex items-center justify-between">
+        <h3 class="text-xs font-bold uppercase tracking-wider" style="color:var(--text-dim)">
+          Penjualan {chartPeriode} Hari
+        </h3>
+        <div class="flex gap-1">
+          {#each [7, 30] as n (n)}
+            <button
+              onclick={() => { chartPeriode = n as 7 | 30 }}
+              class="text-xs px-2 py-0.5 rounded border"
+              style="{chartPeriode === n ? 'background:var(--accent);color:#000;border-color:var(--accent)' : 'background:transparent;color:var(--text-dim);border-color:var(--border)'}"
+            >{n}h</button>
           {/each}
         </div>
+      </div>
+      <div class="rounded border p-4" style="background:var(--surface);border-color:var(--border)">
+        <div class="relative" style="height:72px">
+          <!-- Garis rata-rata -->
+          {#if chartAvg > 0}
+            <div
+              class="absolute left-0 right-0 border-t border-dashed"
+              style="bottom:{chartAvgPct}%;border-color:var(--warn);opacity:.6;pointer-events:none"
+              title="Rata-rata: {rpFull(chartAvg)}"
+            ></div>
+          {/if}
+          <div class="flex items-end gap-px h-full">
+            {#each chartDaysComputed as day}
+              {@const pct = chartMax > 0 ? (day.total / chartMax) * 100 : 0}
+              <div class="flex-1 flex flex-col justify-end h-full" style="min-width:0" title="{day.tanggal}: {rpFull(day.total)}">
+                <div style="
+                  width:100%;
+                  background:{day.isToday ? 'var(--accent)' : day.total > 0 ? 'var(--surface2)' : 'transparent'};
+                  height:{Math.max(pct, day.total > 0 ? 3 : 0)}%;
+                  border-radius:1px 1px 0 0;
+                  border-top:{day.isToday ? 'none' : day.total > 0 ? '1px solid var(--border)' : 'none'}
+                "></div>
+              </div>
+            {/each}
+          </div>
+        </div>
         <div class="flex gap-px mt-1">
-          {#each chartDays as day, i}
-            {@const showLabel = i === 0 || i === 14 || i === 29 || day.isToday}
+          {#each chartDaysComputed as day, i}
+            {@const n = chartDaysComputed.length}
+            {@const showLabel = i === 0 || i === Math.floor(n/2) || i === n - 1 || day.isToday}
             <div class="flex-1 text-center overflow-hidden" style="min-width:0;font-size:9px;color:{day.isToday ? 'var(--accent)' : 'var(--text-dim)'}">
               {showLabel ? day.label : ''}
             </div>
           {/each}
         </div>
+        {#if chartAvg > 0}
+          <p class="text-xs mt-1" style="color:var(--warn)">— rata-rata: {rpFull(chartAvg)}/hari</p>
+        {/if}
         {#if data.penjualan_30hari.length === 0}
-          <p class="text-xs text-center mt-2" style="color:var(--text-dim)">Belum ada data penjualan 30 hari terakhir</p>
+          <p class="text-xs text-center mt-2" style="color:var(--text-dim)">Belum ada data penjualan</p>
         {/if}
       </div>
     </div>
