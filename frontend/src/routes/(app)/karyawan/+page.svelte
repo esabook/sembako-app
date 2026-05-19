@@ -237,6 +237,34 @@
     sakit: 'var(--warn)', alpa: 'var(--danger)',
   }
 
+  function hitungDurasi(masuk: string | null | undefined, keluar: string | null | undefined): string {
+    if (!masuk || !keluar) return '—'
+    const [jm, mm] = masuk.split(':').map(Number)
+    const [jk, mk] = keluar.split(':').map(Number)
+    const totalMenit = (jk * 60 + mk) - (jm * 60 + mm)
+    if (totalMenit <= 0) return '—'
+    const j = Math.floor(totalMenit / 60)
+    const m = totalMenit % 60
+    return j > 0 ? `${j}j${m > 0 ? ` ${m}m` : ''}` : `${m}m`
+  }
+
+  function exportRekapCsv() {
+    if (!rekapList.length) return
+    const bom = '﻿'
+    const header = ['Karyawan', 'Hadir', 'Izin', 'Sakit', 'Alpa', 'Total', '% Hadir']
+    const rows = rekapList.map(r => [
+      r.nama_karyawan,
+      r.hadir, r.izin, r.sakit, r.alpa, r.total,
+      r.total > 0 ? `${((r.hadir / r.total) * 100).toFixed(1)}%` : '0%',
+    ])
+    const csv = [header, ...rows].map(r => r.join(',')).join('\n')
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `rekap-absensi-${filterBulan}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TAB: PENGGAJIAN
   // ═══════════════════════════════════════════════════════════════════════════
@@ -696,6 +724,14 @@
         class="px-2 py-1 rounded border text-sm outline-none"
         style="background:var(--surface);border-color:var(--border);color:var(--text)" />
       {#if canSemua}
+        <select bind:value={filterKaryawanId}
+          class="px-2 py-1 rounded border text-sm outline-none"
+          style="background:var(--surface);border-color:var(--border);color:var(--text)">
+          <option value="">Semua karyawan</option>
+          {#each karyawanList as k (k.id)}
+            <option value={k.id}>{k.nama}</option>
+          {/each}
+        </select>
         <div class="flex gap-1 text-sm">
           <button onclick={() => viewAbsensi = 'list'}
             class="px-3 py-1 rounded"
@@ -704,8 +740,14 @@
             class="px-3 py-1 rounded"
             style="{viewAbsensi === 'rekap' ? 'background:var(--surface2);color:var(--text)' : 'color:var(--text-dim)'}">Rekap</button>
         </div>
-        <button onclick={() => bukaFormAbsensi()} class="px-3 py-1 rounded text-sm font-bold ml-auto"
-          style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+        <div class="flex gap-2 ml-auto">
+          {#if viewAbsensi === 'rekap' && rekapList.length > 0}
+            <button onclick={exportRekapCsv} class="px-3 py-1 rounded text-sm border"
+              style="border-color:var(--border);color:var(--text-dim)">↓ CSV</button>
+          {/if}
+          <button onclick={() => bukaFormAbsensi()} class="px-3 py-1 rounded text-sm font-bold"
+            style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+        </div>
       {/if}
     </div>
 
@@ -718,6 +760,7 @@
               <th class="text-left px-3 py-2 font-medium">Tanggal</th>
               <th class="text-left px-3 py-2 font-medium">Masuk</th>
               <th class="text-left px-3 py-2 font-medium">Keluar</th>
+              <th class="text-left px-3 py-2 font-medium">Durasi</th>
               <th class="text-left px-3 py-2 font-medium">Status</th>
               {#if canSemua}<th class="px-3 py-2"></th>{/if}
             </tr>
@@ -734,6 +777,7 @@
                   <td class="px-3 py-2" style="color:var(--text-dim)">{item.tanggal}</td>
                   <td class="px-3 py-2">{item.jam_masuk ?? '-'}</td>
                   <td class="px-3 py-2">{item.jam_keluar ?? '-'}</td>
+                  <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{hitungDurasi(item.jam_masuk, item.jam_keluar)}</td>
                   <td class="px-3 py-2">
                     <span class="text-xs font-bold" style="color:{STATUS_COLOR[item.status]}">
                       {item.status.toUpperCase()}
@@ -763,6 +807,7 @@
               <th class="text-center px-3 py-2 font-medium" style="color:var(--warn)">Sakit</th>
               <th class="text-center px-3 py-2 font-medium" style="color:var(--danger)">Alpa</th>
               <th class="text-center px-3 py-2 font-medium">Total</th>
+              <th class="text-center px-3 py-2 font-medium">% Hadir</th>
             </tr>
           </thead>
           <tbody>
@@ -779,6 +824,9 @@
                   <td class="px-3 py-2 text-center" style="color:var(--warn)">{item.sakit}</td>
                   <td class="px-3 py-2 text-center" style="color:var(--danger)">{item.alpa}</td>
                   <td class="px-3 py-2 text-center" style="color:var(--text-dim)">{item.total}</td>
+                  <td class="px-3 py-2 text-center text-xs font-bold" style="color:{item.total > 0 && (item.hadir / item.total) >= 0.8 ? 'var(--accent)' : 'var(--warn)'}">
+                    {item.total > 0 ? `${((item.hadir / item.total) * 100).toFixed(0)}%` : '—'}
+                  </td>
                 </tr>
               {/each}
             {/if}
