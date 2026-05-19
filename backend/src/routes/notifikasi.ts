@@ -1,8 +1,8 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, ne, lte, gte, and } from 'drizzle-orm'
 import { db } from '../db/index.ts'
-import { notifikasi_config, notifikasi_log, barang, hutang_supplier, piutang_pelanggan } from '../db/schema.ts'
+import { notifikasi_config, notifikasi_log, barang, hutang_supplier, piutang_pelanggan, pelanggan, penjualan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
 export const notifikasiRouter = new Hono<{ Variables: { user: JWTPayload } }>()
@@ -213,4 +213,36 @@ notifikasiRouter.get('/check', async (c) => {
   }
 
   return c.json({ success: true, data: alerts })
+})
+
+// ── GET /notifikasi/piutang-reminder — piutang jatuh tempo N hari ke depan ──
+
+notifikasiRouter.get('/piutang-reminder', requirePermission('penjualan.lihat'), async (c) => {
+  const hari = Number(c.req.query('hari') ?? 3)
+  const hariIni = new Date().toISOString().slice(0, 10)
+  const batas = new Date()
+  batas.setDate(batas.getDate() + hari)
+  const batasStr = batas.toISOString().slice(0, 10)
+
+  const rows = db
+    .select({
+      id: piutang_pelanggan.id,
+      no_transaksi: penjualan.no_transaksi,
+      sisa_piutang: piutang_pelanggan.sisa_piutang,
+      tanggal_jatuh_tempo: piutang_pelanggan.tanggal_jatuh_tempo,
+      nama_pelanggan: pelanggan.nama,
+      kontak: pelanggan.kontak,
+    })
+    .from(piutang_pelanggan)
+    .leftJoin(pelanggan, eq(piutang_pelanggan.pelanggan_id, pelanggan.id))
+    .leftJoin(penjualan, eq(piutang_pelanggan.penjualan_id, penjualan.id))
+    .where(and(
+      ne(piutang_pelanggan.status, 'lunas'),
+      gte(piutang_pelanggan.tanggal_jatuh_tempo, hariIni),
+      lte(piutang_pelanggan.tanggal_jatuh_tempo, batasStr),
+    ))
+    .orderBy(piutang_pelanggan.tanggal_jatuh_tempo)
+    .all()
+
+  return c.json({ success: true, data: rows })
 })

@@ -16,3 +16,16 @@ export async function fetchLog(limit = 50) {
 export async function checkAlerts() {
   return api.get<AlertCheck[]>('/notifikasi/check')
 }
+
+export type PiutangReminder = {
+  id: number
+  no_transaksi: string
+  sisa_piutang: number
+  tanggal_jatuh_tempo: string
+  nama_pelanggan: string | null
+  kontak: string | null
+}
+
+export async function fetchPiutangReminder(hari = 3) {
+  return api.get<PiutangReminder[]>(`/notifikasi/piutang-reminder?hari=${hari}`)
+}
