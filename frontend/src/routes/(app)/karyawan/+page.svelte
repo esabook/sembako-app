@@ -5,6 +5,8 @@
   import { api } from '$lib/utils/api.js'
   import { user } from '$lib/stores/auth.js'
   import Modal from '$lib/components/Modal.svelte'
+  import DataTable from '$lib/components/DataTable.svelte'
+  import type { Column } from '$lib/components/DataTable.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -29,6 +31,20 @@
     tipe_gaji: string; kontak: string | null; foto_path: string | null; is_active: boolean
   }
 
+  const kolKaryawan: Column[] = [
+    { key: 'kode_karyawan', label: 'Kode',       width: 90,  priority: 2 },
+    { key: 'nama',          label: 'Nama',        minWidth: 140 },
+    { key: 'role',          label: 'Role',        width: 90  },
+    { key: 'username',      label: 'Username',    width: 110, priority: 2 },
+    { key: 'gaji_pokok',    label: 'Gaji Pokok',  width: 120, align: 'right' },
+    { key: 'tipe_gaji',     label: 'Tipe',        width: 80,  priority: 3 },
+    { key: 'aksi',          label: '',            width: 120, sortable: false, hideable: false, align: 'right' },
+  ]
+  let sortKeyKaryawan   = $state('nama')
+  let sortDirKaryawan   = $state<'asc' | 'desc'>('asc')
+  let pageKaryawan      = $state(1)
+  let pageSizeKaryawan  = $state(25)
+
   let karyawanList = $state<Karyawan[]>([])
   let queryKaryawan = $state('')
   let loadingKaryawan = $state(false)
@@ -50,13 +66,12 @@
 
   async function muatKaryawan() {
     loadingKaryawan = true
-    const res = await api.get<Karyawan[]>(`/karyawan?q=${queryKaryawan}`)
+    const res = await api.get<Karyawan[]>('/karyawan')
     if (res.success) karyawanList = res.data
     loadingKaryawan = false
   }
 
   onMount(muatKaryawan)
-  $effect(() => { queryKaryawan; muatKaryawan() })
 
   function bukaFormKaryawan(item?: Karyawan) {
     editKaryawan = item ?? null
@@ -117,6 +132,26 @@
     kasir: 'var(--warn)', gudang: 'var(--text-dim)',
   }
 
+  let filteredKaryawan = $derived(
+    queryKaryawan
+      ? karyawanList.filter(k => k.nama.toLowerCase().includes(queryKaryawan.toLowerCase()) || k.username.toLowerCase().includes(queryKaryawan.toLowerCase()))
+      : karyawanList
+  )
+  let sortedKaryawan = $derived.by(() => {
+    const key = sortKeyKaryawan as keyof Karyawan
+    return [...filteredKaryawan].sort((a, b) => {
+      const va = String(a[key] ?? '')
+      const vb = String(b[key] ?? '')
+      const cmp = va.localeCompare(vb, 'id', { numeric: true })
+      return sortDirKaryawan === 'asc' ? cmp : -cmp
+    })
+  })
+  let pagedKaryawan = $derived(
+    pageSizeKaryawan === 0
+      ? sortedKaryawan
+      : sortedKaryawan.slice((pageKaryawan - 1) * pageSizeKaryawan, pageKaryawan * pageSizeKaryawan)
+  )
+
   // ═══════════════════════════════════════════════════════════════════════════
   // TAB: ABSENSI
   // ═══════════════════════════════════════════════════════════════════════════
@@ -139,6 +174,44 @@
   let rekapList = $state<RekapRow[]>([])
   let loadingAbsensi = $state(false)
   let viewAbsensi = $state<'list' | 'rekap'>('list')
+  let sortKeyAbsensi = $state('tanggal')
+  let sortDirAbsensi = $state<'asc' | 'desc'>('desc')
+  let sortKeyRekap = $state('nama_karyawan')
+  let sortDirRekap = $state<'asc' | 'desc'>('asc')
+  let kolAbsensiList = $derived<import('$lib/components/DataTable.svelte').Column[]>([
+    ...(canSemua ? [{ key: 'nama_karyawan', label: 'Karyawan', minWidth: 120 }] : []),
+    { key: 'tanggal',    label: 'Tanggal', width: 105 },
+    { key: 'jam_masuk',  label: 'Masuk',   width: 75 },
+    { key: 'jam_keluar', label: 'Keluar',  width: 75 },
+    { key: 'durasi',     label: 'Durasi',  width: 80, sortable: false },
+    { key: 'status',     label: 'Status',  width: 90 },
+    ...(canSemua ? [{ key: 'aksi', label: '', width: 110, sortable: false, hideable: false, align: 'right' as const }] : []),
+  ])
+  const kolAbsensiRekap: import('$lib/components/DataTable.svelte').Column[] = [
+    { key: 'nama_karyawan', label: 'Karyawan',  minWidth: 130 },
+    { key: 'hadir',         label: 'Hadir',     width: 70, align: 'center' },
+    { key: 'izin',          label: 'Izin',      width: 60, align: 'center' },
+    { key: 'sakit',         label: 'Sakit',     width: 60, align: 'center' },
+    { key: 'alpa',          label: 'Alpa',      width: 60, align: 'center' },
+    { key: 'total',         label: 'Total',     width: 65, align: 'center' },
+    { key: 'pct',           label: '% Hadir',   width: 80, align: 'center', sortable: false },
+  ]
+  let sortedAbsensi = $derived.by(() => {
+    const key = sortKeyAbsensi as keyof AbsensiRow
+    return [...absensiList].sort((a, b) => {
+      const va = String(a[key] ?? ''); const vb = String(b[key] ?? '')
+      const cmp = va.localeCompare(vb, 'id', { numeric: true })
+      return sortDirAbsensi === 'asc' ? cmp : -cmp
+    })
+  })
+  let sortedRekap = $derived.by(() => {
+    const key = sortKeyRekap as keyof RekapRow
+    return [...rekapList].sort((a, b) => {
+      const va = String(a[key] ?? ''); const vb = String(b[key] ?? '')
+      const cmp = va.localeCompare(vb, 'id', { numeric: true })
+      return sortDirRekap === 'asc' ? cmp : -cmp
+    })
+  })
   let modalAbsensiOpen = $state(false)
   let editAbsensi = $state<AbsensiRow | null>(null)
   let formAbsensi = $state<{
@@ -366,6 +439,29 @@
     draft: 'var(--text-dim)', approved: 'var(--info)', dibayar: 'var(--accent)',
   }
 
+  let sortKeyGaji = $state('nama_karyawan')
+  let sortDirGaji = $state<'asc' | 'desc'>('asc')
+  let kolPenggajian = $derived<import('$lib/components/DataTable.svelte').Column[]>([
+    { key: 'nama_karyawan',   label: 'Karyawan',      minWidth: 120 },
+    { key: 'periode_bulan',   label: 'Periode',        width: 90, priority: 3 },
+    { key: 'hadir_kerja',     label: 'Hadir/Kerja',   width: 90, align: 'center', sortable: false, priority: 2 },
+    { key: 'gaji_pokok',      label: 'Gaji Pokok',    width: 110, align: 'right' },
+    { key: 'tunjangan',       label: 'Tunjangan',     width: 100, align: 'right', priority: 2 },
+    { key: 'potongan_kasbon', label: 'Pot. Kasbon',   width: 100, align: 'right', priority: 2 },
+    { key: 'potongan_lain',   label: 'Pot. Lain',     width: 90,  align: 'right', priority: 3 },
+    { key: 'total_gaji',      label: 'Total',         width: 110, align: 'right' },
+    { key: 'status',          label: 'Status',        width: 90 },
+    ...(canManageGaji ? [{ key: 'aksi', label: '', width: 170, sortable: false, hideable: false, align: 'right' as const }] : []),
+  ])
+  let sortedGaji = $derived.by(() => {
+    const key = sortKeyGaji as keyof PenggajianRow
+    return [...penggajianList].sort((a, b) => {
+      const va = String(a[key] ?? ''); const vb = String(b[key] ?? '')
+      const cmp = va.localeCompare(vb, 'id', { numeric: true })
+      return sortDirGaji === 'asc' ? cmp : -cmp
+    })
+  })
+
   function rp(n: number) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n)
   }
@@ -391,6 +487,26 @@
     aktif:     { label: 'AKTIF',     color: 'var(--accent)' },
     lunas:     { label: 'LUNAS',     color: 'var(--text-dim)' },
   }
+
+  let sortKeyKasbon = $state('tanggal_pinjam')
+  let sortDirKasbon = $state<'asc' | 'desc'>('desc')
+  let kolKasbon = $derived<import('$lib/components/DataTable.svelte').Column[]>([
+    { key: 'nama_karyawan',    label: 'Karyawan',    minWidth: 120 },
+    { key: 'tanggal_pinjam',   label: 'Tgl Pinjam',  width: 100, priority: 2 },
+    { key: 'jumlah',           label: 'Jumlah',      width: 110, align: 'right' },
+    { key: 'cicilan_per_bulan',label: 'Cicilan/Bln', width: 100, align: 'right', priority: 2 },
+    { key: 'sisa_kasbon',      label: 'Sisa',        width: 100, align: 'right' },
+    { key: 'status',           label: 'Status',      width: 90 },
+    ...(canManageGaji ? [{ key: 'aksi', label: '', width: 160, sortable: false, hideable: false, align: 'right' as const }] : []),
+  ])
+  let sortedKasbon = $derived.by(() => {
+    const key = sortKeyKasbon as keyof KasbonRow
+    return [...kasbonList].sort((a, b) => {
+      const va = String(a[key] ?? ''); const vb = String(b[key] ?? '')
+      const cmp = va.localeCompare(vb, 'id', { numeric: true })
+      return sortDirKasbon === 'asc' ? cmp : -cmp
+    })
+  })
 
   let filterStatusKasbon = $state<KasbonStatus | ''>('pengajuan')
   let kasbonList = $state<KasbonRow[]>([])
@@ -612,11 +728,11 @@
 
 <!-- ── Tab bar ──────────────────────────────────────────────────────────────── -->
 <div class="flex flex-col gap-4">
-  <div class="flex gap-1 border-b" style="border-color:var(--border)">
+  <div class="flex gap-1 border-b overflow-x-auto" style="border-color:var(--border);scrollbar-width:none">
     {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift']] as const) as [key, label]}
       <button
         onclick={() => goto(`?tab=${key}`, { replaceState: true, keepFocus: true, noScroll: true })}
-        class="px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+        class="px-4 py-2 text-sm font-medium border-b-2 transition-colors shrink-0"
         style="{tab === key
           ? 'border-color:var(--accent);color:var(--accent)'
           : 'border-color:transparent;color:var(--text-dim)'}"
@@ -628,74 +744,80 @@
        TAB: DATA KARYAWAN
   ═════════════════════════════════════════════════════════════════════════ -->
   {#if tab === 'data'}
-    <div class="flex items-center gap-4">
-      <h2 class="font-bold">KARYAWAN</h2>
-      <input type="search" placeholder="Cari nama..." bind:value={queryKaryawan}
-        class="px-3 py-1 rounded border text-sm flex-1 max-w-xs outline-none"
-        style="background:var(--surface);border-color:var(--border);color:var(--text)" />
-      {#if canManageGaji}
-        <button onclick={() => bukaFormKaryawan()} class="px-3 py-1 rounded text-sm font-bold"
-          style="background:var(--accent);color:var(--bg)">+ Tambah</button>
-      {/if}
-    </div>
-
-    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="background:var(--surface2);color:var(--text-dim)">
-            <th class="text-left px-3 py-2 font-medium">Kode</th>
-            <th class="text-left px-3 py-2 font-medium">Nama</th>
-            <th class="text-left px-3 py-2 font-medium">Role</th>
-            <th class="text-left px-3 py-2 font-medium">Username</th>
-            <th class="text-left px-3 py-2 font-medium">Gaji Pokok</th>
-            <th class="text-left px-3 py-2 font-medium">Tipe</th>
-            <th class="px-3 py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#if loadingKaryawan}
-            <tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-          {:else if karyawanList.length === 0}
-            <tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada data</td></tr>
-          {:else}
-            {#each karyawanList as item}
-              <tr class="border-t" style="border-color:var(--border)">
-                <td class="px-3 py-2" style="color:var(--text-dim)">{item.kode_karyawan}</td>
-                <td class="px-3 py-2">
-                  <div class="flex items-center gap-2">
-                    {#if item.foto_path}
-                      <img src="/uploads/{item.foto_path.replace('med_', 'thumb_')}" alt={item.nama}
-                        class="rounded-full object-cover shrink-0"
-                        style="width:28px;height:28px;background:var(--surface2)" />
-                    {:else}
-                      <span class="rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
-                        style="width:28px;height:28px;background:var(--surface2);color:var(--text-dim);font-size:10px">
-                        {item.nama.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()}
-                      </span>
-                    {/if}
-                    {item.nama}
-                  </div>
-                </td>
-                <td class="px-3 py-2">
-                  <span class="text-xs font-bold" style="color:{ROLE_COLOR[item.role] ?? 'var(--text-dim)'}">
-                    {item.role.toUpperCase()}
-                  </span>
-                </td>
-                <td class="px-3 py-2" style="color:var(--text-dim)">{item.username}</td>
-                <td class="px-3 py-2">{rp(item.gaji_pokok)}</td>
-                <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.tipe_gaji}</td>
-                <td class="px-3 py-2 text-right">
-                  {#if canManageGaji}
-                    <button onclick={() => bukaFormKaryawan(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-                    <button onclick={() => hapusKaryawan(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
+    <DataTable
+      columns={kolKaryawan}
+      tableId="karyawan_data"
+      bind:sortKey={sortKeyKaryawan}
+      bind:sortDir={sortDirKaryawan}
+      bind:currentPage={pageKaryawan}
+      bind:pageSize={pageSizeKaryawan}
+      totalRows={filteredKaryawan.length}
+      rowCount={pagedKaryawan.length}
+      emptyText={loadingKaryawan ? 'Memuat...' : 'Tidak ada data'}
+      maxRows={12}
+    >
+      {#snippet toolbarEnd()}
+        <div class="flex items-center gap-2">
+          <input type="search" placeholder="Cari nama/username..." bind:value={queryKaryawan}
+            class="px-3 py-1 rounded border text-sm outline-none"
+            style="background:var(--surface);border-color:var(--border);color:var(--text);width:180px" />
+          {#if canManageGaji}
+            <button onclick={() => bukaFormKaryawan()} class="px-3 py-1 rounded text-sm font-bold shrink-0"
+              style="background:var(--accent);color:var(--bg)">+ Tambah</button>
           {/if}
-        </tbody>
-      </table>
-    </div>
+        </div>
+      {/snippet}
+      {#snippet body(hidden)}
+        {#each pagedKaryawan as item}
+          <tr class="border-t" style="border-color:var(--border)">
+            {#if !hidden.has('kode_karyawan')}
+              <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_karyawan}</td>
+            {/if}
+            {#if !hidden.has('nama')}
+              <td class="px-3 py-2">
+                <div class="flex items-center gap-2">
+                  {#if item.foto_path}
+                    <img src="/uploads/{item.foto_path.replace('med_', 'thumb_')}" alt={item.nama}
+                      class="rounded-full object-cover shrink-0"
+                      style="width:28px;height:28px;background:var(--surface2)" />
+                  {:else}
+                    <span class="rounded-full flex items-center justify-center shrink-0 font-bold"
+                      style="width:28px;height:28px;background:var(--surface2);color:var(--text-dim);font-size:10px">
+                      {item.nama.trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()}
+                    </span>
+                  {/if}
+                  {item.nama}
+                </div>
+              </td>
+            {/if}
+            {#if !hidden.has('role')}
+              <td class="px-3 py-2">
+                <span class="text-xs font-bold" style="color:{ROLE_COLOR[item.role] ?? 'var(--text-dim)'}">
+                  {item.role.toUpperCase()}
+                </span>
+              </td>
+            {/if}
+            {#if !hidden.has('username')}
+              <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.username}</td>
+            {/if}
+            {#if !hidden.has('gaji_pokok')}
+              <td class="px-3 py-2 text-right">{rp(item.gaji_pokok)}</td>
+            {/if}
+            {#if !hidden.has('tipe_gaji')}
+              <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.tipe_gaji}</td>
+            {/if}
+            {#if !hidden.has('aksi')}
+              <td class="px-3 py-2 text-right">
+                {#if canManageGaji}
+                  <button onclick={() => bukaFormKaryawan(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
+                  <button onclick={() => hapusKaryawan(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+                {/if}
+              </td>
+            {/if}
+          </tr>
+        {/each}
+      {/snippet}
+    </DataTable>
   {/if}
 
   <!-- ════════════════════════════════════════════════════════════════════════
@@ -752,87 +874,89 @@
     </div>
 
     {#if viewAbsensi === 'list'}
-      <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-        <table class="w-full text-sm">
-          <thead>
-            <tr style="background:var(--surface2);color:var(--text-dim)">
-              {#if canSemua}<th class="text-left px-3 py-2 font-medium">Karyawan</th>{/if}
-              <th class="text-left px-3 py-2 font-medium">Tanggal</th>
-              <th class="text-left px-3 py-2 font-medium">Masuk</th>
-              <th class="text-left px-3 py-2 font-medium">Keluar</th>
-              <th class="text-left px-3 py-2 font-medium">Durasi</th>
-              <th class="text-left px-3 py-2 font-medium">Status</th>
-              {#if canSemua}<th class="px-3 py-2"></th>{/if}
+      <DataTable
+        columns={kolAbsensiList}
+        tableId="karyawan_absensi"
+        bind:sortKey={sortKeyAbsensi}
+        bind:sortDir={sortDirAbsensi}
+        rowCount={sortedAbsensi.length}
+        emptyText={loadingAbsensi ? 'Memuat...' : 'Belum ada data absensi bulan ini'}
+        maxRows={14}
+      >
+        {#snippet body(hidden)}
+          {#each sortedAbsensi as item}
+            <tr class="border-t" style="border-color:var(--border)">
+              {#if !hidden.has('nama_karyawan')}
+                <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
+              {/if}
+              {#if !hidden.has('tanggal')}
+                <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.tanggal}</td>
+              {/if}
+              {#if !hidden.has('jam_masuk')}
+                <td class="px-3 py-2">{item.jam_masuk ?? '-'}</td>
+              {/if}
+              {#if !hidden.has('jam_keluar')}
+                <td class="px-3 py-2">{item.jam_keluar ?? '-'}</td>
+              {/if}
+              {#if !hidden.has('durasi')}
+                <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{hitungDurasi(item.jam_masuk, item.jam_keluar)}</td>
+              {/if}
+              {#if !hidden.has('status')}
+                <td class="px-3 py-2">
+                  <span class="text-xs font-bold" style="color:{STATUS_COLOR[item.status]}">{item.status.toUpperCase()}</span>
+                </td>
+              {/if}
+              {#if !hidden.has('aksi')}
+                <td class="px-3 py-2 text-right">
+                  <button onclick={() => bukaFormAbsensi(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
+                  <button onclick={() => hapusAbsensi(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
+                </td>
+              {/if}
             </tr>
-          </thead>
-          <tbody>
-            {#if loadingAbsensi}
-              <tr><td colspan="6" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-            {:else if absensiList.length === 0}
-              <tr><td colspan="6" class="px-3 py-4 text-center" style="color:var(--text-dim)">Belum ada data absensi bulan ini</td></tr>
-            {:else}
-              {#each absensiList as item}
-                <tr class="border-t" style="border-color:var(--border)">
-                  {#if canSemua}<td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>{/if}
-                  <td class="px-3 py-2" style="color:var(--text-dim)">{item.tanggal}</td>
-                  <td class="px-3 py-2">{item.jam_masuk ?? '-'}</td>
-                  <td class="px-3 py-2">{item.jam_keluar ?? '-'}</td>
-                  <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{hitungDurasi(item.jam_masuk, item.jam_keluar)}</td>
-                  <td class="px-3 py-2">
-                    <span class="text-xs font-bold" style="color:{STATUS_COLOR[item.status]}">
-                      {item.status.toUpperCase()}
-                    </span>
-                  </td>
-                  {#if canSemua}
-                    <td class="px-3 py-2 text-right">
-                      <button onclick={() => bukaFormAbsensi(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-                      <button onclick={() => hapusAbsensi(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
-                    </td>
-                  {/if}
-                </tr>
-              {/each}
-            {/if}
-          </tbody>
-        </table>
-      </div>
+          {/each}
+        {/snippet}
+      </DataTable>
     {:else}
-      <!-- Rekap -->
-      <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-        <table class="w-full text-sm">
-          <thead>
-            <tr style="background:var(--surface2);color:var(--text-dim)">
-              <th class="text-left px-3 py-2 font-medium">Karyawan</th>
-              <th class="text-center px-3 py-2 font-medium" style="color:var(--accent)">Hadir</th>
-              <th class="text-center px-3 py-2 font-medium" style="color:var(--info)">Izin</th>
-              <th class="text-center px-3 py-2 font-medium" style="color:var(--warn)">Sakit</th>
-              <th class="text-center px-3 py-2 font-medium" style="color:var(--danger)">Alpa</th>
-              <th class="text-center px-3 py-2 font-medium">Total</th>
-              <th class="text-center px-3 py-2 font-medium">% Hadir</th>
+      <DataTable
+        columns={kolAbsensiRekap}
+        tableId="karyawan_rekap"
+        bind:sortKey={sortKeyRekap}
+        bind:sortDir={sortDirRekap}
+        rowCount={sortedRekap.length}
+        emptyText={loadingAbsensi ? 'Memuat...' : 'Belum ada data'}
+        maxRows={14}
+      >
+        {#snippet body(hidden)}
+          {#each sortedRekap as item}
+            <tr class="border-t" style="border-color:var(--border)">
+              {#if !hidden.has('nama_karyawan')}
+                <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
+              {/if}
+              {#if !hidden.has('hadir')}
+                <td class="px-3 py-2 text-center font-bold" style="color:var(--accent)">{item.hadir}</td>
+              {/if}
+              {#if !hidden.has('izin')}
+                <td class="px-3 py-2 text-center" style="color:var(--info)">{item.izin}</td>
+              {/if}
+              {#if !hidden.has('sakit')}
+                <td class="px-3 py-2 text-center" style="color:var(--warn)">{item.sakit}</td>
+              {/if}
+              {#if !hidden.has('alpa')}
+                <td class="px-3 py-2 text-center" style="color:var(--danger)">{item.alpa}</td>
+              {/if}
+              {#if !hidden.has('total')}
+                <td class="px-3 py-2 text-center" style="color:var(--text-dim)">{item.total}</td>
+              {/if}
+              {#if !hidden.has('pct')}
+                <td class="px-3 py-2 text-center text-xs font-bold"
+                  style="color:{item.total > 0 && (item.hadir / item.total) >= 0.8 ? 'var(--accent)' : 'var(--warn)'}">
+                  {item.total > 0 ? `${((item.hadir / item.total) * 100).toFixed(0)}%` : '—'}
+                </td>
+              {/if}
             </tr>
-          </thead>
-          <tbody>
-            {#if loadingAbsensi}
-              <tr><td colspan="6" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-            {:else if rekapList.length === 0}
-              <tr><td colspan="6" class="px-3 py-4 text-center" style="color:var(--text-dim)">Belum ada data</td></tr>
-            {:else}
-              {#each rekapList as item}
-                <tr class="border-t" style="border-color:var(--border)">
-                  <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
-                  <td class="px-3 py-2 text-center font-bold" style="color:var(--accent)">{item.hadir}</td>
-                  <td class="px-3 py-2 text-center" style="color:var(--info)">{item.izin}</td>
-                  <td class="px-3 py-2 text-center" style="color:var(--warn)">{item.sakit}</td>
-                  <td class="px-3 py-2 text-center" style="color:var(--danger)">{item.alpa}</td>
-                  <td class="px-3 py-2 text-center" style="color:var(--text-dim)">{item.total}</td>
-                  <td class="px-3 py-2 text-center text-xs font-bold" style="color:{item.total > 0 && (item.hadir / item.total) >= 0.8 ? 'var(--accent)' : 'var(--warn)'}">
-                    {item.total > 0 ? `${((item.hadir / item.total) * 100).toFixed(0)}%` : '—'}
-                  </td>
-                </tr>
-              {/each}
-            {/if}
-          </tbody>
-        </table>
-      </div>
+          {/each}
+        {/snippet}
+      </DataTable>
     {/if}
   {/if}
 
@@ -853,80 +977,73 @@
       {/if}
     </div>
 
-    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="background:var(--surface2);color:var(--text-dim)">
-            <th class="text-left px-3 py-2 font-medium">Karyawan</th>
-            <th class="text-left px-3 py-2 font-medium">Periode</th>
-            <th class="text-center px-3 py-2 font-medium">Hadir/Kerja</th>
-            <th class="text-right px-3 py-2 font-medium">Gaji Pokok</th>
-            <th class="text-right px-3 py-2 font-medium">Tunjangan</th>
-            <th class="text-right px-3 py-2 font-medium">Pot. Kasbon</th>
-            <th class="text-right px-3 py-2 font-medium">Pot. Lain</th>
-            <th class="text-right px-3 py-2 font-medium">Total</th>
-            <th class="text-left px-3 py-2 font-medium">Status</th>
-            {#if canManageGaji}<th class="px-3 py-2"></th>{/if}
-          </tr>
-        </thead>
-        <tbody>
-          {#if loadingGaji}
-            <tr><td colspan="10" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-          {:else if penggajianList.length === 0}
-            <tr>
-              <td colspan="10" class="px-3 py-6 text-center" style="color:var(--text-dim)">
-                Belum ada data — klik "Generate Gaji" untuk membuat slip gaji dari absensi
+    <DataTable
+      columns={kolPenggajian}
+      tableId="karyawan_penggajian"
+      bind:sortKey={sortKeyGaji}
+      bind:sortDir={sortDirGaji}
+      rowCount={sortedGaji.length}
+      emptyText={loadingGaji ? 'Memuat...' : 'Belum ada data — klik "Generate Gaji" untuk membuat slip gaji dari absensi'}
+      maxRows={12}
+    >
+      {#snippet body(hidden)}
+        {#each sortedGaji as item}
+          <tr class="border-t" style="border-color:var(--border)">
+            {#if !hidden.has('nama_karyawan')}
+              <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
+            {/if}
+            {#if !hidden.has('periode_bulan')}
+              <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.periode_bulan}</td>
+            {/if}
+            {#if !hidden.has('hadir_kerja')}
+              <td class="px-3 py-2 text-center" style="color:var(--text-dim)">
+                {item.hari_hadir}/{item.hari_kerja}
+                {#if item.tipe_gaji === 'harian'}<span class="text-xs ml-1">(H)</span>{/if}
               </td>
-            </tr>
-          {:else}
-            {#each penggajianList as item}
-              <tr class="border-t" style="border-color:var(--border)">
-                <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
-                <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.periode_bulan}</td>
-                <td class="px-3 py-2 text-center" style="color:var(--text-dim)">
-                  {item.hari_hadir}/{item.hari_kerja}
-                  {#if item.tipe_gaji === 'harian'}<span class="text-xs ml-1">(H)</span>{/if}
-                </td>
-                <td class="px-3 py-2 text-right">{rp(item.gaji_pokok)}</td>
-                <td class="px-3 py-2 text-right" style="color:var(--accent)">{item.tunjangan > 0 ? rp(item.tunjangan) : '-'}</td>
-                <td class="px-3 py-2 text-right" style="color:var(--warn)">{item.potongan_kasbon > 0 ? rp(item.potongan_kasbon) : '-'}</td>
-                <td class="px-3 py-2 text-right" style="color:var(--danger)">{item.potongan_lain > 0 ? rp(item.potongan_lain) : '-'}</td>
-                <td class="px-3 py-2 text-right font-bold">{rp(item.total_gaji)}</td>
-                <td class="px-3 py-2">
-                  <span class="text-xs font-bold" style="color:{STATUS_GAJI_COLOR[item.status]}">
-                    {item.status.toUpperCase()}
-                  </span>
-                </td>
-                {#if canManageGaji}
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
-                    {#if item.status === 'draft'}
-                      <button onclick={() => bukaEditGaji(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-                      <button onclick={() => updateStatusGaji(item.id, 'approved')} class="text-xs mr-2" style="color:var(--accent)">Approve</button>
-                      <button onclick={() => hapusGaji(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
-                    {:else if item.status === 'approved'}
-                      <button onclick={() => bukaBayar(item.id)} class="text-xs font-bold" style="color:var(--accent)">Tandai Dibayar</button>
-                    {:else}
-                      <span class="text-xs" style="color:var(--text-dim)">Selesai</span>
-                    {/if}
-                  </td>
+            {/if}
+            {#if !hidden.has('gaji_pokok')}
+              <td class="px-3 py-2 text-right">{rp(item.gaji_pokok)}</td>
+            {/if}
+            {#if !hidden.has('tunjangan')}
+              <td class="px-3 py-2 text-right" style="color:var(--accent)">{item.tunjangan > 0 ? rp(item.tunjangan) : '-'}</td>
+            {/if}
+            {#if !hidden.has('potongan_kasbon')}
+              <td class="px-3 py-2 text-right" style="color:var(--warn)">{item.potongan_kasbon > 0 ? rp(item.potongan_kasbon) : '-'}</td>
+            {/if}
+            {#if !hidden.has('potongan_lain')}
+              <td class="px-3 py-2 text-right" style="color:var(--danger)">{item.potongan_lain > 0 ? rp(item.potongan_lain) : '-'}</td>
+            {/if}
+            {#if !hidden.has('total_gaji')}
+              <td class="px-3 py-2 text-right font-bold">{rp(item.total_gaji)}</td>
+            {/if}
+            {#if !hidden.has('status')}
+              <td class="px-3 py-2">
+                <span class="text-xs font-bold" style="color:{STATUS_GAJI_COLOR[item.status]}">{item.status.toUpperCase()}</span>
+              </td>
+            {/if}
+            {#if !hidden.has('aksi')}
+              <td class="px-3 py-2 text-right whitespace-nowrap">
+                {#if item.status === 'draft'}
+                  <button onclick={() => bukaEditGaji(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
+                  <button onclick={() => updateStatusGaji(item.id, 'approved')} class="text-xs mr-2" style="color:var(--accent)">Approve</button>
+                  <button onclick={() => hapusGaji(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
+                {:else if item.status === 'approved'}
+                  <button onclick={() => bukaBayar(item.id)} class="text-xs font-bold" style="color:var(--accent)">Tandai Dibayar</button>
+                {:else}
+                  <span class="text-xs" style="color:var(--text-dim)">Selesai</span>
                 {/if}
-              </tr>
-            {/each}
-          {/if}
-        </tbody>
-        {#if penggajianList.length > 0}
-          <tfoot>
-            <tr style="background:var(--surface2)">
-              <td colspan="7" class="px-3 py-2 text-right text-sm font-bold" style="color:var(--text-dim)">Total Penggajian</td>
-              <td class="px-3 py-2 text-right font-bold" style="color:var(--accent)">
-                {rp(penggajianList.reduce((s, r) => s + r.total_gaji, 0))}
               </td>
-              <td colspan="{canManageGaji ? 2 : 1}"></td>
-            </tr>
-          </tfoot>
-        {/if}
-      </table>
-    </div>
+            {/if}
+          </tr>
+        {/each}
+      {/snippet}
+    </DataTable>
+    {#if penggajianList.length > 0}
+      <div class="flex justify-end px-3 py-2 text-sm font-bold rounded border" style="border-color:var(--border);background:var(--surface2)">
+        <span style="color:var(--text-dim)">Total Penggajian &nbsp;</span>
+        <span style="color:var(--accent)">{rp(penggajianList.reduce((s, r) => s + r.total_gaji, 0))}</span>
+      </div>
+    {/if}
   {/if}
 
   <!-- ════════════════════════════════════════════════════════════════════════
@@ -956,73 +1073,74 @@
       {/if}
     </div>
 
-    <div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-      <table class="w-full text-sm">
-        <thead>
-          <tr style="background:var(--surface2);color:var(--text-dim)">
-            <th class="text-left px-3 py-2 font-medium">Karyawan</th>
-            <th class="text-left px-3 py-2 font-medium">Tgl Pinjam</th>
-            <th class="text-right px-3 py-2 font-medium">Jumlah</th>
-            <th class="text-right px-3 py-2 font-medium">Cicilan/Bln</th>
-            <th class="text-right px-3 py-2 font-medium">Sisa</th>
-            <th class="text-left px-3 py-2 font-medium">Status</th>
-            {#if canManageGaji}<th class="px-3 py-2"></th>{/if}
-          </tr>
-        </thead>
-        <tbody>
-          {#if loadingKasbon}
-            <tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-          {:else if kasbonList.length === 0}
-            <tr><td colspan="7" class="px-3 py-4 text-center" style="color:var(--text-dim)">Tidak ada kasbon</td></tr>
-          {:else}
-            {#each kasbonList as item}
-              {@const st = STATUS_KB[item.status]}
-              <tr class="border-t" style="border-color:var(--border)">
-                <td class="px-3 py-2">
-                  <div class="font-medium">{item.nama_karyawan}</div>
-                  {#if item.catatan && (item.status === 'ditolak' || item.status === 'pengajuan')}
-                    <div class="text-xs mt-0.5" style="color:var(--text-dim)">📝 {item.catatan}</div>
-                  {/if}
-                </td>
-                <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">
-                  <div>{item.tanggal_pinjam}</div>
-                  {#if item.tanggal_cair}<div style="color:var(--accent)">cair: {item.tanggal_cair}</div>{/if}
-                </td>
-                <td class="px-3 py-2 text-right">{rp(item.jumlah)}</td>
-                <td class="px-3 py-2 text-right" style="color:var(--text-dim)">
-                  {item.cicilan_per_bulan > 0 ? rp(item.cicilan_per_bulan) : '—'}
-                </td>
-                <td class="px-3 py-2 text-right font-bold"
-                  style="color:{item.sisa_kasbon > 0 ? 'var(--warn)' : 'var(--accent)'}">
-                  {rp(item.sisa_kasbon)}
-                </td>
-                <td class="px-3 py-2">
-                  <span class="text-xs font-bold" style="color:{st.color}">{st.label}</span>
-                </td>
-                {#if canManageGaji}
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
-                    {#if item.status === 'pengajuan'}
-                      <button onclick={() => setujuiKasbon(item.id)} class="text-xs mr-1.5" style="color:var(--accent)">Setujui</button>
-                      <button onclick={() => tolakKasbon(item.id)} class="text-xs" style="color:var(--danger)">Tolak</button>
-                    {:else if item.status === 'disetujui'}
-                      <button onclick={() => cairkanKasbon(item.id)} class="text-xs mr-1.5" style="color:var(--warn)">Cairkan</button>
-                      <button onclick={() => tolakKasbon(item.id)} class="text-xs" style="color:var(--danger)">Tolak</button>
-                    {:else if item.status === 'aktif'}
-                      <button onclick={() => bukaCicil(item)} class="text-xs mr-1.5" style="color:var(--info)">Cicil</button>
-                      {#if item.cicilan_per_bulan > 0}
-                        <button onclick={() => lihatJadwal(item)} class="text-xs mr-1.5" style="color:var(--text-dim)">Jadwal</button>
-                      {/if}
-                    {:else if item.status === 'ditolak' || item.status === 'lunas'}
-                      <button onclick={() => hapusKasbon(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
-                    {/if}
-                  </td>
+    <DataTable
+      columns={kolKasbon}
+      tableId="karyawan_kasbon"
+      bind:sortKey={sortKeyKasbon}
+      bind:sortDir={sortDirKasbon}
+      rowCount={sortedKasbon.length}
+      emptyText={loadingKasbon ? 'Memuat...' : 'Tidak ada kasbon'}
+      maxRows={12}
+    >
+      {#snippet body(hidden)}
+        {#each sortedKasbon as item}
+          {@const st = STATUS_KB[item.status]}
+          <tr class="border-t" style="border-color:var(--border)">
+            {#if !hidden.has('nama_karyawan')}
+              <td class="px-3 py-2">
+                <div class="font-medium">{item.nama_karyawan}</div>
+                {#if item.catatan && (item.status === 'ditolak' || item.status === 'pengajuan')}
+                  <div class="text-xs mt-0.5" style="color:var(--text-dim)">📝 {item.catatan}</div>
                 {/if}
-              </tr>
-            {/each}
-          {/if}
-        </tbody>
-      </table>
-    </div>
+              </td>
+            {/if}
+            {#if !hidden.has('tanggal_pinjam')}
+              <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">
+                <div>{item.tanggal_pinjam}</div>
+                {#if item.tanggal_cair}<div style="color:var(--accent)">cair: {item.tanggal_cair}</div>{/if}
+              </td>
+            {/if}
+            {#if !hidden.has('jumlah')}
+              <td class="px-3 py-2 text-right">{rp(item.jumlah)}</td>
+            {/if}
+            {#if !hidden.has('cicilan_per_bulan')}
+              <td class="px-3 py-2 text-right" style="color:var(--text-dim)">
+                {item.cicilan_per_bulan > 0 ? rp(item.cicilan_per_bulan) : '—'}
+              </td>
+            {/if}
+            {#if !hidden.has('sisa_kasbon')}
+              <td class="px-3 py-2 text-right font-bold"
+                style="color:{item.sisa_kasbon > 0 ? 'var(--warn)' : 'var(--accent)'}">
+                {rp(item.sisa_kasbon)}
+              </td>
+            {/if}
+            {#if !hidden.has('status')}
+              <td class="px-3 py-2">
+                <span class="text-xs font-bold" style="color:{st.color}">{st.label}</span>
+              </td>
+            {/if}
+            {#if !hidden.has('aksi')}
+              <td class="px-3 py-2 text-right whitespace-nowrap">
+                {#if item.status === 'pengajuan'}
+                  <button onclick={() => setujuiKasbon(item.id)} class="text-xs mr-1.5" style="color:var(--accent)">Setujui</button>
+                  <button onclick={() => tolakKasbon(item.id)} class="text-xs" style="color:var(--danger)">Tolak</button>
+                {:else if item.status === 'disetujui'}
+                  <button onclick={() => cairkanKasbon(item.id)} class="text-xs mr-1.5" style="color:var(--warn)">Cairkan</button>
+                  <button onclick={() => tolakKasbon(item.id)} class="text-xs" style="color:var(--danger)">Tolak</button>
+                {:else if item.status === 'aktif'}
+                  <button onclick={() => bukaCicil(item)} class="text-xs mr-1.5" style="color:var(--info)">Cicil</button>
+                  {#if item.cicilan_per_bulan > 0}
+                    <button onclick={() => lihatJadwal(item)} class="text-xs mr-1.5" style="color:var(--text-dim)">Jadwal</button>
+                  {/if}
+                {:else if item.status === 'ditolak' || item.status === 'lunas'}
+                  <button onclick={() => hapusKasbon(item.id)} class="text-xs" style="color:var(--danger)">Hapus</button>
+                {/if}
+              </td>
+            {/if}
+          </tr>
+        {/each}
+      {/snippet}
+    </DataTable>
   {/if}
 
   <!-- ════════ TAB: JADWAL SHIFT ════════════════════════════════════════════ -->

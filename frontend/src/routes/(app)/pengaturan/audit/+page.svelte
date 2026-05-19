@@ -164,8 +164,9 @@
 	<!-- Filter -->
 	<div class="rounded border p-3 flex flex-wrap gap-2 items-end" style="background:var(--surface);border-color:var(--border)">
 		<div class="flex flex-col gap-1">
-			<label class="text-xs" style="color:var(--text-dim)">Modul</label>
+			<label for="audit-modul" class="text-xs" style="color:var(--text-dim)">Modul</label>
 			<select
+				id="audit-modul"
 				bind:value={filterModul}
 				onchange={onFilterChange}
 				class="px-2 py-1 text-xs rounded border outline-none"
@@ -179,8 +180,9 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<label class="text-xs" style="color:var(--text-dim)">Aksi</label>
+			<label for="audit-aksi" class="text-xs" style="color:var(--text-dim)">Aksi</label>
 			<input
+				id="audit-aksi"
 				type="text"
 				bind:value={filterAksi}
 				oninput={onFilterChange}
@@ -191,8 +193,9 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<label class="text-xs" style="color:var(--text-dim)">Karyawan</label>
+			<label for="audit-karyawan" class="text-xs" style="color:var(--text-dim)">Karyawan</label>
 			<select
+				id="audit-karyawan"
 				bind:value={filterKaryawanId}
 				onchange={onFilterChange}
 				class="px-2 py-1 text-xs rounded border outline-none"
@@ -206,8 +209,9 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<label class="text-xs" style="color:var(--text-dim)">Dari</label>
+			<label for="audit-dari" class="text-xs" style="color:var(--text-dim)">Dari</label>
 			<input
+				id="audit-dari"
 				type="date"
 				bind:value={filterDari}
 				onchange={onFilterChange}
@@ -217,8 +221,9 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<label class="text-xs" style="color:var(--text-dim)">Sampai</label>
+			<label for="audit-sampai" class="text-xs" style="color:var(--text-dim)">Sampai</label>
 			<input
+				id="audit-sampai"
 				type="date"
 				bind:value={filterSampai}
 				onchange={onFilterChange}
@@ -342,15 +347,22 @@
 
 <!-- Modal Detail -->
 {#if detailItem}
+	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 	<div
 		class="fixed inset-0 flex items-center justify-center z-50"
 		style="background:rgba(0,0,0,0.6)"
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
 		onclick={() => detailItem = null}
+		onkeydown={(e) => e.key === 'Escape' && (detailItem = null)}
 	>
+		<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 		<div
 			class="rounded border max-w-lg w-full mx-4 overflow-hidden"
 			style="background:var(--surface);border-color:var(--border)"
 			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
 		>
 			<div class="flex items-center justify-between px-4 py-3 border-b" style="border-color:var(--border)">
 				<span class="text-sm font-bold" style="color:var(--text)">Detail Log #{detailItem.id}</span>
