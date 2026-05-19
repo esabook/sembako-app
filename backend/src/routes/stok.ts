@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, gte, lte } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, sqlite } from '../db/index.ts'
-import { barang, mutasi_stok, kategori, satuan } from '../db/schema.ts'
+import { barang, mutasi_stok, kategori, satuan, karyawan } from '../db/schema.ts'
 import { catatLog } from '../utils/log.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -39,12 +39,31 @@ stokRouter.get('/', requirePermission('stok.lihat'), async (c) => {
 
 stokRouter.get('/:id/mutasi', requirePermission('stok.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
+  const dari = c.req.query('dari')
+  const sampai = c.req.query('sampai')
+  const limit = Math.min(Number(c.req.query('limit') ?? 200), 500)
+
+  const conditions = [eq(mutasi_stok.barang_id, id)]
+  if (dari) conditions.push(gte(mutasi_stok.tanggal, dari))
+  if (sampai) conditions.push(lte(mutasi_stok.tanggal, sampai + ' 23:59:59'))
+
   const rows = db
-    .select()
+    .select({
+      id: mutasi_stok.id,
+      tanggal: mutasi_stok.tanggal,
+      jenis: mutasi_stok.jenis,
+      referensi_tipe: mutasi_stok.referensi_tipe,
+      referensi_id: mutasi_stok.referensi_id,
+      jumlah_sebelum: mutasi_stok.jumlah_sebelum,
+      jumlah_perubahan: mutasi_stok.jumlah_perubahan,
+      jumlah_sesudah: mutasi_stok.jumlah_sesudah,
+      dicatat_oleh_nama: karyawan.nama,
+    })
     .from(mutasi_stok)
-    .where(eq(mutasi_stok.barang_id, id))
+    .leftJoin(karyawan, eq(mutasi_stok.dicatat_oleh, karyawan.id))
+    .where(and(...conditions))
     .orderBy(desc(mutasi_stok.tanggal))
-    .limit(100)
+    .limit(limit)
     .all()
 
   return c.json({ success: true, data: rows })
