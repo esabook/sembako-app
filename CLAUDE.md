@@ -242,10 +242,6 @@ Branch aktif: `development`
 ## BACKLOG — NEXT TASKS
 
 ```
-Prioritas tinggi:
-  [ ] Shortcut keyboard kasir — F2 cari, F5 bayar, F9 void, Esc tutup modal
-      (untuk kasir yang pakai keyboard fisik / barcode scanner)
-
 Pertimbangan jangka panjang:
   [x] Service Worker / offline cache — agar kasir tetap jalan saat WiFi putus
   [ ] Multi-toko / multi-cabang
