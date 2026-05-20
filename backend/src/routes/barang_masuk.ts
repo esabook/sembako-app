@@ -130,7 +130,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
     // 2. Detail + mutasi stok
     for (const item of body.items) {
       const br = db.select().from(barang).where(eq(barang.id, item.barang_id)).get()
-      if (!br) throw new Error(`Barang ID ${item.barang_id} tidak ditemukan`)
+      if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
       db.insert(barang_masuk_detail).values({
         penerimaan_id: bm.id,
