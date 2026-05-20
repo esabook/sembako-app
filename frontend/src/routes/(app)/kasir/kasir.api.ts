@@ -23,6 +23,7 @@ type SubmitPenjualanBody = {
 	tipe: TipeTransaksi;
 	metode_bayar: MetodeBayar;
 	bayar: number;
+	diskon_total?: number;
 	kas_bank_id?: number;
 	items: Pick<ItemKeranjang, 'barang_id' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'>[];
 };
