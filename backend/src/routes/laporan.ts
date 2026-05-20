@@ -2,11 +2,13 @@ import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, and, gte, lte, ne, sql } from 'drizzle-orm'
 import { db } from '../db/index.ts'
+import { sqlite } from '../db/index.ts'
 import {
   penjualan, penjualan_detail,
   jurnal_kas, kas_bank,
   hutang_supplier, piutang_pelanggan,
   barang, pelanggan, supplier,
+  barang_masuk_detail,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
@@ -51,10 +53,10 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
   const totalDiskon = penjualanRows.reduce((s, r) => s + r.diskon_total, 0)
   const jumlahTransaksi = penjualanRows.length
 
-  // HPP — estimasi dari harga_beli_terakhir barang × jumlah terjual
+  // HPP — Weighted Average Cost (WAC): pakai harga_beli_rata, fallback ke harga_beli_terakhir
   const hppRows = db
     .select({
-      hpp: sql<number>`sum(${penjualan_detail.jumlah} * ${barang.harga_beli_terakhir})`,
+      hpp: sql<number>`sum(${penjualan_detail.jumlah} * CASE WHEN ${barang.harga_beli_rata} > 0 THEN ${barang.harga_beli_rata} ELSE ${barang.harga_beli_terakhir} END)`,
     })
     .from(penjualan_detail)
     .innerJoin(penjualan, eq(penjualan_detail.penjualan_id, penjualan.id))
@@ -226,9 +228,11 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
     .all()
   const totalPiutang = piutangRows.reduce((s, r) => s + r.sisa, 0)
 
-  // 3. Nilai stok (estimasi — gunakan stok saat ini)
+  // 3. Nilai stok — gunakan WAC (harga_beli_rata), fallback ke harga_beli_terakhir
   const nilaiStokRow = db
-    .select({ total: sql<number>`sum(${barang.stok_sekarang} * ${barang.harga_beli_terakhir})` })
+    .select({
+      total: sql<number>`sum(${barang.stok_sekarang} * CASE WHEN ${barang.harga_beli_rata} > 0 THEN ${barang.harga_beli_rata} ELSE ${barang.harga_beli_terakhir} END)`,
+    })
     .from(barang)
     .where(eq(barang.is_active, true))
     .get()
@@ -381,6 +385,134 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
       hutang: BUCKET_ORDER.map(k => hutangBuckets[k]),
       total_piutang: totalPiutang,
       total_hutang: totalHutangAging,
+    },
+  })
+})
+
+// ── POST /laporan/init-harga-rata — hitung WAC awal dari histori barang_masuk ──
+
+laporanRouter.post('/init-harga-rata', requirePermission('*'), async (c) => {
+  // Ambil semua histori penerimaan barang diurutkan dari terlama
+  const histori = db
+    .select({
+      barang_id: barang_masuk_detail.barang_id,
+      jumlah: barang_masuk_detail.jumlah_terima,
+      harga: barang_masuk_detail.harga_beli,
+    })
+    .from(barang_masuk_detail)
+    .orderBy(barang_masuk_detail.id)
+    .all()
+
+  // Hitung WAC per barang secara kronologis
+  const wacMap = new Map<number, { rata: number; stok: number }>()
+  for (const h of histori) {
+    const cur = wacMap.get(h.barang_id) ?? { rata: 0, stok: 0 }
+    const stokBaru = cur.stok + h.jumlah
+    const rataBaru = stokBaru > 0
+      ? (cur.stok * cur.rata + h.jumlah * h.harga) / stokBaru
+      : h.harga
+    wacMap.set(h.barang_id, { rata: rataBaru, stok: stokBaru })
+  }
+
+  // Update harga_beli_rata untuk semua barang yang punya histori
+  let updated = 0
+  sqlite.transaction(() => {
+    for (const [barangId, { rata }] of wacMap) {
+      if (rata <= 0) continue
+      db.update(barang)
+        .set({ harga_beli_rata: Math.round(rata) })
+        .where(eq(barang.id, barangId))
+        .run()
+      updated++
+    }
+  })()
+
+  return c.json({ success: true, data: { barang_diupdate: updated } })
+})
+
+// ── GET /laporan/rekonsiliasi-diskon — preview transaksi yang totalnya salah ──
+
+laporanRouter.get('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
+  // Transaksi non-hutang, non-void, kembalian=0, tapi bayar < total
+  // → diskon member/promo tidak tercatat karena bug lama
+  const affected = db
+    .select({
+      id: penjualan.id,
+      no_transaksi: penjualan.no_transaksi,
+      tanggal: penjualan.tanggal,
+      subtotal: penjualan.subtotal,
+      diskon_total_lama: penjualan.diskon_total,
+      total_lama: penjualan.total,
+      bayar: penjualan.bayar,
+      selisih: sql<number>`${penjualan.total} - ${penjualan.bayar}`,
+    })
+    .from(penjualan)
+    .where(
+      and(
+        ne(penjualan.status, 'void'),
+        ne(penjualan.metode_bayar, 'hutang'),
+        sql`${penjualan.bayar} > 0`,
+        sql`${penjualan.bayar} < ${penjualan.total}`,
+        sql`${penjualan.kembalian} = 0`,
+      )
+    )
+    .orderBy(penjualan.tanggal)
+    .all()
+
+  const totalSelisih = affected.reduce((s, r) => s + r.selisih, 0)
+
+  return c.json({
+    success: true,
+    data: {
+      jumlah_transaksi: affected.length,
+      total_selisih: Math.round(totalSelisih),
+      keterangan: 'Selisih = diskon yang diberikan ke pelanggan tapi tidak tercatat di database',
+      transaksi: affected,
+    },
+  })
+})
+
+// ── POST /laporan/rekonsiliasi-diskon — terapkan fix ke semua transaksi afected ──
+
+laporanRouter.post('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
+  const affected = db
+    .select({
+      id: penjualan.id,
+      total: penjualan.total,
+      bayar: penjualan.bayar,
+    })
+    .from(penjualan)
+    .where(
+      and(
+        ne(penjualan.status, 'void'),
+        ne(penjualan.metode_bayar, 'hutang'),
+        sql`${penjualan.bayar} > 0`,
+        sql`${penjualan.bayar} < ${penjualan.total}`,
+        sql`${penjualan.kembalian} = 0`,
+      )
+    )
+    .all()
+
+  let fixed = 0
+  sqlite.transaction(() => {
+    for (const trx of affected) {
+      const diskonBaru = trx.total - trx.bayar   // selisih = diskon yang hilang
+      db.update(penjualan)
+        .set({
+          diskon_total: diskonBaru,
+          total: trx.bayar,                       // total = bayar (yang benar)
+        })
+        .where(eq(penjualan.id, trx.id))
+        .run()
+      fixed++
+    }
+  })()
+
+  return c.json({
+    success: true,
+    data: {
+      transaksi_diperbaiki: fixed,
+      keterangan: 'diskon_total dan total telah diperbarui sesuai bayar aktual',
     },
   })
 })

@@ -91,6 +91,7 @@ export const barang = sqliteTable('barang', {
   // JSON: [{ satuan_id, faktor }] misal 1 karton = 24 pcs
   konversi_satuan: text('konversi_satuan', { mode: 'json' }),
   harga_beli_terakhir: real('harga_beli_terakhir').notNull().default(0),
+  harga_beli_rata: real('harga_beli_rata').notNull().default(0),
   harga_jual_eceran: real('harga_jual_eceran').notNull().default(0),
   harga_jual_grosir: real('harga_jual_grosir').notNull().default(0),
   stok_minimum: real('stok_minimum').notNull().default(0),
