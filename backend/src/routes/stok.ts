@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, desc, and, gte, lte } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, sqlite } from '../db/index.ts'
 import { barang, mutasi_stok, kategori, satuan, karyawan } from '../db/schema.ts'
@@ -116,4 +116,78 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
     alasan: body.alasan,
   })
   return c.json({ success: true, data: { selisih } })
+})
+
+// ── GET /stok/rekonsiliasi — deteksi drift stok_sekarang vs mutasi terakhir ──
+
+stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
+  // Ambil jumlah_sesudah dari mutasi terakhir tiap barang
+  const mutasiTerakhir = db
+    .select({
+      barang_id: mutasi_stok.barang_id,
+      jumlah_sesudah: mutasi_stok.jumlah_sesudah,
+      tanggal: mutasi_stok.tanggal,
+      id: mutasi_stok.id,
+    })
+    .from(mutasi_stok)
+    .where(sql`${mutasi_stok.id} = (
+      SELECT id FROM mutasi_stok m2
+      WHERE m2.barang_id = ${mutasi_stok.barang_id}
+      ORDER BY m2.id DESC LIMIT 1
+    )`)
+    .all()
+
+  const mutasiMap = new Map(mutasiTerakhir.map((m) => [m.barang_id, m]))
+
+  const semuaBarang = db
+    .select({
+      id: barang.id,
+      kode_barang: barang.kode_barang,
+      nama_barang: barang.nama_barang,
+      stok_sekarang: barang.stok_sekarang,
+    })
+    .from(barang)
+    .where(eq(barang.is_active, true))
+    .all()
+
+  const drift = []
+  const tanpaMutasi = []
+
+  for (const b of semuaBarang) {
+    const m = mutasiMap.get(b.id)
+    if (!m) {
+      // Barang aktif tapi belum pernah ada mutasi
+      if (b.stok_sekarang !== 0) {
+        tanpaMutasi.push({ id: b.id, kode_barang: b.kode_barang, nama_barang: b.nama_barang, stok_sekarang: b.stok_sekarang })
+      }
+      continue
+    }
+    const selisih = b.stok_sekarang - m.jumlah_sesudah
+    if (Math.abs(selisih) > 0.001) {
+      drift.push({
+        id: b.id,
+        kode_barang: b.kode_barang,
+        nama_barang: b.nama_barang,
+        stok_sekarang: b.stok_sekarang,
+        stok_dari_mutasi: m.jumlah_sesudah,
+        selisih,
+        mutasi_terakhir_id: m.id,
+        mutasi_terakhir_tgl: m.tanggal,
+      })
+    }
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      total_barang_aktif: semuaBarang.length,
+      barang_drift: drift.length,
+      barang_tanpa_mutasi: tanpaMutasi.length,
+      drift,
+      tanpa_mutasi: tanpaMutasi,
+      keterangan: drift.length === 0 && tanpaMutasi.length === 0
+        ? 'Semua stok konsisten ✓'
+        : 'Ada ketidaksesuaian stok — gunakan koreksi manual untuk menyamakan',
+    },
+  })
 })

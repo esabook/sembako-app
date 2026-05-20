@@ -1,0 +1,1 @@
+ALTER TABLE `barang` ADD `harga_beli_rata` real DEFAULT 0 NOT NULL;

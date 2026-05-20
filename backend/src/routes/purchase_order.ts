@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc, sql, and, gte, ne } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
 import {
   purchase_order, po_detail,
   barang, supplier, satuan,
-  penjualan_detail,
+  penjualan, penjualan_detail,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -104,6 +104,11 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
       total_jumlah: sql<number>`sum(${penjualan_detail.jumlah})`,
     })
     .from(penjualan_detail)
+    .innerJoin(penjualan, eq(penjualan_detail.penjualan_id, penjualan.id))
+    .where(and(
+      gte(penjualan.tanggal, tgl7HariLalu),
+      ne(penjualan.status, 'void'),
+    ))
     .groupBy(penjualan_detail.barang_id)
     .all()
 

@@ -140,6 +140,12 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   const itemsValidated: (ItemInput & { subtotal: number })[] = []
 
   for (const item of body.items) {
+    if (!item.jumlah || item.jumlah <= 0) {
+      throw new HTTPException(400, { message: 'Jumlah barang harus lebih dari 0' })
+    }
+    if (item.harga_jual < 0) {
+      throw new HTTPException(400, { message: 'Harga jual tidak boleh negatif' })
+    }
     const br = db.select().from(barang).where(eq(barang.id, item.barang_id)).get()
     if (!br || !br.is_active) {
       throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })

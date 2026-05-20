@@ -67,6 +67,8 @@ kasbonRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
 
   if (!body.karyawan_id || !body.tanggal_pinjam || !body.jumlah)
     throw new HTTPException(400, { message: 'karyawan_id, tanggal_pinjam, jumlah wajib' })
+  if (body.cicilan_per_bulan !== undefined && body.cicilan_per_bulan <= 0)
+    throw new HTTPException(400, { message: 'cicilan_per_bulan harus lebih dari 0' })
   if (body.jumlah <= 0)
     throw new HTTPException(400, { message: 'Jumlah kasbon harus > 0' })
 

@@ -358,6 +358,10 @@ export async function prosesBayar() {
 		return;
 	}
 
+	const $diskonMember = get(diskonMember);
+	const $diskonPromo  = get(diskonPromoTotal);
+	const diskonTotalKirim = $diskonMember + $diskonPromo;
+
 	const hasil = await withLoading(
 		() =>
 			submitPenjualan({
@@ -365,6 +369,7 @@ export async function prosesBayar() {
 				tipe: $tipe,
 				metode_bayar: $metode,
 				bayar: Number($nominal) || $total,
+				diskon_total: diskonTotalKirim > 0 ? diskonTotalKirim : undefined,
 				kas_bank_id: get(kasBankDipilih) ?? undefined,
 				items: $keranjang.map((i) => ({
 					barang_id: i.barang_id,

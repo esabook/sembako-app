@@ -130,7 +130,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
     // 2. Detail + mutasi stok
     for (const item of body.items) {
       const br = db.select().from(barang).where(eq(barang.id, item.barang_id)).get()
-      if (!br) throw new Error(`Barang ID ${item.barang_id} tidak ditemukan`)
+      if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
       db.insert(barang_masuk_detail).values({
         penerimaan_id: bm.id,
@@ -153,10 +153,19 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
         dicatat_oleh: user.id,
       }).run()
 
+      // WAC: (stok_lama × rata_lama + jumlah_masuk × harga_baru) / (stok_lama + jumlah_masuk)
+      const stokLama = br.stok_sekarang
+      const rataLama = br.harga_beli_rata > 0 ? br.harga_beli_rata : br.harga_beli_terakhir
+      const stokBaru = stokLama + item.jumlah_terima
+      const hargaBeliBaru = stokBaru > 0
+        ? (stokLama * rataLama + item.jumlah_terima * item.harga_beli) / stokBaru
+        : item.harga_beli
+
       db.update(barang)
         .set({
-          stok_sekarang: br.stok_sekarang + item.jumlah_terima,
+          stok_sekarang: stokBaru,
           harga_beli_terakhir: item.harga_beli,
+          harga_beli_rata: Math.round(hargaBeliBaru),
         })
         .where(eq(barang.id, item.barang_id))
         .run()
