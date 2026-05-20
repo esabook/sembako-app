@@ -348,3 +348,77 @@ keuanganRouter.post('/jurnal', requirePermission('hutang.edit'), async (c) => {
 
   return c.json({ success: true, data: row }, 201)
 })
+
+// ── GET /keuangan/rekonsiliasi-piutang — cek selisih saldo_piutang vs aktual ──
+
+keuanganRouter.get('/rekonsiliasi-piutang', requirePermission('*'), async (c) => {
+  const aktual = db
+    .select({
+      pelanggan_id: pelanggan.id,
+      nama: pelanggan.nama,
+      saldo_tersimpan: pelanggan.saldo_piutang,
+      saldo_aktual: sql<number>`COALESCE(SUM(${piutang_pelanggan.sisa_piutang}), 0)`,
+    })
+    .from(pelanggan)
+    .leftJoin(
+      piutang_pelanggan,
+      and(
+        eq(piutang_pelanggan.pelanggan_id, pelanggan.id),
+        sql`${piutang_pelanggan.status} != 'lunas'`,
+      )
+    )
+    .where(eq(pelanggan.is_active, true))
+    .groupBy(pelanggan.id)
+    .all()
+
+  const desync = aktual.filter((r) => Math.abs(r.saldo_tersimpan - r.saldo_aktual) > 0.01)
+
+  return c.json({
+    success: true,
+    data: {
+      total_pelanggan: aktual.length,
+      pelanggan_desync: desync.length,
+      selisih: desync.map((r) => ({
+        pelanggan_id: r.pelanggan_id,
+        nama: r.nama,
+        saldo_tersimpan: r.saldo_tersimpan,
+        saldo_aktual: r.saldo_aktual,
+        selisih: r.saldo_tersimpan - r.saldo_aktual,
+      })),
+    },
+  })
+})
+
+// ── POST /keuangan/rekonsiliasi-piutang — fix saldo_piutang dari data aktual ──
+
+keuanganRouter.post('/rekonsiliasi-piutang', requirePermission('*'), async (c) => {
+  const aktual = db
+    .select({
+      pelanggan_id: pelanggan.id,
+      saldo_aktual: sql<number>`COALESCE(SUM(${piutang_pelanggan.sisa_piutang}), 0)`,
+    })
+    .from(pelanggan)
+    .leftJoin(
+      piutang_pelanggan,
+      and(
+        eq(piutang_pelanggan.pelanggan_id, pelanggan.id),
+        sql`${piutang_pelanggan.status} != 'lunas'`,
+      )
+    )
+    .where(eq(pelanggan.is_active, true))
+    .groupBy(pelanggan.id)
+    .all()
+
+  let fixed = 0
+  sqlite.transaction(() => {
+    for (const r of aktual) {
+      db.update(pelanggan)
+        .set({ saldo_piutang: Math.max(0, r.saldo_aktual) })
+        .where(eq(pelanggan.id, r.pelanggan_id))
+        .run()
+      fixed++
+    }
+  })()
+
+  return c.json({ success: true, data: { pelanggan_diupdate: fixed } })
+})

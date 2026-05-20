@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  check,
   index,
   integer,
   real,
@@ -100,7 +101,11 @@ export const barang = sqliteTable('barang', {
   foto_path: text('foto_path'),
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   ...timestamps,
-})
+}, () => [
+  check('chk_barang_harga_jual_eceran', sql`harga_jual_eceran >= 0`),
+  check('chk_barang_harga_jual_grosir', sql`harga_jual_grosir >= 0`),
+  check('chk_barang_stok', sql`stok_sekarang >= 0`),
+])
 
 export const supplier = sqliteTable('supplier', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -238,6 +243,11 @@ export const penjualan = sqliteTable('penjualan', {
   index('idx_penjualan_tanggal').on(t.tanggal),
   index('idx_penjualan_status').on(t.status),
   index('idx_penjualan_kasir').on(t.kasir_id),
+  check('chk_penjualan_subtotal', sql`${t.subtotal} >= 0`),
+  check('chk_penjualan_total', sql`${t.total} >= 0`),
+  check('chk_penjualan_diskon', sql`${t.diskon_total} >= 0`),
+  check('chk_penjualan_bayar', sql`${t.bayar} >= 0`),
+  check('chk_penjualan_kembalian', sql`${t.kembalian} >= 0`),
 ])
 
 export const penjualan_detail = sqliteTable('penjualan_detail', {
@@ -251,6 +261,10 @@ export const penjualan_detail = sqliteTable('penjualan_detail', {
   subtotal: real('subtotal').notNull(),
 }, (t) => [
   index('idx_penjualan_detail_trx').on(t.penjualan_id),
+  check('chk_detail_jumlah_pos', sql`${t.jumlah} > 0`),
+  check('chk_detail_harga_pos', sql`${t.harga_jual} >= 0`),
+  check('chk_detail_diskon_pos', sql`${t.diskon_item} >= 0`),
+  check('chk_detail_subtotal_pos', sql`${t.subtotal} >= 0`),
 ])
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -363,6 +377,9 @@ export const piutang_pelanggan = sqliteTable('piutang_pelanggan', {
 }, (t) => [
   index('idx_piutang_status').on(t.status),
   index('idx_piutang_jatuh').on(t.tanggal_jatuh_tempo),
+  check('chk_piutang_total_pos', sql`${t.total_piutang} > 0`),
+  check('chk_piutang_sisa_pos', sql`${t.sisa_piutang} >= 0`),
+  check('chk_piutang_sisa_lte_total', sql`${t.sisa_piutang} <= ${t.total_piutang}`),
 ])
 
 export const pembayaran_piutang = sqliteTable('pembayaran_piutang', {
@@ -424,7 +441,11 @@ export const kasbon = sqliteTable('kasbon', {
   tanggal_cair: text('tanggal_cair'),
   catatan: text('catatan'),
   ...timestamps,
-})
+}, (t) => [
+  check('chk_kasbon_jumlah_pos', sql`${t.jumlah} > 0`),
+  check('chk_kasbon_sisa_pos', sql`${t.sisa_kasbon} >= 0`),
+  check('chk_kasbon_cicilan_pos', sql`${t.cicilan_per_bulan} >= 0`),
+])
 
 // ─── Shift Kasir ────────────────────────────────────────────────────────────
 
