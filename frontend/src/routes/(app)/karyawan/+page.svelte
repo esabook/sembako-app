@@ -13,7 +13,7 @@
   })
 
   // ── Tab ─────────────────────────────────────────────────────────────────────
-  type Tab = 'data' | 'absensi' | 'penggajian' | 'kasbon' | 'jadwal'
+  type Tab = 'data' | 'absensi' | 'penggajian' | 'kasbon' | 'jadwal' | 'performa'
   let tab = $derived<Tab>(
     (page.url.searchParams.get('tab') as Tab) ?? 'data'
   )
@@ -724,12 +724,87 @@
     await api.put(`/jadwal/tukar/${id}/tolak`, {})
     muatJadwal()
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAB: PERFORMA SHIFT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  type PerformaRingkasan = {
+    id: number; nama: string
+    total_shift: number; shift_ditutup: number
+    total_transaksi: number; total_penjualan: number
+    avg_penjualan_per_shift: number; avg_transaksi_per_shift: number
+    rata_per_trx: number; trx_per_jam: number
+    avg_durasi_menit: number; total_void: number; void_rate_pct: number
+    avg_selisih_kas: number
+    absensi: { hadir: number; alpa: number }
+  }
+
+  type PerShift = {
+    id: number; tanggal: string; jam_buka: string; jam_tutup: string | null
+    durasi_menit: number; jumlah_transaksi: number; total_penjualan: number
+    trx_per_jam: number | null; rata_per_trx: number
+    selisih_kas: number | null; status: 'buka' | 'tutup'
+  }
+
+  type PerformaDetail = {
+    karyawan: { id: number; nama: string; role: string }
+    bulan: string
+    ringkasan: {
+      total_shift: number; shift_ditutup: number
+      total_transaksi: number; total_penjualan: number
+      avg_penjualan_per_shift: number; avg_transaksi_per_shift: number
+      rata_per_trx: number; avg_durasi_menit: number
+      total_void: number; void_rate_pct: number
+    }
+    per_shift: PerShift[]
+    absensi: { hadir: number; izin: number; sakit: number; alpa: number }
+  }
+
+  let bulanPerforma = $state(new Date().toISOString().slice(0, 7))
+  let performaList = $state<PerformaRingkasan[]>([])
+  let performaDetail = $state<PerformaDetail | null>(null)
+  let performaDetailId = $state<number | null>(null)
+  let loadingPerforma = $state(false)
+
+  async function muatPerforma() {
+    loadingPerforma = true
+    const res = await api.get<{ bulan: string; hasil: PerformaRingkasan[] }>(
+      `/karyawan/performa?bulan=${bulanPerforma}`
+    )
+    loadingPerforma = false
+    if (res.success) performaList = res.data.hasil
+  }
+
+  async function muatPerformaDetail(id: number) {
+    performaDetailId = id
+    performaDetail = null
+    const res = await api.get<PerformaDetail>(
+      `/karyawan/${id}/performa?bulan=${bulanPerforma}`
+    )
+    if (res.success) performaDetail = res.data
+  }
+
+  $effect(() => { if (tab === 'performa') { bulanPerforma; muatPerforma() } })
+
+  function fmtRpK(n: number) {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}jt`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}rb`
+    return String(Math.round(n))
+  }
+
+  function fmtMenit(m: number) {
+    if (!m) return '—'
+    const h = Math.floor(m / 60)
+    const min = m % 60
+    return h > 0 ? `${h}j${min > 0 ? ` ${min}m` : ''}` : `${min}m`
+  }
 </script>
 
 <!-- ── Tab bar ──────────────────────────────────────────────────────────────── -->
 <div class="flex flex-col gap-4">
   <div class="flex gap-1 border-b overflow-x-auto" style="border-color:var(--border);scrollbar-width:none">
-    {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift']] as const) as [key, label]}
+    {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift'],['performa','Performa Shift']] as const) as [key, label]}
       <button
         onclick={() => goto(`?tab=${key}`, { replaceState: true, keepFocus: true, noScroll: true })}
         class="px-4 py-2 text-sm font-medium border-b-2 transition-colors shrink-0"
@@ -1289,6 +1364,201 @@
       </div>
     {/if}
   {/if}
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB: PERFORMA SHIFT
+  ═════════════════════════════════════════════════════════════════════════ -->
+  {#if tab === 'performa'}
+    <!-- Filter -->
+    <div class="flex items-center gap-3 flex-wrap">
+      <input type="month" bind:value={bulanPerforma}
+        class="px-2 py-1 rounded border text-sm outline-none"
+        style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+      <button onclick={muatPerforma}
+        class="px-3 py-1 rounded text-sm font-bold"
+        style="background:var(--accent);color:var(--bg)">Tampilkan</button>
+      {#if performaDetailId}
+        <button onclick={() => { performaDetailId = null; performaDetail = null }}
+          class="px-3 py-1 rounded text-sm border ml-auto"
+          style="border-color:var(--border);color:var(--text-dim)">← Semua Kasir</button>
+      {/if}
+    </div>
+
+    {#if loadingPerforma}
+      <p class="text-sm py-4" style="color:var(--text-dim)">Memuat...</p>
+
+    {:else if performaDetailId && performaDetail}
+      <!-- ── DETAIL VIEW: per-shift satu kasir ── -->
+      {@const d = performaDetail}
+      <div class="flex flex-col gap-4">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wider mb-2" style="color:var(--text-dim)">
+            {d.karyawan.nama} — {d.bulan}
+          </p>
+          <!-- Summary cards -->
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {#each [
+              { label: 'Total Shift', val: String(d.ringkasan.total_shift), sub: `${d.ringkasan.shift_ditutup} ditutup` },
+              { label: 'Total Transaksi', val: String(d.ringkasan.total_transaksi), sub: `~${d.ringkasan.avg_transaksi_per_shift}/shift` },
+              { label: 'Total Penjualan', val: `Rp ${fmtRpK(d.ringkasan.total_penjualan)}`, sub: `~${fmtRpK(d.ringkasan.avg_penjualan_per_shift)}/shift`, accent: true },
+              { label: 'Rata-rata/Trx', val: `Rp ${fmtRpK(d.ringkasan.rata_per_trx)}`, sub: `${fmtMenit(d.ringkasan.avg_durasi_menit)} avg shift` },
+            ] as c}
+              <div class="rounded border p-3" style="background:var(--surface);border-color:var(--border)">
+                <div class="text-xs mb-0.5" style="color:var(--text-dim)">{c.label}</div>
+                <div class="text-sm font-bold" style="color:{c.accent ? 'var(--accent)' : 'var(--text)'}">{c.val}</div>
+                <div class="text-xs mt-0.5" style="color:var(--text-dim)">{c.sub}</div>
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        <!-- Absensi + void mini stats -->
+        <div class="flex flex-wrap gap-3 text-xs">
+          {#each [
+            { label: 'Hadir', val: d.absensi.hadir, color: 'var(--accent)' },
+            { label: 'Izin', val: d.absensi.izin, color: 'var(--info)' },
+            { label: 'Sakit', val: d.absensi.sakit, color: 'var(--warn)' },
+            { label: 'Alpa', val: d.absensi.alpa, color: 'var(--danger)' },
+            { label: 'Void', val: d.ringkasan.total_void, color: d.ringkasan.total_void > 0 ? 'var(--danger)' : 'var(--text-dim)' },
+            { label: 'Void rate', val: `${d.ringkasan.void_rate_pct}%`, color: d.ringkasan.void_rate_pct > 1 ? 'var(--warn)' : 'var(--text-dim)' },
+          ] as stat}
+            <div class="flex items-center gap-1.5 rounded border px-2 py-1" style="border-color:var(--border)">
+              <span style="color:var(--text-dim)">{stat.label}</span>
+              <span class="font-bold" style="color:{stat.color}">{stat.val}</span>
+            </div>
+          {/each}
+        </div>
+
+        <!-- Per-shift chart: bar chart penjualan -->
+        {#if d.per_shift.length > 0}
+          {@const maxPenjualan = Math.max(...d.per_shift.map(s => s.total_penjualan), 1)}
+          <div>
+            <p class="text-xs font-semibold mb-2" style="color:var(--text-dim)">Penjualan per Shift</p>
+            <div class="flex items-end gap-0.5 overflow-x-auto" style="height:80px;padding-bottom:1.5rem">
+              {#each d.per_shift as s}
+                {@const pct = (s.total_penjualan / maxPenjualan) * 100}
+                <div class="flex flex-col items-center shrink-0" style="min-width:22px;height:100%;position:relative"
+                  title="{s.tanggal.slice(8)} {s.jam_buka}–{s.jam_tutup ?? '?'} | {s.jumlah_transaksi} trx | Rp {fmtRpK(s.total_penjualan)}">
+                  <div class="flex-1 flex items-end w-full">
+                    <div style="width:100%;height:{pct}%;min-height:{pct > 0 ? 2 : 0}px;
+                      background:{s.status === 'tutup' ? 'var(--accent)' : 'var(--border)'};
+                      border-radius:2px 2px 0 0;opacity:{pct === 0 ? .3 : 1}"></div>
+                  </div>
+                  <span style="position:absolute;bottom:-1.3rem;font-size:.55rem;color:var(--text-dim)">{s.tanggal.slice(8)}</span>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Per-shift table -->
+        <div class="overflow-x-auto">
+          <table class="min-w-full" style="border-collapse:collapse;font-size:.8rem;min-width:540px">
+            <thead>
+              <tr style="background:var(--surface2)">
+                <th class="px-3 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">Tanggal</th>
+                <th class="px-2 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">Jam</th>
+                <th class="px-2 py-2 text-left text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Durasi</th>
+                <th class="px-2 py-2 text-right text-xs font-semibold" style="color:var(--text-dim)">Trx</th>
+                <th class="px-3 py-2 text-right text-xs font-semibold" style="color:var(--text-dim)">Penjualan</th>
+                <th class="px-2 py-2 text-right text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Trx/jam</th>
+                <th class="px-2 py-2 text-right text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Selisih Kas</th>
+                <th class="px-2 py-2 text-center text-xs font-semibold" style="color:var(--text-dim)">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each d.per_shift as s (s.id)}
+                <tr style="border-top:1px solid var(--border)">
+                  <td class="px-3 py-2" style="color:var(--text)">
+                    {new Date(s.tanggal + 'T00:00:00').toLocaleDateString('id-ID', { weekday:'short', day:'numeric', month:'short' })}
+                  </td>
+                  <td class="px-2 py-2 text-xs" style="color:var(--text-dim)">{s.jam_buka}–{s.jam_tutup ?? '?'}</td>
+                  <td class="px-2 py-2 hidden sm:table-cell" style="color:var(--text-dim)">{fmtMenit(s.durasi_menit)}</td>
+                  <td class="px-2 py-2 text-right font-semibold" style="color:var(--text)">{s.jumlah_transaksi}</td>
+                  <td class="px-3 py-2 text-right font-semibold" style="color:var(--accent)">Rp {fmtRpK(s.total_penjualan)}</td>
+                  <td class="px-2 py-2 text-right hidden sm:table-cell" style="color:var(--text-dim)">{s.trx_per_jam ?? '—'}</td>
+                  <td class="px-2 py-2 text-right hidden sm:table-cell"
+                    style="color:{s.selisih_kas != null && s.selisih_kas !== 0 ? (s.selisih_kas > 0 ? 'var(--accent)' : 'var(--danger)') : 'var(--text-dim)'}">
+                    {s.selisih_kas != null ? (s.selisih_kas >= 0 ? '+' : '') + new Intl.NumberFormat('id-ID').format(s.selisih_kas) : '—'}
+                  </td>
+                  <td class="px-2 py-2 text-center">
+                    <span class="text-xs px-1.5 py-0.5 rounded"
+                      style="background:{s.status === 'tutup' ? 'rgba(var(--accent-rgb,0,128,0),.15)' : 'var(--surface2)'};
+                             color:{s.status === 'tutup' ? 'var(--accent)' : 'var(--warn)'}">
+                      {s.status}
+                    </span>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    {:else if performaList.length === 0}
+      <p class="text-sm py-4" style="color:var(--text-dim)">Tidak ada kasir aktif atau belum ada shift di bulan ini.</p>
+
+    {:else}
+      <!-- ── COMPARISON VIEW: semua kasir ── -->
+      <div class="overflow-x-auto">
+        <table class="min-w-full" style="border-collapse:collapse;font-size:.8rem;min-width:560px">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th class="px-3 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">Kasir</th>
+              <th class="px-2 py-2 text-right text-xs font-semibold" style="color:var(--text-dim)">Shift</th>
+              <th class="px-2 py-2 text-right text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Trx</th>
+              <th class="px-3 py-2 text-right text-xs font-semibold" style="color:var(--text-dim)">Penjualan</th>
+              <th class="px-2 py-2 text-right text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Trx/jam</th>
+              <th class="px-2 py-2 text-right text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Avg/Trx</th>
+              <th class="px-2 py-2 text-right text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Void%</th>
+              <th class="px-2 py-2 text-right text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Hadir</th>
+              <th class="px-2 py-2 text-center text-xs font-semibold" style="color:var(--text-dim)">Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each performaList.sort((a, b) => b.total_penjualan - a.total_penjualan) as p (p.id)}
+              <tr style="border-top:1px solid var(--border)">
+                <td class="px-3 py-2 font-semibold" style="color:var(--text)">{p.nama}</td>
+                <td class="px-2 py-2 text-right" style="color:var(--text-dim)">
+                  {p.total_shift}
+                  {#if p.total_shift > p.shift_ditutup}
+                    <span class="text-xs" style="color:var(--warn)">({p.total_shift - p.shift_ditutup}buka)</span>
+                  {/if}
+                </td>
+                <td class="px-2 py-2 text-right font-semibold hidden sm:table-cell" style="color:var(--text)">{p.total_transaksi}</td>
+                <td class="px-3 py-2 text-right font-bold" style="color:var(--accent)">Rp {fmtRpK(p.total_penjualan)}</td>
+                <td class="px-2 py-2 text-right hidden sm:table-cell" style="color:var(--text-dim)">
+                  {p.trx_per_jam > 0 ? p.trx_per_jam : '—'}
+                </td>
+                <td class="px-2 py-2 text-right hidden sm:table-cell" style="color:var(--text-dim)">
+                  {p.rata_per_trx > 0 ? `Rp ${fmtRpK(p.rata_per_trx)}` : '—'}
+                </td>
+                <td class="px-2 py-2 text-right hidden sm:table-cell"
+                  style="color:{p.void_rate_pct > 1 ? 'var(--warn)' : 'var(--text-dim)'}">
+                  {p.void_rate_pct > 0 ? `${p.void_rate_pct}%` : '—'}
+                </td>
+                <td class="px-2 py-2 text-right hidden sm:table-cell"
+                  style="color:{p.absensi.alpa > 0 ? 'var(--warn)' : 'var(--text-dim)'}">
+                  {p.absensi.hadir}
+                  {#if p.absensi.alpa > 0}
+                    <span class="text-xs" style="color:var(--danger)">/{p.absensi.alpa}alpa</span>
+                  {/if}
+                </td>
+                <td class="px-2 py-2 text-center">
+                  <button onclick={() => muatPerformaDetail(p.id)}
+                    class="text-xs px-2 py-0.5 rounded border"
+                    style="border-color:var(--border);color:var(--info);cursor:pointer">
+                    Detail →
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  {/if}
+
 </div>
 
 <!-- ── Modal: Form Karyawan ─────────────────────────────────────────────────── -->
