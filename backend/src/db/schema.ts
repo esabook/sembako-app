@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   check,
   index,
+  uniqueIndex,
   integer,
   real,
   sqliteTable,
@@ -651,6 +652,20 @@ export const draft_keranjang = sqliteTable('draft_keranjang', {
   tipe: text('tipe', { enum: ['eceran', 'grosir'] }).notNull().default('eceran'),
   ...timestamps,
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PREFERENSI PENGGUNA (tab order, favorit, dll per karyawan)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const preferensi_pengguna = sqliteTable('preferensi_pengguna', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  modul: text('modul').notNull(),
+  nilai_json: text('nilai_json').notNull().default('{}'),
+  updated_at: text('updated_at').default(sql`(datetime('now','localtime'))`),
+}, (t) => [
+  uniqueIndex('uq_preferensi_pengguna').on(t.karyawan_id, t.modul),
+])
 
 export const draft_keranjang_item = sqliteTable('draft_keranjang_item', {
   id: integer('id').primaryKey({ autoIncrement: true }),

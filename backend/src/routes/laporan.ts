@@ -8,7 +8,8 @@ import {
   jurnal_kas, kas_bank,
   hutang_supplier, piutang_pelanggan,
   barang, pelanggan, supplier,
-  barang_masuk_detail,
+  barang_masuk_detail, barang_masuk,
+  kategori, karyawan, penggajian,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
@@ -469,6 +470,316 @@ laporanRouter.get('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
       keterangan: 'Selisih = diskon yang diberikan ke pelanggan tapi tidak tercatat di database',
       transaksi: affected,
     },
+  })
+})
+
+// ── GET /laporan/margin-produk — margin per SKU dalam periode ────────────────
+
+laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c) => {
+  const { dari, sampai } = {
+    dari: c.req.query('dari') ?? bulanIni().dari,
+    sampai: c.req.query('sampai') ?? bulanIni().sampai,
+  }
+
+  const rows = db
+    .select({
+      barang_id: barang.id,
+      nama_barang: barang.nama_barang,
+      kategori_nama: kategori.nama,
+      qty_terjual: sql<number>`COALESCE(SUM(${penjualan_detail.jumlah}), 0)`,
+      jumlah_transaksi: sql<number>`COUNT(DISTINCT ${penjualan.id})`,
+      omset: sql<number>`COALESCE(SUM(${penjualan_detail.jumlah} * ${penjualan_detail.harga_jual}), 0)`,
+      hpp: sql<number>`COALESCE(SUM(${penjualan_detail.jumlah} * CASE WHEN ${barang.harga_beli_rata} > 0 THEN ${barang.harga_beli_rata} ELSE ${barang.harga_beli_terakhir} END), 0)`,
+    })
+    .from(penjualan_detail)
+    .innerJoin(penjualan, eq(penjualan_detail.penjualan_id, penjualan.id))
+    .innerJoin(barang, eq(penjualan_detail.barang_id, barang.id))
+    .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
+    .where(
+      and(
+        ne(penjualan.status, 'void'),
+        gte(penjualan.tanggal, dari),
+        lte(penjualan.tanggal, sampai + ' 23:59:59'),
+      )
+    )
+    .groupBy(barang.id)
+    .orderBy(sql`omset DESC`)
+    .all()
+
+  const produk = rows.map((r) => {
+    const margin = r.omset - r.hpp
+    const margin_pct = r.omset > 0 ? (margin / r.omset) * 100 : 0
+    return {
+      barang_id: r.barang_id,
+      nama_barang: r.nama_barang,
+      kategori: r.kategori_nama ?? '—',
+      qty_terjual: r.qty_terjual,
+      jumlah_transaksi: r.jumlah_transaksi,
+      omset: Math.round(r.omset),
+      hpp: Math.round(r.hpp),
+      margin: Math.round(margin),
+      margin_pct: Math.round(margin_pct * 100) / 100,
+    }
+  })
+
+  const total_omset = produk.reduce((s, p) => s + p.omset, 0)
+  const total_hpp = produk.reduce((s, p) => s + p.hpp, 0)
+  const total_margin = total_omset - total_hpp
+  const margin_pct_rata = total_omset > 0 ? Math.round((total_margin / total_omset) * 10000) / 100 : 0
+
+  return c.json({
+    success: true,
+    data: { periode: { dari, sampai }, produk, total_omset, total_hpp, total_margin, margin_pct_rata },
+  })
+})
+
+// ── GET /laporan/pajak-umkm — estimasi PPh Final 0.5% per bulan (PP 23/2018) ───
+
+laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) => {
+  const now = new Date()
+  const tahun = c.req.query('tahun') ?? String(now.getFullYear())
+
+  if (!/^\d{4}$/.test(tahun)) {
+    return c.json({ success: false, error: 'Format tahun tidak valid. Gunakan YYYY' }, 400)
+  }
+
+  const rows = db
+    .select({
+      periode: sql<string>`strftime('%Y-%m', tanggal)`,
+      omset: sql<number>`COALESCE(SUM(total), 0)`,
+      jumlah_transaksi: sql<number>`COUNT(*)`,
+    })
+    .from(penjualan)
+    .where(
+      and(
+        ne(penjualan.status, 'void'),
+        sql`strftime('%Y', ${penjualan.tanggal}) = ${tahun}`,
+      )
+    )
+    .groupBy(sql`strftime('%Y-%m', tanggal)`)
+    .orderBy(sql`strftime('%Y-%m', tanggal)`)
+    .all()
+
+  // Pastikan semua 12 bulan muncul (bulan tanpa penjualan = 0)
+  const bulanMap = new Map<string, { omset: number; jumlah_transaksi: number }>()
+  for (const r of rows) {
+    bulanMap.set(r.periode, { omset: r.omset, jumlah_transaksi: r.jumlah_transaksi })
+  }
+
+  const bulan = Array.from({ length: 12 }, (_, i) => {
+    const m = String(i + 1).padStart(2, '0')
+    const periode = `${tahun}-${m}`
+    const data = bulanMap.get(periode) ?? { omset: 0, jumlah_transaksi: 0 }
+    return {
+      periode,
+      omset: data.omset,
+      pajak: Math.round(data.omset * 0.005),
+      jumlah_transaksi: data.jumlah_transaksi,
+    }
+  })
+
+  const total_omset = bulan.reduce((s, b) => s + b.omset, 0)
+  const total_pajak = Math.round(total_omset * 0.005)
+
+  return c.json({
+    success: true,
+    data: { tahun, bulan, total_omset, total_pajak },
+  })
+})
+
+// ── GET /laporan/persediaan — nilai stok saat ini per produk ─────────────────
+
+laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) => {
+  const rows = db
+    .select({
+      barang_id: barang.id,
+      nama_barang: barang.nama_barang,
+      kategori_nama: kategori.nama,
+      stok: barang.stok_sekarang,
+      harga_beli_rata: barang.harga_beli_rata,
+      harga_beli_terakhir: barang.harga_beli_terakhir,
+    })
+    .from(barang)
+    .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
+    .where(eq(barang.is_active, true))
+    .orderBy(sql`nilai_stok DESC`)
+    .all()
+
+  const produk = rows.map((r) => {
+    const hpp = r.harga_beli_rata > 0 ? r.harga_beli_rata : r.harga_beli_terakhir
+    const nilai_stok = Math.round(r.stok * hpp)
+    return {
+      barang_id: r.barang_id,
+      nama_barang: r.nama_barang,
+      kategori: r.kategori_nama ?? '—',
+      stok: r.stok,
+      hpp,
+      nilai_stok,
+    }
+  }).sort((a, b) => b.nilai_stok - a.nilai_stok)
+
+  const total_nilai = produk.reduce((s, p) => s + p.nilai_stok, 0)
+  const jumlah_sku = produk.length
+  const sku_tanpa_stok = produk.filter((p) => p.stok <= 0).length
+
+  return c.json({
+    success: true,
+    data: {
+      per_tanggal: hariIni(),
+      produk,
+      total_nilai,
+      jumlah_sku,
+      sku_tanpa_stok,
+    },
+  })
+})
+
+// ── GET /laporan/top-pelanggan — omset & transaksi per pelanggan ──────────────
+
+laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c) => {
+  const { dari, sampai } = {
+    dari: c.req.query('dari') ?? bulanIni().dari,
+    sampai: c.req.query('sampai') ?? bulanIni().sampai,
+  }
+  const limit = Math.min(Number(c.req.query('limit') ?? 20), 100)
+
+  const rows = db
+    .select({
+      pelanggan_id: pelanggan.id,
+      nama: pelanggan.nama,
+      tipe: pelanggan.tipe,
+      kontak: pelanggan.kontak,
+      jumlah_transaksi: sql<number>`COUNT(DISTINCT ${penjualan.id})`,
+      total_omset: sql<number>`COALESCE(SUM(${penjualan.total}), 0)`,
+      total_diskon: sql<number>`COALESCE(SUM(${penjualan.diskon_total}), 0)`,
+    })
+    .from(penjualan)
+    .innerJoin(pelanggan, eq(penjualan.pelanggan_id, pelanggan.id))
+    .where(
+      and(
+        ne(penjualan.status, 'void'),
+        gte(penjualan.tanggal, dari),
+        lte(penjualan.tanggal, sampai + ' 23:59:59'),
+      )
+    )
+    .groupBy(pelanggan.id)
+    .orderBy(sql`total_omset DESC`)
+    .limit(limit)
+    .all()
+
+  const total_omset_semua = rows.reduce((s, r) => s + r.total_omset, 0)
+
+  return c.json({
+    success: true,
+    data: {
+      periode: { dari, sampai },
+      pelanggan: rows.map((r) => ({
+        ...r,
+        total_omset: Math.round(r.total_omset),
+        total_diskon: Math.round(r.total_diskon),
+        pct_omset: total_omset_semua > 0 ? Math.round((r.total_omset / total_omset_semua) * 1000) / 10 : 0,
+      })),
+      total_omset: Math.round(total_omset_semua),
+    },
+  })
+})
+
+// ── GET /laporan/pembelian-supplier — rekapitulasi pembelian per supplier ─────
+
+laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), async (c) => {
+  const { dari, sampai } = {
+    dari: c.req.query('dari') ?? bulanIni().dari,
+    sampai: c.req.query('sampai') ?? bulanIni().sampai,
+  }
+
+  const rows = db
+    .select({
+      supplier_id: supplier.id,
+      nama_supplier: supplier.nama_supplier,
+      kontak: supplier.kontak,
+      jumlah_penerimaan: sql<number>`COUNT(DISTINCT ${barang_masuk.id})`,
+      total_pembelian: sql<number>`COALESCE(SUM(${barang_masuk.total_nilai}), 0)`,
+    })
+    .from(barang_masuk)
+    .innerJoin(supplier, eq(barang_masuk.supplier_id, supplier.id))
+    .where(
+      and(
+        gte(barang_masuk.tanggal_terima, dari),
+        lte(barang_masuk.tanggal_terima, sampai),
+      )
+    )
+    .groupBy(supplier.id)
+    .orderBy(sql`total_pembelian DESC`)
+    .all()
+
+  const total_semua = rows.reduce((s, r) => s + r.total_pembelian, 0)
+
+  return c.json({
+    success: true,
+    data: {
+      periode: { dari, sampai },
+      supplier: rows.map((r) => ({
+        ...r,
+        total_pembelian: Math.round(r.total_pembelian),
+        pct_pembelian: total_semua > 0 ? Math.round((r.total_pembelian / total_semua) * 1000) / 10 : 0,
+      })),
+      total_pembelian: Math.round(total_semua),
+    },
+  })
+})
+
+// ── GET /laporan/rekap-penggajian — ringkasan biaya SDM per bulan ─────────────
+
+laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async (c) => {
+  const now = new Date()
+  const tahun = c.req.query('tahun') ?? String(now.getFullYear())
+
+  if (!/^\d{4}$/.test(tahun)) {
+    return c.json({ success: false, error: 'Format tahun tidak valid. Gunakan YYYY' }, 400)
+  }
+
+  const rows = db
+    .select({
+      periode_bulan: penggajian.periode_bulan,
+      jumlah_karyawan: sql<number>`COUNT(DISTINCT ${penggajian.karyawan_id})`,
+      total_gaji_pokok: sql<number>`COALESCE(SUM(${penggajian.gaji_pokok}), 0)`,
+      total_tunjangan: sql<number>`COALESCE(SUM(${penggajian.tunjangan}), 0)`,
+      total_potongan_kasbon: sql<number>`COALESCE(SUM(${penggajian.potongan_kasbon}), 0)`,
+      total_potongan_lain: sql<number>`COALESCE(SUM(${penggajian.potongan_lain}), 0)`,
+      total_gaji: sql<number>`COALESCE(SUM(${penggajian.total_gaji}), 0)`,
+    })
+    .from(penggajian)
+    .where(
+      and(
+        sql`substr(${penggajian.periode_bulan}, 1, 4) = ${tahun}`,
+        ne(penggajian.status, 'draft'),
+      )
+    )
+    .groupBy(penggajian.periode_bulan)
+    .orderBy(penggajian.periode_bulan)
+    .all()
+
+  // Pastikan semua 12 bulan muncul
+  const bulanMap = new Map(rows.map((r) => [r.periode_bulan, r]))
+  const bulan = Array.from({ length: 12 }, (_, i) => {
+    const m = String(i + 1).padStart(2, '0')
+    const periode = `${tahun}-${m}`
+    const d = bulanMap.get(periode)
+    return {
+      periode_bulan: periode,
+      jumlah_karyawan: d?.jumlah_karyawan ?? 0,
+      total_gaji_pokok: Math.round(d?.total_gaji_pokok ?? 0),
+      total_tunjangan: Math.round(d?.total_tunjangan ?? 0),
+      total_potongan: Math.round((d?.total_potongan_kasbon ?? 0) + (d?.total_potongan_lain ?? 0)),
+      total_gaji: Math.round(d?.total_gaji ?? 0),
+    }
+  })
+
+  const total_gaji_tahun = bulan.reduce((s, b) => s + b.total_gaji, 0)
+
+  return c.json({
+    success: true,
+    data: { tahun, bulan, total_gaji_tahun },
   })
 })
 
