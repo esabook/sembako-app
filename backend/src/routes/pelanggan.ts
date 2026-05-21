@@ -1,9 +1,9 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
-import { eq, like, and, or, sql, getTableColumns } from 'drizzle-orm'
+import { eq, like, and, or, ne, desc, gte, lte, sql, getTableColumns } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
-import { pelanggan, kartu_anggota } from '../db/schema.ts'
+import { pelanggan, kartu_anggota, penjualan, penjualan_detail, barang } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
 export const pelangganRouter = new Hono<{ Variables: { user: JWTPayload } }>()
@@ -151,6 +151,85 @@ pelangganRouter.post('/:id/assign-kartu', requirePermission('penjualan.buat'), a
     .get()
 
   return c.json({ success: true, data: row })
+})
+
+// ── GET /pelanggan/:id/riwayat — riwayat transaksi pelanggan ────────────────
+
+pelangganRouter.get('/:id/riwayat', requirePermission('penjualan.lihat'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const dari = c.req.query('dari')
+  const sampai = c.req.query('sampai')
+  const limit = Math.min(Number(c.req.query('limit') ?? 20), 100)
+  const offset = Number(c.req.query('offset') ?? 0)
+
+  const conds: ReturnType<typeof eq>[] = [
+    eq(penjualan.pelanggan_id, id) as any,
+    ne(penjualan.status, 'void') as any,
+  ]
+  if (dari) conds.push(gte(penjualan.tanggal, dari) as any)
+  if (sampai) conds.push(lte(penjualan.tanggal, sampai + ' 23:59:59') as any)
+
+  const rows = db
+    .select({
+      id: penjualan.id,
+      no_transaksi: penjualan.no_transaksi,
+      tanggal: penjualan.tanggal,
+      tipe: penjualan.tipe,
+      total: penjualan.total,
+      diskon_total: penjualan.diskon_total,
+      metode_bayar: penjualan.metode_bayar,
+      status: penjualan.status,
+    })
+    .from(penjualan)
+    .where(and(...conds))
+    .orderBy(desc(penjualan.tanggal))
+    .limit(limit)
+    .offset(offset)
+    .all()
+
+  const totalRow = db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(penjualan)
+    .where(and(...conds))
+    .get()
+
+  const summary = db
+    .select({
+      total_transaksi: sql<number>`COUNT(*)`,
+      total_belanja: sql<number>`COALESCE(SUM(${penjualan.total}), 0)`,
+      rata_per_trx: sql<number>`COALESCE(AVG(${penjualan.total}), 0)`,
+      terakhir_belanja: sql<string>`MAX(${penjualan.tanggal})`,
+    })
+    .from(penjualan)
+    .where(and(
+      eq(penjualan.pelanggan_id, id),
+      ne(penjualan.status, 'void'),
+    ))
+    .get()
+
+  return c.json({ success: true, data: { rows, total: totalRow?.count ?? 0, summary } })
+})
+
+// ── GET /pelanggan/:id/riwayat/:trx_id/detail — item detail satu transaksi ──
+
+pelangganRouter.get('/:id/riwayat/:trx_id/detail', requirePermission('penjualan.lihat'), async (c) => {
+  const trxId = Number(c.req.param('trx_id'))
+
+  const items = db
+    .select({
+      id: penjualan_detail.id,
+      nama_barang: barang.nama_barang,
+      jumlah: penjualan_detail.jumlah,
+      harga_jual: penjualan_detail.harga_jual,
+      diskon_item: penjualan_detail.diskon_item,
+      subtotal: penjualan_detail.subtotal,
+    })
+    .from(penjualan_detail)
+    .leftJoin(barang, eq(penjualan_detail.barang_id, barang.id))
+    .where(eq(penjualan_detail.penjualan_id, trxId))
+    .all()
+
+  return c.json({ success: true, data: items })
 })
 
 // Unassign kartu dari pelanggan ini

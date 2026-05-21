@@ -785,6 +785,53 @@ laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async
 
 // ── POST /laporan/rekonsiliasi-diskon — terapkan fix ke semua transaksi afected ──
 
+// ── GET /laporan/analitik-jam — distribusi transaksi per jam ──────────────
+// Bantu pemilik melihat "jam sibuk" untuk atur jadwal shift
+
+laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c) => {
+  const sekarang = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' })
+  const hariIni = sekarang.slice(0, 10)
+  const tigaPuluhHariLalu = new Date(Date.now() - 30 * 86400000)
+    .toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
+
+  const dari = c.req.query('dari') ?? tigaPuluhHariLalu
+  const sampai = c.req.query('sampai') ?? hariIni
+
+  const rows = db
+    .select({
+      jam: sql<string>`strftime('%H', ${penjualan.tanggal})`,
+      jumlah_transaksi: sql<number>`COUNT(*)`,
+      omzet: sql<number>`COALESCE(SUM(${penjualan.total}), 0)`,
+      rata_per_trx: sql<number>`COALESCE(AVG(${penjualan.total}), 0)`,
+    })
+    .from(penjualan)
+    .where(and(
+      gte(penjualan.tanggal, dari),
+      lte(penjualan.tanggal, sampai + ' 23:59:59'),
+      ne(penjualan.status, 'void'),
+    ))
+    .groupBy(sql`strftime('%H', ${penjualan.tanggal})`)
+    .orderBy(sql`strftime('%H', ${penjualan.tanggal})`)
+    .all()
+
+  const byJam = new Map(rows.map(r => [r.jam, r]))
+  const per_jam = Array.from({ length: 24 }, (_, i) => {
+    const jam = String(i).padStart(2, '0')
+    return byJam.get(jam) ?? { jam, jumlah_transaksi: 0, omzet: 0, rata_per_trx: 0 }
+  })
+
+  const maxTrx = Math.max(...per_jam.map(r => r.jumlah_transaksi), 1)
+  const jam_sibuk = per_jam.filter(r => r.jumlah_transaksi >= maxTrx * 0.7).map(r => r.jam)
+
+  const total_transaksi = per_jam.reduce((s, r) => s + r.jumlah_transaksi, 0)
+  const total_omzet = per_jam.reduce((s, r) => s + r.omzet, 0)
+
+  return c.json({
+    success: true,
+    data: { dari, sampai, per_jam, jam_sibuk, total_transaksi, total_omzet },
+  })
+})
+
 laporanRouter.post('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
   const affected = db
     .select({

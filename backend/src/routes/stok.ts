@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
-import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
+import { eq, desc, and, gte, lte, ne, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, sqlite } from '../db/index.ts'
-import { barang, mutasi_stok, kategori, satuan, karyawan } from '../db/schema.ts'
+import { barang, mutasi_stok, kategori, satuan, karyawan, penjualan, penjualan_detail } from '../db/schema.ts'
 import { catatLog } from '../utils/log.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -33,6 +33,57 @@ stokRouter.get('/', requirePermission('stok.lihat'), async (c) => {
     .all()
 
   return c.json({ success: true, data: rows })
+})
+
+// ── GET /stok/alert-prediktif — prediksi barang yang akan habis ──────────
+// Hitung rata-rata penjualan 7 hari terakhir → estimasi hari tersisa
+
+stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) => {
+  const hariPrediksi = Number(c.req.query('hari') ?? 7)
+
+  const tujuhHariLalu = new Date(Date.now() - 7 * 86400000)
+    .toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
+
+  const velRows = db
+    .select({
+      barang_id: penjualan_detail.barang_id,
+      total_qty: sql<number>`SUM(${penjualan_detail.jumlah})`,
+    })
+    .from(penjualan_detail)
+    .leftJoin(penjualan, eq(penjualan_detail.penjualan_id, penjualan.id))
+    .where(and(
+      ne(penjualan.status, 'void'),
+      gte(penjualan.tanggal, tujuhHariLalu),
+    ))
+    .groupBy(penjualan_detail.barang_id)
+    .all()
+
+  const velMap = new Map(velRows.map(r => [r.barang_id, r.total_qty / 7]))
+
+  const barangList = db
+    .select({
+      id: barang.id,
+      kode_barang: barang.kode_barang,
+      nama_barang: barang.nama_barang,
+      stok_sekarang: barang.stok_sekarang,
+      stok_minimum: barang.stok_minimum,
+      satuan: satuan.singkatan,
+    })
+    .from(barang)
+    .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
+    .where(eq(barang.is_active, true))
+    .all()
+
+  const hasil = barangList
+    .map(b => {
+      const avg = velMap.get(b.id) ?? 0
+      const hari_tersisa = avg > 0 ? Math.floor(b.stok_sekarang / avg) : null
+      return { ...b, avg_harian: Math.round(avg * 100) / 100, hari_tersisa }
+    })
+    .filter(b => b.avg_harian > 0 && b.hari_tersisa !== null && b.hari_tersisa <= hariPrediksi)
+    .sort((a, b) => (a.hari_tersisa ?? 999) - (b.hari_tersisa ?? 999))
+
+  return c.json({ success: true, data: hasil })
 })
 
 // ── GET /stok/:id/mutasi — riwayat mutasi per barang ─────────────────────

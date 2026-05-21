@@ -4,21 +4,30 @@
   import { user } from '$lib/stores/auth.js'
   import TabPelanggan from './TabPelanggan.svelte'
   import TabKartu from './TabKartu.svelte'
+  import TabRiwayat from './TabRiwayat.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer', 'kasir'].includes($user.role)) goto('/kasir')
   })
 
-  type Tab = 'pelanggan' | 'kartu'
+  type Tab = 'pelanggan' | 'kartu' | 'riwayat'
   let tab = $derived<Tab>(
     (page.url.searchParams.get('tab') as Tab) ?? 'pelanggan'
   )
 
   let tabKartuRef = $state<{ muat: () => void } | null>(null)
+  let riwayatId = $state<number | null>(null)
+  let riwayatNama = $state('')
 
   function gantiTab(t: Tab) {
     goto(`?tab=${t}`, { replaceState: true, keepFocus: true, noScroll: true })
     if (t === 'kartu') tabKartuRef?.muat()
+  }
+
+  function bukaRiwayat(id: number, nama: string) {
+    riwayatId = id
+    riwayatNama = nama
+    gantiTab('riwayat')
   }
 
   let modalHelpOpen = $state(false)
@@ -28,20 +37,35 @@
   <!-- Header + Tabs -->
   <div class="flex items-center gap-3 flex-wrap">
     <div class="flex gap-1 border rounded overflow-hidden" style="border-color:var(--border)">
-        {#each [['pelanggan', 'Pelanggan'], ['kartu', 'Kartu Anggota']] as [val, label] (val)}
+      {#each [['pelanggan', 'Pelanggan'], ['kartu', 'Kartu Anggota']] as [val, label] (val)}
         <button
           onclick={() => gantiTab(val as Tab)}
           class="px-3 py-1.5 text-sm transition-colors"
           style="{tab === val ? 'background:var(--accent);color:var(--bg);font-weight:600' : 'color:var(--text-dim)'}"
         >{label}</button>
       {/each}
+      {#if tab === 'riwayat' && riwayatId}
+        <button
+          class="px-3 py-1.5 text-sm"
+          style="background:var(--accent);color:var(--bg);font-weight:600"
+        >Riwayat — {riwayatNama}</button>
+      {/if}
     </div>
+    {#if tab === 'riwayat' && riwayatId}
+      <button onclick={() => gantiTab('pelanggan')}
+        class="text-xs px-2 py-1 rounded ml-auto"
+        style="background:transparent;border:1px solid var(--border);color:var(--text-dim);cursor:pointer">
+        ← Kembali
+      </button>
+    {/if}
   </div>
 
   {#if tab === 'pelanggan'}
-    <TabPelanggan />
-  {:else}
+    <TabPelanggan onbukariwayat={bukaRiwayat} />
+  {:else if tab === 'kartu'}
     <TabKartu bind:this={tabKartuRef} />
+  {:else if tab === 'riwayat' && riwayatId}
+    <TabRiwayat pelangganId={riwayatId} namaPelanggan={riwayatNama} />
   {/if}
 </div>
 

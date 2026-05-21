@@ -4,6 +4,8 @@
   import Modal from '$lib/components/Modal.svelte'
   import DataTable, { type Column } from '$lib/components/DataTable.svelte'
 
+  let { onbukariwayat }: { onbukariwayat?: (id: number, nama: string) => void } = $props()
+
   type Pelanggan = {
     id: number; kode_pelanggan: string; nama: string
     gender: 'pria' | 'wanita' | null
@@ -303,6 +305,11 @@
               class="rounded border px-2 py-1 text-xs transition-colors"
               style="border-color:var(--border);color:var(--text-dim)"
             >Edit</button>
+            <button
+              onclick={() => onbukariwayat?.(p.id, p.nama)}
+              class="rounded border px-2 py-1 text-xs transition-colors"
+              style="border-color:var(--border);color:var(--info)"
+            >Riwayat</button>
             {#if p.no_kartu}
               <button
                 onclick={() => unassignKartu(p)}
@@ -378,6 +385,7 @@
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1 justify-end flex-wrap">
                   <button onclick={() => bukaEditPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
+                  <button onclick={() => onbukariwayat?.(p.id, p.nama)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--info)">Riwayat</button>
                   {#if p.no_kartu}
                     <button onclick={() => unassignKartu(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Lepas Kartu</button>
                   {:else}
