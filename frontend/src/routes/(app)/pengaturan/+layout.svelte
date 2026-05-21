@@ -1,33 +1,41 @@
 <script lang="ts">
 	import { page } from '$app/state'
+	import { goto } from '$app/navigation'
+	import TabBar from '$lib/components/ui/TabBar.svelte'
 
 	let { children } = $props()
 
 	const TABS = [
-		{ href: '/pengaturan',              label: 'Pengaturan' },
-		{ href: '/pengaturan/notifikasi',   label: 'Notifikasi' },
-		{ href: '/pengaturan/audit',        label: 'Audit Trail' },
-		{ href: '/pengaturan/info-server',  label: 'Info Server' },
+		{ key: 'pengaturan',   label: 'Pengaturan' },
+		{ key: 'notifikasi',   label: 'Notifikasi' },
+		{ key: 'audit',        label: 'Audit Trail' },
+		{ key: 'info-server',  label: 'Info Server' },
 	]
+
+	const HREF: Record<string, string> = {
+		'pengaturan':  '/pengaturan',
+		'notifikasi':  '/pengaturan/notifikasi',
+		'audit':       '/pengaturan/audit',
+		'info-server': '/pengaturan/info-server',
+	}
+
+	const activeTab = $derived(
+		page.url.pathname === '/pengaturan'
+			? 'pengaturan'
+			: (page.url.pathname.split('/').pop() ?? 'pengaturan')
+	)
 </script>
 
-<div class="p-4 pb-16 space-y-4">
+<div class="space-y-4">
 	<!-- Header -->
 	<h1 class="text-lg font-bold" style="color:var(--text)">Pengaturan</h1>
 
-	<!-- Tab bar -->
-	<div class="flex gap-1 rounded border p-1" style="background:var(--surface);border-color:var(--border)">
-		{#each TABS as tab (tab.href)}
-			{@const active = page.url.pathname === tab.href}
-			<a
-				href={tab.href}
-				class="flex-1 rounded px-3 py-1.5 text-sm font-medium text-center transition-colors"
-				style={active ? 'background:var(--accent);color:#000' : 'color:var(--text-dim)'}
-			>
-				{tab.label}
-			</a>
-		{/each}
-	</div>
+	<TabBar
+		tabs={TABS}
+		active={activeTab}
+		storageKey="pengaturan"
+		onchange={(key) => goto(HREF[key] ?? '/pengaturan')}
+	/>
 
 	<!-- Child content -->
 	{@render children()}

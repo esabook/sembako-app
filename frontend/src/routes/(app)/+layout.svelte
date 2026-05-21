@@ -156,7 +156,7 @@
 				style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"
 			>
 				<svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-					{#if sidebarState === 'expanded'}
+					{#if sidebarState === 'expanded' || sidebarState === 'icon'}
 						<path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 					{:else}
 						<path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>

@@ -375,7 +375,7 @@
 </script>
 
 <!-- ───────────────────────────────────────────────── HEADER ── -->
-<div style="padding:1rem 1.25rem 0">
+<div >
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem">
     <h1 style="font-size:1.1rem; font-weight:700; color:var(--text)">Keuangan</h1>
     <button

@@ -14,6 +14,7 @@
 	import { bukaWhatsApp, renderTemplate } from '$lib/utils/wa.js'
 	import { api } from '$lib/utils/api.js'
 	import QRCode from 'qrcode'
+	import TabBar from '$lib/components/ui/TabBar.svelte'
 
 	// Redirect non-pemilik — dibaca saat render (tidak butuh $effect)
 	const currentUser = $user
@@ -151,28 +152,22 @@
 	}
 
 	const TABS = [
-		{ id: 'config', label: 'Konfigurasi' },
-		{ id: 'log',    label: 'Log Terkirim' },
-		{ id: 'alerts', label: 'Cek Kondisi' },
-		{ id: 'wa',     label: 'Kirim WA' },
-	] as const
+		{ key: 'config', label: 'Konfigurasi' },
+		{ key: 'log',    label: 'Log Terkirim' },
+		{ key: 'alerts', label: 'Cek Kondisi' },
+		{ key: 'wa',     label: 'Kirim WA' },
+	]
 
 	const HARI_OPTIONS = [1,2,3,4,5,6,7] as const
 </script>
 
 <div class="space-y-6">
-	<!-- Tabs -->
-	<div class="flex gap-1 rounded border p-1" style="background:var(--surface);border-color:var(--border)">
-		{#each TABS as tab (tab.id)}
-			<button
-				onclick={() => handleTabChange(tab.id)}
-				class="flex-1 rounded px-3 py-1.5 text-sm font-medium transition-colors"
-				style={activeTab === tab.id ? 'background:var(--accent);color:#000' : 'color:var(--text-dim)'}
-			>
-				{tab.label}
-			</button>
-		{/each}
-	</div>
+	<TabBar
+		tabs={TABS}
+		active={activeTab}
+		storageKey="notifikasi"
+		onchange={(key) => handleTabChange(key as typeof activeTab)}
+	/>
 
 	<!-- ── Tab: Konfigurasi ────────────────────────────────────────────── -->
 	{#if activeTab === 'config'}
