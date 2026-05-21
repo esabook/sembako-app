@@ -13,6 +13,7 @@
   type Trend = { tanggal: string; total: number; jumlah_trx: number }
   type AkunKas = { id: number; nama: string; tipe: string; saldo: number }
   type StokKritis = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number }
+  type StokPrediktif = { id: number; nama_barang: string; stok_sekarang: number; satuan: string | null; avg_harian: number; hari_tersisa: number }
   type PiutangMacet = { id: number; nama_pelanggan: string; kontak: string | null; sisa_piutang: number; tanggal_jatuh_tempo: string | null }
   type HutangJT = { id: number; nama_supplier: string; sisa_hutang: number; tanggal_jatuh_tempo: string | null }
   type TopBarang = { barang_id: number; nama_barang: string; total_qty: number; total_omset: number }
@@ -33,11 +34,16 @@
   }
 
   let data = $state<DashboardData | null>(null)
+  let stokPrediktif = $state<StokPrediktif[]>([])
   let loading = $state(true)
 
   onMount(async () => {
-    const res = await api.get<DashboardData>('/dashboard')
-    if (res.success) data = res.data
+    const [resMain, resPrediktif] = await Promise.all([
+      api.get<DashboardData>('/dashboard'),
+      api.get<StokPrediktif[]>('/stok/alert-prediktif?hari=7'),
+    ])
+    if (resMain.success) data = resMain.data
+    if (resPrediktif.success) stokPrediktif = resPrediktif.data
     loading = false
   })
 
@@ -114,7 +120,7 @@
     </div>
 
     <!-- ── ALERT ZONE ────────────────────────────────────────────────────────── -->
-    {#if data.stok_kritis.length > 0 || data.piutang_macet.list.length > 0 || data.belum_absen.length > 0}
+    {#if data.stok_kritis.length > 0 || data.piutang_macet.list.length > 0 || data.belum_absen.length > 0 || stokPrediktif.length > 0}
       <div class="flex flex-col gap-2">
         <h3 class="text-xs font-bold uppercase tracking-wider" style="color:var(--danger)">Alert</h3>
         <div class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
@@ -136,6 +142,32 @@
                 </p>
               {/if}
             </div>
+          {/if}
+
+          {#if stokPrediktif.length > 0}
+            {@const prediktifBaru = stokPrediktif.filter(p => !data?.stok_kritis.some(k => k.id === p.id))}
+            {#if prediktifBaru.length > 0}
+              <div class="rounded border p-3" style="background:var(--surface);border-left:3px solid var(--info)">
+                <p class="text-xs font-bold mb-2" style="color:var(--info)">
+                  PREDIKSI HABIS ≤7 HARI — {prediktifBaru.length} item
+                </p>
+                {#each prediktifBaru.slice(0, 5) as item}
+                  <div class="flex justify-between text-xs py-0.5 gap-2">
+                    <span class="truncate" style="max-width:150px">{item.nama_barang}</span>
+                    <span class="shrink-0 font-bold tabular-nums"
+                      style="color:{item.hari_tersisa <= 2 ? 'var(--danger)' : item.hari_tersisa <= 4 ? 'var(--warn)' : 'var(--info)'}">
+                      ~{item.hari_tersisa}h
+                    </span>
+                  </div>
+                {/each}
+                {#if prediktifBaru.length > 5}
+                  <p class="text-xs mt-1" style="color:var(--text-dim)">
+                    +{prediktifBaru.length - 5} lainnya →
+                    <a href="/gudang" style="color:var(--info)">Lihat stok</a>
+                  </p>
+                {/if}
+              </div>
+            {/if}
           {/if}
 
           {#if data.piutang_macet.list.length > 0}
