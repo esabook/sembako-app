@@ -3,7 +3,8 @@ import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { networkInterfaces } from 'node:os'
 import { db } from '../db/index.ts'
-import { toko_settings } from '../db/schema.ts'
+import { toko_settings, preferensi_pengguna } from '../db/schema.ts'
+import { and } from 'drizzle-orm'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
 function getLanIps(): string[] {
@@ -69,6 +70,52 @@ const DEFAULTS: Record<string, string> = {
   tema_default: 'dark',
   harga_default: 'eceran',
 }
+
+// ── GET /pengaturan/preferensi/:modul — ambil preferensi user untuk modul ──
+// Harus SEBELUM /:key agar tidak tertangkap oleh route dinamis
+
+pengaturanRouter.get('/preferensi/:modul', async (c) => {
+  const user = c.get('user')
+  const modul = c.req.param('modul')
+  const row = db.select().from(preferensi_pengguna)
+    .where(and(
+      eq(preferensi_pengguna.karyawan_id, Number(user.sub)),
+      eq(preferensi_pengguna.modul, modul),
+    ))
+    .get()
+  const nilai = row ? JSON.parse(row.nilai_json) : null
+  return c.json({ success: true, data: nilai })
+})
+
+// ── PUT /pengaturan/preferensi/:modul — simpan preferensi user ────────────
+
+pengaturanRouter.put('/preferensi/:modul', async (c) => {
+  const user = c.get('user')
+  const modul = c.req.param('modul')
+  const body = await c.req.json()
+  const nilai_json = JSON.stringify(body)
+  const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' })
+
+  const existing = db.select({ id: preferensi_pengguna.id }).from(preferensi_pengguna)
+    .where(and(
+      eq(preferensi_pengguna.karyawan_id, Number(user.sub)),
+      eq(preferensi_pengguna.modul, modul),
+    ))
+    .get()
+
+  if (existing) {
+    db.update(preferensi_pengguna)
+      .set({ nilai_json, updated_at: now })
+      .where(eq(preferensi_pengguna.id, existing.id))
+      .run()
+  } else {
+    db.insert(preferensi_pengguna)
+      .values({ karyawan_id: Number(user.sub), modul, nilai_json, updated_at: now })
+      .run()
+  }
+
+  return c.json({ success: true, data: body })
+})
 
 // ── GET /pengaturan ────────────────────────────────────────────────────────
 
@@ -138,3 +185,4 @@ pengaturanRouter.post('/bulk', requirePermission('*'), async (c) => {
 
   return c.json({ success: true, data: body })
 })
+
