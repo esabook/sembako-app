@@ -313,7 +313,7 @@ Write-Host 'OK'
 
 // ── SSE stream factory ────────────────────────────────────────────────────────
 
-function streamInstall(cfg: Config): Response {
+function streamInstall(req: Request, cfg: Config): Response {
   const stream = new ReadableStream({
     async start(ctrl) {
       try {
@@ -332,7 +332,7 @@ function streamInstall(cfg: Config): Response {
 
   return new Response(stream, {
     headers: {
-      ...CORS,
+      ...cors(req),
       'Content-Type':  'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection':    'keep-alive',
@@ -342,25 +342,31 @@ function streamInstall(cfg: Config): Response {
 
 // ── HTTP server ───────────────────────────────────────────────────────────────
 
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+// file:// pages send Origin: null — "Access-Control-Allow-Origin: *" does NOT
+// match null in Chrome's CORS impl. Echo the actual Origin back instead.
+function cors(req: Request) {
+  const origin = req.headers.get('Origin') ?? '*'
+  return {
+    'Access-Control-Allow-Origin':  origin,
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
+  }
 }
 
 Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url)
+    const c   = cors(req)
 
-    if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
+    if (req.method === 'OPTIONS') return new Response(null, { headers: c })
 
     if (url.pathname === '/' || url.pathname === '/instalasi.html') {
       // Baca sebagai string agar response punya Content-Length (bukan chunked)
-      // sehingga tidak terjadi ERR_INCOMPLETE_CHUNKED_ENCODING di Chrome
       const html = await Bun.file(join(ROOT, 'instalasi.html')).text()
       return new Response(html, {
-        headers: { ...CORS, 'Content-Type': 'text/html; charset=utf-8' },
+        headers: { ...c, 'Content-Type': 'text/html; charset=utf-8' },
       })
     }
 
@@ -371,7 +377,7 @@ Bun.serve({
         ips:         getAllIps(),
         bunVersion:  process.versions.bun,
         defaultData: process.platform === 'win32' ? 'C:\\stokasir-data' : `${os.homedir()}/stokasir-data`,
-      }, { headers: CORS })
+      }, { headers: c })
     }
 
     if (url.pathname === '/api/browse') {
@@ -384,19 +390,19 @@ Bun.serve({
           .filter(e => e.isDirectory() && !e.name.startsWith('.'))
           .sort((a, b) => a.name.localeCompare(b.name))
           .map(e => ({ name: e.name, path: join(current, e.name) }))
-        return Response.json({ current, parent: parent !== current ? parent : null, dirs }, { headers: CORS })
+        return Response.json({ current, parent: parent !== current ? parent : null, dirs }, { headers: c })
       } catch {
-        return Response.json({ error: 'Tidak bisa membaca folder ini' }, { status: 400, headers: CORS })
+        return Response.json({ error: 'Tidak bisa membaca folder ini' }, { status: 400, headers: c })
       }
     }
 
     if (url.pathname === '/api/install' && req.method === 'POST') {
-      return streamInstall(await req.json() as Config)
+      return streamInstall(req, await req.json() as Config)
     }
 
     if (url.pathname === '/api/stop') {
       setTimeout(() => process.exit(0), 500)
-      return new Response('OK', { headers: CORS })
+      return new Response('OK', { headers: c })
     }
 
     return new Response('Not found', { status: 404 })
