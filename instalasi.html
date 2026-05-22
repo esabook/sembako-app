@@ -405,9 +405,26 @@
     return 'linux'
   }
 
+  // Ambil path folder project dari URL file:// saat HTML dibuka langsung
+  function getProjectDir() {
+    const href = window.location.href
+    if (!href.startsWith('file://')) return null
+    // file:///path/to/project/instalasi.html  →  /path/to/project
+    let path = decodeURIComponent(href.slice('file://'.length))
+    path = path.replace(/\/instalasi\.html([?#].*)?$/, '')
+    // Windows: /C:/Users/...  →  C:/Users/...
+    return path.replace(/^\/([A-Za-z]:)/, '$1')
+  }
+
   function getBootstrapInfo(os) {
+    const dir = getProjectDir()
+    // cd ke folder project (path sudah diketahui dari file://)
+    // fallback ke dirname script jika dibuka dari http
+    const WIN_CD  = dir ? `cd /d "${dir.replace(/\//g, '\\')}"` : 'cd /d "%~dp0"'
+    const UNIX_CD = dir ? `cd "${dir}"` : 'cd "$(dirname "$0")"'
+
     const WIN = [
-      '@echo off', 'chcp 65001 >nul', 'cd /d "%~dp0"', 'echo.',
+      '@echo off', 'chcp 65001 >nul', WIN_CD, 'echo.',
       'echo Stokasir - Memulai Installer...', 'echo.',
       'where bun >nul 2>&1',
       'if %errorlevel% neq 0 (',
@@ -421,13 +438,13 @@
     ].join('\r\n')
 
     const MAC = [
-      '#!/bin/bash', 'cd "$(dirname "$0")"',
+      '#!/bin/bash', UNIX_CD,
       'command -v bun &>/dev/null || (curl -fsSL https://bun.sh/install | bash && export PATH="$HOME/.bun/bin:$PATH")',
       'bun instalasi.ts &', 'sleep 2', 'open http://localhost:7777', 'wait',
     ].join('\n')
 
     const LINUX = [
-      '#!/bin/bash', 'cd "$(dirname "$0")"',
+      '#!/bin/bash', UNIX_CD,
       'command -v bun &>/dev/null || (curl -fsSL https://bun.sh/install | bash && export PATH="$HOME/.bun/bin:$PATH")',
       'bun instalasi.ts &', 'sleep 2',
       'xdg-open http://localhost:7777 2>/dev/null || true', 'wait',
