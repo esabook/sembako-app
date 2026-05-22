@@ -320,6 +320,7 @@ function streamInstall(cfg: Config): Response {
 
   return new Response(stream, {
     headers: {
+      ...CORS,
       'Content-Type':  'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection':    'keep-alive',
@@ -329,18 +330,22 @@ function streamInstall(cfg: Config): Response {
 
 // ── HTTP server ───────────────────────────────────────────────────────────────
 
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
 Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url)
 
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST', 'Access-Control-Allow-Headers': 'Content-Type' } })
-    }
+    if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
     if (url.pathname === '/' || url.pathname === '/instalasi.html') {
       return new Response(Bun.file(join(ROOT, 'instalasi.html')), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: { ...CORS, 'Content-Type': 'text/html; charset=utf-8' },
       })
     }
 
@@ -351,26 +356,22 @@ Bun.serve({
         ips:         getAllIps(),
         bunVersion:  process.versions.bun,
         defaultData: process.platform === 'win32' ? 'C:\\stokasir-data' : `${os.homedir()}/stokasir-data`,
-      })
+      }, { headers: CORS })
     }
 
     if (url.pathname === '/api/browse') {
-      const raw      = url.searchParams.get('path') || os.homedir()
-      const current  = resolve(raw)
-      const parent   = dirname(current)
+      const raw     = url.searchParams.get('path') || os.homedir()
+      const current = resolve(raw)
+      const parent  = dirname(current)
       try {
         const entries = fs.readdirSync(current, { withFileTypes: true })
         const dirs = entries
           .filter(e => e.isDirectory() && !e.name.startsWith('.'))
           .sort((a, b) => a.name.localeCompare(b.name))
           .map(e => ({ name: e.name, path: join(current, e.name) }))
-        return Response.json({
-          current,
-          parent: parent !== current ? parent : null,
-          dirs,
-        })
+        return Response.json({ current, parent: parent !== current ? parent : null, dirs }, { headers: CORS })
       } catch {
-        return Response.json({ error: 'Tidak bisa membaca folder ini' }, { status: 400 })
+        return Response.json({ error: 'Tidak bisa membaca folder ini' }, { status: 400, headers: CORS })
       }
     }
 
@@ -380,7 +381,7 @@ Bun.serve({
 
     if (url.pathname === '/api/stop') {
       setTimeout(() => process.exit(0), 500)
-      return new Response('OK')
+      return new Response('OK', { headers: CORS })
     }
 
     return new Response('Not found', { status: 404 })

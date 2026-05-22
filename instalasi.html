@@ -328,24 +328,18 @@
   let appUrl        = ''
   let browseSelected = ''
 
+  // Selalu gunakan URL absolut agar bekerja baik dari file:// maupun http://
+  const API = 'http://localhost:7777'
+
   // ── Load platform (dengan retry) ─────────────────────────────────────────
   async function loadPlatform() {
     const badge = document.getElementById('os-badge')
 
-    // Jika dibuka langsung sebagai file://, API tidak bisa diakses
-    if (location.protocol === 'file:') {
-      badge.textContent = '⚠ buka via instal.command / instal.bat'
-      badge.style.cssText = 'color:var(--warn);max-width:300px'
-      document.getElementById('btn-install').disabled = true
-      document.getElementById('btn-install').textContent = 'Jalankan instal.command atau instal.bat dulu'
-      return
-    }
-
-    // Retry hingga server siap (race condition saat browser dibuka sebelum server ready)
+    // Retry hingga server siap — menangani race condition & akses dari file://
     const MAX = 10
     for (let i = 0; i < MAX; i++) {
       try {
-        const info = await fetch('/api/platform').then(r => r.json())
+        const info = await fetch(`${API}/api/platform`).then(r => r.json())
 
         badge.textContent = `${info.os} · ${info.arch} · Bun ${info.bunVersion}`
         badge.style.color = ''
@@ -364,7 +358,7 @@
           sel.appendChild(opt)
         }
         if (!defaultSet && sel.options.length) sel.options[0].selected = true
-        return  // sukses, keluar dari retry loop
+        return
 
       } catch {
         if (i < MAX - 1) {
@@ -374,9 +368,19 @@
       }
     }
 
-    // Semua retry gagal
-    badge.textContent = 'server tidak berjalan'
+    // Semua retry gagal — server belum dijalankan
+    badge.textContent = 'server belum jalan'
     badge.style.color = 'var(--err)'
+    document.getElementById('btn-install').disabled = true
+    document.getElementById('btn-install').textContent = '▶  Jalankan: bun instalasi.ts'
+    document.getElementById('empty-state').innerHTML =
+      `<div class="arrow">⚠</div>
+       <div>Server installer belum berjalan.</div>
+       <div style="margin-top:.5rem;color:var(--info)">
+         Double-click <strong>instal.command</strong> (Mac/Linux)<br>
+         atau <strong>instal.bat</strong> (Windows)<br>
+         <span style="color:var(--dim)">— lalu buka halaman ini lagi —</span>
+       </div>`
   }
 
   // ── Folder browser ────────────────────────────────────────────────────────
@@ -388,7 +392,7 @@
   }
 
   async function loadDir(path) {
-    const url = '/api/browse' + (path ? `?path=${encodeURIComponent(path)}` : '')
+    const url = `${API}/api/browse` + (path ? `?path=${encodeURIComponent(path)}` : '')
     const data = await fetch(url).then(r => r.json())
 
     if (data.error) {
@@ -482,7 +486,7 @@
     resetSteps()
 
     try {
-      const res = await fetch('/api/install', {
+      const res = await fetch(`${API}/api/install`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cfg),
@@ -586,7 +590,7 @@
 
   function openApp() {
     if (appUrl) window.open(appUrl, '_blank')
-    fetch('/api/stop').catch(() => {})
+    fetch(`${API}/api/stop`).catch(() => {})
   }
 
   // ── Keyboard: Esc to close modal ──────────────────────────────────────────
