@@ -22,14 +22,14 @@ uname -m   # aarch64 = ARM64 → Bun OK  |  armv7l = ARM32 → ganti Node.js LTS
 ```bash
 sudo mkdir -p /mnt/data && sudo mount /dev/sda1 /mnt/data
 echo '/dev/sda1 /mnt/data ext4 defaults,noatime 0 2' | sudo tee -a /etc/fstab
-mkdir -p /mnt/data/sembako/uploads/{produk,invoice,karyawan}
-mkdir -p /mnt/data/sembako/backup
+mkdir -p /mnt/data/stokasir/uploads/{produk,invoice,karyawan}
+mkdir -p /mnt/data/stokasir/backup
 ```
 
 Path produksi (env vars):
 ```
-DATABASE_URL = file:/mnt/data/sembako/data.db
-UPLOAD_DIR   = /mnt/data/sembako/uploads
+DATABASE_URL = file:/mnt/data/stokasir/data.db
+UPLOAD_DIR   = /mnt/data/stokasir/uploads
 ```
 
 ---
@@ -54,7 +54,7 @@ Build di laptop, kirim ke Pi via rsync:
 ```bash
 #!/bin/bash
 PI_HOST="eg17@192.168.1.x"
-PI_PATH="/home/eg17/sembako-app"
+PI_PATH="/home/eg17/stokasir"
 
 cd frontend && bun run build && cd ..
 rsync -avz --exclude 'node_modules' --exclude '.svelte-kit' \
@@ -78,16 +78,16 @@ export default { kit: { adapter: adapter({ out: 'build', precompress: true }) } 
 // ecosystem.config.js
 module.exports = { apps: [
   {
-    name: 'sembako-backend', script: 'src/index.ts', interpreter: 'bun',
-    cwd: '/home/eg17/sembako-app/backend',
+    name: 'stokasir-backend', script: 'src/index.ts', interpreter: 'bun',
+    cwd: '/home/eg17/stokasir/backend',
     max_memory_restart: '200M',
     env: { NODE_ENV: 'production', PORT: '3000',
-           DATABASE_URL: 'file:/mnt/data/sembako/data.db',
-           UPLOAD_DIR: '/mnt/data/sembako/uploads' }
+           DATABASE_URL: 'file:/mnt/data/stokasir/data.db',
+           UPLOAD_DIR: '/mnt/data/stokasir/uploads' }
   },
   {
-    name: 'sembako-frontend', script: 'build/index.js', interpreter: 'bun',
-    cwd: '/home/eg17/sembako-app/frontend',
+    name: 'stokasir-frontend', script: 'build/index.js', interpreter: 'bun',
+    cwd: '/home/eg17/stokasir/frontend',
     max_memory_restart: '150M',
     env: { NODE_ENV: 'production', PORT: '5173', HOST: '0.0.0.0',
            PUBLIC_API_URL: 'http://192.168.1.x/api' }
@@ -109,7 +109,7 @@ server {
   gzip on;
   gzip_types text/plain text/css application/javascript application/json;
 
-  location /uploads/ { alias /mnt/data/sembako/uploads/; expires 30d; }
+  location /uploads/ { alias /mnt/data/stokasir/uploads/; expires 30d; }
   location /api/ { proxy_pass http://localhost:3000/; proxy_set_header Host $host; }
   location / {
     proxy_pass http://localhost:5173;
@@ -126,8 +126,8 @@ server {
 ```bash
 # /home/eg17/backup-db.sh
 TANGGAL=$(date +%Y%m%d_%H%M%S)
-sqlite3 /mnt/data/sembako/data.db ".backup /mnt/data/sembako/backup/data_$TANGGAL.db"
-find /mnt/data/sembako/backup -name "*.db" -mtime +7 -delete
+sqlite3 /mnt/data/stokasir/data.db ".backup /mnt/data/stokasir/backup/data_$TANGGAL.db"
+find /mnt/data/stokasir/backup -name "*.db" -mtime +7 -delete
 ```
 
 ```

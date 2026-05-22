@@ -17,7 +17,7 @@ const auth = [{ cookieAuth: [] }]
 export const openAPISpec = {
   openapi: '3.0.3',
   info: {
-    title: 'Sembako App API',
+    title: 'Stokasir API',
     version: '1.0.0',
     description: `API untuk aplikasi manajemen stok dan kasir.\n\n**Auth:** Login via \`POST /auth/login\` — server set cookie \`auth_token\` (httpOnly). Semua endpoint (kecuali login) butuh cookie ini.\n\n**Response format:** semua response \`{ success: boolean, data: T | null }\`\n\n**Soft delete:** master data (barang, supplier, dll) tidak dihapus fisik — di-set \`is_active = false\``,
   },

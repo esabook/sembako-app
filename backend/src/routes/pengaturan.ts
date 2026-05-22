@@ -50,7 +50,7 @@ pengaturanRouter.get('/backup-db', requirePermission('*'), async (c) => {
   return new Response(file, {
     headers: {
       'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="sembako-backup-${tgl}.db"`,
+      'Content-Disposition': `attachment; filename="stokasir-backup-${tgl}.db"`,
     },
   })
 })

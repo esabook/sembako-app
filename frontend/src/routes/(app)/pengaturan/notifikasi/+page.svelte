@@ -91,7 +91,7 @@
 		if (!store.alerts.length) return
 		const baris = store.alerts.map((a, i) => `${i + 1}. [${a.jenis.replace(/_/g, ' ')}] ${a.pesan}`).join('\n')
 		const tgl = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
-		const pesan = `*ALERT TOKO — ${tgl}*\n\n${baris}\n\n_Dikirim dari aplikasi Sembako_`
+		const pesan = `*ALERT TOKO — ${tgl}*\n\n${baris}\n\n_Dikirim dari aplikasi Stokasir_`
 		const nomor = waNomorPemilik.replace(/\D/g, '')
 		const url = nomor
 			? `https://wa.me/${nomor}?text=${encodeURIComponent(pesan)}`

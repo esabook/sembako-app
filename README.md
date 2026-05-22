@@ -1,4 +1,4 @@
-# Sembako App
+# Stokasir
 
 Aplikasi manajemen stok-kasir grosir & eceran — berbasis web, jalan di jaringan WiFi lokal, diakses dari laptop maupun HP.
 
@@ -91,7 +91,7 @@ http://[IP_PI]/api/   ← API backend
 ## Struktur Folder
 
 ```
-sembako-app/
+stokasir/
 ├── frontend/        ← SvelteKit app
 ├── backend/         ← Hono.js API + SQLite
 ├── doc/             ← Dokumentasi

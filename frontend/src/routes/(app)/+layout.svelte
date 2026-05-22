@@ -137,7 +137,7 @@
 		style="background:var(--surface);border-color:var(--border)"
 	>
 		<div class="flex shrink-0 items-center gap-1.5">
-			<img src="/logo.png" alt="Logo Sembako" class="h-[32px] w-[32px]" />
+			<img src="/logo.png" alt="Logo Stokasir" class="h-[32px] w-[32px]" />
 			<span class="hidden font-bold sm:inline" style="color:var(--accent)">{namaToko}</span>
 		</div>
 

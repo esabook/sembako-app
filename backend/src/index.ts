@@ -58,7 +58,7 @@ app.onError((err, c) => {
 app.get('/health', (c) => c.json({ success: true, data: { status: 'ok' } }))
 
 app.get('/openapi.json', (c) => c.json(openAPISpec))
-app.get('/doc', Scalar({ spec: { url: '/openapi.json' }, pageTitle: 'Sembako App API' }))
+app.get('/doc', Scalar({ spec: { url: '/openapi.json' }, pageTitle: 'Stokasir API' }))
 
 // Serve uploaded files
 app.get('/uploads/*', async (c) => {

@@ -190,7 +190,7 @@
 										bind:value={username}
 										bind:this={usernameInput}
 										autocomplete="off"
-										name="sembako-user"
+										name="stokasir-user"
 										required
 										disabled={loading || attemptsLeft <= 0}
 										class="field-input"
@@ -209,7 +209,7 @@
 										bind:value={password}
 										bind:this={passwordInput}
 										autocomplete="new-password"
-										name="sembako-pass"
+										name="stokasir-pass"
 										required
 										disabled={loading || attemptsLeft <= 0}
 										class="field-input"

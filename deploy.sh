@@ -2,7 +2,7 @@
 set -e
 
 PI_HOST="${PI_HOST:-eg17@192.168.1.x}"
-PI_PATH="/home/eg17/sembako-app"
+PI_PATH="/home/eg17/stokasir"
 
 echo "→ Build frontend..."
 cd frontend && bun run build && cd ..

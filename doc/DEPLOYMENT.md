@@ -54,8 +54,8 @@ echo '/dev/sda1 /mnt/data ext4 defaults,noatime 0 2' | sudo tee -a /etc/fstab
 # noatime = tidak update access time saat baca → hemat write
 
 # Buat struktur folder
-mkdir -p /mnt/data/sembako/uploads/{produk,invoice,karyawan}
-mkdir -p /mnt/data/sembako/backup
+mkdir -p /mnt/data/stokasir/uploads/{produk,invoice,karyawan}
+mkdir -p /mnt/data/stokasir/backup
 ```
 
 > SD card rentan rusak akibat write intensif. SQLite **wajib** di USB SSD.
@@ -105,8 +105,8 @@ sudo apt install -y nginx
 
 | Variable | Development | Production (Pi) |
 |---|---|---|
-| `DATABASE_URL` | `./data.db` | `file:/mnt/data/sembako/data.db` |
-| `UPLOAD_DIR` | `./uploads` | `/mnt/data/sembako/uploads` |
+| `DATABASE_URL` | `./data.db` | `file:/mnt/data/stokasir/data.db` |
+| `UPLOAD_DIR` | `./uploads` | `/mnt/data/stokasir/uploads` |
 | `PORT` | `3000` | `3000` |
 | `HOST` | `localhost` | `0.0.0.0` |
 | `PUBLIC_API_URL` | `http://localhost:3000` | `http://[IP_PI]/api` |
@@ -138,27 +138,27 @@ Buat file konfigurasi di root project:
 module.exports = {
   apps: [
     {
-      name: 'sembako-backend',
+      name: 'stokasir-backend',
       script: 'src/index.ts',
       interpreter: 'bun',
-      cwd: '/home/eg17/sembako-app/backend',
+      cwd: '/home/eg17/stokasir/backend',
       instances: 1,
       exec_mode: 'fork',
       max_memory_restart: '200M',
       env: {
         NODE_ENV: 'production',
         PORT: '3000',
-        DATABASE_URL: 'file:/mnt/data/sembako/data.db',
-        UPLOAD_DIR: '/mnt/data/sembako/uploads'
+        DATABASE_URL: 'file:/mnt/data/stokasir/data.db',
+        UPLOAD_DIR: '/mnt/data/stokasir/uploads'
       },
       error_file: '/home/eg17/logs/backend-err.log',
       out_file:   '/home/eg17/logs/backend-out.log',
     },
     {
-      name: 'sembako-frontend',
+      name: 'stokasir-frontend',
       script: 'build/index.js',
       interpreter: 'bun',
-      cwd: '/home/eg17/sembako-app/frontend',
+      cwd: '/home/eg17/stokasir/frontend',
       instances: 1,
       exec_mode: 'fork',
       max_memory_restart: '150M',
@@ -195,7 +195,7 @@ pm2 restart all   # restart semua
 ## Nginx — Reverse Proxy
 
 ```bash
-sudo nano /etc/nginx/sites-available/sembako
+sudo nano /etc/nginx/sites-available/stokasir
 ```
 
 ```nginx
@@ -211,7 +211,7 @@ server {
 
     # Foto & aset statis — cache 30 hari di browser
     location /uploads/ {
-        alias /mnt/data/sembako/uploads/;
+        alias /mnt/data/stokasir/uploads/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
@@ -243,7 +243,7 @@ server {
 ```
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/sembako /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/stokasir /etc/nginx/sites-enabled/
 sudo rm /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl enable nginx
@@ -282,8 +282,8 @@ nano /home/eg17/backup-db.sh
 ```bash
 #!/bin/bash
 TANGGAL=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/mnt/data/sembako/backup"
-DB_FILE="/mnt/data/sembako/data.db"
+BACKUP_DIR="/mnt/data/stokasir/backup"
+DB_FILE="/mnt/data/stokasir/data.db"
 
 mkdir -p $BACKUP_DIR
 

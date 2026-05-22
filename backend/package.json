@@ -1,5 +1,5 @@
 {
-  "name": "sembako-backend",
+  "name": "stokasir-backend",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
