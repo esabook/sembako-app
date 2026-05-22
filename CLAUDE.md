@@ -230,6 +230,7 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 | Shortcut Ctrl+Home toggle sidebar | ✅ |
 | DEPLOY.md: panduan server Windows / Mac / Linux | ✅ |
 | Installer ZIP: setup.sh (Linux/Mac/Pi) + setup.ps1 (Windows) + build-zip.sh | ✅ |
+| HTML-only installer: buka instalasi.html → auto-unduh bootstrap script → polling server otomatis | ✅ |
 | Murni Bun tanpa Node.js/npm: adapter-bun + systemd/launchd/Task Scheduler | ✅ |
 | Browser installer (instalasi.ts + instalasi.html): git clone → double-click → install | ✅ |
 

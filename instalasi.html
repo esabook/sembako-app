@@ -148,6 +148,44 @@
     }
     .empty-state .arrow { font-size: 1.8rem; }
 
+    /* ── Bootstrap panel ── */
+    .bootstrap-panel {
+      display: none; flex: 1; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1.1rem; padding: 2rem 1.5rem; text-align: center;
+    }
+    .bootstrap-panel.visible { display: flex; }
+    .bs-title { font-size: .88rem; font-weight: 700; color: var(--warn); }
+    .bs-sub { font-size: .73rem; color: var(--dim); max-width: 400px; line-height: 1.9; }
+    .bs-file {
+      display: flex; align-items: center; gap: .6rem;
+      padding: .55rem 1rem; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 8px; font-size: .82rem;
+    }
+    .bsf-name { font-weight: 700; }
+    .bsf-os { font-size: .68rem; color: var(--dim); margin-left: .15rem; }
+    .bs-cmd-wrap { width: 100%; max-width: 440px; }
+    .bs-cmd-label { font-size: .68rem; color: var(--dim); text-align: left; margin-bottom: .3rem; }
+    .bs-cmd {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+      padding: .5rem .8rem; font-size: .73rem; color: var(--info);
+      cursor: pointer; white-space: pre; overflow-x: auto; text-align: left;
+      transition: border-color .15s; user-select: all;
+    }
+    .bs-cmd:hover { border-color: var(--accent); }
+    .bs-cmd-hint { font-size: .64rem; color: var(--dim); margin-top: .25rem; text-align: right; }
+    .bs-dl {
+      padding: .45rem .9rem; background: var(--surface2);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-family: inherit; font-size: .72rem;
+      cursor: pointer; transition: border-color .15s;
+    }
+    .bs-dl:hover { border-color: var(--accent); }
+    .bs-wait {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: .71rem; color: var(--dim);
+    }
+
     .err-banner {
       display: none; padding: .6rem 1.5rem;
       background: rgba(239,68,68,.08); border-top: 1px solid rgba(239,68,68,.4);
@@ -290,6 +328,31 @@
       <div class="step" id="step-5"><div class="step-icon">5</div>Setup Service</div>
     </div>
 
+    <!-- ── Bootstrap: muncul saat server belum jalan ── -->
+    <div class="bootstrap-panel" id="bootstrap-panel">
+      <div class="bs-title">⚡ Server installer belum berjalan</div>
+      <div class="bs-sub">
+        Script bootstrap sudah otomatis terunduh.<br>
+        Double-click file tersebut (Windows) atau jalankan di terminal,<br>
+        lalu halaman ini otomatis berlanjut sendiri.
+      </div>
+      <div class="bs-file">
+        <span>📥</span>
+        <span class="bsf-name" id="bs-filename">mulai-installer.bat</span>
+        <span class="bsf-os" id="bs-os-hint">Windows</span>
+      </div>
+      <div class="bs-cmd-wrap">
+        <div class="bs-cmd-label">Jalankan di terminal:</div>
+        <div class="bs-cmd" id="bs-cmd" onclick="copyCmd(this)">bun instalasi.ts</div>
+        <div class="bs-cmd-hint" id="bs-cmd-hint">klik untuk salin</div>
+      </div>
+      <button class="bs-dl" onclick="redownload()">↓ Unduh Ulang Script</button>
+      <div class="bs-wait" id="bs-wait">
+        <div class="spinner"></div>
+        <span>Menunggu server... halaman otomatis berlanjut</span>
+      </div>
+    </div>
+
     <div class="log-area" id="log-area">
       <div class="empty-state" id="empty-state">
         <div class="arrow">←</div>
@@ -327,9 +390,106 @@
 <script>
   let appUrl        = ''
   let browseSelected = ''
+  let pollTimer     = null
+  let clientOS      = 'linux'
 
   // Selalu gunakan URL absolut agar bekerja baik dari file:// maupun http://
   const API = 'http://localhost:7777'
+
+  // ── OS detection + bootstrap scripts ─────────────────────────────────────
+  function detectOS() {
+    const ua = navigator.userAgent || ''
+    const pl = navigator.platform  || ''
+    if (/Win/i.test(pl) || /Windows/i.test(ua)) return 'windows'
+    if (/Mac/i.test(pl) || /Mac OS X|macOS/i.test(ua)) return 'mac'
+    return 'linux'
+  }
+
+  function getBootstrapInfo(os) {
+    const WIN = [
+      '@echo off', 'chcp 65001 >nul', 'cd /d "%~dp0"', 'echo.',
+      'echo Stokasir - Memulai Installer...', 'echo.',
+      'where bun >nul 2>&1',
+      'if %errorlevel% neq 0 (',
+      '  echo Menginstall Bun...',
+      '  powershell -ExecutionPolicy Bypass -c "irm bun.sh/install.ps1 | iex"',
+      '  set "PATH=%USERPROFILE%\\.bun\\bin;%PATH%"',
+      ')',
+      'start "" /B bun instalasi.ts',
+      'timeout /t 2 /nobreak >nul',
+      'start http://localhost:7777',
+    ].join('\r\n')
+
+    const MAC = [
+      '#!/bin/bash', 'cd "$(dirname "$0")"',
+      'command -v bun &>/dev/null || (curl -fsSL https://bun.sh/install | bash && export PATH="$HOME/.bun/bin:$PATH")',
+      'bun instalasi.ts &', 'sleep 2', 'open http://localhost:7777', 'wait',
+    ].join('\n')
+
+    const LINUX = [
+      '#!/bin/bash', 'cd "$(dirname "$0")"',
+      'command -v bun &>/dev/null || (curl -fsSL https://bun.sh/install | bash && export PATH="$HOME/.bun/bin:$PATH")',
+      'bun instalasi.ts &', 'sleep 2',
+      'xdg-open http://localhost:7777 2>/dev/null || true', 'wait',
+    ].join('\n')
+
+    if (os === 'windows') return { filename: 'mulai-installer.bat',     content: WIN,   osLabel: 'Windows', cmd: 'mulai-installer.bat' }
+    if (os === 'mac')     return { filename: 'mulai-installer.command', content: MAC,   osLabel: 'macOS',   cmd: 'bash mulai-installer.command' }
+    return                       { filename: 'mulai-installer.sh',      content: LINUX, osLabel: 'Linux',   cmd: 'bash mulai-installer.sh' }
+  }
+
+  function triggerDownload(info) {
+    const blob = new Blob([info.content], { type: 'application/octet-stream' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = info.filename
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  function redownload() {
+    triggerDownload(getBootstrapInfo(clientOS))
+  }
+
+  function copyCmd(el) {
+    navigator.clipboard.writeText(el.textContent).then(() => {
+      const hint = document.getElementById('bs-cmd-hint')
+      hint.textContent = '✓ tersalin!'
+      setTimeout(() => { hint.textContent = 'klik untuk salin' }, 1800)
+    }).catch(() => {
+      const range = document.createRange()
+      range.selectNode(el)
+      window.getSelection().removeAllRanges()
+      window.getSelection().addRange(range)
+    })
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer)
+    pollTimer = setInterval(async () => {
+      try {
+        await fetch(`${API}/api/platform`)
+        clearInterval(pollTimer); pollTimer = null
+        const w = document.getElementById('bs-wait')
+        if (w) w.innerHTML = '<span style="color:var(--ok);font-weight:700">✓ Server ditemukan! Memuat ulang...</span>'
+        setTimeout(() => window.location.reload(), 800)
+      } catch {}
+    }, 2000)
+  }
+
+  function showBootstrap() {
+    clientOS = detectOS()
+    const info = getBootstrapInfo(clientOS)
+    document.getElementById('bs-filename').textContent = info.filename
+    document.getElementById('bs-os-hint').textContent  = info.osLabel
+    document.getElementById('bs-cmd').textContent      = info.cmd
+    // Sembunyikan log area, tampilkan panel bootstrap
+    document.getElementById('log-area').style.display = 'none'
+    document.getElementById('bootstrap-panel').classList.add('visible')
+    // Auto-download (browser modern mengizinkan saat bukan user gesture)
+    triggerDownload(info)
+    startPolling()
+  }
 
   // ── Load platform (dengan retry) ─────────────────────────────────────────
   async function loadPlatform() {
@@ -368,9 +528,10 @@
       }
     }
 
-    // Semua retry gagal — server belum jalan, tapi tombol tetap aktif
+    // Semua retry gagal — auto-download bootstrap + mulai polling
     badge.textContent = 'server belum jalan'
     badge.style.color = 'var(--warn)'
+    showBootstrap()
   }
 
   // ── Folder browser ────────────────────────────────────────────────────────
@@ -468,7 +629,10 @@
 
     if (!cfg.dataDir || !cfg.serverIp) { alert('Folder data dan IP server wajib diisi.'); return }
 
-    document.getElementById('btn-install').disabled = true
+    // Hentikan polling & beralih ke tampilan log
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+    document.getElementById('bootstrap-panel').classList.remove('visible')
+    document.getElementById('log-area').style.display = ''
     document.getElementById('empty-state').style.display = 'none'
     document.getElementById('err-banner').classList.remove('visible')
     document.getElementById('done-banner').classList.remove('visible')
@@ -483,12 +647,7 @@
         await new Promise(r => setTimeout(r, 600))
       }
       if (!serverReady) {
-        document.getElementById('btn-install').disabled = false
-        showError(
-          'Server installer belum berjalan.\n' +
-          'Double-click instal.command (Mac/Linux) atau instal.bat (Windows),\n' +
-          'lalu klik Mulai Instalasi lagi.'
-        )
+        showBootstrap()
         return
       }
 
