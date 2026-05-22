@@ -256,18 +256,24 @@ sudo systemctl restart nginx
 
 > **Jangan build di Pi** — CPU kecil, proses lama dan panas. Build di laptop lalu kirim via rsync.
 
-Gunakan script `deploy.sh` di root project:
-
 ```bash
-# Set IP Pi terlebih dahulu, lalu jalankan:
-PI_HOST=eg17@192.168.1.x ./deploy.sh
-```
+# Build frontend di laptop
+cd frontend && bun run build && cd ..
 
-Script ini otomatis:
-1. Build frontend di laptop
-2. Kirim semua file ke Pi via rsync (skip `node_modules`, `data.db`, `uploads`)
-3. Install production dependencies di Pi
-4. Restart PM2
+# Kirim ke Pi (skip node_modules, database, uploads)
+rsync -avz \
+  --exclude 'node_modules' \
+  --exclude '.svelte-kit' \
+  --exclude 'data.db' \
+  --exclude 'uploads' \
+  ./ eg17@[IP_PI]:/home/eg17/stokasir/
+
+# Install production dependencies di Pi
+ssh eg17@[IP_PI] "cd /home/eg17/stokasir/backend && bun install --production"
+
+# Restart service
+ssh eg17@[IP_PI] "sudo systemctl restart stokasir-backend stokasir-frontend"
+```
 
 ---
 

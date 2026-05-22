@@ -32,7 +32,7 @@ Aplikasi manajemen stok-kasir grosir & eceran — berbasis web, jalan di jaringa
 | Backend | Hono.js · Bun runtime |
 | Database | SQLite via Drizzle ORM |
 | Auth | JWT (httpOnly cookie) |
-| Deployment | Raspberry Pi 4 · Nginx · PM2 |
+| Deployment | Raspberry Pi 4 · Nginx · systemd |
 
 ---
 
@@ -70,14 +70,7 @@ Lihat juga: [frontend/README.md](frontend/README.md) untuk detail konfigurasi Sv
 
 ## Deploy ke Raspberry Pi
 
-Lihat panduan lengkap di [doc/DEPLOYMENT.md](doc/DEPLOYMENT.md).
-
-Ringkasan:
-
-```bash
-# Build & kirim ke Pi sekali perintah
-PI_HOST=eg17@192.168.1.x ./deploy.sh
-```
+Lihat panduan lengkap di [doc/DEPLOYMENT.md](doc/DEPLOYMENT.md) atau [DEPLOY.md](DEPLOY.md).
 
 Setelah deploy, akses dari semua device di WiFi yang sama:
 
@@ -96,7 +89,6 @@ stokasir/
 ├── backend/         ← Hono.js API + SQLite
 ├── doc/             ← Dokumentasi
 │   └── DEPLOYMENT.md
-├── deploy.sh        ← Script deploy ke Pi
 └── CLAUDE.md        ← Konteks project untuk Claude Code
 ```
 

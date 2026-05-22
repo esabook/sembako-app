@@ -43,6 +43,32 @@ cp -r scripts/ "$STAGING/scripts/"
 chmod +x "$STAGING/scripts/setup.sh"
 chmod +x "$STAGING/scripts/build-zip.sh"
 
+# README install singkat di root — pengguna tahu harus jalankan apa
+cat > "$STAGING/MULAI.md" <<'READMEEOF'
+# Stokasir — Cara Install
+
+## Linux / Mac / Raspberry Pi
+```bash
+bash scripts/setup.sh
+```
+
+## Windows
+```powershell
+# Klik kanan setup.ps1 → "Run with PowerShell"
+# atau di PowerShell (sebagai Administrator):
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+.\scripts\setup.ps1
+```
+
+Script akan menanyakan konfigurasi, lalu install otomatis:
+- Bun runtime
+- Dependencies & build frontend
+- Service (systemd / launchd / Task Scheduler)
+- Nginx + HTTPS dengan mkcert (opsional, direkomendasikan)
+
+Untuk panduan lengkap → baca DEPLOY.md
+READMEEOF
+
 # Docs & config
 cp README-INSTALL.md "$STAGING/" 2>/dev/null || true
 cp DEPLOY.md         "$STAGING/"

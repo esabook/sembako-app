@@ -2,7 +2,8 @@ import { drizzle } from 'drizzle-orm/bun-sqlite'
 import { Database } from 'bun:sqlite'
 import * as schema from './schema.ts'
 
-const DB_PATH = process.env.DATABASE_URL ?? './data.db'
+// bun:sqlite tidak kenal URI scheme "file:" — strip prefix jika ada
+const DB_PATH = (process.env.DATABASE_URL ?? './data.db').replace(/^file:/, '')
 const sqlite = new Database(DB_PATH)
 
 sqlite.run('PRAGMA journal_mode = WAL')

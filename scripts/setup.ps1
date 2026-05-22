@@ -1,218 +1,555 @@
-# setup.ps1 — Installer Stokasir untuk Windows
-# Jalankan dari folder root project:
-#   powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
-#
-# Butuh: PowerShell 5+ (sudah ada di Windows 10/11)
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+  Installer Stokasir untuk Windows
+.DESCRIPTION
+  Jalankan sebagai Administrator dari folder root project:
+    Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+    .\scripts\setup.ps1 [install|repair|uninstall]
+#>
+param([string]$Mode = '')
 
-$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-# ── Warna output ────────────────────────────────────────────────────────────
-function Write-Step($msg)  { Write-Host "`n══ $msg ══" -ForegroundColor Cyan }
-function Write-Ok($msg)    { Write-Host "  ✓ $msg" -ForegroundColor Green }
-function Write-Info($msg)  { Write-Host "  → $msg" -ForegroundColor Cyan }
-function Write-Warn($msg)  { Write-Host "  ⚠ $msg" -ForegroundColor Yellow }
-function Write-Err($msg)   { Write-Host "  ✗ $msg" -ForegroundColor Red; exit 1 }
+# ── Warna output ─────────────────────────────────────────────────────────────
+function info($m)   { Write-Host "  >> $m" -ForegroundColor Cyan }
+function ok($m)     { Write-Host "  OK $m" -ForegroundColor Green }
+function warn($m)   { Write-Host "  !! $m" -ForegroundColor Yellow }
+function err($m)    { Write-Host "  XX $m" -ForegroundColor Red; exit 1 }
+function header($m) { Write-Host "`n== $m ==" -ForegroundColor Cyan }
 
-$SCRIPT_DIR = Split-Path -Parent $PSScriptRoot
+# ── Path root project ────────────────────────────────────────────────────────
+$ROOT = Split-Path -Parent $PSScriptRoot
+$ENV_FILE = "$ROOT\backend\.env"
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║      Stokasir — Setup Installer      ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════╝" -ForegroundColor Cyan
-Write-Host "  Platform : Windows"
-Write-Host "  Folder   : $SCRIPT_DIR"
+Write-Host "+======================================+" -ForegroundColor White
+Write-Host "|      Stokasir - Setup Installer      |" -ForegroundColor White
+Write-Host "+======================================+" -ForegroundColor White
+Write-Host "  Platform : Windows ($env:PROCESSOR_ARCHITECTURE)" -ForegroundColor Cyan
+Write-Host "  Folder   : $ROOT" -ForegroundColor Cyan
 Write-Host ""
 
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Step "1 / 5  Cek & Install Bun"
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Cek Administrator ────────────────────────────────────────────────────────
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    warn "Script ini sebaiknya dijalankan sebagai Administrator"
+    warn "Beberapa fitur (nginx, mkcert, Task Scheduler) butuh hak admin"
+    $cont = Read-Host "  Lanjutkan tanpa Administrator? [y/N]"
+    if ($cont -ne 'y') { exit 0 }
+}
 
-$bunExists = $null
-try { $bunExists = Get-Command bun -ErrorAction Stop } catch {}
-
-if ($bunExists) {
-    $bunVer = & bun --version
-    Write-Ok "Bun sudah terinstall: v$bunVer"
-} else {
-    Write-Info "Menginstall Bun..."
-    try {
-        powershell -c "irm bun.sh/install.ps1 | iex"
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-        Write-Ok "Bun berhasil diinstall. Mungkin perlu restart terminal jika error."
-    } catch {
-        Write-Err "Gagal install Bun otomatis. Install manual dari: https://bun.sh"
+# ── Pilih mode ───────────────────────────────────────────────────────────────
+if (-not $Mode) {
+    Write-Host "Pilih mode:"
+    Write-Host "  1) install   - install & konfigurasi dari awal"
+    Write-Host "  2) repair    - reinstall deps, rebuild, restart service"
+    Write-Host "  3) uninstall - hapus service & config"
+    Write-Host ""
+    $choice = Read-Host "Pilihan [1/2/3]"
+    switch ($choice) {
+        '1' { $Mode = 'install' }
+        'install' { $Mode = 'install' }
+        '2' { $Mode = 'repair' }
+        'repair' { $Mode = 'repair' }
+        '3' { $Mode = 'uninstall' }
+        'uninstall' { $Mode = 'uninstall' }
+        default { err "Pilihan tidak valid." }
     }
 }
 
-$BUN_BIN = (Get-Command bun).Source
-
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Step "2 / 5  Konfigurasi"
-# ══════════════════════════════════════════════════════════════════════════════
-
-Write-Host ""
-Write-Host "  Isi konfigurasi berikut (Enter = pakai nilai default):" -ForegroundColor White
-Write-Host ""
-
-$defaultData = "C:\stokasir-data"
-$inputData = Read-Host "  Folder data (upload & database) [$defaultData]"
-$DATA_DIR = if ($inputData) { $inputData } else { $defaultData }
-
-$detectedIP = (Get-NetIPAddress -AddressFamily IPv4 |
-    Where-Object { $_.IPAddress -notmatch '^127\.' -and $_.IPAddress -notmatch '^169\.' } |
-    Select-Object -First 1).IPAddress
-$defaultIP = if ($detectedIP) { $detectedIP } else { "192.168.1.x" }
-$inputIP = Read-Host "  IP server ini (untuk akses HP) [$defaultIP]"
-$SERVER_IP = if ($inputIP) { $inputIP } else { $defaultIP }
-
-$inputJWT = Read-Host "  JWT Secret (Enter = generate otomatis)"
-if ($inputJWT) {
-    $JWT_SECRET = $inputJWT
-} else {
-    $bytes = New-Object Byte[] 36
-    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-    $JWT_SECRET = [Convert]::ToBase64String($bytes)
+# ════════════════════════════════════════════════════════════════════════════
+# HELPER: Download file
+# ════════════════════════════════════════════════════════════════════════════
+function Download-File($url, $dest) {
+    info "Mengunduh $url ..."
+    $wc = New-Object System.Net.WebClient
+    $wc.DownloadFile($url, $dest)
 }
 
-$inputBackend = Read-Host "  Port backend  [3000]"
-$PORT_BACKEND = if ($inputBackend) { $inputBackend } else { "3000" }
+# ════════════════════════════════════════════════════════════════════════════
+# UNINSTALL
+# ════════════════════════════════════════════════════════════════════════════
+function Do-Uninstall {
+    header "Uninstall Stokasir"
+    warn "Mode ini akan menghapus service Stokasir dari Task Scheduler."
+    $confirm = Read-Host "  Lanjutkan? [y/N]"
+    if ($confirm -ne 'y') { Write-Host "Dibatalkan."; exit 0 }
 
-$inputFrontend = Read-Host "  Port frontend [5173]"
-$PORT_FRONTEND = if ($inputFrontend) { $inputFrontend } else { "5173" }
+    foreach ($task in @('Stokasir Backend', 'Stokasir Frontend', 'Stokasir Nginx')) {
+        if (Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue) {
+            Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName $task -Confirm:$false
+            ok "$task dihapus"
+        } else {
+            warn "$task tidak ditemukan"
+        }
+    }
 
-Write-Host ""
-Write-Info "Konfigurasi:"
-Write-Host "    Data dir     : $DATA_DIR"
-Write-Host "    IP server    : $SERVER_IP"
-Write-Host "    Port backend : $PORT_BACKEND"
-Write-Host "    Port frontend: $PORT_FRONTEND"
-Write-Host ""
-$confirm = Read-Host "  Lanjutkan? [Y/n]"
-if ($confirm -eq "n" -or $confirm -eq "N") {
-    Write-Host "Dibatalkan." ; exit 0
+    if (Test-Path $ENV_FILE) {
+        Remove-Item $ENV_FILE -Force
+        ok "backend\.env dihapus"
+    }
+
+    # Hapus nginx config stokasir (jangan hapus nginx itu sendiri)
+    if (Test-Path 'C:\nginx\conf\stokasir.conf') {
+        Remove-Item 'C:\nginx\conf\stokasir.conf' -Force
+        ok "nginx config stokasir dihapus"
+    }
+
+    Write-Host ""
+    Write-Host "+============================================+" -ForegroundColor Green
+    Write-Host "|     Stokasir berhasil diuninstall!         |" -ForegroundColor Green
+    Write-Host "+============================================+" -ForegroundColor Green
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Step "3 / 5  Siapkan Folder & Install Dependencies"
-# ══════════════════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════════════
+# REPAIR
+# ════════════════════════════════════════════════════════════════════════════
+function Do-Repair {
+    header "Repair Stokasir"
 
-Write-Info "Membuat folder data..."
-New-Item -ItemType Directory -Force -Path "$DATA_DIR\uploads\produk"   | Out-Null
-New-Item -ItemType Directory -Force -Path "$DATA_DIR\uploads\invoice"  | Out-Null
-New-Item -ItemType Directory -Force -Path "$DATA_DIR\uploads\karyawan" | Out-Null
-New-Item -ItemType Directory -Force -Path "$DATA_DIR\backup"           | Out-Null
-New-Item -ItemType Directory -Force -Path "$DATA_DIR\logs"             | Out-Null
-Write-Ok "Folder data siap: $DATA_DIR"
+    # Cek Bun
+    $bunCmd = Get-Command bun -ErrorAction SilentlyContinue
+    if (-not $bunCmd) {
+        $bunPath = "$env:USERPROFILE\.bun\bin\bun.exe"
+        if (Test-Path $bunPath) { $env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH" }
+        else { err "Bun tidak ditemukan. Jalankan mode install terlebih dahulu." }
+    }
+    ok "Bun: v$(bun --version)"
 
-Write-Info "Install backend dependencies..."
-Set-Location "$SCRIPT_DIR\backend"
-& bun install --production
-Write-Ok "Backend dependencies selesai"
+    header "1 / 3  Reinstall & Rebuild"
+    Set-Location "$ROOT\backend"; bun install --production
+    ok "Backend dependencies selesai"
+    Set-Location "$ROOT\frontend"; bun install; bun run build
+    ok "Frontend build selesai"
 
-Write-Info "Build frontend..."
-Set-Location "$SCRIPT_DIR\frontend"
-& bun install --production
-& bun run build
-Write-Ok "Frontend build selesai"
+    header "2 / 3  Migrasi Database"
+    Set-Location "$ROOT\backend"
+    try { bun run db:migrate; ok "Migrasi selesai" }
+    catch { warn "Tidak ada migrasi baru atau gagal." }
 
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Step "4 / 5  Generate Config & Buka Firewall"
-# ══════════════════════════════════════════════════════════════════════════════
+    header "3 / 3  Restart Service"
+    foreach ($task in @('Stokasir Backend', 'Stokasir Frontend')) {
+        if (Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue) {
+            Stop-ScheduledTask  -TaskName $task -ErrorAction SilentlyContinue
+            Start-ScheduledTask -TaskName $task
+            ok "$task di-restart"
+        }
+    }
 
-Write-Info "Menulis backend\.env..."
-$DB_PATH = $DATA_DIR.Replace("\", "/")
-@"
-DATABASE_URL=file:$DB_PATH/data.db
+    # Reload nginx jika ada
+    if (Test-Path 'C:\nginx\nginx.exe') {
+        & 'C:\nginx\nginx.exe' -s reload 2>$null
+        ok "Nginx di-reload"
+    }
+
+    Write-Host ""
+    Write-Host "+============================================+" -ForegroundColor Green
+    Write-Host "|     Stokasir berhasil di-repair!           |" -ForegroundColor Green
+    Write-Host "+============================================+" -ForegroundColor Green
+}
+
+# ════════════════════════════════════════════════════════════════════════════
+# INSTALL
+# ════════════════════════════════════════════════════════════════════════════
+function Do-Install {
+
+    # ════════════════════════════════════════════════════════════════════════
+    header "1 / 6  Cek & Install Bun"
+    # ════════════════════════════════════════════════════════════════════════
+    $bunCmd = Get-Command bun -ErrorAction SilentlyContinue
+    if (-not $bunCmd) {
+        $bunPath = "$env:USERPROFILE\.bun\bin\bun.exe"
+        if (Test-Path $bunPath) { $env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH"; $bunCmd = $true }
+    }
+
+    if (-not $bunCmd) {
+        info "Menginstall Bun..."
+        # Coba winget dulu, fallback ke PowerShell installer
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+        if ($winget) {
+            winget install Oven-sh.Bun --accept-source-agreements --accept-package-agreements
+        } else {
+            powershell -c "irm bun.sh/install.ps1 | iex"
+        }
+        $env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH"
+        if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+            err "Gagal install Bun. Coba manual: https://bun.sh"
+        }
+        ok "Bun berhasil diinstall: v$(bun --version)"
+    } else {
+        ok "Bun sudah terinstall: v$(bun --version)"
+    }
+
+    $BUN_BIN = (Get-Command bun).Source
+
+    # ════════════════════════════════════════════════════════════════════════
+    header "2 / 6  Konfigurasi"
+    # ════════════════════════════════════════════════════════════════════════
+    Write-Host ""
+    Write-Host "  Isi konfigurasi (Enter = pakai nilai default):"
+    Write-Host ""
+
+    $defaultData = "C:\stokasir-data"
+    $inputData   = Read-Host "  Folder data (database & upload) [$defaultData]"
+    $DATA_DIR    = if ($inputData) { $inputData } else { $defaultData }
+
+    # Deteksi IP otomatis
+    $detectedIp = (Get-NetIPAddress -AddressFamily IPv4 |
+        Where-Object { $_.IPAddress -notmatch '^(127|169)' -and $_.PrefixOrigin -ne 'WellKnown' } |
+        Select-Object -First 1).IPAddress
+    $defaultIp  = if ($detectedIp) { $detectedIp } else { '192.168.1.x' }
+    $inputIp    = Read-Host "  IP server ini (untuk akses HP) [$defaultIp]"
+    $SERVER_IP  = if ($inputIp) { $inputIp } else { $defaultIp }
+
+    $defaultJwt = -join ((65..90) + (97..122) + (48..57) | Get-Random -Count 48 | ForEach-Object { [char]$_ })
+    $inputJwt   = Read-Host "  JWT Secret (Enter = generate otomatis)"
+    $JWT_SECRET = if ($inputJwt) { $inputJwt } else { $defaultJwt }
+
+    $inputBack  = Read-Host "  Port backend  [3000]"
+    $PORT_BACK  = if ($inputBack) { $inputBack } else { '3000' }
+    $inputFront = Read-Host "  Port frontend [5173]"
+    $PORT_FRONT = if ($inputFront) { $inputFront } else { '5173' }
+
+    Write-Host ""
+    $inputNginx   = Read-Host "  Setup nginx reverse proxy (port 80)? [Y/n]"
+    $SETUP_NGINX  = ($inputNginx -ne 'n')
+    $SETUP_HTTPS  = $false
+    if ($SETUP_NGINX) {
+        $inputHttps  = Read-Host "  Setup HTTPS dengan mkcert? [Y/n]"
+        $SETUP_HTTPS = ($inputHttps -ne 'n')
+    }
+
+    $PUBLIC_URL = if ($SETUP_HTTPS) { "https://$SERVER_IP/api" }
+                  elseif ($SETUP_NGINX) { "http://$SERVER_IP/api" }
+                  else { "http://${SERVER_IP}:${PORT_BACK}" }
+
+    Write-Host ""
+    info "Konfigurasi:"
+    Write-Host "  Data dir     : $DATA_DIR"
+    Write-Host "  IP server    : $SERVER_IP"
+    Write-Host "  Port backend : $PORT_BACK"
+    Write-Host "  Port frontend: $PORT_FRONT"
+    Write-Host "  Nginx        : $(if ($SETUP_NGINX) { 'ya' } else { 'tidak' })"
+    Write-Host "  HTTPS        : $(if ($SETUP_HTTPS) { 'ya (mkcert)' } else { 'tidak' })"
+    Write-Host "  API URL      : $PUBLIC_URL"
+    Write-Host ""
+    $lanjut = Read-Host "Lanjutkan? [Y/n]"
+    if ($lanjut -eq 'n') { Write-Host "Dibatalkan."; exit 0 }
+
+    # ════════════════════════════════════════════════════════════════════════
+    header "3 / 6  Siapkan Folder & Install Dependencies"
+    # ════════════════════════════════════════════════════════════════════════
+    foreach ($sub in @('uploads\produk','uploads\invoice','uploads\karyawan','backup','logs')) {
+        New-Item -ItemType Directory -Path "$DATA_DIR\$sub" -Force | Out-Null
+    }
+    ok "Folder data siap: $DATA_DIR"
+
+    Set-Location "$ROOT\backend"; bun install --production
+    ok "Backend dependencies selesai"
+
+    Set-Location "$ROOT\frontend"; bun install; bun run build
+    ok "Frontend build selesai"
+
+    # ════════════════════════════════════════════════════════════════════════
+    header "4 / 6  Generate Config & Service Files"
+    # ════════════════════════════════════════════════════════════════════════
+
+    # Tulis .env
+    @"
+DATABASE_URL=$DATA_DIR\data.db
 UPLOAD_DIR=$DATA_DIR\uploads
-PORT=$PORT_BACKEND
+PORT=$PORT_BACK
 NODE_ENV=production
 JWT_SECRET=$JWT_SECRET
-"@ | Set-Content -Path "$SCRIPT_DIR\backend\.env" -Encoding UTF8
-Write-Ok "backend\.env ditulis"
+"@ | Set-Content $ENV_FILE -Encoding UTF8
+    ok "backend\.env ditulis"
 
-# Wrapper script untuk frontend (bawa env vars ke proses bun)
-$WRAPPER = "$SCRIPT_DIR\start-frontend.ps1"
-@"
-`$env:PORT           = '$PORT_FRONTEND'
-`$env:HOST           = '0.0.0.0'
-`$env:NODE_ENV       = 'production'
-`$env:PUBLIC_API_URL = 'http://$SERVER_IP/api'
-Set-Location '$SCRIPT_DIR\frontend'
+    # Tulis start-frontend.ps1
+    $frontendScript = "$ROOT\scripts\start-frontend.ps1"
+    @"
+`$env:PORT='$PORT_FRONT'
+`$env:HOST='0.0.0.0'
+`$env:NODE_ENV='production'
+`$env:PUBLIC_API_URL='$PUBLIC_URL'
+Set-Location '$ROOT\frontend'
 & '$BUN_BIN' build\index.js
-"@ | Set-Content -Path $WRAPPER -Encoding UTF8
-Write-Ok "start-frontend.ps1 ditulis"
+"@ | Set-Content $frontendScript -Encoding UTF8
+    ok "start-frontend.ps1 ditulis"
 
-Write-Info "Membuka port di Windows Firewall..."
-$rules = @(
-    @{ Name="Stokasir-$PORT_BACKEND";  Port=$PORT_BACKEND },
-    @{ Name="Stokasir-$PORT_FRONTEND"; Port=$PORT_FRONTEND },
-    @{ Name="Stokasir-80";             Port="80" }
-)
-foreach ($r in $rules) {
-    try {
-        netsh advfirewall firewall add rule name=$r.Name dir=in action=allow protocol=TCP localport=$r.Port | Out-Null
-        Write-Ok "Port $($r.Port) dibuka"
-    } catch {
-        Write-Warn "Gagal buka port $($r.Port) — coba manual di Windows Defender Firewall"
+    # Task Scheduler settings
+    $settings = New-ScheduledTaskSettingsSet `
+        -RestartCount 5 `
+        -RestartInterval (New-TimeSpan -Minutes 1) `
+        -ExecutionTimeLimit (New-TimeSpan -Days 365) `
+        -StartWhenAvailable
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+
+    # Backend task
+    $actionBack = New-ScheduledTaskAction `
+        -Execute $BUN_BIN `
+        -Argument "run src\index.ts" `
+        -WorkingDirectory "$ROOT\backend"
+    Register-ScheduledTask -TaskName "Stokasir Backend" `
+        -Action $actionBack -Trigger $trigger -Settings $settings `
+        -RunLevel Highest -Force | Out-Null
+    ok "Task Scheduler: Stokasir Backend"
+
+    # Frontend task
+    $actionFront = New-ScheduledTaskAction `
+        -Execute "powershell.exe" `
+        -Argument "-ExecutionPolicy Bypass -NonInteractive -File `"$frontendScript`""
+    Register-ScheduledTask -TaskName "Stokasir Frontend" `
+        -Action $actionFront -Trigger $trigger -Settings $settings `
+        -RunLevel Highest -Force | Out-Null
+    ok "Task Scheduler: Stokasir Frontend"
+
+    # Firewall
+    $ports = @($PORT_BACK, $PORT_FRONT, '80')
+    if ($SETUP_HTTPS) { $ports += '443' }
+    foreach ($p in $ports) {
+        netsh advfirewall firewall add rule name="Stokasir-$p" dir=in action=allow protocol=TCP localport=$p 2>$null | Out-Null
+    }
+    ok "Windows Firewall: port dibuka"
+
+    # ════════════════════════════════════════════════════════════════════════
+    header "5 / 6  Setup Nginx & HTTPS"
+    # ════════════════════════════════════════════════════════════════════════
+
+    if ($SETUP_NGINX) {
+        # Install nginx for Windows
+        if (-not (Test-Path 'C:\nginx\nginx.exe')) {
+            info "Mengunduh nginx untuk Windows..."
+            $nginxVer = '1.27.4'
+            $nginxZip = "$env:TEMP\nginx.zip"
+            Download-File "https://nginx.org/download/nginx-$nginxVer.zip" $nginxZip
+            Expand-Archive $nginxZip 'C:\' -Force
+            Rename-Item "C:\nginx-$nginxVer" 'C:\nginx' -ErrorAction SilentlyContinue
+            Remove-Item $nginxZip -Force
+            ok "Nginx terinstall di C:\nginx\"
+        } else {
+            ok "Nginx sudah ada: C:\nginx\nginx.exe"
+        }
+
+        # Buat folder certs
+        New-Item -ItemType Directory -Path 'C:\nginx\certs' -Force | Out-Null
+
+        if ($SETUP_HTTPS) {
+            # Install mkcert
+            $mkcertPath = 'C:\Windows\System32\mkcert.exe'
+            if (-not (Test-Path $mkcertPath)) {
+                info "Mengunduh mkcert..."
+                Download-File `
+                    "https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-windows-amd64.exe" `
+                    $mkcertPath
+                ok "mkcert terinstall"
+            } else {
+                ok "mkcert sudah terinstall"
+            }
+
+            # Install local CA
+            info "Menginstall local CA ke Windows Certificate Store..."
+            & mkcert -install
+            ok "Local CA terinstall - Edge & Chrome langsung trust"
+
+            # Generate cert
+            info "Generate sertifikat untuk $SERVER_IP..."
+            & mkcert -cert-file 'C:\nginx\certs\cert.pem' -key-file 'C:\nginx\certs\key.pem' `
+                $SERVER_IP localhost 127.0.0.1
+            ok "Sertifikat disimpan ke C:\nginx\certs\"
+
+            # Copy rootCA untuk HP karyawan
+            $caRoot = & mkcert -CAROOT
+            Copy-Item "$caRoot\rootCA.pem" "$DATA_DIR\uploads\rootCA.crt" -Force
+            ok "rootCA.crt disalin ke $DATA_DIR\uploads\ (untuk download HP)"
+
+            # Tulis nginx config HTTPS
+            $nginxDataDir = $DATA_DIR -replace '\\', '/'
+            @"
+events {}
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    sendfile      on;
+
+    server {
+        listen 80;
+        server_name _;
+
+        location = /rootCA.crt {
+            alias $nginxDataDir/uploads/rootCA.crt;
+            add_header Content-Type application/x-x509-ca-cert;
+            add_header Content-Disposition 'attachment; filename="StokasirCA.crt"';
+        }
+        location / { return 301 https://`$host`$request_uri; }
+    }
+
+    server {
+        listen 443 ssl;
+        server_name _;
+
+        ssl_certificate     C:/nginx/certs/cert.pem;
+        ssl_certificate_key C:/nginx/certs/key.pem;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+
+        gzip on;
+        gzip_types text/plain text/css application/javascript application/json;
+
+        location = /service-worker.js {
+            proxy_pass http://127.0.0.1:${PORT_FRONT}/service-worker.js;
+            add_header Cache-Control "no-store, no-cache, must-revalidate";
+        }
+
+        location = /rootCA.crt {
+            alias $nginxDataDir/uploads/rootCA.crt;
+            add_header Content-Type application/x-x509-ca-cert;
+            add_header Content-Disposition 'attachment; filename="StokasirCA.crt"';
+        }
+
+        location /uploads/ { alias $nginxDataDir/uploads/; }
+
+        location /api/ {
+            proxy_pass http://127.0.0.1:${PORT_BACK}/;
+            proxy_set_header Host `$host;
+            proxy_set_header X-Forwarded-Proto https;
+        }
+
+        location / {
+            proxy_pass http://127.0.0.1:${PORT_FRONT};
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade `$http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host `$host;
+        }
     }
 }
+"@ | Set-Content 'C:\nginx\conf\nginx.conf' -Encoding UTF8
 
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Step "5 / 5  Daftarkan ke Task Scheduler & Jalankan"
-# ══════════════════════════════════════════════════════════════════════════════
+        } else {
+            # HTTP only nginx config
+            $nginxDataDir = $DATA_DIR -replace '\\', '/'
+            @"
+events {}
 
-$taskSettings = New-ScheduledTaskSettingsSet `
-    -RestartCount 5 `
-    -RestartInterval (New-TimeSpan -Minutes 1) `
-    -ExecutionTimeLimit (New-TimeSpan -Days 365) `
-    -StartWhenAvailable
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    sendfile      on;
 
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    server {
+        listen 80;
+        server_name _;
 
-# Backend — Bun membaca .env otomatis dari WorkingDirectory
-Write-Info "Mendaftarkan task 'Stokasir Backend'..."
-$actionBack = New-ScheduledTaskAction `
-    -Execute $BUN_BIN `
-    -Argument "run src\index.ts" `
-    -WorkingDirectory "$SCRIPT_DIR\backend"
-try { Unregister-ScheduledTask -TaskName "Stokasir Backend"  -Confirm:$false 2>$null } catch {}
-Register-ScheduledTask -TaskName "Stokasir Backend" `
-    -Action $actionBack -Trigger $trigger -Settings $taskSettings `
-    -RunLevel Highest -Force | Out-Null
-Write-Ok "Task 'Stokasir Backend' didaftarkan"
+        gzip on;
+        gzip_types text/plain text/css application/javascript application/json;
 
-# Frontend — env vars via wrapper PowerShell script
-Write-Info "Mendaftarkan task 'Stokasir Frontend'..."
-$actionFront = New-ScheduledTaskAction `
-    -Execute "powershell.exe" `
-    -Argument "-ExecutionPolicy Bypass -NonInteractive -File `"$WRAPPER`""
-try { Unregister-ScheduledTask -TaskName "Stokasir Frontend" -Confirm:$false 2>$null } catch {}
-Register-ScheduledTask -TaskName "Stokasir Frontend" `
-    -Action $actionFront -Trigger $trigger -Settings $taskSettings `
-    -RunLevel Highest -Force | Out-Null
-Write-Ok "Task 'Stokasir Frontend' didaftarkan"
+        location = /service-worker.js {
+            proxy_pass http://127.0.0.1:${PORT_FRONT}/service-worker.js;
+            add_header Cache-Control "no-store, no-cache, must-revalidate";
+        }
 
-Write-Info "Menjalankan tasks sekarang..."
-try { Start-ScheduledTask -TaskName "Stokasir Backend"  } catch { Write-Warn "Jalankan manual: Start-ScheduledTask 'Stokasir Backend'" }
-Start-Sleep -Seconds 2
-try { Start-ScheduledTask -TaskName "Stokasir Frontend" } catch { Write-Warn "Jalankan manual: Start-ScheduledTask 'Stokasir Frontend'" }
+        location /uploads/ { alias $nginxDataDir/uploads/; }
 
-# ── Ringkasan ────────────────────────────────────────────────────────────────
-Write-Host ""
-Write-Host "╔══════════════════════════════════════════════╗" -ForegroundColor Green
-Write-Host "║        Stokasir berhasil diinstall!          ║" -ForegroundColor Green
-Write-Host "╚══════════════════════════════════════════════╝" -ForegroundColor Green
-Write-Host ""
-Write-Host "  Akses dari browser  : http://${SERVER_IP}:$PORT_FRONTEND" -ForegroundColor Cyan
-Write-Host "  (via Nginx port 80) : http://$SERVER_IP/  ← jika Nginx sudah setup" -ForegroundColor Cyan
-Write-Host "  API health check    : http://localhost:$PORT_BACKEND/health" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  Perintah Task Scheduler:" -ForegroundColor White
-Write-Host "    Get-ScheduledTask 'Stokasir*'               — lihat status" -ForegroundColor Yellow
-Write-Host "    Start-ScheduledTask 'Stokasir Backend'      — jalankan backend" -ForegroundColor Yellow
-Write-Host "    Stop-ScheduledTask  'Stokasir Backend'      — stop backend" -ForegroundColor Yellow
-Write-Host "    Start-ScheduledTask 'Stokasir Frontend'     — jalankan frontend" -ForegroundColor Yellow
-Write-Host "    Stop-ScheduledTask  'Stokasir Frontend'     — stop frontend" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "  Data tersimpan di: $DATA_DIR" -ForegroundColor Cyan
-Write-Host ""
+        location /api/ {
+            proxy_pass http://127.0.0.1:${PORT_BACK}/;
+            proxy_set_header Host `$host;
+        }
+
+        location / {
+            proxy_pass http://127.0.0.1:${PORT_FRONT};
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade `$http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host `$host;
+        }
+    }
+}
+"@ | Set-Content 'C:\nginx\conf\nginx.conf' -Encoding UTF8
+        }
+
+        ok "nginx.conf ditulis"
+
+        # Daftarkan nginx ke Task Scheduler
+        $actionNginx = New-ScheduledTaskAction -Execute 'C:\nginx\nginx.exe'
+        Register-ScheduledTask -TaskName "Stokasir Nginx" `
+            -Action $actionNginx -Trigger $trigger -Settings $settings `
+            -RunLevel Highest -Force | Out-Null
+        ok "Task Scheduler: Stokasir Nginx"
+
+    } else {
+        info "Nginx dilewati - akses langsung via port $PORT_FRONT"
+    }
+
+    # ════════════════════════════════════════════════════════════════════════
+    header "6 / 6  Jalankan Stokasir"
+    # ════════════════════════════════════════════════════════════════════════
+
+    Start-ScheduledTask "Stokasir Backend"
+    Start-Sleep -Seconds 2
+    Start-ScheduledTask "Stokasir Frontend"
+    if ($SETUP_NGINX) {
+        Start-Sleep -Seconds 1
+        Start-ScheduledTask "Stokasir Nginx"
+    }
+    ok "Semua service berjalan"
+
+    # ── Ringkasan ─────────────────────────────────────────────────────────
+    Write-Host ""
+    Write-Host "+============================================+" -ForegroundColor Green
+    Write-Host "|     Stokasir berhasil diinstall!           |" -ForegroundColor Green
+    Write-Host "+============================================+" -ForegroundColor Green
+    Write-Host ""
+
+    if ($SETUP_HTTPS) {
+        Write-Host "  Akses dari HP/browser : " -NoNewline
+        Write-Host "https://$SERVER_IP/" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  HTTPS - Install CA di HP karyawan (1x saja):" -ForegroundColor White
+        Write-Host "  1. Buka browser HP -> " -NoNewline
+        Write-Host "http://$SERVER_IP/rootCA.crt" -ForegroundColor Cyan -NoNewline
+        Write-Host " -> download & install"
+        Write-Host "     Android : Settings > Security > Install certificate > CA Certificate"
+        Write-Host "     iPhone  : Settings > General > VPN & Device Management > install"
+        Write-Host "  * Firefox butuh trust manual: " -NoNewline
+        Write-Host "about:preferences#privacy" -ForegroundColor Cyan -NoNewline
+        Write-Host " -> Certificates -> Import"
+    } elseif ($SETUP_NGINX) {
+        Write-Host "  Akses dari HP/browser : " -NoNewline
+        Write-Host "http://$SERVER_IP/" -ForegroundColor Cyan
+    } else {
+        Write-Host "  Akses dari HP/browser : " -NoNewline
+        Write-Host "http://${SERVER_IP}:${PORT_FRONT}" -ForegroundColor Cyan
+    }
+
+    Write-Host ""
+    Write-Host "  Perintah Task Scheduler:" -ForegroundColor White
+    Write-Host "    Get-ScheduledTask 'Stokasir*'          " -ForegroundColor Yellow -NoNewline
+    Write-Host "- status semua"
+    Write-Host "    Start-ScheduledTask 'Stokasir Backend' " -ForegroundColor Yellow -NoNewline
+    Write-Host "- start backend"
+    Write-Host "    Stop-ScheduledTask  'Stokasir Backend' " -ForegroundColor Yellow -NoNewline
+    Write-Host "- stop backend"
+    if ($SETUP_NGINX) {
+        Write-Host "    C:\nginx\nginx.exe -s reload           " -ForegroundColor Yellow -NoNewline
+        Write-Host "- reload nginx"
+    }
+    Write-Host ""
+    Write-Host "  Data tersimpan di: " -NoNewline
+    Write-Host $DATA_DIR -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Repair/uninstall: " -NoNewline
+    Write-Host ".\scripts\setup.ps1 repair|uninstall" -ForegroundColor Cyan
+    Write-Host ""
+}
+
+# ── Route ────────────────────────────────────────────────────────────────────
+switch ($Mode) {
+    'install'   { Do-Install }
+    'uninstall' { Do-Uninstall }
+    'repair'    { Do-Repair }
+    default     { err "Mode tidak valid: '$Mode'. Gunakan: install | repair | uninstall" }
+}

@@ -1,3 +1,7 @@
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
+import { db } from './db/index.ts'
+import { karyawan, kas_bank } from './db/schema.ts'
+import { count } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { compress } from 'hono/compress'
 import { cors } from 'hono/cors'
@@ -97,6 +101,29 @@ app.route('/budget-target', budgetTargetRouter)
 app.route('/promo', promoRouter)
 app.route('/jadwal', jadwalRouter)
 app.route('/draft', draftRouter)
+
+// Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
+migrate(db, { migrationsFolder: './src/db/migrations' })
+console.log('Database migrations OK')
+
+// Auto-seed: buat admin default hanya jika belum ada karyawan sama sekali (db segar)
+const [{ total }] = db.select({ total: count() }).from(karyawan).all()
+if (total === 0) {
+  const hash = await Bun.password.hash('admin123')
+  db.insert(karyawan).values({
+    kode_karyawan: 'KRY-001',
+    nama: 'Pemilik',
+    role: 'pemilik',
+    username: 'admin',
+    password_hash: hash,
+    tipe_gaji: 'bulanan',
+  }).run()
+  db.insert(kas_bank).values([
+    { nama: 'Kas Toko', tipe: 'kas', saldo_awal: 0 },
+    { nama: 'Bank BRI', tipe: 'bank', saldo_awal: 0 },
+  ]).run()
+  console.log('Seed awal OK — login: admin / admin123')
+}
 
 const PORT = Number(process.env.PORT ?? 3000)
 console.log(`Backend berjalan di http://localhost:${PORT}`)

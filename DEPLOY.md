@@ -12,8 +12,9 @@ Stokasir berjalan sebagai server lokal di jaringan WiFi toko. Pilih platform ser
 ## Prasyarat Semua Platform
 
 ```
-Bun  ≥ 1.1  — satu-satunya runtime yang dibutuhkan      [WAJIB]
-Nginx        — reverse proxy port 80                     [OPSIONAL]
+Bun    ≥ 1.1  — satu-satunya runtime yang dibutuhkan     [WAJIB]
+Nginx         — reverse proxy + HTTPS termination         [OPSIONAL]
+mkcert        — sertifikat HTTPS lokal tanpa biaya        [OPSIONAL, untuk HTTPS]
 ```
 
 Process manager: **tidak perlu install apapun** — tiap OS sudah punya:
@@ -383,27 +384,54 @@ System Settings → Lock Screen → Never (atau durasi panjang)
 
 PC Windows yang selalu menyala (kasir utama atau komputer khusus toko).
 
-### 1. Install Bun `WAJIB`
+### Cara cepat — pakai installer otomatis `DIREKOMENDASIKAN`
+
+Klik-kanan PowerShell → **Run as Administrator**, lalu:
+
+```powershell
+# Dari folder root project:
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+Script interaktif akan menangani semua langkah: install Bun, konfigurasi, build,
+migrasi database, nginx (opsional), HTTPS via mkcert (opsional), firewall, dan
+Task Scheduler.
+
+Mode yang tersedia:
+```powershell
+scripts\setup.ps1 install    # install dari awal (default jika tidak ada argumen)
+scripts\setup.ps1 repair     # reinstall deps, rebuild, restart task
+scripts\setup.ps1 uninstall  # hapus task & config
+```
+
+---
+
+### Cara manual (langkah demi langkah)
+
+#### 1. Install Bun `WAJIB`
 
 Download installer dari [bun.sh](https://bun.sh) → jalankan `.exe`
 
 Atau via PowerShell:
 ```powershell
 powershell -c "irm bun.sh/install.ps1 | iex"
+# Atau via winget:
+winget install --id Oven-sh.Bun
 ```
 
 Restart terminal setelah install.
 
-### 2. Siapkan folder data `WAJIB`
+#### 2. Siapkan folder data `WAJIB`
 
 ```powershell
 mkdir C:\stokasir-data\uploads\produk
 mkdir C:\stokasir-data\uploads\invoice
 mkdir C:\stokasir-data\uploads\karyawan
 mkdir C:\stokasir-data\backup
+mkdir C:\stokasir-data\logs
 ```
 
-### 3. Clone / Transfer project `WAJIB`
+#### 3. Clone / Transfer project `WAJIB`
 
 ```powershell
 # Ekstrak zip project ke C:\stokasir\
@@ -411,44 +439,53 @@ mkdir C:\stokasir-data\backup
 git clone <url-repo> C:\stokasir
 ```
 
-### 4. Install dependencies & build `WAJIB`
+#### 4. Install dependencies & build `WAJIB`
 
 ```powershell
 cd C:\stokasir\backend
 bun install --production
 
 cd C:\stokasir\frontend
-bun install --production
+bun install          # butuh devDependencies untuk build
 bun run build
 ```
 
-### 5. Env vars `WAJIB`
+#### 5. Migrasi database `WAJIB`
+
+```powershell
+cd C:\stokasir\backend
+bun run db:migrate
+```
+
+#### 6. Env vars `WAJIB`
 
 Buat file `C:\stokasir\backend\.env`:
 ```
-DATABASE_URL=file:C:/stokasir-data/data.db
-UPLOAD_DIR=C:/stokasir-data/uploads
+DATABASE_URL=C:/stokasir-data/data.db
+UPLOAD_DIR=C:\stokasir-data\uploads
 PORT=3000
 NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 6. Task Scheduler — auto-start saat login `WAJIB`
+#### 7. Task Scheduler — auto-start saat login `WAJIB`
 
 ```powershell
 $BUN_BIN = (Get-Command bun).Source
 $settings = New-ScheduledTaskSettingsSet `
     -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit (New-TimeSpan -Days 365) -StartWhenAvailable
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$triggerLogon   = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$triggerStartup = New-ScheduledTaskTrigger -AtStartup
 
 # Backend (Bun baca .env otomatis dari WorkingDirectory)
 $actionBack = New-ScheduledTaskAction -Execute $BUN_BIN `
     -Argument "run src\index.ts" -WorkingDirectory "C:\stokasir\backend"
 Register-ScheduledTask -TaskName "Stokasir Backend" `
-    -Action $actionBack -Trigger $trigger -Settings $settings -RunLevel Highest -Force
+    -Action $actionBack -Trigger @($triggerLogon, $triggerStartup) `
+    -Settings $settings -RunLevel Highest -Force
 
-# Frontend (env vars via wrapper script)
+# Wrapper untuk frontend (membawa env vars)
 @"
 `$env:PORT='5173'; `$env:HOST='0.0.0.0'
 `$env:NODE_ENV='production'
@@ -458,17 +495,18 @@ Set-Location 'C:\stokasir\frontend'
 "@ | Set-Content "C:\stokasir\start-frontend.ps1"
 
 $actionFront = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-ExecutionPolicy Bypass -NonInteractive -File C:\stokasir\start-frontend.ps1"
+    -Argument "-ExecutionPolicy Bypass -NonInteractive -WindowStyle Hidden -File C:\stokasir\start-frontend.ps1"
 Register-ScheduledTask -TaskName "Stokasir Frontend" `
-    -Action $actionFront -Trigger $trigger -Settings $settings -RunLevel Highest -Force
+    -Action $actionFront -Trigger @($triggerLogon, $triggerStartup) `
+    -Settings $settings -RunLevel Highest -Force
 
 # Jalankan sekarang
 Start-ScheduledTask "Stokasir Backend"
-Start-Sleep 2
+Start-Sleep 3
 Start-ScheduledTask "Stokasir Frontend"
 ```
 
-### 7. Windows Firewall — buka port `WAJIB`
+#### 8. Windows Firewall — buka port `WAJIB`
 
 ```powershell
 netsh advfirewall firewall add rule name="Stokasir-3000" dir=in action=allow protocol=TCP localport=3000
@@ -476,28 +514,33 @@ netsh advfirewall firewall add rule name="Stokasir-5173" dir=in action=allow pro
 netsh advfirewall firewall add rule name="Stokasir-80"   dir=in action=allow protocol=TCP localport=80
 ```
 
-### 8. Agar PC tidak sleep saat jadi server `WAJIB`
+#### 9. Agar PC tidak sleep saat jadi server `WAJIB`
 
 ```
 Settings → System → Power → Screen and sleep → semua set ke "Never"
 ```
 
-### 9. Reverse proxy — Nginx for Windows `OPSIONAL`
+#### 10. Nginx for Windows `OPSIONAL`
 
-Download Nginx untuk Windows dari [nginx.org/en/download.html](https://nginx.org/en/download.html), ekstrak ke `C:\nginx\`.
+Install via winget: `winget install Nginx.Nginx`
+atau download dari [nginx.org/en/download.html](https://nginx.org/en/download.html) → ekstrak ke `C:\nginx\`.
 
-Edit `C:\nginx\conf\nginx.conf` → tambah server block (lihat Konfigurasi Nginx di bawah).
+Buat `C:\nginx\conf\conf.d\stokasir.conf` → paste server block dari bagian [Konfigurasi Nginx](#nginx--server-block-opsional) di bawah.
 
 ```powershell
-# Agar otomatis jalan saat Windows start — daftarkan juga ke Task Scheduler:
-$actionNginx = New-ScheduledTaskAction -Execute "C:\nginx\nginx.exe"
-Register-ScheduledTask -TaskName "Nginx" `
-    -Action $actionNginx -Trigger (New-ScheduledTaskTrigger -AtLogOn) `
-    -Settings (New-ScheduledTaskSettingsSet) -RunLevel Highest -Force
-Start-ScheduledTask "Nginx"
+# Daftarkan nginx ke Task Scheduler
+$nginxDir = "C:\nginx"
+$actionNginx = New-ScheduledTaskAction `
+    -Execute "$nginxDir\nginx.exe" -WorkingDirectory $nginxDir
+Register-ScheduledTask -TaskName "Stokasir Nginx" `
+    -Action $actionNginx `
+    -Trigger @($triggerLogon, $triggerStartup) `
+    -Settings (New-ScheduledTaskSettingsSet -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1)) `
+    -RunLevel Highest -Force
+Start-ScheduledTask "Stokasir Nginx"
 ```
 
-> Tanpa Nginx: akses langsung via `http://[IP-PC]:5173` dari HP. Backend tetap di `:3000`. Pastikan kedua port sudah dibuka di Firewall (langkah 7).
+> Tanpa Nginx: akses langsung via `http://[IP-PC]:5173` dari HP. Backend tetap di `:3000`.
 
 ---
 
@@ -535,6 +578,8 @@ Stop-ScheduledTask  'Stokasir Backend'      # stop
 
 Berlaku untuk Linux / Mac / Pi. Untuk Windows sesuaikan path `alias`.
 
+**Versi HTTP saja (tanpa HTTPS):**
+
 ```nginx
 server {
   listen 80;
@@ -565,6 +610,128 @@ server {
   }
 }
 ```
+
+---
+
+### HTTPS dengan mkcert `OPSIONAL — Direkomendasikan`
+
+mkcert membuat sertifikat HTTPS yang dipercaya oleh browser — **tanpa biaya, tanpa warning**.
+HP karyawan cukup install CA certificate **1x saja**.
+
+#### 1. Install mkcert di server (Pi / Linux / Mac)
+
+```bash
+# Raspberry Pi / Ubuntu / Debian
+sudo apt install -y mkcert libnss3-tools
+
+# Mac
+brew install mkcert
+```
+
+#### 2. Generate sertifikat
+
+```bash
+mkcert -install                                      # install local CA ke sistem
+IP_SERVER="192.168.1.x"                              # ganti dengan IP server Pi/PC
+mkcert $IP_SERVER localhost 127.0.0.1
+
+sudo mkdir -p /etc/nginx/certs
+sudo mv ${IP_SERVER}+2.pem     /etc/nginx/certs/cert.pem
+sudo mv ${IP_SERVER}+2-key.pem /etc/nginx/certs/key.pem
+sudo chmod 640 /etc/nginx/certs/key.pem
+```
+
+#### 3. Sediakan rootCA untuk HP karyawan
+
+```bash
+# Salin rootCA ke folder public agar bisa didownload HP
+cp "$(mkcert -CAROOT)/rootCA.pem" /home/user/stokasir-data/uploads/rootCA.crt
+# Akses dari HP: https://192.168.1.x/rootCA.crt
+```
+
+#### 4. Nginx config dengan HTTPS
+
+```nginx
+# HTTP → HTTPS redirect
+server {
+  listen 80;
+  server_name _;
+  return 301 https://$host$request_uri;
+}
+
+# HTTPS
+server {
+  listen 443 ssl;
+  server_name _;
+
+  ssl_certificate     /etc/nginx/certs/cert.pem;
+  ssl_certificate_key /etc/nginx/certs/key.pem;
+  ssl_protocols       TLSv1.2 TLSv1.3;
+  ssl_ciphers         HIGH:!aNULL:!MD5;
+
+  gzip on;
+  gzip_types text/plain text/css application/javascript application/json;
+
+  # Download CA certificate untuk HP karyawan
+  location = /rootCA.crt {
+    alias /home/user/stokasir-data/uploads/rootCA.crt;  # sesuaikan path
+    add_header Content-Type application/x-x509-ca-cert;
+    add_header Content-Disposition 'attachment; filename="StokasirCA.crt"';
+  }
+
+  location /uploads/ {
+    alias /home/user/stokasir-data/uploads/;            # sesuaikan path
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+  }
+
+  location /api/ {
+    proxy_pass http://127.0.0.1:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+  }
+
+  location / {
+    proxy_pass http://127.0.0.1:5173;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header X-Forwarded-Proto https;
+  }
+}
+```
+
+Setelah update config nginx:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+#### 5. Update env frontend (jika pakai HTTPS)
+
+Di systemd service atau `.env` frontend, ubah:
+```
+PUBLIC_API_URL=https://192.168.1.x/api
+```
+
+#### 6. Cara install CA di HP karyawan
+
+**Android:**
+1. Buka browser → `https://192.168.1.x/rootCA.crt` → download
+2. Settings → Security → Encryption & Credentials → Install a certificate → CA Certificate
+3. Pilih file yang didownload
+
+**iPhone / iOS:**
+1. Kirim file `rootCA.crt` via AirDrop atau WhatsApp
+2. Tap file → Allow → Profile Downloaded
+3. Settings → General → VPN & Device Management → install profile
+4. Settings → General → About → Certificate Trust Settings → aktifkan
+
+> **Tips:** Buat QR code dari URL `https://192.168.1.x/rootCA.crt` dan tempel di dekat kasir
+> agar karyawan baru bisa langsung scan dan install tanpa perlu ketik URL.
 
 ### backup-db.sh `OPSIONAL`
 
@@ -603,12 +770,13 @@ sqlite.pragma('mmap_size = 268435456')    // 256MB mmap
 
 ```bash
 # Cek bisa diakses dari server sendiri
-curl http://localhost:3000/health    # → {"success":true,"data":{"status":"ok"}}
-curl http://localhost:5173           # → HTML halaman login
-curl http://localhost/api/health     # → via Nginx (jika Nginx sudah jalan)
+curl http://localhost:3000/health          # → {"success":true,"data":{"status":"ok"}}
+curl http://localhost:5173                 # → HTML halaman login
+curl http://localhost/api/health           # → via Nginx HTTP
+curl -k https://localhost/api/health       # → via Nginx HTTPS (jika mkcert sudah setup)
 
 # Cek service berjalan (Linux/Pi)
-sudo systemctl status stokasir-backend stokasir-frontend
+sudo systemctl status stokasir-backend stokasir-frontend nginx
 
 # Cek service berjalan (Mac)
 launchctl list | grep stokasir
@@ -617,6 +785,8 @@ launchctl list | grep stokasir
 Get-ScheduledTask 'Stokasir*'
 ```
 
-Akses dari HP/laptop di jaringan yang sama: `http://[IP-SERVER]/`
+Akses dari HP/laptop di jaringan yang sama:
+- HTTP  : `http://[IP-SERVER]/`
+- HTTPS : `https://[IP-SERVER]/` (setelah install CA di HP — lihat langkah 6 di atas)
 
 Set IP server menjadi **static** di pengaturan router agar alamat tidak berubah.
