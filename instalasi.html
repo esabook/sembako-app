@@ -488,8 +488,9 @@
         await fetch(`${API}/api/platform`)
         clearInterval(pollTimer); pollTimer = null
         const w = document.getElementById('bs-wait')
-        if (w) w.innerHTML = '<span style="color:var(--ok);font-weight:700">✓ Server ditemukan! Memuat ulang...</span>'
-        setTimeout(() => window.location.reload(), 800)
+        if (w) w.innerHTML = '<span style="color:var(--ok);font-weight:700">✓ Server ditemukan! Membuka installer...</span>'
+        // Redirect ke versi HTTP — window.location.reload() diblokir pada file://
+        setTimeout(() => { window.location.href = 'http://localhost:7777' }, 800)
       } catch {}
     }, 2000)
   }

@@ -344,7 +344,10 @@ Bun.serve({
     if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
     if (url.pathname === '/' || url.pathname === '/instalasi.html') {
-      return new Response(Bun.file(join(ROOT, 'instalasi.html')), {
+      // Baca sebagai string agar response punya Content-Length (bukan chunked)
+      // sehingga tidak terjadi ERR_INCOMPLETE_CHUNKED_ENCODING di Chrome
+      const html = await Bun.file(join(ROOT, 'instalasi.html')).text()
+      return new Response(html, {
         headers: { ...CORS, 'Content-Type': 'text/html; charset=utf-8' },
       })
     }
