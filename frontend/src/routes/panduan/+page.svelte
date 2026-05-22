@@ -82,6 +82,12 @@
 	<aside class="hidden md:flex flex-col w-52 shrink-0 sticky top-14 self-start border-r py-4 px-3 gap-0.5"
 		style="background:var(--surface);border-color:var(--border);max-height:calc(100vh - 3.5rem);overflow-y:auto">
 		<div class="text-[10px] uppercase tracking-widest mb-2 px-2" style="color:var(--text-dim)">Daftar Isi</div>
+		<a href="/panduan/instalasi"
+				class="flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors"
+				style="color:var(--text-dim)">
+				<span>📲</span>
+				<span>Panduan Instalasi</span>
+			</a>
 		{#each SEKSI as s (s.key)}
 			<a href="#{s.key}"
 				onclick={() => (terbuka[s.key] = true)}
@@ -104,7 +110,7 @@
 				mulai dari transaksi di kasir hingga laporan keuangan. Tidak perlu keahlian teknis —
 				ikuti langkah-langkahnya satu per satu.
 			</p>
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+			<div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
 				{#each [
 					{ label: 'Kasir', href: '#kasir', ikon: '🛒', warna: 'var(--accent)' },
 					{ label: 'Gudang', href: '#gudang', ikon: '📦', warna: 'var(--info)' },
@@ -119,6 +125,12 @@
 						<span class="text-xs font-medium" style="color:{link.warna}">{link.label}</span>
 					</a>
 				{/each}
+				<a href="/panduan/instalasi" target="_blank"
+					class="flex flex-col items-center gap-1 p-3 rounded border text-center transition-colors"
+					style="border-color:var(--border);background:var(--surface2)">
+					<span class="text-xl">📲</span>
+					<span class="text-xs font-medium" style="color:var(--info)">Instalasi</span>
+				</a>
 			</div>
 		</div>
 
