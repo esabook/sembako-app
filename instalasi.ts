@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // instalasi.ts — Stokasir Installer Server
 // Jalankan: bun instalasi.ts  (atau double-click instal.command / instal.bat)
-import { join, resolve } from 'path'
+import { join, resolve, dirname } from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 
@@ -32,14 +32,20 @@ function detectOS(): OS {
   return 'linux'
 }
 
-function detectLocalIp(): string {
-  for (const addrs of Object.values(os.networkInterfaces())) {
+function getAllIps(): Array<{ label: string; value: string }> {
+  const result: Array<{ label: string; value: string }> = [
+    { label: 'localhost (hanya di perangkat ini)', value: '127.0.0.1' },
+  ]
+  for (const [name, addrs] of Object.entries(os.networkInterfaces())) {
     for (const a of addrs ?? []) {
-      if (a.family === 'IPv4' && !a.internal && !a.address.startsWith('169.')) return a.address
+      if (a.family === 'IPv4' && !a.internal && !a.address.startsWith('169.')) {
+        result.push({ label: `${name} — ${a.address}`, value: a.address })
+      }
     }
   }
-  return '192.168.1.x'
+  return result
 }
+
 
 function bunBin(): string {
   if (process.execPath.includes('bun')) return process.execPath
@@ -340,10 +346,30 @@ const server = Bun.serve({
       return Response.json({
         os:          detectOS(),
         arch:        process.arch,
-        ip:          detectLocalIp(),
+        ips:         getAllIps(),
         bunVersion:  process.versions.bun,
         defaultData: process.platform === 'win32' ? 'C:\\stokasir-data' : `${os.homedir()}/stokasir-data`,
       })
+    }
+
+    if (url.pathname === '/api/browse') {
+      const raw      = url.searchParams.get('path') || os.homedir()
+      const current  = resolve(raw)
+      const parent   = dirname(current)
+      try {
+        const entries = fs.readdirSync(current, { withFileTypes: true })
+        const dirs = entries
+          .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map(e => ({ name: e.name, path: join(current, e.name) }))
+        return Response.json({
+          current,
+          parent: parent !== current ? parent : null,
+          dirs,
+        })
+      } catch {
+        return Response.json({ error: 'Tidak bisa membaca folder ini' }, { status: 400 })
+      }
     }
 
     if (url.pathname === '/api/install' && req.method === 'POST') {

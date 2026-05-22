@@ -24,129 +24,86 @@
       --info:     #60a5fa;
     }
 
-    body {
-      font-family: 'JetBrains Mono', monospace;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-    }
+    body { font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text); min-height: 100vh; }
 
     /* ── Header ── */
     header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .9rem 1.5rem;
       border-bottom: 1px solid var(--border);
       background: var(--surface);
     }
-    .logo { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.05em; }
+    .logo { font-size: 1rem; font-weight: 700; letter-spacing: .05em; }
     .logo span { color: var(--accent); }
     .os-badge {
-      font-size: 0.7rem;
-      padding: 0.2rem 0.6rem;
-      border-radius: 999px;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--dim);
+      font-size: .7rem; padding: .2rem .6rem; border-radius: 999px;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--dim);
     }
 
     /* ── Layout ── */
     main {
-      display: grid;
-      grid-template-columns: 360px 1fr;
-      gap: 0;
-      height: calc(100vh - 57px);
+      display: grid; grid-template-columns: 360px 1fr;
+      height: calc(100vh - 53px);
     }
 
     /* ── Left: Config ── */
     .config-panel {
       border-right: 1px solid var(--border);
-      padding: 1.5rem;
+      padding: 1.25rem 1.5rem;
       overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 1.25rem;
+      display: flex; flex-direction: column; gap: 1rem;
     }
+    .panel-title { font-size: .7rem; font-weight: 700; letter-spacing: .1em; color: var(--dim); text-transform: uppercase; }
 
-    .panel-title {
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      color: var(--dim);
-      text-transform: uppercase;
+    .field { display: flex; flex-direction: column; gap: .35rem; }
+    label { font-size: .72rem; color: var(--dim); }
+    label em { font-style: normal; color: var(--dim); opacity: .7; }
+
+    input, select {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-family: inherit; font-size: .8rem;
+      padding: .5rem .7rem; width: 100%;
+      transition: border-color .15s; outline: none;
     }
+    input:focus, select:focus { border-color: var(--accent); }
+    select option { background: var(--surface2); }
 
-    .field { display: flex; flex-direction: column; gap: 0.4rem; }
-    label { font-size: 0.75rem; color: var(--dim); }
-    input {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 0.8rem;
-      padding: 0.55rem 0.75rem;
-      width: 100%;
-      transition: border-color .15s;
-      outline: none;
+    .input-row { display: flex; gap: .4rem; }
+    .input-row input { flex: 1; }
+
+    .btn-browse {
+      flex-shrink: 0; padding: .5rem .65rem;
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-size: .85rem; cursor: pointer;
+      transition: border-color .15s, background .15s;
     }
-    input:focus { border-color: var(--accent); }
+    .btn-browse:hover { border-color: var(--accent); background: var(--surface); }
 
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
 
     .btn-install {
-      margin-top: auto;
-      padding: 0.85rem 1rem;
-      background: var(--accent);
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      font-family: inherit;
-      font-size: 0.85rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      cursor: pointer;
-      transition: background .15s, opacity .15s;
+      margin-top: auto; padding: .8rem 1rem;
+      background: var(--accent); border: none; border-radius: 8px;
+      color: #fff; font-family: inherit; font-size: .85rem; font-weight: 700;
+      letter-spacing: .05em; cursor: pointer; transition: background .15s, opacity .15s;
     }
     .btn-install:hover:not(:disabled) { background: var(--accent2); }
-    .btn-install:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-install:disabled { opacity: .4; cursor: not-allowed; }
 
     /* ── Right: Progress ── */
-    .progress-panel {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    .progress-panel { display: flex; flex-direction: column; overflow: hidden; }
 
-    /* Steps */
     .steps {
-      display: flex;
-      gap: 0;
-      border-bottom: 1px solid var(--border);
-      padding: 0.75rem 1.5rem;
+      display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
+      border-bottom: 1px solid var(--border); padding: .65rem 1.5rem;
       background: var(--surface);
-      flex-wrap: wrap;
-      gap: 0.5rem;
     }
-
-    .step {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.72rem;
-      color: var(--dim);
-      transition: color .2s;
-    }
+    .step { display: flex; align-items: center; gap: .35rem; font-size: .7rem; color: var(--dim); transition: color .2s; }
     .step-icon {
-      width: 20px; height: 20px;
-      border-radius: 50%;
+      width: 18px; height: 18px; border-radius: 50%;
       border: 1.5px solid var(--border);
       display: flex; align-items: center; justify-content: center;
-      font-size: 0.6rem;
-      font-weight: 700;
-      transition: all .2s;
-      flex-shrink: 0;
+      font-size: .58rem; font-weight: 700; transition: all .2s; flex-shrink: 0;
     }
     .step.active  { color: var(--text); }
     .step.active .step-icon  { border-color: var(--accent); color: var(--accent); background: rgba(124,58,237,.15); }
@@ -154,94 +111,119 @@
     .step.done .step-icon    { border-color: var(--ok); color: var(--ok); background: rgba(34,197,94,.1); }
     .step.error  { color: var(--err); }
     .step.error .step-icon   { border-color: var(--err); color: var(--err); background: rgba(239,68,68,.1); }
+    .step-sep { color: var(--border); font-size: .75rem; }
 
-    .step-sep { color: var(--border); font-size: 0.8rem; align-self: center; }
-
-    /* Log */
     .log-area {
-      flex: 1;
-      overflow-y: auto;
+      flex: 1; overflow-y: auto;
       padding: 1rem 1.5rem;
-      font-size: 0.75rem;
-      line-height: 1.7;
-      background: var(--bg);
+      font-size: .73rem; line-height: 1.75; background: var(--bg);
     }
+    .log-line { display: block; white-space: pre-wrap; word-break: break-all; }
+    .log-line.cmd   { color: var(--info); }
+    .log-line.ok    { color: var(--ok); }
+    .log-line.err   { color: var(--err); }
+    .log-line.dim   { color: var(--dim); }
+    .log-line.step  { color: var(--accent); font-weight: 700; margin-top: .5rem; }
 
-    .log-line { display: block; }
-    .log-line.cmd  { color: var(--info); }
-    .log-line.ok   { color: var(--ok); }
-    .log-line.err  { color: var(--err); }
-    .log-line.dim  { color: var(--dim); }
-    .log-line.step { color: var(--accent); font-weight: 700; margin-top: 0.5rem; }
-
-    /* Done banner */
     .done-banner {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 1rem;
-      padding: 2rem;
-      text-align: center;
-      border-top: 1px solid var(--border);
-      background: var(--surface);
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: .85rem; padding: 1.5rem; text-align: center;
+      border-top: 1px solid var(--border); background: var(--surface);
     }
     .done-banner.visible { display: flex; }
-    .done-title { font-size: 1.1rem; font-weight: 700; color: var(--ok); }
-    .done-url   { font-size: 0.8rem; color: var(--dim); }
+    .done-title { font-size: 1rem; font-weight: 700; color: var(--ok); }
+    .done-url   { font-size: .78rem; color: var(--dim); }
     .done-url a { color: var(--accent); text-decoration: none; }
     .done-url a:hover { text-decoration: underline; }
     .btn-open {
-      padding: 0.6rem 1.5rem;
-      background: var(--ok);
-      border: none; border-radius: 6px;
-      color: #000; font-family: inherit; font-size: 0.8rem; font-weight: 700;
-      cursor: pointer;
+      padding: .55rem 1.5rem; background: var(--ok); border: none; border-radius: 6px;
+      color: #000; font-family: inherit; font-size: .8rem; font-weight: 700; cursor: pointer;
     }
     .btn-open:hover { opacity: .85; }
 
-    /* Empty state */
     .empty-state {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      color: var(--dim);
-      font-size: 0.8rem;
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: .4rem;
+      color: var(--dim); font-size: .78rem;
     }
-    .empty-state .arrow { font-size: 2rem; }
+    .empty-state .arrow { font-size: 1.8rem; }
 
-    /* Error banner */
     .err-banner {
-      display: none;
-      padding: 0.75rem 1.5rem;
-      background: rgba(239,68,68,.1);
-      border-top: 1px solid var(--err);
-      color: var(--err);
-      font-size: 0.75rem;
+      display: none; padding: .6rem 1.5rem;
+      background: rgba(239,68,68,.08); border-top: 1px solid rgba(239,68,68,.4);
+      color: var(--err); font-size: .72rem;
     }
     .err-banner.visible { display: block; }
 
-    /* Scrollbar */
+    /* ── Folder Browser Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.65); }
+    .modal-box {
+      position: relative; z-index: 1;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      width: 500px; max-width: 92vw; max-height: 72vh;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 24px 48px rgba(0,0,0,.5);
+    }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .75rem 1rem; border-bottom: 1px solid var(--border);
+      font-size: .8rem; font-weight: 700; flex-shrink: 0;
+    }
+    .modal-close {
+      background: none; border: none; color: var(--dim); font-size: 1rem;
+      cursor: pointer; padding: .1rem .3rem; border-radius: 4px;
+    }
+    .modal-close:hover { color: var(--text); background: var(--surface2); }
+
+    .modal-path {
+      padding: .5rem 1rem; font-size: .7rem; color: var(--dim);
+      background: var(--surface2); border-bottom: 1px solid var(--border);
+      word-break: break-all; flex-shrink: 0;
+    }
+
+    .modal-list { overflow-y: auto; flex: 1; padding: .3rem 0; }
+    .dir-item {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .45rem 1rem; font-size: .78rem; cursor: pointer;
+      transition: background .1s;
+    }
+    .dir-item:hover { background: var(--surface2); }
+    .dir-item.selected { background: rgba(124,58,237,.15); color: var(--accent); }
+    .dir-item.parent { color: var(--dim); }
+    .dir-item .icon { font-size: .9rem; flex-shrink: 0; }
+    .modal-empty { padding: 1.5rem; font-size: .75rem; color: var(--dim); text-align: center; }
+
+    .modal-foot {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .75rem 1rem; border-top: 1px solid var(--border);
+      background: var(--surface2); flex-shrink: 0;
+    }
+    .modal-selected { flex: 1; font-size: .7rem; color: var(--dim); word-break: break-all; }
+    .btn-pick {
+      flex-shrink: 0; padding: .5rem 1rem;
+      background: var(--accent); border: none; border-radius: 6px;
+      color: #fff; font-family: inherit; font-size: .75rem; font-weight: 700;
+      cursor: pointer; transition: background .15s;
+    }
+    .btn-pick:hover { background: var(--accent2); }
+
+    /* ── Misc ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block; width: 10px; height: 10px;
+      border: 1.5px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .6s linear infinite;
+    }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-    /* Spinner */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner {
-      display: inline-block;
-      width: 12px; height: 12px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin .6s linear infinite;
-    }
-
-    /* Responsive */
-    @media (max-width: 700px) {
+    @media (max-width: 680px) {
       main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; }
       .config-panel { border-right: none; border-bottom: 1px solid var(--border); }
       .progress-panel { min-height: 50vh; }
@@ -252,27 +234,30 @@
 
 <header>
   <div class="logo"><span>Stokasir</span> — Installer</div>
-  <span class="os-badge" id="os-badge">mendeteksi OS...</span>
+  <span class="os-badge" id="os-badge">mendeteksi...</span>
 </header>
 
 <main>
-  <!-- ── Config Panel ── -->
+  <!-- ── Config ── -->
   <div class="config-panel">
     <div class="panel-title">Konfigurasi</div>
 
     <div class="field">
-      <label>Folder data (database & upload)</label>
-      <input id="dataDir" type="text" placeholder="/home/user/stokasir-data">
+      <label>Folder data <em>(database &amp; upload)</em></label>
+      <div class="input-row">
+        <input id="dataDir" type="text" placeholder="/home/user/stokasir-data">
+        <button class="btn-browse" title="Browse folder" onclick="openBrowse()">📁</button>
+      </div>
     </div>
 
     <div class="field">
-      <label>IP server (untuk akses HP di LAN)</label>
-      <input id="serverIp" type="text" placeholder="192.168.1.x">
+      <label>IP server <em>(akses dari HP di LAN)</em></label>
+      <select id="serverIp"></select>
     </div>
 
     <div class="field">
-      <label>JWT Secret <span style="color:var(--dim)">← generate otomatis jika kosong</span></label>
-      <input id="jwtSecret" type="text" placeholder="(kosongkan untuk generate otomatis)">
+      <label>JWT Secret <em>(kosong = generate otomatis)</em></label>
+      <input id="jwtSecret" type="text" placeholder="(generate otomatis)">
     </div>
 
     <div class="row">
@@ -291,29 +276,18 @@
     </button>
   </div>
 
-  <!-- ── Progress Panel ── -->
-  <div class="progress-panel" id="progress-panel">
-
-    <div class="steps" id="steps">
-      <div class="step" id="step-1">
-        <div class="step-icon">1</div>Verifikasi Bun
-      </div>
+  <!-- ── Progress ── -->
+  <div class="progress-panel">
+    <div class="steps">
+      <div class="step" id="step-1"><div class="step-icon">1</div>Verifikasi Bun</div>
       <div class="step-sep">›</div>
-      <div class="step" id="step-2">
-        <div class="step-icon">2</div>Siapkan Folder
-      </div>
+      <div class="step" id="step-2"><div class="step-icon">2</div>Siapkan Folder</div>
       <div class="step-sep">›</div>
-      <div class="step" id="step-3">
-        <div class="step-icon">3</div>Install Backend
-      </div>
+      <div class="step" id="step-3"><div class="step-icon">3</div>Install Backend</div>
       <div class="step-sep">›</div>
-      <div class="step" id="step-4">
-        <div class="step-icon">4</div>Build Frontend
-      </div>
+      <div class="step" id="step-4"><div class="step-icon">4</div>Build Frontend</div>
       <div class="step-sep">›</div>
-      <div class="step" id="step-5">
-        <div class="step-icon">5</div>Setup Service
-      </div>
+      <div class="step" id="step-5"><div class="step-icon">5</div>Setup Service</div>
     </div>
 
     <div class="log-area" id="log-area">
@@ -328,45 +302,151 @@
     <div class="done-banner" id="done-banner">
       <div class="done-title">✓ Instalasi Selesai!</div>
       <div class="done-url" id="done-url"></div>
-      <button class="btn-open" id="btn-open" onclick="openApp()">Buka Stokasir</button>
+      <button class="btn-open" onclick="openApp()">Buka Stokasir</button>
     </div>
-
   </div>
 </main>
 
-<script>
-  let appUrl = ''
+<!-- ── Folder Browser Modal ── -->
+<div class="modal-overlay" id="browse-modal">
+  <div class="modal-backdrop" onclick="closeBrowse()"></div>
+  <div class="modal-box">
+    <div class="modal-head">
+      <span>📁 Pilih Folder</span>
+      <button class="modal-close" onclick="closeBrowse()">✕</button>
+    </div>
+    <div class="modal-path" id="modal-path"></div>
+    <div class="modal-list" id="modal-list"></div>
+    <div class="modal-foot">
+      <div class="modal-selected" id="modal-selected">—</div>
+      <button class="btn-pick" onclick="pickFolder()">Pilih Folder Ini</button>
+    </div>
+  </div>
+</div>
 
-  // ── Load platform info ──────────────────────────────────────────────────────
+<script>
+  let appUrl        = ''
+  let browseSelected = ''
+
+  // ── Load platform ─────────────────────────────────────────────────────────
   async function loadPlatform() {
     try {
-      const res  = await fetch('/api/platform')
-      const info = await res.json()
+      const info = await fetch('/api/platform').then(r => r.json())
 
-      const badge = document.getElementById('os-badge')
-      badge.textContent = `${info.os} · ${info.arch} · Bun ${info.bunVersion}`
+      document.getElementById('os-badge').textContent =
+        `${info.os} · ${info.arch} · Bun ${info.bunVersion}`
 
-      if (!document.getElementById('dataDir').value) {
+      // Default folder
+      if (!document.getElementById('dataDir').value)
         document.getElementById('dataDir').value = info.defaultData
+
+      // IP dropdown
+      const sel = document.getElementById('serverIp')
+      sel.innerHTML = ''
+      const ips = info.ips ?? []
+      let defaultSet = false
+      for (const ip of ips) {
+        const opt = document.createElement('option')
+        opt.value = ip.value
+        opt.textContent = `${ip.value}  —  ${ip.label}`
+        if (!defaultSet && ip.value !== '127.0.0.1') {
+          opt.selected = true
+          defaultSet = true
+        }
+        sel.appendChild(opt)
       }
-      if (!document.getElementById('serverIp').value) {
-        document.getElementById('serverIp').value = info.ip
-      }
+      if (!defaultSet && sel.options.length) sel.options[0].selected = true
+
     } catch {
       document.getElementById('os-badge').textContent = 'server tidak berjalan'
       document.getElementById('os-badge').style.color = 'var(--err)'
     }
   }
 
-  // ── Generate JWT secret ─────────────────────────────────────────────────────
+  // ── Folder browser ────────────────────────────────────────────────────────
+  async function openBrowse(path) {
+    path = path || document.getElementById('dataDir').value || ''
+    browseSelected = path
+    await loadDir(path)
+    document.getElementById('browse-modal').classList.add('open')
+  }
+
+  async function loadDir(path) {
+    const url = '/api/browse' + (path ? `?path=${encodeURIComponent(path)}` : '')
+    const data = await fetch(url).then(r => r.json())
+
+    if (data.error) {
+      document.getElementById('modal-list').innerHTML =
+        `<div class="modal-empty">${data.error}</div>`
+      return
+    }
+
+    document.getElementById('modal-path').textContent = data.current
+    if (!browseSelected) browseSelected = data.current
+    updateSelected(browseSelected)
+
+    const list = document.getElementById('modal-list')
+    list.innerHTML = ''
+
+    if (data.parent) {
+      const up = document.createElement('div')
+      up.className = 'dir-item parent'
+      up.innerHTML = `<span class="icon">↑</span> ..`
+      up.onclick = () => { browseSelected = data.parent; loadDir(data.parent) }
+      list.appendChild(up)
+    }
+
+    if (data.dirs.length === 0 && !data.parent) {
+      list.innerHTML += '<div class="modal-empty">Folder kosong</div>'
+    }
+
+    for (const dir of data.dirs) {
+      const item = document.createElement('div')
+      item.className = 'dir-item' + (dir.path === browseSelected ? ' selected' : '')
+      item.dataset.path = dir.path
+      item.innerHTML = `<span class="icon">📁</span> ${dir.name}`
+      item.onclick = () => {
+        browseSelected = dir.path
+        updateSelected(dir.path)
+        document.querySelectorAll('.dir-item').forEach(el => el.classList.remove('selected'))
+        item.classList.add('selected')
+      }
+      item.ondblclick = () => loadDir(dir.path)
+      list.appendChild(item)
+    }
+
+    // Click on path row = select current dir
+    document.getElementById('modal-path').onclick = () => {
+      browseSelected = data.current
+      updateSelected(data.current)
+      document.querySelectorAll('.dir-item').forEach(el => el.classList.remove('selected'))
+    }
+    document.getElementById('modal-path').style.cursor = 'pointer'
+    document.getElementById('modal-path').title = 'Klik untuk pilih folder ini'
+  }
+
+  function updateSelected(path) {
+    browseSelected = path
+    document.getElementById('modal-selected').textContent = path || '—'
+  }
+
+  function pickFolder() {
+    if (browseSelected) document.getElementById('dataDir').value = browseSelected
+    closeBrowse()
+  }
+
+  function closeBrowse() {
+    document.getElementById('browse-modal').classList.remove('open')
+  }
+
+  // ── Install ───────────────────────────────────────────────────────────────
   function generateJwt() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*'
-    const arr   = new Uint8Array(48)
+    const arr = new Uint8Array(48)
     crypto.getRandomValues(arr)
     return Array.from(arr, b => chars[b % chars.length]).join('')
   }
 
-  // ── Start install ───────────────────────────────────────────────────────────
   async function startInstall() {
     const cfg = {
       dataDir:      document.getElementById('dataDir').value.trim(),
@@ -376,59 +456,46 @@
       portFrontend: document.getElementById('portFrontend').value.trim() || '5173',
     }
 
-    if (!cfg.dataDir || !cfg.serverIp) {
-      alert('Folder data dan IP server wajib diisi.')
-      return
-    }
+    if (!cfg.dataDir || !cfg.serverIp) { alert('Folder data dan IP server wajib diisi.'); return }
 
-    // Reset UI
     document.getElementById('btn-install').disabled = true
     document.getElementById('empty-state').style.display = 'none'
     document.getElementById('err-banner').classList.remove('visible')
     document.getElementById('done-banner').classList.remove('visible')
     document.getElementById('log-area').innerHTML = ''
-
     resetSteps()
 
     try {
       const res = await fetch('/api/install', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(cfg),
+        body: JSON.stringify(cfg),
       })
-
       await readSSE(res)
     } catch (err) {
       showError(String(err))
     }
   }
 
-  // ── SSE reader ──────────────────────────────────────────────────────────────
   async function readSSE(response) {
-    const reader  = response.body.getReader()
+    const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buf = ''
-
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-
       buf += decoder.decode(value, { stream: true })
-      const messages = buf.split('\n\n')
-      buf = messages.pop() ?? ''
-
-      for (const msg of messages) {
+      const msgs = buf.split('\n\n')
+      buf = msgs.pop() ?? ''
+      for (const msg of msgs) {
         for (const line of msg.split('\n')) {
           if (!line.startsWith('data: ')) continue
-          try {
-            handleEvent(JSON.parse(line.slice(6)))
-          } catch {}
+          try { handleEvent(JSON.parse(line.slice(6))) } catch {}
         }
       }
     }
   }
 
-  // ── Event handler ───────────────────────────────────────────────────────────
   function handleEvent(e) {
     if (e.type === 'step') {
       setStep(e.step, 'active')
@@ -437,11 +504,11 @@
       setStep(e.step, 'done')
     } else if (e.type === 'log') {
       const t = e.text
-      let cls = ''
-      if (t.startsWith('$'))       cls = 'cmd'
-      else if (t.startsWith('✓'))  cls = 'ok'
-      else if (t.match(/error/i))  cls = 'err'
-      else if (t.startsWith(' ') || t.startsWith('\t')) cls = 'dim'
+      const cls = t.startsWith('$') ? 'cmd'
+                : t.startsWith('✓') ? 'ok'
+                : /error/i.test(t)  ? 'err'
+                : (t.startsWith(' ') || t.startsWith('\t')) ? 'dim'
+                : ''
       addLog(t, cls)
     } else if (e.type === 'done') {
       appUrl = e.url
@@ -451,7 +518,7 @@
     }
   }
 
-  // ── UI helpers ──────────────────────────────────────────────────────────────
+  // ── UI helpers ─────────────────────────────────────────────────────────────
   function addLog(text, cls) {
     const area = document.getElementById('log-area')
     const span = document.createElement('span')
@@ -471,48 +538,46 @@
   }
 
   function setStep(n, state) {
-    const el   = document.getElementById(`step-${n}`)
+    const el = document.getElementById(`step-${n}`)
     const icon = el.querySelector('.step-icon')
     el.className = `step ${state}`
-    if (state === 'active') {
-      icon.innerHTML = '<div class="spinner"></div>'
-    } else if (state === 'done') {
-      icon.textContent = '✓'
-    } else if (state === 'error') {
-      icon.textContent = '✗'
-    }
+    if (state === 'active') icon.innerHTML = '<div class="spinner"></div>'
+    else if (state === 'done')  icon.textContent = '✓'
+    else if (state === 'error') icon.textContent = '✗'
   }
 
   function showDone(url) {
-    const banner = document.getElementById('done-banner')
     document.getElementById('done-url').innerHTML =
-      `Akses Stokasir di: <a href="${url}" target="_blank">${url}</a>`
-    banner.classList.add('visible')
-    document.getElementById('btn-install').disabled = false
-    document.getElementById('btn-install').textContent = 'Install Ulang'
+      `Akses di: <a href="${url}" target="_blank">${url}</a>`
+    document.getElementById('done-banner').classList.add('visible')
+    const btn = document.getElementById('btn-install')
+    btn.disabled = false
+    btn.textContent = 'Install Ulang'
   }
 
   function showError(msg) {
-    // Mark active step as error
     for (let i = 1; i <= 5; i++) {
-      const el = document.getElementById(`step-${i}`)
-      if (el.classList.contains('active')) setStep(i, 'error')
+      if (document.getElementById(`step-${i}`).classList.contains('active')) setStep(i, 'error')
     }
-    const banner = document.getElementById('err-banner')
-    banner.textContent = `✗ Error: ${msg}`
-    banner.classList.add('visible')
-    document.getElementById('btn-install').disabled = false
-    document.getElementById('btn-install').textContent = 'Coba Lagi'
+    const b = document.getElementById('err-banner')
+    b.textContent = `✗ ${msg}`
+    b.classList.add('visible')
     addLog(`✗ ${msg}`, 'err')
+    const btn = document.getElementById('btn-install')
+    btn.disabled = false
+    btn.textContent = 'Coba Lagi'
   }
 
   function openApp() {
     if (appUrl) window.open(appUrl, '_blank')
-    // Stop installer server
     fetch('/api/stop').catch(() => {})
   }
 
-  // ── Init ────────────────────────────────────────────────────────────────────
+  // ── Keyboard: Esc to close modal ──────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeBrowse()
+  })
+
   loadPlatform()
 </script>
 </body>
