@@ -368,19 +368,9 @@
       }
     }
 
-    // Semua retry gagal — server belum dijalankan
+    // Semua retry gagal — server belum jalan, tapi tombol tetap aktif
     badge.textContent = 'server belum jalan'
-    badge.style.color = 'var(--err)'
-    document.getElementById('btn-install').disabled = true
-    document.getElementById('btn-install').textContent = '▶  Jalankan: bun instalasi.ts'
-    document.getElementById('empty-state').innerHTML =
-      `<div class="arrow">⚠</div>
-       <div>Server installer belum berjalan.</div>
-       <div style="margin-top:.5rem;color:var(--info)">
-         Double-click <strong>instal.command</strong> (Mac/Linux)<br>
-         atau <strong>instal.bat</strong> (Windows)<br>
-         <span style="color:var(--dim)">— lalu buka halaman ini lagi —</span>
-       </div>`
+    badge.style.color = 'var(--warn)'
   }
 
   // ── Folder browser ────────────────────────────────────────────────────────
@@ -486,6 +476,22 @@
     resetSteps()
 
     try {
+      // Pastikan server masih hidup sebelum mulai (retry singkat)
+      let serverReady = false
+      for (let i = 0; i < 3; i++) {
+        try { await fetch(`${API}/api/platform`); serverReady = true; break } catch {}
+        await new Promise(r => setTimeout(r, 600))
+      }
+      if (!serverReady) {
+        document.getElementById('btn-install').disabled = false
+        showError(
+          'Server installer belum berjalan.\n' +
+          'Double-click instal.command (Mac/Linux) atau instal.bat (Windows),\n' +
+          'lalu klik Mulai Instalasi lagi.'
+        )
+        return
+      }
+
       const res = await fetch(`${API}/api/install`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
