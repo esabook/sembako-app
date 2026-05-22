@@ -10,7 +10,7 @@ cd "$SCRIPT_DIR"
 
 # Ambil versi dari package.json frontend
 VERSION=$(node -p "require('./frontend/package.json').version" 2>/dev/null || echo "1.0")
-DIST_DIR="$SCRIPT_DIR/dist"
+DIST_DIR="$SCRIPT_DIR/build"
 ZIP_NAME="stokasir-v$VERSION.zip"
 
 echo "→ Build Stokasir v$VERSION"

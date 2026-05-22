@@ -12,6 +12,8 @@ backend/uploads/
 # Build output
 frontend/.svelte-kit/
 frontend/build/
+build/*.zip
+build/*.tar.gz
 
 # Env
 .env
