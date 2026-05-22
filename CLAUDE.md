@@ -224,6 +224,11 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 | Absensi: durasi kerja, filter karyawan, export CSV rekap | ✅ |
 | WA alert tombol cepat ke pemilik dari notifikasi | ✅ |
 | Service Worker / offline cache (static + API stale-while-revalidate) | ✅ |
+| Rebrand ke Stokasir (nama, path, docs) | ✅ |
+| Halaman panduan penggunaan (/panduan — accordion + TOC + FAQ) | ✅ |
+| Halaman panduan instalasi (/panduan/instalasi — per device) | ✅ |
+| Shortcut Ctrl+Home toggle sidebar | ✅ |
+| DEPLOY.md: panduan server Windows / Mac / Linux | ✅ |
 
 Branch aktif: `development`
 
