@@ -12,16 +12,20 @@ Stokasir berjalan sebagai server lokal di jaringan WiFi toko. Pilih platform ser
 ## Prasyarat Semua Platform
 
 ```
-Bun   ≥ 1.1   — runtime backend + build frontend        [WAJIB]
-PM2   ≥ 5     — process manager (auto restart, startup)  [WAJIB]
-Nginx          — reverse proxy port 80                   [OPSIONAL]
+Bun  ≥ 1.1  — satu-satunya runtime yang dibutuhkan      [WAJIB]
+Nginx        — reverse proxy port 80                     [OPSIONAL]
 ```
+
+Process manager: **tidak perlu install apapun** — tiap OS sudah punya:
+- Linux/Pi → `systemd` (built-in)
+- Mac      → `launchd` (built-in)
+- Windows  → Task Scheduler (built-in)
 
 Struktur folder project:
 ```
 stokasir/
 ├── backend/    ← Hono.js API (Bun)
-├── frontend/   ← SvelteKit (build → Node adapter)
+├── frontend/   ← SvelteKit (build → Bun adapter)
 └── DEPLOY.md
 ```
 
@@ -36,13 +40,12 @@ OS: Raspberry Pi OS Lite 64-bit (tanpa desktop)
 uname -m   # aarch64 = ARM64 → Bun OK  |  armv7l = ARM32 → ganti Node.js LTS
 ```
 
-### 1. Install Bun & PM2 `WAJIB`
+### 1. Install Bun `WAJIB`
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
 source ~/.bashrc
-
-npm install -g pm2
+bun --version
 ```
 
 ### 2. Storage USB SSD `WAJIB` — jangan simpan DB di SD card
@@ -81,13 +84,52 @@ NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 6. PM2 & autostart `WAJIB`
+### 6. systemd service `WAJIB`
 
 ```bash
-cd /home/eg17/stokasir
-pm2 start ecosystem.config.js
-pm2 startup   # ikuti instruksi yang muncul
-pm2 save
+# /etc/systemd/system/stokasir-backend.service
+sudo tee /etc/systemd/system/stokasir-backend.service > /dev/null <<'EOF'
+[Unit]
+Description=Stokasir Backend
+After=network.target
+
+[Service]
+Type=simple
+User=eg17
+WorkingDirectory=/home/eg17/stokasir/backend
+ExecStart=/home/eg17/.bun/bin/bun run src/index.ts
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/home/eg17/stokasir/backend/.env
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo tee /etc/systemd/system/stokasir-frontend.service > /dev/null <<'EOF'
+[Unit]
+Description=Stokasir Frontend
+After=network.target stokasir-backend.service
+
+[Service]
+Type=simple
+User=eg17
+WorkingDirectory=/home/eg17/stokasir/frontend
+ExecStart=/home/eg17/.bun/bin/bun build/index.js
+Restart=on-failure
+RestartSec=5
+Environment=PORT=5173
+Environment=HOST=0.0.0.0
+Environment=NODE_ENV=production
+Environment=PUBLIC_API_URL=http://192.168.1.x/api
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable stokasir-backend stokasir-frontend
+sudo systemctl start  stokasir-backend stokasir-frontend
 ```
 
 ### 7. Nginx `OPSIONAL`
@@ -118,8 +160,8 @@ echo '/mnt/data/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
 ### Estimasi RAM
 
 ```
-OS + Nginx + Backend + Frontend + PM2 ≈ 306MB
-Pi 4 RAM 2GB → sisa ~1.7GB ✅
+OS + Nginx + Backend (Bun) + Frontend (Bun) ≈ 240MB
+Pi 4 RAM 2GB → sisa ~1.76GB ✅
 ```
 
 ---
@@ -128,16 +170,12 @@ Pi 4 RAM 2GB → sisa ~1.7GB ✅
 
 Mini PC, NUC, atau laptop Linux yang selalu menyala.
 
-### 1. Install Bun & PM2 `WAJIB`
+### 1. Install Bun `WAJIB`
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
 source ~/.bashrc
-
-# PM2 membutuhkan Node.js
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-sudo apt install -y nodejs
-npm install -g pm2
+bun --version
 ```
 
 ### 2. Siapkan folder data `WAJIB`
@@ -177,13 +215,14 @@ NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 6. PM2 & autostart `WAJIB`
+### 6. systemd service `WAJIB`
+
+Sesuaikan `User`, `WorkingDirectory`, `ExecStart`, dan path env — sama seperti bagian Raspberry Pi di atas.
 
 ```bash
-cd ~/stokasir
-pm2 start ecosystem.config.js
-pm2 startup systemd   # generate perintah → jalankan perintah yang muncul
-pm2 save
+sudo systemctl daemon-reload
+sudo systemctl enable stokasir-backend stokasir-frontend
+sudo systemctl start  stokasir-backend stokasir-frontend
 ```
 
 ### 7. Nginx `OPSIONAL`
@@ -211,44 +250,40 @@ crontab -e
 
 Laptop Mac atau Mac mini yang dijadikan server toko.
 
-### 1. Install Homebrew `OPSIONAL`
+### 1. Install Bun `WAJIB`
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+# Via installer resmi (tidak butuh Homebrew):
+curl -fsSL https://bun.sh/install | bash
+source ~/.zshrc
 
-### 2. Install Bun & PM2 `WAJIB`
-
-```bash
+# Atau via Homebrew jika sudah terinstall:
 brew install bun
-
-# PM2 via Node.js
-brew install node
-npm install -g pm2
 ```
 
-### 3. Siapkan folder data `WAJIB`
+### 2. Siapkan folder data `WAJIB`
 
 ```bash
 mkdir -p ~/stokasir-data/uploads/{produk,invoice,karyawan}
 mkdir -p ~/stokasir-data/backup
+mkdir -p ~/stokasir-data/logs
 ```
 
-### 4. Clone / Transfer project `WAJIB`
+### 3. Clone / Transfer project `WAJIB`
 
 ```bash
 git clone <url-repo> ~/stokasir
 # atau rsync dari laptop lain
 ```
 
-### 5. Install dependencies & build `WAJIB`
+### 4. Install dependencies & build `WAJIB`
 
 ```bash
 cd ~/stokasir/backend  && bun install --production
 cd ~/stokasir/frontend && bun install --production && bun run build
 ```
 
-### 6. Env vars `WAJIB`
+### 5. Env vars `WAJIB`
 
 ```bash
 # ~/stokasir/backend/.env
@@ -259,16 +294,74 @@ NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 7. PM2 & autostart `WAJIB`
+### 6. launchd — auto-start saat login `WAJIB`
 
 ```bash
-cd ~/stokasir
-pm2 start ecosystem.config.js
-pm2 startup   # PM2 akan generate LaunchAgent plist secara otomatis
-pm2 save
+BUN_BIN=$(which bun)   # biasanya /Users/namauser/.bun/bin/bun
+
+# Backend
+cat > ~/Library/LaunchAgents/stokasir.backend.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>stokasir.backend</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$BUN_BIN</string>
+    <string>run</string>
+    <string>src/index.ts</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/namauser/stokasir/backend</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>DATABASE_URL</key><string>file:/Users/namauser/stokasir-data/data.db</string>
+    <key>UPLOAD_DIR</key><string>/Users/namauser/stokasir-data/uploads</string>
+    <key>PORT</key><string>3000</string>
+    <key>NODE_ENV</key><string>production</string>
+    <key>JWT_SECRET</key><string>isi-jwt-secret-disini</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/namauser/stokasir-data/logs/backend.log</string>
+  <key>StandardErrorPath</key><string>/Users/namauser/stokasir-data/logs/backend.error.log</string>
+</dict>
+</plist>
+EOF
+
+# Frontend
+cat > ~/Library/LaunchAgents/stokasir.frontend.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>stokasir.frontend</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$BUN_BIN</string>
+    <string>build/index.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/namauser/stokasir/frontend</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key><string>5173</string>
+    <key>HOST</key><string>0.0.0.0</string>
+    <key>NODE_ENV</key><string>production</string>
+    <key>PUBLIC_API_URL</key><string>http://192.168.1.x/api</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/namauser/stokasir-data/logs/frontend.log</string>
+  <key>StandardErrorPath</key><string>/Users/namauser/stokasir-data/logs/frontend.error.log</string>
+</dict>
+</plist>
+EOF
+
+launchctl load ~/Library/LaunchAgents/stokasir.backend.plist
+launchctl load ~/Library/LaunchAgents/stokasir.frontend.plist
 ```
 
-### 8. Nginx via Homebrew `OPSIONAL`
+### 7. Nginx via Homebrew `OPSIONAL`
 
 ```bash
 brew install nginx
@@ -277,7 +370,7 @@ sudo nano /opt/homebrew/etc/nginx/servers/stokasir.conf
 brew services restart nginx
 ```
 
-### 9. Agar Mac tidak tidur saat jadi server `WAJIB`
+### 8. Agar Mac tidak tidur saat jadi server `WAJIB`
 
 ```
 System Settings → Battery → Prevent automatic sleeping when display is off → ON
@@ -301,17 +394,7 @@ powershell -c "irm bun.sh/install.ps1 | iex"
 
 Restart terminal setelah install.
 
-### 2. Install Node.js & PM2 `WAJIB`
-
-Download Node.js LTS dari [nodejs.org](https://nodejs.org) → jalankan installer.
-
-```powershell
-npm install -g pm2
-npm install -g pm2-windows-startup
-pm2-windows-startup install
-```
-
-### 3. Siapkan folder data `WAJIB`
+### 2. Siapkan folder data `WAJIB`
 
 ```powershell
 mkdir C:\stokasir-data\uploads\produk
@@ -320,7 +403,7 @@ mkdir C:\stokasir-data\uploads\karyawan
 mkdir C:\stokasir-data\backup
 ```
 
-### 4. Clone / Transfer project `WAJIB`
+### 3. Clone / Transfer project `WAJIB`
 
 ```powershell
 # Ekstrak zip project ke C:\stokasir\
@@ -328,7 +411,7 @@ mkdir C:\stokasir-data\backup
 git clone <url-repo> C:\stokasir
 ```
 
-### 5. Install dependencies & build `WAJIB`
+### 4. Install dependencies & build `WAJIB`
 
 ```powershell
 cd C:\stokasir\backend
@@ -339,7 +422,7 @@ bun install --production
 bun run build
 ```
 
-### 6. Env vars `WAJIB`
+### 5. Env vars `WAJIB`
 
 Buat file `C:\stokasir\backend\.env`:
 ```
@@ -350,84 +433,102 @@ NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 7. PM2 & autostart `WAJIB`
+### 6. Task Scheduler — auto-start saat login `WAJIB`
 
 ```powershell
-cd C:\stokasir
-pm2 start ecosystem.config.js
-pm2 save
+$BUN_BIN = (Get-Command bun).Source
+$settings = New-ScheduledTaskSettingsSet `
+    -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) `
+    -ExecutionTimeLimit (New-TimeSpan -Days 365) -StartWhenAvailable
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+
+# Backend (Bun baca .env otomatis dari WorkingDirectory)
+$actionBack = New-ScheduledTaskAction -Execute $BUN_BIN `
+    -Argument "run src\index.ts" -WorkingDirectory "C:\stokasir\backend"
+Register-ScheduledTask -TaskName "Stokasir Backend" `
+    -Action $actionBack -Trigger $trigger -Settings $settings -RunLevel Highest -Force
+
+# Frontend (env vars via wrapper script)
+@"
+`$env:PORT='5173'; `$env:HOST='0.0.0.0'
+`$env:NODE_ENV='production'
+`$env:PUBLIC_API_URL='http://192.168.1.x/api'   # ganti IP
+Set-Location 'C:\stokasir\frontend'
+& '$BUN_BIN' build\index.js
+"@ | Set-Content "C:\stokasir\start-frontend.ps1"
+
+$actionFront = New-ScheduledTaskAction -Execute "powershell.exe" `
+    -Argument "-ExecutionPolicy Bypass -NonInteractive -File C:\stokasir\start-frontend.ps1"
+Register-ScheduledTask -TaskName "Stokasir Frontend" `
+    -Action $actionFront -Trigger $trigger -Settings $settings -RunLevel Highest -Force
+
+# Jalankan sekarang
+Start-ScheduledTask "Stokasir Backend"
+Start-Sleep 2
+Start-ScheduledTask "Stokasir Frontend"
 ```
 
-PM2 Windows Startup akan otomatis restart app saat PC reboot.
-
-### 8. Windows Firewall — buka port `WAJIB`
+### 7. Windows Firewall — buka port `WAJIB`
 
 ```powershell
-# Buka port 80 (Nginx) dan 5173 (frontend langsung) dan 3000 (backend)
-netsh advfirewall firewall add rule name="Stokasir-80"   dir=in action=allow protocol=TCP localport=80
-netsh advfirewall firewall add rule name="Stokasir-5173" dir=in action=allow protocol=TCP localport=5173
 netsh advfirewall firewall add rule name="Stokasir-3000" dir=in action=allow protocol=TCP localport=3000
+netsh advfirewall firewall add rule name="Stokasir-5173" dir=in action=allow protocol=TCP localport=5173
+netsh advfirewall firewall add rule name="Stokasir-80"   dir=in action=allow protocol=TCP localport=80
 ```
 
-### 9. Agar PC tidak sleep saat jadi server `WAJIB`
+### 8. Agar PC tidak sleep saat jadi server `WAJIB`
 
 ```
 Settings → System → Power → Screen and sleep → semua set ke "Never"
 ```
 
-### 10. Reverse proxy — Nginx for Windows `OPSIONAL`
+### 9. Reverse proxy — Nginx for Windows `OPSIONAL`
 
 Download Nginx untuk Windows dari [nginx.org/en/download.html](https://nginx.org/en/download.html), ekstrak ke `C:\nginx\`.
 
-Edit `C:\nginx\conf\nginx.conf` → tambah server block (lihat Konfigurasi Nginx di bawah, ganti path uploads).
+Edit `C:\nginx\conf\nginx.conf` → tambah server block (lihat Konfigurasi Nginx di bawah).
 
 ```powershell
-# Jalankan Nginx sebagai background process
-Start-Process "C:\nginx\nginx.exe"
-
-# Agar otomatis jalan saat Windows start:
-# Buat Scheduled Task di Task Scheduler → trigger "At startup" → action: C:\nginx\nginx.exe
+# Agar otomatis jalan saat Windows start — daftarkan juga ke Task Scheduler:
+$actionNginx = New-ScheduledTaskAction -Execute "C:\nginx\nginx.exe"
+Register-ScheduledTask -TaskName "Nginx" `
+    -Action $actionNginx -Trigger (New-ScheduledTaskTrigger -AtLogOn) `
+    -Settings (New-ScheduledTaskSettingsSet) -RunLevel Highest -Force
+Start-ScheduledTask "Nginx"
 ```
 
-> Tanpa Nginx: akses langsung via `http://[IP-PC]:5173` dari HP. Backend tetap di `:3000`. Pastikan kedua port sudah dibuka di Firewall (langkah 8).
+> Tanpa Nginx: akses langsung via `http://[IP-PC]:5173` dari HP. Backend tetap di `:3000`. Pastikan kedua port sudah dibuka di Firewall (langkah 7).
 
 ---
 
 ## Konfigurasi Bersama
 
-### ecosystem.config.js (PM2) `WAJIB`
+### Manajemen service
 
-Tempatkan di root folder project. Sesuaikan `cwd` dan path dengan platform:
+**Linux / Pi (systemd)**
+```bash
+sudo systemctl status  stokasir-backend stokasir-frontend
+sudo systemctl restart stokasir-backend stokasir-frontend
+sudo systemctl stop    stokasir-backend stokasir-frontend
+journalctl -u stokasir-backend  -f    # log backend
+journalctl -u stokasir-frontend -f    # log frontend
+```
 
-```javascript
-module.exports = { apps: [
-  {
-    name: 'stokasir-backend',
-    script: 'src/index.ts',
-    interpreter: 'bun',
-    cwd: '/home/user/stokasir/backend',         // sesuaikan path
-    max_memory_restart: '200M',
-    env: {
-      NODE_ENV: 'production',
-      PORT: '3000',
-      DATABASE_URL: 'file:/home/user/stokasir-data/data.db',  // sesuaikan
-      UPLOAD_DIR: '/home/user/stokasir-data/uploads'           // sesuaikan
-    }
-  },
-  {
-    name: 'stokasir-frontend',
-    script: 'build/index.js',
-    interpreter: 'bun',
-    cwd: '/home/user/stokasir/frontend',        // sesuaikan path
-    max_memory_restart: '150M',
-    env: {
-      NODE_ENV: 'production',
-      PORT: '5173',
-      HOST: '0.0.0.0',
-      PUBLIC_API_URL: 'http://192.168.1.x/api'  // ganti dengan IP server
-    }
-  }
-]}
+**Mac (launchd)**
+```bash
+launchctl list | grep stokasir
+launchctl kickstart gui/$(id -u)/stokasir.backend    # restart backend
+launchctl kickstart gui/$(id -u)/stokasir.frontend   # restart frontend
+launchctl unload ~/Library/LaunchAgents/stokasir.backend.plist   # stop
+tail -f ~/stokasir-data/logs/backend.log             # log
+```
+
+**Windows (Task Scheduler)**
+```powershell
+Get-ScheduledTask 'Stokasir*'               # lihat status
+Start-ScheduledTask 'Stokasir Backend'      # jalankan
+Stop-ScheduledTask  'Stokasir Backend'      # stop
+# Log: lihat di Task Scheduler → History, atau tambahkan redirect di start-frontend.ps1
 ```
 
 ### Nginx — server block `OPSIONAL`
@@ -501,17 +602,19 @@ sqlite.pragma('mmap_size = 268435456')    // 256MB mmap
 ## Verifikasi Instalasi
 
 ```bash
-# Cek kedua proses berjalan
-pm2 status
-
-# Cek log jika ada error
-pm2 logs stokasir-backend --lines 20
-pm2 logs stokasir-frontend --lines 20
-
 # Cek bisa diakses dari server sendiri
 curl http://localhost:3000/health    # → {"success":true,"data":{"status":"ok"}}
 curl http://localhost:5173           # → HTML halaman login
 curl http://localhost/api/health     # → via Nginx (jika Nginx sudah jalan)
+
+# Cek service berjalan (Linux/Pi)
+sudo systemctl status stokasir-backend stokasir-frontend
+
+# Cek service berjalan (Mac)
+launchctl list | grep stokasir
+
+# Cek service berjalan (Windows)
+Get-ScheduledTask 'Stokasir*'
 ```
 
 Akses dari HP/laptop di jaringan yang sama: `http://[IP-SERVER]/`

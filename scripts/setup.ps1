@@ -24,7 +24,7 @@ Write-Host "  Folder   : $SCRIPT_DIR"
 Write-Host ""
 
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step "1 / 6  Cek & Install Bun"
+Write-Step "1 / 5  Cek & Install Bun"
 # ══════════════════════════════════════════════════════════════════════════════
 
 $bunExists = $null
@@ -37,7 +37,6 @@ if ($bunExists) {
     Write-Info "Menginstall Bun..."
     try {
         powershell -c "irm bun.sh/install.ps1 | iex"
-        # Refresh PATH
         $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
         Write-Ok "Bun berhasil diinstall. Mungkin perlu restart terminal jika error."
     } catch {
@@ -45,37 +44,10 @@ if ($bunExists) {
     }
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Step "2 / 6  Cek Node.js & PM2"
-# ══════════════════════════════════════════════════════════════════════════════
-
-$nodeExists = $null
-try { $nodeExists = Get-Command node -ErrorAction Stop } catch {}
-
-if (-not $nodeExists) {
-    Write-Warn "Node.js tidak ditemukan."
-    Write-Warn "Download dan install dari: https://nodejs.org (pilih LTS)"
-    Write-Warn "Setelah install, restart PowerShell dan jalankan setup ini lagi."
-    Write-Err "Node.js diperlukan untuk PM2 (process manager)."
-}
-$nodeVer = & node --version
-Write-Ok "Node.js: $nodeVer"
-
-$pm2Exists = $null
-try { $pm2Exists = Get-Command pm2 -ErrorAction Stop } catch {}
-
-if (-not $pm2Exists) {
-    Write-Info "Menginstall PM2 dan PM2 Windows Startup..."
-    & npm install -g pm2 pm2-windows-startup
-    & pm2-windows-startup install
-    Write-Ok "PM2 terinstall"
-} else {
-    $pm2Ver = & pm2 --version
-    Write-Ok "PM2 sudah terinstall: v$pm2Ver"
-}
+$BUN_BIN = (Get-Command bun).Source
 
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step "3 / 6  Konfigurasi"
+Write-Step "2 / 5  Konfigurasi"
 # ══════════════════════════════════════════════════════════════════════════════
 
 Write-Host ""
@@ -86,7 +58,6 @@ $defaultData = "C:\stokasir-data"
 $inputData = Read-Host "  Folder data (upload & database) [$defaultData]"
 $DATA_DIR = if ($inputData) { $inputData } else { $defaultData }
 
-# Deteksi IP lokal
 $detectedIP = (Get-NetIPAddress -AddressFamily IPv4 |
     Where-Object { $_.IPAddress -notmatch '^127\.' -and $_.IPAddress -notmatch '^169\.' } |
     Select-Object -First 1).IPAddress
@@ -122,7 +93,7 @@ if ($confirm -eq "n" -or $confirm -eq "N") {
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step "4 / 6  Siapkan Folder & Install Dependencies"
+Write-Step "3 / 5  Siapkan Folder & Install Dependencies"
 # ══════════════════════════════════════════════════════════════════════════════
 
 Write-Info "Membuat folder data..."
@@ -130,6 +101,7 @@ New-Item -ItemType Directory -Force -Path "$DATA_DIR\uploads\produk"   | Out-Nul
 New-Item -ItemType Directory -Force -Path "$DATA_DIR\uploads\invoice"  | Out-Null
 New-Item -ItemType Directory -Force -Path "$DATA_DIR\uploads\karyawan" | Out-Null
 New-Item -ItemType Directory -Force -Path "$DATA_DIR\backup"           | Out-Null
+New-Item -ItemType Directory -Force -Path "$DATA_DIR\logs"             | Out-Null
 Write-Ok "Folder data siap: $DATA_DIR"
 
 Write-Info "Install backend dependencies..."
@@ -144,11 +116,10 @@ Set-Location "$SCRIPT_DIR\frontend"
 Write-Ok "Frontend build selesai"
 
 # ══════════════════════════════════════════════════════════════════════════════
-Write-Step "5 / 6  Generate Config Files"
+Write-Step "4 / 5  Generate Config & Buka Firewall"
 # ══════════════════════════════════════════════════════════════════════════════
 
 Write-Info "Menulis backend\.env..."
-# Path Windows untuk SQLite harus pakai forward slash
 $DB_PATH = $DATA_DIR.Replace("\", "/")
 @"
 DATABASE_URL=file:$DB_PATH/data.db
@@ -159,46 +130,17 @@ JWT_SECRET=$JWT_SECRET
 "@ | Set-Content -Path "$SCRIPT_DIR\backend\.env" -Encoding UTF8
 Write-Ok "backend\.env ditulis"
 
-Write-Info "Menulis ecosystem.config.js..."
-$backendCwd  = $SCRIPT_DIR.Replace("\", "\\") + "\\backend"
-$frontendCwd = $SCRIPT_DIR.Replace("\", "\\") + "\\frontend"
-$dbPath      = $DATA_DIR.Replace("\", "/")
+# Wrapper script untuk frontend (bawa env vars ke proses bun)
+$WRAPPER = "$SCRIPT_DIR\start-frontend.ps1"
 @"
-module.exports = { apps: [
-  {
-    name: 'stokasir-backend',
-    script: 'src/index.ts',
-    interpreter: 'bun',
-    cwd: '$backendCwd',
-    max_memory_restart: '200M',
-    env: {
-      NODE_ENV: 'production',
-      PORT: '$PORT_BACKEND',
-      DATABASE_URL: 'file:$dbPath/data.db',
-      UPLOAD_DIR: '$DATA_DIR\uploads',
-      JWT_SECRET: '$JWT_SECRET'
-    }
-  },
-  {
-    name: 'stokasir-frontend',
-    script: 'build/index.js',
-    interpreter: 'bun',
-    cwd: '$frontendCwd',
-    max_memory_restart: '150M',
-    env: {
-      NODE_ENV: 'production',
-      PORT: '$PORT_FRONTEND',
-      HOST: '0.0.0.0',
-      PUBLIC_API_URL: 'http://$SERVER_IP/api'
-    }
-  }
-]}
-"@ | Set-Content -Path "$SCRIPT_DIR\ecosystem.config.js" -Encoding UTF8
-Write-Ok "ecosystem.config.js ditulis"
-
-# ══════════════════════════════════════════════════════════════════════════════
-Write-Step "6 / 6  Buka Firewall & Jalankan Stokasir"
-# ══════════════════════════════════════════════════════════════════════════════
+`$env:PORT           = '$PORT_FRONTEND'
+`$env:HOST           = '0.0.0.0'
+`$env:NODE_ENV       = 'production'
+`$env:PUBLIC_API_URL = 'http://$SERVER_IP/api'
+Set-Location '$SCRIPT_DIR\frontend'
+& '$BUN_BIN' build\index.js
+"@ | Set-Content -Path $WRAPPER -Encoding UTF8
+Write-Ok "start-frontend.ps1 ditulis"
 
 Write-Info "Membuka port di Windows Firewall..."
 $rules = @(
@@ -215,17 +157,45 @@ foreach ($r in $rules) {
     }
 }
 
-Set-Location $SCRIPT_DIR
+# ══════════════════════════════════════════════════════════════════════════════
+Write-Step "5 / 5  Daftarkan ke Task Scheduler & Jalankan"
+# ══════════════════════════════════════════════════════════════════════════════
 
-Write-Info "Stop proses lama (jika ada)..."
-& pm2 delete stokasir-backend stokasir-frontend 2>$null
+$taskSettings = New-ScheduledTaskSettingsSet `
+    -RestartCount 5 `
+    -RestartInterval (New-TimeSpan -Minutes 1) `
+    -ExecutionTimeLimit (New-TimeSpan -Days 365) `
+    -StartWhenAvailable
 
-Write-Info "Memulai proses dengan PM2..."
-& pm2 start ecosystem.config.js
-& pm2 save
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 
-Write-Info "Mengatur autostart saat Windows boot..."
-& pm2-windows-startup install 2>$null
+# Backend — Bun membaca .env otomatis dari WorkingDirectory
+Write-Info "Mendaftarkan task 'Stokasir Backend'..."
+$actionBack = New-ScheduledTaskAction `
+    -Execute $BUN_BIN `
+    -Argument "run src\index.ts" `
+    -WorkingDirectory "$SCRIPT_DIR\backend"
+try { Unregister-ScheduledTask -TaskName "Stokasir Backend"  -Confirm:$false 2>$null } catch {}
+Register-ScheduledTask -TaskName "Stokasir Backend" `
+    -Action $actionBack -Trigger $trigger -Settings $taskSettings `
+    -RunLevel Highest -Force | Out-Null
+Write-Ok "Task 'Stokasir Backend' didaftarkan"
+
+# Frontend — env vars via wrapper PowerShell script
+Write-Info "Mendaftarkan task 'Stokasir Frontend'..."
+$actionFront = New-ScheduledTaskAction `
+    -Execute "powershell.exe" `
+    -Argument "-ExecutionPolicy Bypass -NonInteractive -File `"$WRAPPER`""
+try { Unregister-ScheduledTask -TaskName "Stokasir Frontend" -Confirm:$false 2>$null } catch {}
+Register-ScheduledTask -TaskName "Stokasir Frontend" `
+    -Action $actionFront -Trigger $trigger -Settings $taskSettings `
+    -RunLevel Highest -Force | Out-Null
+Write-Ok "Task 'Stokasir Frontend' didaftarkan"
+
+Write-Info "Menjalankan tasks sekarang..."
+try { Start-ScheduledTask -TaskName "Stokasir Backend"  } catch { Write-Warn "Jalankan manual: Start-ScheduledTask 'Stokasir Backend'" }
+Start-Sleep -Seconds 2
+try { Start-ScheduledTask -TaskName "Stokasir Frontend" } catch { Write-Warn "Jalankan manual: Start-ScheduledTask 'Stokasir Frontend'" }
 
 # ── Ringkasan ────────────────────────────────────────────────────────────────
 Write-Host ""
@@ -237,10 +207,12 @@ Write-Host "  Akses dari browser  : http://${SERVER_IP}:$PORT_FRONTEND" -Foregro
 Write-Host "  (via Nginx port 80) : http://$SERVER_IP/  ← jika Nginx sudah setup" -ForegroundColor Cyan
 Write-Host "  API health check    : http://localhost:$PORT_BACKEND/health" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "  Perintah PM2:"
-Write-Host "    pm2 status              — lihat status proses" -ForegroundColor Yellow
-Write-Host "    pm2 logs                — lihat log" -ForegroundColor Yellow
-Write-Host "    pm2 restart all         — restart semua" -ForegroundColor Yellow
+Write-Host "  Perintah Task Scheduler:" -ForegroundColor White
+Write-Host "    Get-ScheduledTask 'Stokasir*'               — lihat status" -ForegroundColor Yellow
+Write-Host "    Start-ScheduledTask 'Stokasir Backend'      — jalankan backend" -ForegroundColor Yellow
+Write-Host "    Stop-ScheduledTask  'Stokasir Backend'      — stop backend" -ForegroundColor Yellow
+Write-Host "    Start-ScheduledTask 'Stokasir Frontend'     — jalankan frontend" -ForegroundColor Yellow
+Write-Host "    Stop-ScheduledTask  'Stokasir Frontend'     — stop frontend" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  Data tersimpan di: $DATA_DIR" -ForegroundColor Cyan
 Write-Host ""

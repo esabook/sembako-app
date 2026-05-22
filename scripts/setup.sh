@@ -47,7 +47,7 @@ if [[ "$ARCH" == "armv7l" ]]; then
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
-header "1 / 6  Cek & Install Bun"
+header "1 / 5  Cek & Install Bun"
 # ══════════════════════════════════════════════════════════════════════════════
 
 if command -v bun &>/dev/null; then
@@ -56,7 +56,6 @@ if command -v bun &>/dev/null; then
 else
   info "Menginstall Bun..."
   curl -fsSL https://bun.sh/install | bash
-  # Tambah ke PATH sesi ini
   export PATH="$HOME/.bun/bin:$PATH"
   if command -v bun &>/dev/null; then
     ok "Bun berhasil diinstall: v$(bun --version)"
@@ -65,54 +64,20 @@ else
   fi
 fi
 
-# ══════════════════════════════════════════════════════════════════════════════
-header "2 / 6  Cek & Install Node.js + PM2"
-# ══════════════════════════════════════════════════════════════════════════════
-
-if ! command -v node &>/dev/null; then
-  info "Node.js tidak ditemukan. Menginstall..."
-  if [[ "$OS" == "mac" ]]; then
-    if command -v brew &>/dev/null; then
-      brew install node
-    else
-      error "Homebrew tidak ditemukan. Install Homebrew dulu: https://brew.sh\nAtau install Node.js manual dari: https://nodejs.org"
-    fi
-  else
-    # Linux / Pi
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-    sudo apt install -y nodejs
-  fi
-  ok "Node.js berhasil diinstall: v$(node --version)"
-else
-  ok "Node.js sudah terinstall: v$(node --version)"
-fi
-
-if ! command -v pm2 &>/dev/null; then
-  info "Menginstall PM2..."
-  npm install -g pm2
-  ok "PM2 berhasil diinstall: v$(pm2 --version)"
-else
-  ok "PM2 sudah terinstall: v$(pm2 --version)"
-fi
+BUN_BIN=$(which bun)
 
 # ══════════════════════════════════════════════════════════════════════════════
-header "3 / 6  Konfigurasi"
+header "2 / 5  Konfigurasi"
 # ══════════════════════════════════════════════════════════════════════════════
 
 echo ""
 echo "Isi konfigurasi berikut (tekan Enter untuk pakai nilai default):"
 echo ""
 
-# Data directory
-if [[ "$OS" == "mac" ]]; then
-  DEFAULT_DATA="$HOME/stokasir-data"
-else
-  DEFAULT_DATA="$HOME/stokasir-data"
-fi
+DEFAULT_DATA="$HOME/stokasir-data"
 read -rp "  Folder data (upload & database) [$DEFAULT_DATA]: " DATA_DIR
 DATA_DIR="${DATA_DIR:-$DEFAULT_DATA}"
 
-# IP server
 DETECTED_IP=""
 if command -v ip &>/dev/null; then
   DETECTED_IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1)
@@ -123,22 +88,22 @@ DEFAULT_IP="${DETECTED_IP:-192.168.1.x}"
 read -rp "  IP server ini (untuk akses HP) [$DEFAULT_IP]: " SERVER_IP
 SERVER_IP="${SERVER_IP:-$DEFAULT_IP}"
 
-# JWT Secret
 DEFAULT_JWT=$(LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^&*' </dev/urandom 2>/dev/null | head -c 48 || echo "ganti-secret-ini-$(date +%s)")
 read -rp "  JWT Secret (Enter = generate otomatis): " JWT_SECRET
 JWT_SECRET="${JWT_SECRET:-$DEFAULT_JWT}"
 
-# Port
 read -rp "  Port backend  [3000]: " PORT_BACKEND
 PORT_BACKEND="${PORT_BACKEND:-3000}"
 read -rp "  Port frontend [5173]: " PORT_FRONTEND
 PORT_FRONTEND="${PORT_FRONTEND:-5173}"
 
+CURRENT_USER="${USER:-$(whoami)}"
+
 echo ""
 info "Konfigurasi:"
-echo "  Data dir    : $DATA_DIR"
-echo "  IP server   : $SERVER_IP"
-echo "  Port backend: $PORT_BACKEND"
+echo "  Data dir     : $DATA_DIR"
+echo "  IP server    : $SERVER_IP"
+echo "  Port backend : $PORT_BACKEND"
 echo "  Port frontend: $PORT_FRONTEND"
 echo ""
 read -rp "Lanjutkan? [Y/n]: " CONFIRM
@@ -148,7 +113,7 @@ if [[ "${CONFIRM,,}" == "n" ]]; then
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
-header "4 / 6  Siapkan Folder & Install Dependencies"
+header "3 / 5  Siapkan Folder & Install Dependencies"
 # ══════════════════════════════════════════════════════════════════════════════
 
 info "Membuat folder data..."
@@ -156,6 +121,7 @@ mkdir -p "$DATA_DIR/uploads/produk"
 mkdir -p "$DATA_DIR/uploads/invoice"
 mkdir -p "$DATA_DIR/uploads/karyawan"
 mkdir -p "$DATA_DIR/backup"
+mkdir -p "$DATA_DIR/logs"
 ok "Folder data siap: $DATA_DIR"
 
 info "Install backend dependencies..."
@@ -170,74 +136,149 @@ bun run build
 ok "Frontend build selesai"
 
 # ══════════════════════════════════════════════════════════════════════════════
-header "5 / 6  Generate Config Files"
+header "4 / 5  Generate Config & Service Files"
 # ══════════════════════════════════════════════════════════════════════════════
 
 info "Menulis backend/.env..."
-cat > "$SCRIPT_DIR/backend/.env" <<EOF
+cat > "$SCRIPT_DIR/backend/.env" <<ENVEOF
 DATABASE_URL=file:$DATA_DIR/data.db
 UPLOAD_DIR=$DATA_DIR/uploads
 PORT=$PORT_BACKEND
 NODE_ENV=production
 JWT_SECRET=$JWT_SECRET
-EOF
+ENVEOF
 ok "backend/.env ditulis"
 
-info "Menulis ecosystem.config.js..."
-cat > "$SCRIPT_DIR/ecosystem.config.js" <<EOF
-module.exports = { apps: [
-  {
-    name: 'stokasir-backend',
-    script: 'src/index.ts',
-    interpreter: 'bun',
-    cwd: '$SCRIPT_DIR/backend',
-    max_memory_restart: '200M',
-    env: {
-      NODE_ENV: 'production',
-      PORT: '$PORT_BACKEND',
-      DATABASE_URL: 'file:$DATA_DIR/data.db',
-      UPLOAD_DIR: '$DATA_DIR/uploads',
-      JWT_SECRET: '$JWT_SECRET'
-    }
-  },
-  {
-    name: 'stokasir-frontend',
-    script: 'build/index.js',
-    interpreter: 'bun',
-    cwd: '$SCRIPT_DIR/frontend',
-    max_memory_restart: '150M',
-    env: {
-      NODE_ENV: 'production',
-      PORT: '$PORT_FRONTEND',
-      HOST: '0.0.0.0',
-      PUBLIC_API_URL: 'http://$SERVER_IP/api'
-    }
-  }
-]}
-EOF
-ok "ecosystem.config.js ditulis"
+if [[ "$OS" == "mac" ]]; then
+  # ── macOS: launchd plist di ~/Library/LaunchAgents/ ──────────────────────
+  LAUNCH_DIR="$HOME/Library/LaunchAgents"
+  mkdir -p "$LAUNCH_DIR"
 
-# ══════════════════════════════════════════════════════════════════════════════
-header "6 / 6  Jalankan Stokasir"
-# ══════════════════════════════════════════════════════════════════════════════
+  info "Menulis launchd plist backend..."
+  cat > "$LAUNCH_DIR/stokasir.backend.plist" <<PLISTEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>stokasir.backend</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$BUN_BIN</string>
+    <string>run</string>
+    <string>src/index.ts</string>
+  </array>
+  <key>WorkingDirectory</key><string>$SCRIPT_DIR/backend</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>DATABASE_URL</key><string>file:$DATA_DIR/data.db</string>
+    <key>UPLOAD_DIR</key><string>$DATA_DIR/uploads</string>
+    <key>PORT</key><string>$PORT_BACKEND</string>
+    <key>NODE_ENV</key><string>production</string>
+    <key>JWT_SECRET</key><string>$JWT_SECRET</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$DATA_DIR/logs/backend.log</string>
+  <key>StandardErrorPath</key><string>$DATA_DIR/logs/backend.error.log</string>
+</dict>
+</plist>
+PLISTEOF
+  ok "stokasir.backend.plist ditulis"
 
-cd "$SCRIPT_DIR"
+  info "Menulis launchd plist frontend..."
+  cat > "$LAUNCH_DIR/stokasir.frontend.plist" <<PLISTEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>stokasir.frontend</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$BUN_BIN</string>
+    <string>build/index.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>$SCRIPT_DIR/frontend</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PORT</key><string>$PORT_FRONTEND</string>
+    <key>HOST</key><string>0.0.0.0</string>
+    <key>NODE_ENV</key><string>production</string>
+    <key>PUBLIC_API_URL</key><string>http://$SERVER_IP/api</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>$DATA_DIR/logs/frontend.log</string>
+  <key>StandardErrorPath</key><string>$DATA_DIR/logs/frontend.error.log</string>
+</dict>
+</plist>
+PLISTEOF
+  ok "stokasir.frontend.plist ditulis"
 
-# Stop proses lama jika ada
-pm2 delete stokasir-backend stokasir-frontend 2>/dev/null || true
+else
+  # ── Linux / Pi: systemd service di /etc/systemd/system/ ─────────────────
+  info "Menulis systemd service backend..."
+  sudo tee /etc/systemd/system/stokasir-backend.service > /dev/null <<SVCEOF
+[Unit]
+Description=Stokasir Backend
+After=network.target
 
-info "Memulai proses dengan PM2..."
-pm2 start ecosystem.config.js
+[Service]
+Type=simple
+User=$CURRENT_USER
+WorkingDirectory=$SCRIPT_DIR/backend
+ExecStart=$BUN_BIN run src/index.ts
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=$SCRIPT_DIR/backend/.env
 
-info "Mengatur autostart saat boot..."
-# pm2 startup menghasilkan perintah yang perlu dijalankan manual jika butuh sudo
-STARTUP_CMD=$(pm2 startup 2>&1 | grep 'sudo env' | head -1)
-if [[ -n "$STARTUP_CMD" ]]; then
-  warn "Untuk autostart, jalankan perintah ini:"
-  echo -e "  ${YELLOW}$STARTUP_CMD${RESET}"
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+  ok "stokasir-backend.service ditulis"
+
+  info "Menulis systemd service frontend..."
+  sudo tee /etc/systemd/system/stokasir-frontend.service > /dev/null <<SVCEOF
+[Unit]
+Description=Stokasir Frontend
+After=network.target stokasir-backend.service
+
+[Service]
+Type=simple
+User=$CURRENT_USER
+WorkingDirectory=$SCRIPT_DIR/frontend
+ExecStart=$BUN_BIN build/index.js
+Restart=on-failure
+RestartSec=5
+Environment=PORT=$PORT_FRONTEND
+Environment=HOST=0.0.0.0
+Environment=NODE_ENV=production
+Environment=PUBLIC_API_URL=http://$SERVER_IP/api
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+  ok "stokasir-frontend.service ditulis"
 fi
 
-pm2 save
+# ══════════════════════════════════════════════════════════════════════════════
+header "5 / 5  Jalankan Stokasir"
+# ══════════════════════════════════════════════════════════════════════════════
+
+if [[ "$OS" == "mac" ]]; then
+  launchctl unload "$LAUNCH_DIR/stokasir.backend.plist"  2>/dev/null || true
+  launchctl unload "$LAUNCH_DIR/stokasir.frontend.plist" 2>/dev/null || true
+
+  info "Memulai proses via launchd..."
+  launchctl load "$LAUNCH_DIR/stokasir.backend.plist"
+  launchctl load "$LAUNCH_DIR/stokasir.frontend.plist"
+  ok "Stokasir berjalan — auto-start aktif saat login"
+else
+  info "Reload systemd dan aktifkan service..."
+  sudo systemctl daemon-reload
+  sudo systemctl enable stokasir-backend stokasir-frontend
+  sudo systemctl restart stokasir-backend stokasir-frontend
+  ok "Stokasir berjalan — auto-start aktif saat boot"
+fi
 
 # ── Ringkasan ────────────────────────────────────────────────────────────────
 echo ""
@@ -249,10 +290,22 @@ echo -e "  Akses dari browser  : ${CYAN}http://$SERVER_IP:$PORT_FRONTEND${RESET}
 echo -e "  (via Nginx port 80) : ${CYAN}http://$SERVER_IP/${RESET}  ← jika Nginx sudah setup"
 echo -e "  API health check    : ${CYAN}http://localhost:$PORT_BACKEND/health${RESET}"
 echo ""
-echo -e "  Perintah PM2:"
-echo -e "    ${YELLOW}pm2 status${RESET}              — lihat status proses"
-echo -e "    ${YELLOW}pm2 logs${RESET}                — lihat log"
-echo -e "    ${YELLOW}pm2 restart all${RESET}         — restart semua"
+
+if [[ "$OS" == "mac" ]]; then
+  echo -e "  Perintah launchd:"
+  echo -e "    ${YELLOW}launchctl list | grep stokasir${RESET}          — status proses"
+  echo -e "    ${YELLOW}tail -f $DATA_DIR/logs/backend.log${RESET}      — log backend"
+  echo -e "    ${YELLOW}tail -f $DATA_DIR/logs/frontend.log${RESET}     — log frontend"
+  echo -e "    ${YELLOW}launchctl kickstart gui/\$(id -u)/stokasir.backend${RESET}  — restart backend"
+  echo -e "    ${YELLOW}launchctl kickstart gui/\$(id -u)/stokasir.frontend${RESET} — restart frontend"
+else
+  echo -e "  Perintah systemd:"
+  echo -e "    ${YELLOW}sudo systemctl status stokasir-backend${RESET}   — status backend"
+  echo -e "    ${YELLOW}sudo systemctl status stokasir-frontend${RESET}  — status frontend"
+  echo -e "    ${YELLOW}journalctl -u stokasir-backend -f${RESET}         — log backend"
+  echo -e "    ${YELLOW}journalctl -u stokasir-frontend -f${RESET}        — log frontend"
+  echo -e "    ${YELLOW}sudo systemctl restart stokasir-backend${RESET}  — restart"
+fi
 echo ""
 echo -e "  Data tersimpan di: ${CYAN}$DATA_DIR${RESET}"
 echo ""
