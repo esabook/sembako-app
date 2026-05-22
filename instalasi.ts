@@ -251,22 +251,32 @@ Environment=PUBLIC_API_URL=http://${cfg.serverIp}/api
 [Install]
 WantedBy=multi-user.target`
 
-  for (const [path, content] of [
-    ['/etc/systemd/system/stokasir-backend.service',  backendSvc],
-    ['/etc/systemd/system/stokasir-frontend.service', frontendSvc],
-  ] as const) {
-    const proc = Bun.spawn(['sudo', 'tee', path], {
-      stdin: new Blob([content]),
-      stdout: 'pipe', stderr: 'pipe',
-    })
-    await proc.exited
-    yield { type: 'log', text: `✓ ${path}` }
+  // Tulis ke /tmp dulu lalu sudo mv — hindari Bun.spawn stdin: Blob yang tidak reliable
+  const tmpDir = os.tmpdir()
+  const pairs: Array<[string, string, string]> = [
+    [join(tmpDir, 'stokasir-backend.service'),  '/etc/systemd/system/stokasir-backend.service',  backendSvc],
+    [join(tmpDir, 'stokasir-frontend.service'), '/etc/systemd/system/stokasir-frontend.service', frontendSvc],
+  ]
+  for (const [tmp, dest, content] of pairs) {
+    fs.writeFileSync(tmp, content)
+    yield { type: 'log', text: `  tulis ${tmp}` }
   }
 
-  yield* spawnCmd(['sudo', 'systemctl', 'daemon-reload'], ROOT)
-  yield* spawnCmd(['sudo', 'systemctl', 'enable', 'stokasir-backend', 'stokasir-frontend'], ROOT)
-  yield* spawnCmd(['sudo', 'systemctl', 'restart', 'stokasir-backend', 'stokasir-frontend'], ROOT)
-  yield { type: 'log', text: '✓ systemd service aktif' }
+  try {
+    for (const [tmp, dest] of pairs)
+      yield* spawnCmd(['sudo', 'mv', tmp, dest], ROOT)
+    yield* spawnCmd(['sudo', 'systemctl', 'daemon-reload'], ROOT)
+    yield* spawnCmd(['sudo', 'systemctl', 'enable', 'stokasir-backend', 'stokasir-frontend'], ROOT)
+    yield* spawnCmd(['sudo', 'systemctl', 'restart', 'stokasir-backend', 'stokasir-frontend'], ROOT)
+    yield { type: 'log', text: '✓ systemd service aktif' }
+  } catch (e) {
+    yield { type: 'log', text: `⚠ systemd setup gagal: ${e instanceof Error ? e.message : e}` }
+    yield { type: 'log', text: '  Jalankan manual setelah instalasi selesai:' }
+    yield { type: 'log', text: `  sudo mv ${pairs[0][0]} ${pairs[0][1]}` }
+    yield { type: 'log', text: `  sudo mv ${pairs[1][0]} ${pairs[1][1]}` }
+    yield { type: 'log', text: '  sudo systemctl daemon-reload && sudo systemctl enable stokasir-backend stokasir-frontend' }
+    yield { type: 'log', text: '  sudo systemctl start stokasir-backend stokasir-frontend' }
+  }
 }
 
 // ── Platform: Windows (Task Scheduler) ───────────────────────────────────────
@@ -311,9 +321,11 @@ function streamInstall(cfg: Config): Response {
           ctrl.enqueue(sseEncode(event))
         }
       } catch (err) {
-        ctrl.enqueue(sseEncode({ type: 'error', message: err instanceof Error ? err.message : String(err) }))
+        try {
+          ctrl.enqueue(sseEncode({ type: 'error', message: err instanceof Error ? err.message : String(err) }))
+        } catch {}
       } finally {
-        ctrl.close()
+        try { ctrl.close() } catch {}
       }
     },
   })
