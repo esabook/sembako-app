@@ -328,39 +328,55 @@
   let appUrl        = ''
   let browseSelected = ''
 
-  // ── Load platform ─────────────────────────────────────────────────────────
+  // ── Load platform (dengan retry) ─────────────────────────────────────────
   async function loadPlatform() {
-    try {
-      const info = await fetch('/api/platform').then(r => r.json())
+    const badge = document.getElementById('os-badge')
 
-      document.getElementById('os-badge').textContent =
-        `${info.os} · ${info.arch} · Bun ${info.bunVersion}`
-
-      // Default folder
-      if (!document.getElementById('dataDir').value)
-        document.getElementById('dataDir').value = info.defaultData
-
-      // IP dropdown
-      const sel = document.getElementById('serverIp')
-      sel.innerHTML = ''
-      const ips = info.ips ?? []
-      let defaultSet = false
-      for (const ip of ips) {
-        const opt = document.createElement('option')
-        opt.value = ip.value
-        opt.textContent = `${ip.value}  —  ${ip.label}`
-        if (!defaultSet && ip.value !== '127.0.0.1') {
-          opt.selected = true
-          defaultSet = true
-        }
-        sel.appendChild(opt)
-      }
-      if (!defaultSet && sel.options.length) sel.options[0].selected = true
-
-    } catch {
-      document.getElementById('os-badge').textContent = 'server tidak berjalan'
-      document.getElementById('os-badge').style.color = 'var(--err)'
+    // Jika dibuka langsung sebagai file://, API tidak bisa diakses
+    if (location.protocol === 'file:') {
+      badge.textContent = '⚠ buka via instal.command / instal.bat'
+      badge.style.cssText = 'color:var(--warn);max-width:300px'
+      document.getElementById('btn-install').disabled = true
+      document.getElementById('btn-install').textContent = 'Jalankan instal.command atau instal.bat dulu'
+      return
     }
+
+    // Retry hingga server siap (race condition saat browser dibuka sebelum server ready)
+    const MAX = 10
+    for (let i = 0; i < MAX; i++) {
+      try {
+        const info = await fetch('/api/platform').then(r => r.json())
+
+        badge.textContent = `${info.os} · ${info.arch} · Bun ${info.bunVersion}`
+        badge.style.color = ''
+
+        if (!document.getElementById('dataDir').value)
+          document.getElementById('dataDir').value = info.defaultData
+
+        const sel = document.getElementById('serverIp')
+        sel.innerHTML = ''
+        let defaultSet = false
+        for (const ip of (info.ips ?? [])) {
+          const opt = document.createElement('option')
+          opt.value = ip.value
+          opt.textContent = `${ip.value}  —  ${ip.label}`
+          if (!defaultSet && ip.value !== '127.0.0.1') { opt.selected = true; defaultSet = true }
+          sel.appendChild(opt)
+        }
+        if (!defaultSet && sel.options.length) sel.options[0].selected = true
+        return  // sukses, keluar dari retry loop
+
+      } catch {
+        if (i < MAX - 1) {
+          badge.textContent = `menghubungkan... (${i + 1}/${MAX})`
+          await new Promise(r => setTimeout(r, 800))
+        }
+      }
+    }
+
+    // Semua retry gagal
+    badge.textContent = 'server tidak berjalan'
+    badge.style.color = 'var(--err)'
   }
 
   // ── Folder browser ────────────────────────────────────────────────────────

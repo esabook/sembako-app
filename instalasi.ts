@@ -59,7 +59,7 @@ function sseEncode(event: SSEEvent): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)
 }
 
-// ── Spawn helper — yields SSE log events ──────────────────────────────────────
+// ── Spawn helper — stream stdout real-time ────────────────────────────────────
 
 async function* spawnCmd(cmd: string[], cwd: string): AsyncGenerator<SSEEvent> {
   yield { type: 'log', text: `$ ${cmd.join(' ')}` }
@@ -67,27 +67,31 @@ async function* spawnCmd(cmd: string[], cwd: string): AsyncGenerator<SSEEvent> {
   const proc = Bun.spawn(cmd, { cwd, stdout: 'pipe', stderr: 'pipe' })
   const dec  = new TextDecoder()
 
-  // Collect lines from a ReadableStream
-  async function readAll(stream: ReadableStream<Uint8Array>): Promise<string[]> {
-    const lines: string[] = []
-    let buf = ''
-    const reader = stream.getReader()
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) { if (buf.trim()) lines.push(buf); break }
-      buf += dec.decode(value)
-      const parts = buf.split('\n')
-      buf = parts.pop() ?? ''
-      for (const p of parts) if (p.trim()) lines.push(p)
-    }
-    return lines
+  // Stream stdout line-by-line so SSE connection stays alive during long commands
+  let buf = ''
+  const reader = proc.stdout.getReader()
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) { if (buf.trim()) yield { type: 'log', text: buf }; break }
+    buf += dec.decode(value)
+    const parts = buf.split('\n')
+    buf = parts.pop() ?? ''
+    for (const p of parts) if (p.trim()) yield { type: 'log', text: p }
   }
 
-  const [outLines, errLines] = await Promise.all([readAll(proc.stdout), readAll(proc.stderr)])
   const code = await proc.exited
-
-  for (const l of [...outLines, ...errLines]) yield { type: 'log', text: l }
-  if (code !== 0) throw new Error(`"${cmd[0]}" exited with code ${code}`)
+  if (code !== 0) {
+    // Collect stderr only on failure to surface the error message
+    const errReader = proc.stderr.getReader()
+    let errBuf = ''
+    while (true) {
+      const { done, value } = await errReader.read()
+      if (done) break
+      errBuf += dec.decode(value)
+    }
+    if (errBuf.trim()) yield { type: 'log', text: errBuf.trim() }
+    throw new Error(`"${cmd[0]}" failed (exit ${code})`)
+  }
 }
 
 // ── Install steps ─────────────────────────────────────────────────────────────
@@ -151,7 +155,7 @@ async function* setupMac(cfg: Config, bun: string): AsyncGenerator<SSEEvent> {
   const agentsDir = join(os.homedir(), 'Library', 'LaunchAgents')
   fs.mkdirSync(agentsDir, { recursive: true })
 
-  function plist(label: string, args: string[], dir: string, env: Record<string,string>, log: string): string {
+  function plist(label: string, args: string[], dir: string, env: Record<string,string>): string {
     const envXml = Object.entries(env)
       .map(([k,v]) => `    <key>${k}</key><string>${v}</string>`)
       .join('\n')
@@ -186,8 +190,7 @@ ${envXml}
     [bun, 'run', 'src/index.ts'],
     join(ROOT, 'backend'),
     { DATABASE_URL: `file:${cfg.dataDir}/data.db`, UPLOAD_DIR: `${cfg.dataDir}/uploads`,
-      PORT: cfg.portBackend, NODE_ENV: 'production', JWT_SECRET: cfg.jwtSecret },
-    'backend'
+      PORT: cfg.portBackend, NODE_ENV: 'production', JWT_SECRET: cfg.jwtSecret }
   ))
 
   fs.writeFileSync(frontendPlist, plist(
@@ -195,8 +198,7 @@ ${envXml}
     [bun, 'build/index.js'],
     join(ROOT, 'frontend'),
     { PORT: cfg.portFrontend, HOST: '0.0.0.0', NODE_ENV: 'production',
-      PUBLIC_API_URL: `http://${cfg.serverIp}/api` },
-    'frontend'
+      PUBLIC_API_URL: `http://${cfg.serverIp}/api` }
   ))
 
   yield { type: 'log', text: `✓ launchd plist → ${agentsDir}` }
@@ -327,7 +329,7 @@ function streamInstall(cfg: Config): Response {
 
 // ── HTTP server ───────────────────────────────────────────────────────────────
 
-const server = Bun.serve({
+Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url)
