@@ -12,9 +12,9 @@ Stokasir berjalan sebagai server lokal di jaringan WiFi toko. Pilih platform ser
 ## Prasyarat Semua Platform
 
 ```
-Bun   ≥ 1.1   — runtime backend + build frontend
-PM2   ≥ 5     — process manager (auto restart, startup)
-Nginx          — reverse proxy (opsional tapi dianjurkan)
+Bun   ≥ 1.1   — runtime backend + build frontend        [WAJIB]
+PM2   ≥ 5     — process manager (auto restart, startup)  [WAJIB]
+Nginx          — reverse proxy port 80                   [OPSIONAL]
 ```
 
 Struktur folder project:
@@ -36,7 +36,7 @@ OS: Raspberry Pi OS Lite 64-bit (tanpa desktop)
 uname -m   # aarch64 = ARM64 → Bun OK  |  armv7l = ARM32 → ganti Node.js LTS
 ```
 
-### 1. Install Bun & PM2
+### 1. Install Bun & PM2 `WAJIB`
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
@@ -45,7 +45,7 @@ source ~/.bashrc
 npm install -g pm2
 ```
 
-### 2. Storage USB SSD (wajib — jangan simpan DB di SD card)
+### 2. Storage USB SSD `WAJIB` — jangan simpan DB di SD card
 
 ```bash
 sudo mkdir -p /mnt/data && sudo mount /dev/sda1 /mnt/data
@@ -54,7 +54,7 @@ mkdir -p /mnt/data/stokasir/uploads/{produk,invoice,karyawan}
 mkdir -p /mnt/data/stokasir/backup
 ```
 
-### 3. Clone / Transfer project
+### 3. Clone / Transfer project `WAJIB`
 
 ```bash
 # Dari laptop developer via rsync:
@@ -63,14 +63,14 @@ rsync -avz --exclude 'node_modules' --exclude '.svelte-kit' \
   ./ eg17@192.168.1.x:/home/eg17/stokasir/
 ```
 
-### 4. Install dependencies & build
+### 4. Install dependencies & build `WAJIB`
 
 ```bash
 cd /home/eg17/stokasir/backend  && bun install --production
 cd /home/eg17/stokasir/frontend && bun install --production && bun run build
 ```
 
-### 5. Env vars
+### 5. Env vars `WAJIB`
 
 ```bash
 # /home/eg17/stokasir/backend/.env
@@ -81,7 +81,7 @@ NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 6. PM2 & autostart
+### 6. PM2 & autostart `WAJIB`
 
 ```bash
 cd /home/eg17/stokasir
@@ -90,7 +90,7 @@ pm2 startup   # ikuti instruksi yang muncul
 pm2 save
 ```
 
-### 7. Nginx
+### 7. Nginx `OPSIONAL`
 
 ```bash
 sudo apt install -y nginx
@@ -101,7 +101,7 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl restart nginx
 ```
 
-### OS Tuning (sekali)
+### 8. OS Tuning `OPSIONAL`
 
 ```bash
 sudo raspi-config → Performance → GPU Memory → 16
@@ -128,7 +128,7 @@ Pi 4 RAM 2GB → sisa ~1.7GB ✅
 
 Mini PC, NUC, atau laptop Linux yang selalu menyala.
 
-### 1. Install Bun & PM2
+### 1. Install Bun & PM2 `WAJIB`
 
 ```bash
 curl -fsSL https://bun.sh/install | bash
@@ -140,14 +140,14 @@ sudo apt install -y nodejs
 npm install -g pm2
 ```
 
-### 2. Siapkan folder data
+### 2. Siapkan folder data `WAJIB`
 
 ```bash
 mkdir -p ~/stokasir-data/uploads/{produk,invoice,karyawan}
 mkdir -p ~/stokasir-data/backup
 ```
 
-### 3. Clone / Transfer project
+### 3. Clone / Transfer project `WAJIB`
 
 ```bash
 # Kloning dari git:
@@ -159,14 +159,14 @@ rsync -avz --exclude 'node_modules' --exclude '.svelte-kit' \
   ./ user@192.168.1.x:~/stokasir/
 ```
 
-### 4. Install dependencies & build
+### 4. Install dependencies & build `WAJIB`
 
 ```bash
 cd ~/stokasir/backend  && bun install --production
 cd ~/stokasir/frontend && bun install --production && bun run build
 ```
 
-### 5. Env vars
+### 5. Env vars `WAJIB`
 
 ```bash
 # ~/stokasir/backend/.env
@@ -177,7 +177,7 @@ NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 6. PM2 & autostart
+### 6. PM2 & autostart `WAJIB`
 
 ```bash
 cd ~/stokasir
@@ -186,7 +186,7 @@ pm2 startup systemd   # generate perintah → jalankan perintah yang muncul
 pm2 save
 ```
 
-### 7. Nginx
+### 7. Nginx `OPSIONAL`
 
 ```bash
 sudo apt install -y nginx
@@ -197,7 +197,7 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl enable nginx && sudo systemctl restart nginx
 ```
 
-### 8. Backup otomatis (crontab)
+### 8. Backup otomatis (crontab) `OPSIONAL`
 
 ```bash
 crontab -e
@@ -211,13 +211,13 @@ crontab -e
 
 Laptop Mac atau Mac mini yang dijadikan server toko.
 
-### 1. Install Homebrew (jika belum ada)
+### 1. Install Homebrew `OPSIONAL`
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-### 2. Install Bun & PM2
+### 2. Install Bun & PM2 `WAJIB`
 
 ```bash
 brew install bun
@@ -227,28 +227,28 @@ brew install node
 npm install -g pm2
 ```
 
-### 3. Siapkan folder data
+### 3. Siapkan folder data `WAJIB`
 
 ```bash
 mkdir -p ~/stokasir-data/uploads/{produk,invoice,karyawan}
 mkdir -p ~/stokasir-data/backup
 ```
 
-### 4. Clone / Transfer project
+### 4. Clone / Transfer project `WAJIB`
 
 ```bash
 git clone <url-repo> ~/stokasir
 # atau rsync dari laptop lain
 ```
 
-### 5. Install dependencies & build
+### 5. Install dependencies & build `WAJIB`
 
 ```bash
 cd ~/stokasir/backend  && bun install --production
 cd ~/stokasir/frontend && bun install --production && bun run build
 ```
 
-### 6. Env vars
+### 6. Env vars `WAJIB`
 
 ```bash
 # ~/stokasir/backend/.env
@@ -259,7 +259,7 @@ NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 7. PM2 & autostart (launchd)
+### 7. PM2 & autostart `WAJIB`
 
 ```bash
 cd ~/stokasir
@@ -268,7 +268,7 @@ pm2 startup   # PM2 akan generate LaunchAgent plist secara otomatis
 pm2 save
 ```
 
-### 8. Nginx via Homebrew
+### 8. Nginx via Homebrew `OPSIONAL`
 
 ```bash
 brew install nginx
@@ -277,7 +277,7 @@ sudo nano /opt/homebrew/etc/nginx/servers/stokasir.conf
 brew services restart nginx
 ```
 
-### Agar Mac tidak tidur saat jadi server
+### 9. Agar Mac tidak tidur saat jadi server `WAJIB`
 
 ```
 System Settings → Battery → Prevent automatic sleeping when display is off → ON
@@ -290,7 +290,7 @@ System Settings → Lock Screen → Never (atau durasi panjang)
 
 PC Windows yang selalu menyala (kasir utama atau komputer khusus toko).
 
-### 1. Install Bun
+### 1. Install Bun `WAJIB`
 
 Download installer dari [bun.sh](https://bun.sh) → jalankan `.exe`
 
@@ -301,7 +301,7 @@ powershell -c "irm bun.sh/install.ps1 | iex"
 
 Restart terminal setelah install.
 
-### 2. Install Node.js & PM2
+### 2. Install Node.js & PM2 `WAJIB`
 
 Download Node.js LTS dari [nodejs.org](https://nodejs.org) → jalankan installer.
 
@@ -311,7 +311,7 @@ npm install -g pm2-windows-startup
 pm2-windows-startup install
 ```
 
-### 3. Siapkan folder data
+### 3. Siapkan folder data `WAJIB`
 
 ```powershell
 mkdir C:\stokasir-data\uploads\produk
@@ -320,7 +320,7 @@ mkdir C:\stokasir-data\uploads\karyawan
 mkdir C:\stokasir-data\backup
 ```
 
-### 4. Clone / Transfer project
+### 4. Clone / Transfer project `WAJIB`
 
 ```powershell
 # Ekstrak zip project ke C:\stokasir\
@@ -328,7 +328,7 @@ mkdir C:\stokasir-data\backup
 git clone <url-repo> C:\stokasir
 ```
 
-### 5. Install dependencies & build
+### 5. Install dependencies & build `WAJIB`
 
 ```powershell
 cd C:\stokasir\backend
@@ -339,7 +339,7 @@ bun install --production
 bun run build
 ```
 
-### 6. Env vars
+### 6. Env vars `WAJIB`
 
 Buat file `C:\stokasir\backend\.env`:
 ```
@@ -350,7 +350,7 @@ NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
 ```
 
-### 7. PM2 & autostart
+### 7. PM2 & autostart `WAJIB`
 
 ```powershell
 cd C:\stokasir
@@ -360,7 +360,22 @@ pm2 save
 
 PM2 Windows Startup akan otomatis restart app saat PC reboot.
 
-### 8. Reverse proxy — Nginx for Windows
+### 8. Windows Firewall — buka port `WAJIB`
+
+```powershell
+# Buka port 80 (Nginx) dan 5173 (frontend langsung) dan 3000 (backend)
+netsh advfirewall firewall add rule name="Stokasir-80"   dir=in action=allow protocol=TCP localport=80
+netsh advfirewall firewall add rule name="Stokasir-5173" dir=in action=allow protocol=TCP localport=5173
+netsh advfirewall firewall add rule name="Stokasir-3000" dir=in action=allow protocol=TCP localport=3000
+```
+
+### 9. Agar PC tidak sleep saat jadi server `WAJIB`
+
+```
+Settings → System → Power → Screen and sleep → semua set ke "Never"
+```
+
+### 10. Reverse proxy — Nginx for Windows `OPSIONAL`
 
 Download Nginx untuk Windows dari [nginx.org/en/download.html](https://nginx.org/en/download.html), ekstrak ke `C:\nginx\`.
 
@@ -374,30 +389,15 @@ Start-Process "C:\nginx\nginx.exe"
 # Buat Scheduled Task di Task Scheduler → trigger "At startup" → action: C:\nginx\nginx.exe
 ```
 
-> **Alternatif Windows:** Jika tidak ingin setup Nginx, akses langsung via `http://[IP-PC]:5173` dari HP. Backend tetap di `:3000`, tapi pastikan kedua port tidak diblokir Windows Firewall.
-
-### Windows Firewall — buka port
-
-```powershell
-# Buka port 80 (Nginx) dan 5173 (frontend langsung) dan 3000 (backend)
-netsh advfirewall firewall add rule name="Stokasir-80"   dir=in action=allow protocol=TCP localport=80
-netsh advfirewall firewall add rule name="Stokasir-5173" dir=in action=allow protocol=TCP localport=5173
-netsh advfirewall firewall add rule name="Stokasir-3000" dir=in action=allow protocol=TCP localport=3000
-```
-
-### Agar PC tidak sleep saat jadi server
-
-```
-Settings → System → Power → Screen and sleep → semua set ke "Never"
-```
+> Tanpa Nginx: akses langsung via `http://[IP-PC]:5173` dari HP. Backend tetap di `:3000`. Pastikan kedua port sudah dibuka di Firewall (langkah 8).
 
 ---
 
 ## Konfigurasi Bersama
 
-### ecosystem.config.js (PM2)
+### ecosystem.config.js (PM2) `WAJIB`
 
-Tempatkan di root folder project. Sesuaikan `cwd` dan path `DATABASE_URL` / `UPLOAD_DIR` dengan platform:
+Tempatkan di root folder project. Sesuaikan `cwd` dan path dengan platform:
 
 ```javascript
 module.exports = { apps: [
@@ -430,7 +430,9 @@ module.exports = { apps: [
 ]}
 ```
 
-### Nginx — server block (Linux / Mac / Pi)
+### Nginx — server block `OPSIONAL`
+
+Berlaku untuk Linux / Mac / Pi. Untuk Windows sesuaikan path `alias`.
 
 ```nginx
 server {
@@ -463,7 +465,9 @@ server {
 }
 ```
 
-### backup-db.sh (Linux / Mac / Pi)
+### backup-db.sh `OPSIONAL`
+
+Berlaku untuk Linux / Mac / Pi.
 
 ```bash
 #!/bin/bash
