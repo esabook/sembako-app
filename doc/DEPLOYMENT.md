@@ -1,4 +1,4 @@
-# Deployment Guide — Toko Sembako App
+# Deployment Guide — Stokasir App
 
 Panduan deploy ke Raspberry Pi / mini computer untuk produksi.
 

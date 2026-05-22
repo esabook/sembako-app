@@ -77,10 +77,8 @@
 			: []
 	);
 	let filteredKategori = $derived(
-		fb.tipe === 'kategori'
-			? (targetQuery.length >= 1
-				? kategoriList.filter((k) => k.nama.toLowerCase().includes(targetQuery.toLowerCase()))
-				: kategoriList)
+		fb.tipe === 'kategori' && targetQuery.length >= 1
+			? kategoriList.filter((k) => k.nama.toLowerCase().includes(targetQuery.toLowerCase()))
 			: []
 	);
 
@@ -323,12 +321,12 @@
 			</div>
 
 			<!-- Tipe -->
-			<div class="flex flex-col gap-1">
+			<div class="flex flex-col gap-1 col-span-2">
 				<p class="text-xs" style="color:var(--text-dim)">TIPE PROMO</p>
 				<div class="flex gap-1">
 					{#each (['item', 'kategori', 'total'] as const) as t (t)}
 						<button type="button" onclick={() => { fb.tipe = t; fbTargets = []; }}
-							class="flex-1 py-1.5 rounded text-xs border font-bold transition-all"
+							class="flex-1 py-1.5 px-2 rounded text-xs border font-bold transition-all"
 							style="{fb.tipe === t
 								? 'background:var(--accent);color:var(--bg);border-color:var(--accent)'
 								: 'border-color:var(--border);color:var(--text-dim)'}">
@@ -344,7 +342,7 @@
 			</div>
 
 			<!-- Nilai + tipe nilai -->
-			<div class="flex flex-col gap-1">
+			<div class="flex flex-col gap-1 col-span-2">
 				<p class="text-xs" style="color:var(--text-dim)">NILAI DISKON *</p>
 				<div class="flex gap-1">
 					<button type="button" onclick={() => fb.tipe_nilai = 'persen'}

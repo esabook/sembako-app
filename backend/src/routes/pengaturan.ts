@@ -23,7 +23,7 @@ export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 // ── GET /pengaturan/publik — tanpa auth, untuk login page ─────────────────
 pengaturanRouter.get('/publik', async (c) => {
   const row = db.select().from(toko_settings).all().find((r) => r.key === 'nama_toko')
-  return c.json({ success: true, data: { nama_toko: row?.value ?? 'Toko Sembako' } })
+  return c.json({ success: true, data: { nama_toko: row?.value ?? 'Stokasir' } })
 })
 
 // ── GET /pengaturan/server-info — info jaringan & sistem ──────────────────
@@ -59,7 +59,7 @@ pengaturanRouter.use('*', authMiddleware)
 
 // Nilai default untuk semua key settings
 const DEFAULTS: Record<string, string> = {
-  nama_toko: 'Toko Sembako',
+  nama_toko: 'Stokasir',
   alamat: '',
   telepon: '',
   email: '',

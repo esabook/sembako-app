@@ -1,6 +1,6 @@
 {
-  "name": "Toko Sembako",
-  "short_name": "Sembako",
+  "name": "Stokasir",
+  "short_name": "Stokasir",
   "start_url": "/kasir",
   "display": "standalone",
   "background_color": "#1a1a1a",

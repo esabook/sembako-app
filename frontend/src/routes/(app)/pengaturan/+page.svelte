@@ -79,7 +79,7 @@
 					id="nama_toko"
 					type="text"
 					bind:value={form.nama_toko}
-					placeholder="Toko Sembako"
+					placeholder="Stokasir"
 					class="w-full rounded border px-3 py-2 text-sm"
 					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 				/>

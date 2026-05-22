@@ -61,13 +61,21 @@
 		sidebarReady = true;
 
 		if (sidebarState === 'expanded') resetIdle();
+		function handleKeydown(e: KeyboardEvent) {
+			resetIdle();
+			if (e.ctrlKey && e.key === 'Home') {
+				e.preventDefault();
+				toggleSidebar();
+			}
+		}
+
 		window.addEventListener('mousemove', resetIdle, { passive: true });
-		window.addEventListener('keydown', resetIdle, { passive: true });
+		window.addEventListener('keydown', handleKeydown);
 		window.addEventListener('pointerdown', resetIdle, { passive: true });
 		return () => {
 			if (idleTimer) clearTimeout(idleTimer);
 			window.removeEventListener('mousemove', resetIdle);
-			window.removeEventListener('keydown', resetIdle);
+			window.removeEventListener('keydown', handleKeydown);
 			window.removeEventListener('pointerdown', resetIdle);
 		};
 	});
@@ -150,7 +158,7 @@
 			<!-- Tombol toggle: pojok kanan atas (cycle: expanded→icon→hidden) -->
 			<button
 				onclick={toggleSidebar}
-				title={sidebarState === 'expanded' ? 'Ciutkan' : sidebarState === 'icon' ? 'Sembunyikan' : ''}
+				title={sidebarState === 'expanded' ? 'Ciutkan (Ctrl+Home)' : sidebarState === 'icon' ? 'Sembunyikan (Ctrl+Home)' : ''}
 				aria-label={sidebarState === 'expanded' ? 'Ciutkan menu' : 'Sembunyikan menu'}
 				class="absolute -right-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-colors"
 				style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"

@@ -1,4 +1,4 @@
-# CLAUDE.md — Toko Sembako App
+# CLAUDE.md — Stokasir App
 
 > Deployment ke Raspberry Pi → baca `DEPLOY.md`.
 > Pola implementasi fitur baru → baca `CLAUDE_SKILL_FEATURE_DEV.md`.
@@ -7,7 +7,7 @@
 
 ## IDENTITAS & PRINSIP
 
-Aplikasi manajemen toko sembako grosir/eceran. Webview lokal via WiFi LAN.
+Aplikasi manajemen stok-kasir grosir/eceran. Webview lokal via WiFi LAN.
 1 developer, 1 toko, < 5 karyawan. Offline-first, siap migrasi ke Turso/Supabase.
 
 ```

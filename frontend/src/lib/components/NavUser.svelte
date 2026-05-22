@@ -131,6 +131,18 @@
 					<span>{isFullscreen ? 'Keluar Fullscreen' : 'Fullscreen'}</span>
 					<span>{isFullscreen ? '⊠' : '⊡'}</span>
 				</button>
+
+				<!-- Tombol panduan -->
+				<a
+					href="/panduan"
+					target="_blank"
+					class="w-full text-left text-xs px-2 py-1.5 rounded transition-colors flex items-center justify-between"
+					style="color:var(--text-dim)"
+				>
+					<span>Panduan Penggunaan</span>
+					<span>❓</span>
+				</a>
+
 				<button
 					onclick={logout}
 					class="w-full text-left text-xs px-2 py-1.5 rounded transition-colors"

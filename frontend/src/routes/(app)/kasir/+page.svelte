@@ -83,7 +83,7 @@
 	let daftarKasBank = $state<{ id: number; nama: string; tipe: string }[]>([]);
 
 	// ── Pengaturan toko (untuk struk) ────────────────────────────────────────
-	let namaToko = $state('Toko Sembako');
+	let namaToko = $state('Stokasir');
 	let alamatToko = $state('');
 	let strHeader = $state('');
 	let strFooter = $state('Terima kasih sudah berbelanja!');
@@ -1472,7 +1472,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 					style="color:var(--text)"
 				>
 					<div class="mb-2 text-center">
-						<div class="text-sm font-bold tracking-widest">TOKO SEMBAKO</div>
+						<div class="text-sm font-bold tracking-widest">Stokasir</div>
 						<div class="text-xs" style="color:var(--text-dim)">
 							{formatTgl($checkoutTime)} · {formatJam($checkoutTime)}
 						</div>

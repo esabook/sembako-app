@@ -1,6 +1,6 @@
 # Sembako App
 
-Aplikasi manajemen toko sembako grosir & eceran — berbasis web, jalan di jaringan WiFi lokal, diakses dari laptop maupun HP.
+Aplikasi manajemen stok-kasir grosir & eceran — berbasis web, jalan di jaringan WiFi lokal, diakses dari laptop maupun HP.
 
 ---
 
