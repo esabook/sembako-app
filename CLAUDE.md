@@ -229,6 +229,7 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 | Halaman panduan instalasi (/panduan/instalasi — per device) | ✅ |
 | Shortcut Ctrl+Home toggle sidebar | ✅ |
 | DEPLOY.md: panduan server Windows / Mac / Linux | ✅ |
+| Installer ZIP: setup.sh (Linux/Mac/Pi) + setup.ps1 (Windows) + build-zip.sh | ✅ |
 
 Branch aktif: `development`
 
