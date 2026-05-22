@@ -231,6 +231,7 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 | DEPLOY.md: panduan server Windows / Mac / Linux | ✅ |
 | Installer ZIP: setup.sh (Linux/Mac/Pi) + setup.ps1 (Windows) + build-zip.sh | ✅ |
 | Murni Bun tanpa Node.js/npm: adapter-bun + systemd/launchd/Task Scheduler | ✅ |
+| Browser installer (instalasi.ts + instalasi.html): git clone → double-click → install | ✅ |
 
 Branch aktif: `development`
 
