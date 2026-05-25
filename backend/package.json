@@ -10,7 +10,16 @@
     "db:migrate": "bun run src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "bun run src/db/seed.ts",
-    "stop": "pkill -f 'bun run src/index.ts' || true"
+    "stop": "pkill -f 'bun run src/index.ts' || true",
+
+    "build:bundle":  "bun build --minify --target=bun --sourcemap=none ./src/index.ts --outfile dist/server.js",
+
+    "build:windows": "bun build --compile --minify --target=bun-windows-x64  ./src/index.ts --outfile dist/stokasir-windows.exe --windows-hide-console",
+    "build:linux":   "bun build --compile --minify --target=bun-linux-x64    ./src/index.ts --outfile dist/stokasir-linux",
+    "build:pi":      "bun build --compile --minify --target=bun-linux-arm64  ./src/index.ts --outfile dist/stokasir-pi",
+    "build:mac-arm": "bun build --compile --minify --target=bun-darwin-arm64 ./src/index.ts --outfile dist/stokasir-mac-arm",
+    "build:mac-x64": "bun build --compile --minify --target=bun-darwin-x64  ./src/index.ts --outfile dist/stokasir-mac-x64",
+    "build:all":     "bun run build:windows && bun run build:linux && bun run build:pi && bun run build:mac-arm && bun run build:mac-x64"
   },
   "dependencies": {
     "@scalar/hono-api-reference": "^0.10.16",

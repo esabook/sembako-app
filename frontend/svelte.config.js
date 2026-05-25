@@ -11,7 +11,13 @@ const config = {
 		if (warning.code === 'a11y_label_has_associated_control') return;
 		handler(warning);
 	},
-	kit: { adapter: adapter() }
+	kit: {
+		adapter: adapter({
+			// Pre-compress static assets (gzip + brotli) — server langsung serve .gz/.br
+			// Mengurangi CPU runtime saat serve ke banyak HP sekaligus
+			precompress: true,
+		})
+	}
 };
 
 export default config;
