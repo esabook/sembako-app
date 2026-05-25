@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
+	import { resizeImage } from '$lib/utils/image.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import TabTerimaGuide from './TabTerimaGuide.svelte';
 
@@ -22,10 +23,12 @@
 	let fotoFakturFile = $state<File | null>(null);
 	let fotoFakturPreview = $state('');
 
-	function handleFotoFakturChange(e: Event) {
-		const file = (e.target as HTMLInputElement).files?.[0] ?? null;
-		fotoFakturFile = file;
-		if (file) fotoFakturPreview = URL.createObjectURL(file);
+	async function handleFotoFakturChange(e: Event) {
+		const raw = (e.target as HTMLInputElement).files?.[0] ?? null;
+		if (!raw) { fotoFakturFile = null; return; }
+		// Invoice: max 1920px, kualitas tinggi agar teks faktur tetap terbaca
+		fotoFakturFile = await resizeImage(raw, 1920, 1920, 0.92, 'inside');
+		fotoFakturPreview = URL.createObjectURL(fotoFakturFile);
 	}
 
 	function rupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }

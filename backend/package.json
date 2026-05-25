@@ -16,8 +16,8 @@
     "@scalar/hono-api-reference": "^0.10.16",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.18",
-    "jose": "^6.2.3",
-    "sharp": "^0.34.5"
+    "jimp": "^1.6.1",
+    "jose": "^6.2.3"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -5,8 +5,8 @@ import { db } from '../db/index.ts'
 import { karyawan, shift_kasir, penjualan, absensi } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
-import sharp from 'sharp'
-import { mkdirSync } from 'node:fs'
+import { Jimp, JimpMime } from 'jimp'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const karyawanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
@@ -361,8 +361,13 @@ karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) =
   const filename = `${id}_${Date.now()}.jpg`
   const buf = Buffer.from(await file.arrayBuffer())
 
-  await sharp(buf).resize(300, 300, { fit: 'cover' }).jpeg({ quality: 85 }).toFile(join(karyawanDir, `med_${filename}`))
-  await sharp(buf).resize(60, 60, { fit: 'cover' }).jpeg({ quality: 80 }).toFile(join(karyawanDir, `thumb_${filename}`))
+  const imgMed = await Jimp.fromBuffer(buf)
+  imgMed.cover({ w: 300, h: 300 })
+  writeFileSync(join(karyawanDir, `med_${filename}`), await imgMed.getBuffer(JimpMime.jpeg, { quality: 85 }))
+
+  const imgThumb = await Jimp.fromBuffer(buf)
+  imgThumb.cover({ w: 60, h: 60 })
+  writeFileSync(join(karyawanDir, `thumb_${filename}`), await imgThumb.getBuffer(JimpMime.jpeg, { quality: 80 }))
 
   const fotoPath = `karyawan/med_${filename}`
   db.update(karyawan)

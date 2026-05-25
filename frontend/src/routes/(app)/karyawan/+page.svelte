@@ -4,6 +4,7 @@
   import { page } from '$app/state'
   import { api } from '$lib/utils/api.js'
   import { user } from '$lib/stores/auth.js'
+  import { resizeImage } from '$lib/utils/image.js'
   import Modal from '$lib/components/Modal.svelte'
   import DataTable from '$lib/components/DataTable.svelte'
   import type { Column } from '$lib/components/DataTable.svelte'
@@ -58,10 +59,12 @@
   let fotoKaryawanFile = $state<File | null>(null)
   let fotoKaryawanPreview = $state('')
 
-  function handleFotoKaryawanChange(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0] ?? null
-    fotoKaryawanFile = file
-    if (file) fotoKaryawanPreview = URL.createObjectURL(file)
+  async function handleFotoKaryawanChange(e: Event) {
+    const raw = (e.target as HTMLInputElement).files?.[0] ?? null
+    if (!raw) { fotoKaryawanFile = null; return }
+    // Resize di FE sebelum upload — square crop untuk foto profil
+    fotoKaryawanFile = await resizeImage(raw, 600, 600, 0.9, 'cover')
+    fotoKaryawanPreview = URL.createObjectURL(fotoKaryawanFile)
   }
 
   async function muatKaryawan() {

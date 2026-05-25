@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
+	import { resizeImage } from '$lib/utils/image.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import Modal from '$lib/components/Modal.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
@@ -120,10 +121,12 @@
 		if (s.success) satuanList = s.data;
 	}
 
-	function handleFotoChange(e: Event) {
-		const file = (e.target as HTMLInputElement).files?.[0] ?? null;
-		fotoFile = file;
-		if (file) fotoPreviewUrl = URL.createObjectURL(file);
+	async function handleFotoChange(e: Event) {
+		const raw = (e.target as HTMLInputElement).files?.[0] ?? null;
+		if (!raw) { fotoFile = null; return; }
+		// Resize di FE sebelum upload — kurangi bandwidth
+		fotoFile = await resizeImage(raw, 800, 800, 0.9, 'inside');
+		fotoPreviewUrl = URL.createObjectURL(fotoFile);
 	}
 
 	async function uploadFoto(barangId: number, file: File) {

@@ -10,8 +10,8 @@ import {
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
-import sharp from 'sharp'
-import { mkdirSync } from 'node:fs'
+import { Jimp, JimpMime } from 'jimp'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const barangMasukRouter = new Hono<{ Variables: { user: JWTPayload } }>()
@@ -221,7 +221,8 @@ barangMasukRouter.post('/:id/foto', requirePermission('pembelian.buat'), async (
   const buf = Buffer.from(await file.arrayBuffer())
 
   // Invoice disimpan resolusi tinggi (teks faktur harus terbaca)
-  await sharp(buf).jpeg({ quality: 90 }).toFile(join(invoiceDir, filename))
+  const imgInvoice = await Jimp.fromBuffer(buf)
+  writeFileSync(join(invoiceDir, filename), await imgInvoice.getBuffer(JimpMime.jpeg, { quality: 90 }))
 
   const fotoPath = `invoice/${filename}`
   db.update(barang_masuk)
