@@ -103,7 +103,9 @@ app.route('/jadwal', jadwalRouter)
 app.route('/draft', draftRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
-migrate(db, { migrationsFolder: './src/db/migrations' })
+// MIGRATIONS_DIR bisa di-set via env untuk distribusi (default: src/db/migrations untuk dev)
+const migrationsFolder = process.env.MIGRATIONS_DIR ?? './src/db/migrations'
+migrate(db, { migrationsFolder })
 console.log('Database migrations OK')
 
 // Auto-seed: buat admin default hanya jika belum ada karyawan sama sekali (db segar)

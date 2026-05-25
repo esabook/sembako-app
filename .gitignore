@@ -24,3 +24,5 @@ build/*.tar.gz
 
 # OS
 .DS_Store
+scripts/release/
+scripts/.bun-cache/
