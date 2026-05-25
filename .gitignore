@@ -26,3 +26,4 @@ build/*.tar.gz
 .DS_Store
 scripts/release/
 scripts/.bun-cache/
+scripts/prebuilt/

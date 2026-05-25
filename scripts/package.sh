@@ -203,7 +203,7 @@ BE_PID=\$!
 
 sleep 2
 echo " Memulai frontend (port \$FRONTEND_PORT)..."
-PORT=\$FRONTEND_PORT HOST=0.0.0.0 ${bun_cmd} frontend/build/index.js &
+PORT=\$FRONTEND_PORT HOST=0.0.0.0 ${bun_cmd} frontend/index.js &
 FE_PID=\$!
 
 sleep 1
@@ -222,7 +222,7 @@ SHELL
         cat > "$out_dir/henti.sh" <<'SHELL'
 #!/usr/bin/env bash
 pkill -f "backend/server.js" 2>/dev/null
-pkill -f "frontend/build/index.js" 2>/dev/null
+pkill -f "frontend/index.js" 2>/dev/null
 echo "Stokasir dihentikan."
 SHELL
         chmod +x "$out_dir/henti.sh"

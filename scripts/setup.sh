@@ -586,8 +586,12 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
+    # nginx handle kompresi sendiri — jangan forward Accept-Encoding ke upstream
+    # (adapter-bun serve .js.gz/.js.br precompressed; bentrok dengan gzip nginx → MIME error)
     gzip on;
-    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml;
 
     # Download rootCA untuk HP karyawan — install 1x, no more warnings
     location = /rootCA.crt {
@@ -611,12 +615,14 @@ server {
     }
 
     location / {
-        proxy_pass         http://127.0.0.1:$PORT_FRONTEND;
-        proxy_http_version 1.1;
-        proxy_set_header   Host \$host;
-        proxy_set_header   Upgrade \$http_upgrade;
-        proxy_set_header   Connection 'upgrade';
-        proxy_set_header   X-Forwarded-Proto https;
+        proxy_pass            http://127.0.0.1:$PORT_FRONTEND;
+        proxy_http_version    1.1;
+        proxy_set_header      Host \$host;
+        proxy_set_header      Upgrade \$http_upgrade;
+        proxy_set_header      Connection 'upgrade';
+        proxy_set_header      X-Forwarded-Proto https;
+        # Strip Accept-Encoding — nginx kompres sendiri, bukan Bun (hindari double-encoding)
+        proxy_set_header      Accept-Encoding "";
     }
 }
 NGINXEOF
@@ -637,7 +643,9 @@ server {
     server_name _;
 
     gzip on;
-    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml;
 
     location /uploads/ {
         alias $DATA_DIR/uploads/;
@@ -653,11 +661,12 @@ server {
     }
 
     location / {
-        proxy_pass         http://127.0.0.1:$PORT_FRONTEND;
-        proxy_http_version 1.1;
-        proxy_set_header   Host \$host;
-        proxy_set_header   Upgrade \$http_upgrade;
-        proxy_set_header   Connection 'upgrade';
+        proxy_pass            http://127.0.0.1:$PORT_FRONTEND;
+        proxy_http_version    1.1;
+        proxy_set_header      Host \$host;
+        proxy_set_header      Upgrade \$http_upgrade;
+        proxy_set_header      Connection 'upgrade';
+        proxy_set_header      Accept-Encoding "";
     }
 }
 NGINXEOF
