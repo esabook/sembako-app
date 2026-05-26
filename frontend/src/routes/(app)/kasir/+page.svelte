@@ -110,6 +110,7 @@
 
 	// Reset confirm (GUIDED mode only)
 	let konfirmasiReset = $state(false);
+	let pelangganExpanded = $state(false);
 
 	// Panduan shortcut keyboard
 	let showHelp = $state(false);
@@ -262,6 +263,12 @@ ${d.metode_bayar === 'hutang' ? '<div style="text-align:center;font-weight:bold;
 		clearTimeout(cariTimer);
 		cariTimer = setTimeout(() => cariBarang($searchVal), 200);
 	}
+
+	// auto-expand pelanggan saat ada yang dipilih, collapse setelah checkout (keranjang kosong)
+	$effect(() => {
+		if ($pelangganDipilih) pelangganExpanded = true;
+		else if ($keranjang.length === 0) pelangganExpanded = false;
+	});
 
 	// ── Debounce cari pelanggan ────────────────────────────────────────────────
 	let pelangganTimer: ReturnType<typeof setTimeout>;
@@ -1261,74 +1268,89 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 
 					<!-- pelanggan -->
 					<div class="flex flex-col gap-1.5">
-						<p class="text-xs" style="color:var(--text-dim)">
-							PELANGGAN <span style="opacity:0.5">(opsional)</span>
-						</p>
-						{#if $pelangganDipilih}
-							<div
-								class="flex items-center justify-between rounded border px-3 py-2"
-								style="background:var(--surface2);border-color:var(--border)"
-							>
-								<span class="text-sm">
-									{$pelangganDipilih.nama}
-									{#if $pelangganDipilih.gender === 'pria'}<span class="ml-1" style="color:#40c4ff"
-											>♂</span
-										>
-									{:else if $pelangganDipilih.gender === 'wanita'}<span
-											class="ml-1"
-											style="color:#ff80ab">♀</span
-										>{/if}
-									{#if $pelangganDipilih.diskon_member && $pelangganDipilih.diskon_member > 0}
-										<span class="ml-2 text-xs" style="color:var(--accent)"
-											>−{$pelangganDipilih.diskon_member}%</span
-										>
-									{/if}
-								</span>
-								<button
-									onclick={() => pelangganDipilih.set(null)}
-									class="ml-2 text-xs"
-									style="color:var(--danger)">✕</button
-								>
-							</div>
-						{:else}
-							<div class="relative">
-								<input
-									bind:this={pelangganInputEl}
-									type="text"
-									placeholder="Cari nama/kartu pelanggan (min. 3 karakter)"
-									value={$pelangganQuery}
-									oninput={(e) => handlePelangganInput((e.target as HTMLInputElement).value)}
-									onkeydown={onPelangganKeydown}
-									class="w-full rounded border px-3 py-2 text-sm outline-none"
-									style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-								/>
-								{#if $pelangganList.length > 0}
-									<div
-										class="absolute top-full right-0 left-0 z-10 mt-1 max-h-40 overflow-y-auto rounded border shadow-lg"
-										style="background:var(--surface);border-color:var(--border)"
+						<button
+							onclick={() => { pelangganExpanded = !pelangganExpanded; }}
+							class="flex items-center justify-between text-xs"
+							style="color:var(--text-dim)"
+						>
+							<span>
+								PELANGGAN <span style="opacity:0.5">(opsional)</span>
+								{#if $pelangganDipilih}
+									<span class="ml-1.5 font-semibold" style="color:var(--accent)"
+										>— {$pelangganDipilih.nama}</span
 									>
-										{#each $pelangganList as p, i (p.id)}
-											<button
-												onclick={() => pilihPelanggan(p)}
-												class="w-full border-t px-3 py-2 text-left text-sm"
-												style="border-color:var(--border);background:{$pelangganSelectedIdx === i
-													? 'var(--surface2)'
-													: 'transparent'}"
-											>
-												{p.nama}
-												{#if p.gender === 'pria'}<span class="ml-1" style="color:#40c4ff">♂</span>
-												{:else if p.gender === 'wanita'}<span class="ml-1" style="color:#ff80ab"
-														>♀</span
-													>{/if}
-												{#if p.no_kartu}<span
-														class="ml-2 font-mono text-xs"
-														style="color:var(--accent)">{p.no_kartu}</span
-													>{/if}
-											</button>
-										{/each}
-									</div>
 								{/if}
-							</div>
+							</span>
+							<span style="opacity:0.6">{pelangganExpanded ? '▲' : '▼'}</span>
+						</button>
+
+						{#if pelangganExpanded}
+							{#if $pelangganDipilih}
+								<div
+									class="flex items-center justify-between rounded border px-3 py-2"
+									style="background:var(--surface2);border-color:var(--border)"
+								>
+									<span class="text-sm">
+										{$pelangganDipilih.nama}
+										{#if $pelangganDipilih.gender === 'pria'}<span class="ml-1" style="color:#40c4ff"
+												>♂</span
+											>
+										{:else if $pelangganDipilih.gender === 'wanita'}<span
+												class="ml-1"
+												style="color:#ff80ab">♀</span
+											>{/if}
+										{#if $pelangganDipilih.diskon_member && $pelangganDipilih.diskon_member > 0}
+											<span class="ml-2 text-xs" style="color:var(--accent)"
+												>−{$pelangganDipilih.diskon_member}%</span
+											>
+										{/if}
+									</span>
+									<button
+										onclick={() => { pelangganDipilih.set(null); pelangganExpanded = false; }}
+										class="ml-2 text-xs"
+										style="color:var(--danger)">✕</button
+									>
+								</div>
+							{:else}
+								<div class="relative">
+									<input
+										bind:this={pelangganInputEl}
+										type="text"
+										placeholder="Cari nama/kartu pelanggan (min. 3 karakter)"
+										value={$pelangganQuery}
+										oninput={(e) => handlePelangganInput((e.target as HTMLInputElement).value)}
+										onkeydown={onPelangganKeydown}
+										class="w-full rounded border px-3 py-2 text-sm outline-none"
+										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+									/>
+									{#if $pelangganList.length > 0}
+										<div
+											class="absolute top-full right-0 left-0 z-10 mt-1 max-h-40 overflow-y-auto rounded border shadow-lg"
+											style="background:var(--surface);border-color:var(--border)"
+										>
+											{#each $pelangganList as p, i (p.id)}
+												<button
+													onclick={() => pilihPelanggan(p)}
+													class="w-full border-t px-3 py-2 text-left text-sm"
+													style="border-color:var(--border);background:{$pelangganSelectedIdx === i
+														? 'var(--surface2)'
+														: 'transparent'}"
+												>
+													{p.nama}
+													{#if p.gender === 'pria'}<span class="ml-1" style="color:#40c4ff">♂</span>
+													{:else if p.gender === 'wanita'}<span class="ml-1" style="color:#ff80ab"
+															>♀</span
+														>{/if}
+													{#if p.no_kartu}<span
+															class="ml-2 font-mono text-xs"
+															style="color:var(--accent)">{p.no_kartu}</span
+														>{/if}
+												</button>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							{/if}
 						{/if}
 					</div>
 
@@ -1367,7 +1389,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 								{/each}
 								{#if daftarKasBank.length === 0}
 									<a
-										href="/keuangan"
+										href="/keuangan?tab=kasbank"
 										class="rounded border px-3 py-1.5 text-xs transition-all"
 										style="border-color:var(--warn);color:var(--warn)"
 									>
@@ -1387,30 +1409,28 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 							<input
 								id="nominal-checkout"
 								bind:this={bayarInputEl}
-								type="text"
+								type="number"
+								step="500"
+								min="0"
+								max="999999999"
 								inputmode="numeric"
-								pattern="[0-9]*"
-								value={$nominalBayar > 0 ? new Intl.NumberFormat('id-ID').format($nominalBayar) : ''}
+								value={$nominalBayar || ''}
 								oninput={(e) => {
-									const raw = (e.target as HTMLInputElement).value.replace(/\D/g, '');
-									const angka = Number(raw) || 0;
+									const el = e.target as HTMLInputElement;
+									const angka = Math.min(999_999_999, Math.max(0, Number(el.value) || 0));
 									nominalBayar.set(angka);
-									(e.target as HTMLInputElement).value = angka
-										? new Intl.NumberFormat('id-ID').format(angka)
-										: '';
+									if (angka !== Number(el.value)) el.value = String(angka);
 								}}
 								placeholder="0"
 								class="w-full rounded border px-3 py-3 text-right font-mono text-xl font-bold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 								style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 							/>
-							{#if $nominalBayar >= $totalAkhir && $totalAkhir > 0}
-								<div class="flex justify-between px-1 text-sm">
+							<div class="flex justify-between px-1 text-sm">
 									<span style="color:var(--text-dim)">Kembalian</span>
 									<span class="font-mono font-bold" style="color:var(--accent)"
 										>Rp {rupiah($kembalian)}</span
 									>
-								</div>
-							{/if}
+							</div>
 						</div>
 					{/if}
 
