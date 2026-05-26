@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store'
 import { browser } from '$app/environment'
 
-export type Tema = 'dark' | 'light' | 'eye' | 'bww' | 'bwb'
+export type Tema = 'dark' | 'light' | 'eye' | 'bww' | 'bwb' | 'island'
 
 const STORAGE_KEY = 'tema'
 const DEFAULT: Tema = 'dark'

@@ -75,6 +75,39 @@
   --info: #cccccc;
 }
 
+/* ─── Tema Island (JetBrains-style floating panels) ── */
+[data-theme='island'] {
+  --bg: #1e1f22;
+  --surface: #2b2d30;
+  --surface2: #393b40;
+  --border: #1e1f22;   /* = bg → border jadi gap, bukan garis */
+  --text: #dce0e6;
+  --text-dim: #7a8089;
+  --accent: #4c9be8;
+  --warn: #e8b84c;
+  --danger: #f28b82;
+  --info: #6cbfe0;
+}
+
+/* Island layout: panel mengambang dengan celah bg di antara panel */
+[data-theme='island'] .app-root {
+  padding: 6px;
+  gap: 6px;
+}
+[data-theme='island'] .app-body {
+  gap: 6px;
+}
+[data-theme='island'] .app-nav {
+  border-radius: 10px;
+}
+[data-theme='island'] .app-sidebar {
+  border-radius: 10px;
+}
+[data-theme='island'] .app-main {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
 /* ─── Base ──────────────────────────────────────── */
 body {
   background-color: var(--bg);

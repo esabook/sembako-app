@@ -121,10 +121,10 @@
 	let visibleNav = $derived(NAV.filter((item) => bolehAkses(item.roles)));
 </script>
 
-<div class="flex min-h-screen flex-col" style="background:var(--bg);color:var(--text)">
+<div class="app-root flex min-h-screen flex-col" style="background:var(--bg);color:var(--text)">
 	<!-- Top Navbar -->
 	<nav
-		class="flex h-11 shrink-0 items-center gap-2 border-b px-1.5 text-sm"
+		class="app-nav flex h-11 shrink-0 items-center gap-2 border-b px-1.5 text-sm"
 		style="background:var(--surface);border-color:var(--border)"
 	>
 		<div class="flex shrink-0 items-center gap-1.5">
@@ -139,10 +139,10 @@
 	</nav>
 
 	<!-- Body: sidebar selalu tampil + konten -->
-	<div class="flex min-h-0 flex-1">
+	<div class="app-body flex min-h-0 flex-1">
 		<!-- Sidebar -->
 		<aside
-			class="relative flex shrink-0 flex-col border-r {sidebarReady ? 'transition-all duration-200' : ''}"
+			class="app-sidebar relative flex shrink-0 flex-col border-r {sidebarReady ? 'transition-all duration-200' : ''}"
 			style="background:var(--surface);border-color:var(--border);width:{sidebarState === 'expanded' ? '11rem' : '2.75rem'}"
 		>
 			<!-- Tombol toggle: pojok kanan atas (cycle: expanded→icon) -->
@@ -196,7 +196,7 @@
 		</aside>
 
 		<!-- Konten utama -->
-		<main class="min-h-0 flex-1 overflow-auto p-4">
+		<main class="app-main min-h-0 flex-1 overflow-auto p-4">
 			{@render children()}
 		</main>
 	</div>

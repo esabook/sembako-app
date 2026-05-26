@@ -23,11 +23,12 @@
 	}
 
 	const TEMA_LIST: { nilai: Tema; label: string; deskripsi: string }[] = [
-		{ nilai: 'dark',  label: 'DARK',  deskripsi: 'Terminal gelap' },
-		{ nilai: 'light', label: 'LIGHT', deskripsi: 'Siang hari' },
-		{ nilai: 'eye',   label: 'EYE',   deskripsi: 'Malam, nyaman' },
-		{ nilai: 'bww',   label: 'BW ☯',  deskripsi: 'Hitam-putih terang' },
-		{ nilai: 'bwb',   label: 'BW ☯',  deskripsi: 'Hitam-putih gelap' },
+		{ nilai: 'dark',   label: 'DARK',   deskripsi: 'Terminal gelap' },
+		{ nilai: 'light',  label: 'LIGHT',  deskripsi: 'Siang hari' },
+		{ nilai: 'eye',    label: 'EYE',    deskripsi: 'Malam, nyaman' },
+		{ nilai: 'bww',    label: 'BW ☯',   deskripsi: 'Hitam-putih terang' },
+		{ nilai: 'bwb',    label: 'BW ☯',   deskripsi: 'Hitam-putih gelap' },
+		{ nilai: 'island', label: 'ISLAND', deskripsi: 'Panel mengambang' },
 	];
 
 	const ROLE_LABEL: Record<string, string> = {
