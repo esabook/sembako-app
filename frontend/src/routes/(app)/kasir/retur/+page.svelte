@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte'
+	import { SvelteMap } from 'svelte/reactivity'
 	import { goto } from '$app/navigation'
 	import { api } from '$lib/utils/api'
 	import { user } from '$lib/stores/auth.js'
@@ -132,7 +133,7 @@
 	let errorCari = $state('')
 	let trxAsal = $state<PenjualanDetail | null>(null)
 	let itemsRetur = $state<ItemRetur[]>([])
-	let sisaMap = $state<Map<number, SisaItem>>(new Map())
+	let sisaMap = new SvelteMap<number, SisaItem>()
 
 	let alasan = $state('')
 	let metodeRefund = $state<'tunai' | 'kurang_piutang' | 'tukar_barang'>('tunai')
@@ -218,24 +219,18 @@
 		if (res.data.status === 'void') { errorCari = 'Transaksi sudah di-void, tidak bisa diretur'; return }
 		trxAsal = res.data
 
-		// Ambil sisa retur per item dari retur sebelumnya
+		// Ambil sisa retur per item dari retur sebelumnya — pakai SvelteMap agar reaktif
+		sisaMap.clear()
 		const sisaRes = await api.get<SisaItem[]>(`/retur-penjualan/sisa/${id}`)
-		const newSisaMap = new Map<number, SisaItem>()
 		if (sisaRes.success) {
-			for (const s of sisaRes.data) newSisaMap.set(s.barang_id, s)
+			for (const s of sisaRes.data) sisaMap.set(s.barang_id, s)
 		}
-		sisaMap = newSisaMap
 
-		itemsRetur = res.data.items.map((i) => {
-			const sisa = newSisaMap.get(i.barang_id)
-			return {
-				...i,
-				dipilih: false,
-				jumlah_retur: 0,
-				// Override jumlah efektif agar max input mengacu sisa, bukan asal
-				jumlah: sisa ? sisa.jumlah_asal : i.jumlah,
-			}
-		})
+		itemsRetur = res.data.items.map((i) => ({
+			...i,
+			dipilih: false,
+			jumlah_retur: 0,
+		}))
 	}
 
 	async function lihatDetail(id: number) {
@@ -322,7 +317,7 @@
 		errorCari = ''
 		trxAsal = null
 		itemsRetur = []
-		sisaMap = new Map()
+		sisaMap.clear()
 		alasan = ''
 		metodeRefund = 'tunai'
 		catatan = ''
@@ -348,13 +343,11 @@
 		step = 3
 	}
 
-	function toggleItem(idx: number) {
-		const sisa = sisaMap.get(itemsRetur[idx].barang_id)
-		const sisaQty = sisa ? sisa.sisa : itemsRetur[idx].jumlah
-		if (sisaQty <= 0) return // sudah diretur semua, tidak bisa dipilih
-		itemsRetur[idx].dipilih = !itemsRetur[idx].dipilih
+	// Dipanggil setelah bind:checked mengupdate dipilih
+	function onItemCheck(idx: number) {
 		if (itemsRetur[idx].dipilih && itemsRetur[idx].jumlah_retur === 0) {
-			itemsRetur[idx].jumlah_retur = sisaQty
+			const sisa = sisaMap.get(itemsRetur[idx].barang_id)
+			itemsRetur[idx].jumlah_retur = sisa ? sisa.sisa : itemsRetur[idx].jumlah
 		}
 	}
 
@@ -431,7 +424,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each returList as r}
+						{#each returList as r (r.id)}
 							<tr class="border-b transition-colors hover:bg-[var(--surface2)]" style="border-color:var(--border)">
 								<td class="px-3 py-2 font-mono font-bold" style="color:var(--accent)">{r.no_retur}</td>
 								<td class="px-3 py-2 font-mono" style="color:var(--text-dim)">{r.no_transaksi ?? '-'}</td>
@@ -479,7 +472,7 @@
 	<Modal judul="Buat Retur Penjualan" lebar="lg" ontutup={tutupModalBuat}>
 		<!-- Step indicator -->
 		<div class="mb-4 flex gap-2 text-xs">
-			{#each [['1', 'Cari Transaksi'], ['2', 'Pilih Item'], ['3', 'Konfirmasi']] as [s, label]}
+			{#each [['1', 'Cari Transaksi'], ['2', 'Pilih Item'], ['3', 'Konfirmasi']] as [s, label] (s)}
 				<div class="flex items-center gap-1">
 					<span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
 						style={Number(s) <= step
@@ -556,10 +549,10 @@
 					Centang item yang diretur dan sesuaikan jumlahnya.
 				</p>
 				<div class="space-y-2 max-h-72 overflow-y-auto">
-					{#each itemsRetur as item, idx}
-						{@const sisa = sisaMap.get(item.barang_id)}
-						{@const sisaQty = sisa ? sisa.sisa : item.jumlah}
-						{@const sudahDiretur = sisa ? sisa.sudah_diretur : 0}
+					{#each itemsRetur as item, idx (item.barang_id)}
+						{@const sisaEntry = sisaMap.get(item.barang_id)}
+						{@const sisaQty = sisaEntry ? sisaEntry.sisa : item.jumlah}
+						{@const sudahDiretur = sisaEntry ? sisaEntry.sudah_diretur : 0}
 						{@const sudahSemua = sisaQty <= 0}
 						<label class="flex cursor-pointer items-start gap-3 rounded border p-2.5 transition-colors"
 							style={sudahSemua
@@ -567,9 +560,13 @@
 								: item.dipilih
 								? 'border-color:var(--accent);background:rgba(0,230,118,0.05)'
 								: 'border-color:var(--border);background:var(--surface2)'}>
-							<input type="checkbox" checked={item.dipilih}
+							<input
+								type="checkbox"
+								bind:checked={itemsRetur[idx].dipilih}
 								disabled={sudahSemua}
-								onchange={() => toggleItem(idx)} class="mt-0.5" />
+								onchange={() => onItemCheck(idx)}
+								class="mt-0.5"
+							/>
 							<div class="flex-1 min-w-0">
 								<div class="text-xs font-bold truncate" style="color:var(--text)">{item.nama_barang}</div>
 								<div class="text-[10px]" style="color:var(--text-dim)">
@@ -577,7 +574,7 @@
 									{#if item.diskon_item > 0}
 										<span style="color:var(--warn)"> (-Rp {fmt(item.diskon_item)})</span>
 									{/if}
-									· Dibeli: {sisa ? sisa.jumlah_asal : item.jumlah}
+									· Dibeli: {sisaEntry ? sisaEntry.jumlah_asal : item.jumlah}
 								</div>
 								{#if sudahDiretur > 0}
 									<div class="mt-0.5 flex items-center gap-1">
@@ -597,7 +594,7 @@
 							</div>
 							{#if item.dipilih && !sudahSemua}
 								<div class="flex items-center gap-1">
-									<span class="text-[10px]" style="color:var(--text-dim)">Qty retur:</span>
+									<span class="text-[10px]" style="color:var(--text-dim)">Qty:</span>
 									<input
 										type="number"
 										min="1"
@@ -637,7 +634,7 @@
 				<!-- Ringkasan item -->
 				<div class="rounded border p-3 space-y-1 text-xs" style="background:var(--surface2);border-color:var(--border)">
 					<p class="font-bold mb-1.5" style="color:var(--text)">Item yang diretur:</p>
-					{#each itemsDipilih as i}
+					{#each itemsDipilih as i (i.barang_id)}
 						{@const hargaNet = i.jumlah > 0 ? i.subtotal / i.jumlah : i.harga_jual}
 						<div class="flex justify-between">
 							<span style="color:var(--text)">{i.nama_barang} × {i.jumlah_retur}</span>
@@ -662,7 +659,7 @@
 				<div>
 					<p class="block text-xs mb-1" style="color:var(--text-dim)">Metode Refund</p>
 					<div class="flex gap-2">
-						{#each [['tunai', 'Refund Tunai'], ['kurang_piutang', 'Kurangi Piutang'], ['tukar_barang', 'Tukar Barang']] as [val, label]}
+						{#each [['tunai', 'Refund Tunai'], ['kurang_piutang', 'Kurangi Piutang'], ['tukar_barang', 'Tukar Barang']] as [val, label] (val)}
 							<label class="flex cursor-pointer items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs"
 								style={metodeRefund === val
 									? 'border-color:var(--accent);background:rgba(0,230,118,0.08);color:var(--text)'
@@ -685,7 +682,7 @@
 						<select id="kas-bank" bind:value={kasBankId}
 							class="w-full rounded border px-3 py-2 text-xs"
 							style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-							{#each kasBankList as kb}
+							{#each kasBankList as kb (kb.id)}
 								<option value={kb.id}>{kb.nama} ({kb.tipe})</option>
 							{/each}
 						</select>
@@ -718,7 +715,7 @@
 						<!-- Hasil pencarian -->
 						{#if showHasilTukar && hasilCariTukar.length > 0}
 							<div class="rounded border overflow-hidden" style="border-color:var(--border)">
-								{#each hasilCariTukar as br}
+								{#each hasilCariTukar as br (br.id)}
 									<button
 										onclick={() => tambahItemTukar(br)}
 										class="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-[var(--surface2)] transition-colors border-b last:border-0"
@@ -738,7 +735,7 @@
 						<!-- Daftar item tukar -->
 						{#if tukarItems.length > 0}
 							<div class="space-y-1.5">
-								{#each tukarItems as ti, idx}
+								{#each tukarItems as ti, idx (ti.barang_id)}
 									<div class="flex items-center gap-2 rounded border px-2.5 py-2 text-xs"
 										style="border-color:var(--border);background:var(--surface2)">
 										<div class="flex-1 min-w-0">
@@ -857,7 +854,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each detailData.items as item}
+							{#each detailData.items as item (item.barang_id)}
 								<tr class="border-b" style="border-color:var(--border)">
 									<td class="px-3 py-2" style="color:var(--text)">
 										<div class="font-bold">{item.nama_barang}</div>
@@ -895,7 +892,7 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each detailData.tukar_items as ti}
+									{#each detailData.tukar_items as ti (ti.barang_id)}
 										<tr class="border-b" style="border-color:var(--border)">
 											<td class="px-3 py-2" style="color:var(--text)">
 												<div class="font-bold">{ti.nama_barang}</div>
