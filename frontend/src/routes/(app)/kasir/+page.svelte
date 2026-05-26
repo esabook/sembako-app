@@ -1636,7 +1636,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						{/each}
 					</div>
 					{#if kasAwal > 0}
-						<p class="mt-1 text-xs font-mono" style="color:var(--accent)">{rupiah(kasAwal)}</p>
+						<p class="mt-1 rounded-lg border px-3 py-2 text-center font-mono text-lg" style="color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)">{rupiah(kasAwal)}</p>
 					{/if}
 				</div>
 				<div>
