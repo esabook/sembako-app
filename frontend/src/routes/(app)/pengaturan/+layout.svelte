@@ -7,6 +7,7 @@
 
 	const TABS = [
 		{ key: 'pengaturan',   label: 'Pengaturan' },
+		{ key: 'struk',        label: 'Preview Struk' },
 		{ key: 'notifikasi',   label: 'Notifikasi' },
 		{ key: 'audit',        label: 'Audit Trail' },
 		{ key: 'info-server',  label: 'Info Server' },
@@ -14,6 +15,7 @@
 
 	const HREF: Record<string, string> = {
 		'pengaturan':  '/pengaturan',
+		'struk':       '/pengaturan/struk',
 		'notifikasi':  '/pengaturan/notifikasi',
 		'audit':       '/pengaturan/audit',
 		'info-server': '/pengaturan/info-server',
