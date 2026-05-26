@@ -515,7 +515,18 @@ export const retur_penjualan_detail = sqliteTable('retur_penjualan_detail', {
   barang_id: integer('barang_id').notNull().references(() => barang.id),
   satuan_id: integer('satuan_id').references(() => satuan.id),
   jumlah_retur: real('jumlah_retur').notNull(),
-  harga_jual: real('harga_jual').notNull(), // snapshot dari penjualan_detail
+  harga_jual: real('harga_jual').notNull(), // harga efektif per unit (sudah dipotong diskon proporsional)
+  subtotal: real('subtotal').notNull(),
+})
+
+// Barang pengganti untuk retur dengan metode tukar_barang
+export const retur_penjualan_tukar = sqliteTable('retur_penjualan_tukar', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  retur_id: integer('retur_id').notNull().references(() => retur_penjualan.id),
+  barang_id: integer('barang_id').notNull().references(() => barang.id),
+  satuan_id: integer('satuan_id').references(() => satuan.id),
+  jumlah: real('jumlah').notNull(),
+  harga_jual: real('harga_jual').notNull(), // snapshot harga saat retur
   subtotal: real('subtotal').notNull(),
 })
 

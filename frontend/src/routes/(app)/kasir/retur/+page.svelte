@@ -47,6 +47,32 @@
 		subtotal: number
 	}
 
+	type SisaItem = {
+		barang_id: number
+		jumlah_asal: number
+		sudah_diretur: number
+		sisa: number
+	}
+
+	type BarangCari = {
+		id: number
+		nama_barang: string
+		kode_barang: string
+		harga_jual_eceran: number
+		stok_sekarang: number
+		satuan_dasar_id: number | null
+		nama_satuan: string | null
+	}
+
+	type ItemTukarForm = {
+		barang_id: number
+		nama_barang: string
+		kode_barang: string
+		satuan_id: number | null
+		jumlah: number
+		harga_jual: number
+	}
+
 	type ReturDetail = {
 		id: number
 		no_retur: string
@@ -63,6 +89,15 @@
 			kode_barang: string
 			nama_satuan: string | null
 			jumlah_retur: number
+			harga_jual: number
+			subtotal: number
+		}[]
+		tukar_items: {
+			barang_id: number
+			nama_barang: string
+			kode_barang: string
+			nama_satuan: string | null
+			jumlah: number
 			harga_jual: number
 			subtotal: number
 		}[]
@@ -97,12 +132,20 @@
 	let errorCari = $state('')
 	let trxAsal = $state<PenjualanDetail | null>(null)
 	let itemsRetur = $state<ItemRetur[]>([])
+	let sisaMap = $state<Map<number, SisaItem>>(new Map())
 
 	let alasan = $state('')
 	let metodeRefund = $state<'tunai' | 'kurang_piutang' | 'tukar_barang'>('tunai')
 	let kasBankId = $state(0)
 	let catatan = $state('')
 	let saving = $state(false)
+
+	// Tukar barang — pencarian & daftar item pengganti
+	let cariTukar = $state('')
+	let loadingTukar = $state(false)
+	let hasilCariTukar = $state<BarangCari[]>([])
+	let showHasilTukar = $state(false)
+	let tukarItems = $state<ItemTukarForm[]>([])
 
 	// ── Modal Detail ──────────────────────────────────────────────────────────
 
@@ -113,7 +156,14 @@
 	// ── Computed ──────────────────────────────────────────────────────────────
 
 	let itemsDipilih = $derived(itemsRetur.filter((i) => i.dipilih && i.jumlah_retur > 0))
-	let totalRetur = $derived(itemsDipilih.reduce((s, i) => s + i.harga_jual * i.jumlah_retur, 0))
+	// Hitung total retur berdasarkan net price (subtotal / jumlah) × qty retur
+	let totalRetur = $derived(
+		itemsDipilih.reduce((s, i) => {
+			const hargaNet = i.jumlah > 0 ? i.subtotal / i.jumlah : i.harga_jual
+			return s + hargaNet * i.jumlah_retur
+		}, 0)
+	)
+	let totalTukar = $derived(tukarItems.reduce((s, t) => s + t.harga_jual * t.jumlah, 0))
 
 	// ── API calls ─────────────────────────────────────────────────────────────
 
@@ -167,11 +217,25 @@
 		if (!res.success) { errorCari = res.error; return }
 		if (res.data.status === 'void') { errorCari = 'Transaksi sudah di-void, tidak bisa diretur'; return }
 		trxAsal = res.data
-		itemsRetur = res.data.items.map((i) => ({
-			...i,
-			dipilih: false,
-			jumlah_retur: 0,
-		}))
+
+		// Ambil sisa retur per item dari retur sebelumnya
+		const sisaRes = await api.get<SisaItem[]>(`/retur-penjualan/sisa/${id}`)
+		const newSisaMap = new Map<number, SisaItem>()
+		if (sisaRes.success) {
+			for (const s of sisaRes.data) newSisaMap.set(s.barang_id, s)
+		}
+		sisaMap = newSisaMap
+
+		itemsRetur = res.data.items.map((i) => {
+			const sisa = newSisaMap.get(i.barang_id)
+			return {
+				...i,
+				dipilih: false,
+				jumlah_retur: 0,
+				// Override jumlah efektif agar max input mengacu sisa, bukan asal
+				jumlah: sisa ? sisa.jumlah_asal : i.jumlah,
+			}
+		})
 	}
 
 	async function lihatDetail(id: number) {
@@ -183,21 +247,64 @@
 		loadingDetail = false
 	}
 
+	async function cariBarangTukar() {
+		if (!cariTukar.trim()) return
+		loadingTukar = true
+		const res = await api.get<BarangCari[]>(`/barang?q=${encodeURIComponent(cariTukar.trim())}`)
+		if (res.success) {
+			hasilCariTukar = res.data.slice(0, 8)
+			showHasilTukar = true
+		}
+		loadingTukar = false
+	}
+
+	function tambahItemTukar(br: BarangCari) {
+		// Jika sudah ada, tambah qty
+		const idx = tukarItems.findIndex((t) => t.barang_id === br.id)
+		if (idx >= 0) {
+			tukarItems[idx].jumlah += 1
+		} else {
+			tukarItems.push({
+				barang_id: br.id,
+				nama_barang: br.nama_barang,
+				kode_barang: br.kode_barang,
+				satuan_id: br.satuan_dasar_id,
+				jumlah: 1,
+				harga_jual: br.harga_jual_eceran,
+			})
+		}
+		cariTukar = ''
+		hasilCariTukar = []
+		showHasilTukar = false
+	}
+
+	function hapusItemTukar(idx: number) {
+		tukarItems.splice(idx, 1)
+	}
+
 	async function submitRetur() {
 		if (!trxAsal || !itemsDipilih.length) return
 		saving = true
-		const body = {
+		const body: Record<string, unknown> = {
 			penjualan_id: trxAsal.id,
 			alasan: alasan || undefined,
 			metode_refund: metodeRefund,
 			kas_bank_id: metodeRefund === 'tunai' ? kasBankId : undefined,
 			catatan: catatan || undefined,
+			// Fix 1: harga_jual TIDAK dikirim — backend ambil dari snapshot
 			items: itemsDipilih.map((i) => ({
 				barang_id: i.barang_id,
 				satuan_id: i.satuan_id ?? undefined,
 				jumlah_retur: i.jumlah_retur,
-				harga_jual: i.harga_jual,
 			})),
+		}
+		if (metodeRefund === 'tukar_barang' && tukarItems.length) {
+			body.tukar_items = tukarItems.map((t) => ({
+				barang_id: t.barang_id,
+				satuan_id: t.satuan_id ?? undefined,
+				jumlah: t.jumlah,
+				harga_jual: t.harga_jual,
+			}))
 		}
 		const res = await api.post<{ no_retur: string }>('/retur-penjualan', body)
 		saving = false
@@ -215,9 +322,14 @@
 		errorCari = ''
 		trxAsal = null
 		itemsRetur = []
+		sisaMap = new Map()
 		alasan = ''
 		metodeRefund = 'tunai'
 		catatan = ''
+		tukarItems = []
+		cariTukar = ''
+		hasilCariTukar = []
+		showHasilTukar = false
 	}
 
 	function tutupModalBuat() {
@@ -227,6 +339,7 @@
 	function lanjutStep2() {
 		if (!trxAsal) return
 		metodeRefund = trxAsal.metode_bayar === 'hutang' ? 'kurang_piutang' : 'tunai'
+		tukarItems = []
 		step = 2
 	}
 
@@ -236,9 +349,12 @@
 	}
 
 	function toggleItem(idx: number) {
+		const sisa = sisaMap.get(itemsRetur[idx].barang_id)
+		const sisaQty = sisa ? sisa.sisa : itemsRetur[idx].jumlah
+		if (sisaQty <= 0) return // sudah diretur semua, tidak bisa dipilih
 		itemsRetur[idx].dipilih = !itemsRetur[idx].dipilih
 		if (itemsRetur[idx].dipilih && itemsRetur[idx].jumlah_retur === 0) {
-			itemsRetur[idx].jumlah_retur = itemsRetur[idx].jumlah
+			itemsRetur[idx].jumlah_retur = sisaQty
 		}
 	}
 
@@ -441,29 +557,57 @@
 				</p>
 				<div class="space-y-2 max-h-72 overflow-y-auto">
 					{#each itemsRetur as item, idx}
+						{@const sisa = sisaMap.get(item.barang_id)}
+						{@const sisaQty = sisa ? sisa.sisa : item.jumlah}
+						{@const sudahDiretur = sisa ? sisa.sudah_diretur : 0}
+						{@const sudahSemua = sisaQty <= 0}
 						<label class="flex cursor-pointer items-start gap-3 rounded border p-2.5 transition-colors"
-							style={item.dipilih
+							style={sudahSemua
+								? 'border-color:var(--border);background:var(--surface2);opacity:0.5;cursor:not-allowed'
+								: item.dipilih
 								? 'border-color:var(--accent);background:rgba(0,230,118,0.05)'
 								: 'border-color:var(--border);background:var(--surface2)'}>
-							<input type="checkbox" checked={item.dipilih} onchange={() => toggleItem(idx)} class="mt-0.5" />
+							<input type="checkbox" checked={item.dipilih}
+								disabled={sudahSemua}
+								onchange={() => toggleItem(idx)} class="mt-0.5" />
 							<div class="flex-1 min-w-0">
 								<div class="text-xs font-bold truncate" style="color:var(--text)">{item.nama_barang}</div>
 								<div class="text-[10px]" style="color:var(--text-dim)">
-									{item.kode_barang} · Harga: Rp {fmt(item.harga_jual)} · Dibeli: {item.jumlah}
+									{item.kode_barang} · Harga: Rp {fmt(item.harga_jual)}
+									{#if item.diskon_item > 0}
+										<span style="color:var(--warn)"> (-Rp {fmt(item.diskon_item)})</span>
+									{/if}
+									· Dibeli: {sisa ? sisa.jumlah_asal : item.jumlah}
 								</div>
+								{#if sudahDiretur > 0}
+									<div class="mt-0.5 flex items-center gap-1">
+										{#if sudahSemua}
+											<span class="rounded px-1.5 py-0.5 text-[10px] font-bold"
+												style="background:rgba(255,68,68,0.12);color:var(--danger)">
+												Sudah diretur semua ({sudahDiretur})
+											</span>
+										{:else}
+											<span class="rounded px-1.5 py-0.5 text-[10px] font-bold"
+												style="background:rgba(255,179,0,0.12);color:var(--warn)">
+												Sudah diretur {sudahDiretur} · Sisa {sisaQty}
+											</span>
+										{/if}
+									</div>
+								{/if}
 							</div>
-							{#if item.dipilih}
+							{#if item.dipilih && !sudahSemua}
 								<div class="flex items-center gap-1">
 									<span class="text-[10px]" style="color:var(--text-dim)">Qty retur:</span>
 									<input
 										type="number"
 										min="1"
-										max={item.jumlah}
+										max={sisaQty}
 										bind:value={itemsRetur[idx].jumlah_retur}
 										onclick={(e) => e.stopPropagation()}
 										class="w-16 rounded border px-1.5 py-1 text-center text-xs font-mono"
 										style="background:var(--surface);border-color:var(--border);color:var(--text)"
 									/>
+									<span class="text-[10px]" style="color:var(--text-dim)">/ {sisaQty}</span>
 								</div>
 							{/if}
 						</label>
@@ -494,9 +638,10 @@
 				<div class="rounded border p-3 space-y-1 text-xs" style="background:var(--surface2);border-color:var(--border)">
 					<p class="font-bold mb-1.5" style="color:var(--text)">Item yang diretur:</p>
 					{#each itemsDipilih as i}
+						{@const hargaNet = i.jumlah > 0 ? i.subtotal / i.jumlah : i.harga_jual}
 						<div class="flex justify-between">
 							<span style="color:var(--text)">{i.nama_barang} × {i.jumlah_retur}</span>
-							<span class="font-mono" style="color:var(--text-dim)">Rp {fmt(i.harga_jual * i.jumlah_retur)}</span>
+							<span class="font-mono" style="color:var(--text-dim)">Rp {fmt(hargaNet * i.jumlah_retur)}</span>
 						</div>
 					{/each}
 					<div class="border-t mt-2 pt-2 flex justify-between font-bold" style="border-color:var(--border)">
@@ -544,6 +689,109 @@
 								<option value={kb.id}>{kb.nama} ({kb.tipe})</option>
 							{/each}
 						</select>
+					</div>
+				{/if}
+
+				<!-- Barang Pengganti (hanya untuk tukar_barang) -->
+				{#if metodeRefund === 'tukar_barang'}
+					<div class="rounded border p-3 space-y-2" style="border-color:var(--warn);background:rgba(255,179,0,0.04)">
+						<p class="text-xs font-bold" style="color:var(--warn)">Barang Pengganti</p>
+						<p class="text-[10px]" style="color:var(--text-dim)">
+							Cari dan tambahkan barang yang diberikan sebagai pengganti. Bisa dikosongkan jika barang pengganti belum ditentukan.
+						</p>
+
+						<!-- Cari barang pengganti -->
+						<div class="flex gap-2">
+							<input
+								type="text"
+								bind:value={cariTukar}
+								placeholder="Nama atau kode barang pengganti..."
+								onkeydown={(e) => e.key === 'Enter' && cariBarangTukar()}
+								class="flex-1 rounded border px-2 py-1.5 text-xs"
+								style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+							/>
+							<Button variant="ghost" size="sm" loading={loadingTukar} onclick={cariBarangTukar}>
+								Cari
+							</Button>
+						</div>
+
+						<!-- Hasil pencarian -->
+						{#if showHasilTukar && hasilCariTukar.length > 0}
+							<div class="rounded border overflow-hidden" style="border-color:var(--border)">
+								{#each hasilCariTukar as br}
+									<button
+										onclick={() => tambahItemTukar(br)}
+										class="flex w-full items-center justify-between px-3 py-2 text-xs hover:bg-[var(--surface2)] transition-colors border-b last:border-0"
+										style="border-color:var(--border);color:var(--text)">
+										<span>
+											<span class="font-bold">{br.nama_barang}</span>
+											<span class="ml-1" style="color:var(--text-dim)">{br.kode_barang}</span>
+										</span>
+										<span class="font-mono" style="color:var(--accent)">Rp {fmt(br.harga_jual_eceran)}</span>
+									</button>
+								{/each}
+							</div>
+						{:else if showHasilTukar}
+							<p class="text-[10px]" style="color:var(--text-dim)">Barang tidak ditemukan.</p>
+						{/if}
+
+						<!-- Daftar item tukar -->
+						{#if tukarItems.length > 0}
+							<div class="space-y-1.5">
+								{#each tukarItems as ti, idx}
+									<div class="flex items-center gap-2 rounded border px-2.5 py-2 text-xs"
+										style="border-color:var(--border);background:var(--surface2)">
+										<div class="flex-1 min-w-0">
+											<span class="font-bold truncate" style="color:var(--text)">{ti.nama_barang}</span>
+										</div>
+										<div class="flex items-center gap-1 shrink-0">
+											<span class="text-[10px]" style="color:var(--text-dim)">Qty:</span>
+											<input
+												type="number"
+												min="1"
+												bind:value={tukarItems[idx].jumlah}
+												class="w-12 rounded border px-1 py-0.5 text-center text-xs font-mono"
+												style="background:var(--surface);border-color:var(--border);color:var(--text)"
+											/>
+											<span class="text-[10px]" style="color:var(--text-dim)">× Rp</span>
+											<input
+												type="number"
+												min="0"
+												bind:value={tukarItems[idx].harga_jual}
+												class="w-20 rounded border px-1 py-0.5 text-xs font-mono"
+												style="background:var(--surface);border-color:var(--border);color:var(--text)"
+											/>
+										</div>
+										<button onclick={() => hapusItemTukar(idx)}
+											class="text-[10px] font-bold px-1.5 py-0.5 rounded"
+											style="color:var(--danger);background:rgba(255,68,68,0.1)">
+											✕
+										</button>
+									</div>
+								{/each}
+							</div>
+
+							<!-- Perbandingan nilai -->
+							<div class="grid grid-cols-2 gap-2 text-xs">
+								<div class="rounded border px-2.5 py-2 text-center" style="border-color:var(--border);background:var(--surface2)">
+									<div style="color:var(--text-dim)">Nilai Retur</div>
+									<div class="font-mono font-bold" style="color:var(--danger)">Rp {fmt(totalRetur)}</div>
+								</div>
+								<div class="rounded border px-2.5 py-2 text-center" style="border-color:var(--border);background:var(--surface2)">
+									<div style="color:var(--text-dim)">Nilai Pengganti</div>
+									<div class="font-mono font-bold" style="color:var(--accent)">Rp {fmt(totalTukar)}</div>
+								</div>
+							</div>
+							{#if totalRetur !== totalTukar}
+								<p class="text-[10px] text-center" style="color:var(--warn)">
+									{#if totalRetur > totalTukar}
+										Selisih Rp {fmt(totalRetur - totalTukar)} — kembalikan ke pelanggan secara manual.
+									{:else}
+										Selisih Rp {fmt(totalTukar - totalRetur)} — pelanggan perlu membayar kekurangannya.
+									{/if}
+								</p>
+							{/if}
+						{/if}
 					</div>
 				{/if}
 
@@ -597,6 +845,7 @@
 					{/if}
 				</div>
 
+				<!-- Item diretur -->
 				<div class="rounded border" style="border-color:var(--border)">
 					<table class="w-full">
 						<thead>
@@ -630,6 +879,38 @@
 						</tfoot>
 					</table>
 				</div>
+
+				<!-- Barang pengganti (tukar_barang) -->
+				{#if detailData.tukar_items?.length > 0}
+					<div>
+						<p class="text-xs font-bold mb-1.5" style="color:var(--warn)">Barang Pengganti</p>
+						<div class="rounded border" style="border-color:var(--border)">
+							<table class="w-full">
+								<thead>
+									<tr class="border-b" style="border-color:var(--border)">
+										<th class="px-3 py-2 text-left font-semibold" style="color:var(--text-dim)">Barang</th>
+										<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Qty</th>
+										<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Harga</th>
+										<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Subtotal</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each detailData.tukar_items as ti}
+										<tr class="border-b" style="border-color:var(--border)">
+											<td class="px-3 py-2" style="color:var(--text)">
+												<div class="font-bold">{ti.nama_barang}</div>
+												<div style="color:var(--text-dim)">{ti.kode_barang}</div>
+											</td>
+											<td class="px-3 py-2 text-right font-mono" style="color:var(--text)">{ti.jumlah}</td>
+											<td class="px-3 py-2 text-right font-mono" style="color:var(--text-dim)">Rp {fmt(ti.harga_jual)}</td>
+											<td class="px-3 py-2 text-right font-mono font-bold" style="color:var(--accent)">Rp {fmt(ti.subtotal)}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</Modal>

@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
-import { eq, and, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, sqlite } from '../db/index.ts'
 import {
-  retur_penjualan, retur_penjualan_detail,
+  retur_penjualan, retur_penjualan_detail, retur_penjualan_tukar,
   penjualan, penjualan_detail,
   barang, mutasi_stok,
   jurnal_kas, kas_bank,
@@ -61,6 +61,50 @@ returPenjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) =>
   return c.json({ success: true, data: rows })
 })
 
+// ── GET /retur-penjualan/sisa/:penjualan_id ───────────────────────────────────
+// Kembalikan sisa qty yang masih bisa diretur per item dari suatu transaksi.
+// Wajib di atas /:id agar Hono tidak salah match.
+
+returPenjualanRouter.get('/sisa/:penjualan_id', requirePermission('penjualan.lihat'), async (c) => {
+  const penjualanId = Number(c.req.param('penjualan_id'))
+  if (!penjualanId) throw new HTTPException(400, { message: 'penjualan_id tidak valid' })
+
+  // Ambil semua item dari transaksi asal
+  const detailAsal = db
+    .select({
+      barang_id: penjualan_detail.barang_id,
+      jumlah_asal: penjualan_detail.jumlah,
+    })
+    .from(penjualan_detail)
+    .where(eq(penjualan_detail.penjualan_id, penjualanId))
+    .all()
+
+  if (!detailAsal.length) return c.json({ success: true, data: [] })
+
+  // Hitung total sudah diretur per barang_id dari semua retur sebelumnya
+  const sudahDireturRows = db
+    .select({
+      barang_id: retur_penjualan_detail.barang_id,
+      sudah_diretur: sql<number>`SUM(${retur_penjualan_detail.jumlah_retur})`,
+    })
+    .from(retur_penjualan_detail)
+    .innerJoin(retur_penjualan, eq(retur_penjualan_detail.retur_id, retur_penjualan.id))
+    .where(eq(retur_penjualan.penjualan_id, penjualanId))
+    .groupBy(retur_penjualan_detail.barang_id)
+    .all()
+
+  const sudahMap = new Map(sudahDireturRows.map(r => [r.barang_id, r.sudah_diretur ?? 0]))
+
+  const result = detailAsal.map(d => ({
+    barang_id: d.barang_id,
+    jumlah_asal: d.jumlah_asal,
+    sudah_diretur: sudahMap.get(d.barang_id) ?? 0,
+    sisa: d.jumlah_asal - (sudahMap.get(d.barang_id) ?? 0),
+  }))
+
+  return c.json({ success: true, data: result })
+})
+
 // ── GET /retur-penjualan/:id ──────────────────────────────────────────────────
 
 returPenjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
@@ -108,7 +152,26 @@ returPenjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c)
     .where(eq(retur_penjualan_detail.retur_id, id))
     .all()
 
-  return c.json({ success: true, data: { ...retur, items } })
+  // Barang pengganti (hanya untuk metode tukar_barang)
+  const tukarItems = db
+    .select({
+      id: retur_penjualan_tukar.id,
+      barang_id: retur_penjualan_tukar.barang_id,
+      nama_barang: barang.nama_barang,
+      kode_barang: barang.kode_barang,
+      satuan_id: retur_penjualan_tukar.satuan_id,
+      nama_satuan: satuan.nama,
+      jumlah: retur_penjualan_tukar.jumlah,
+      harga_jual: retur_penjualan_tukar.harga_jual,
+      subtotal: retur_penjualan_tukar.subtotal,
+    })
+    .from(retur_penjualan_tukar)
+    .leftJoin(barang, eq(retur_penjualan_tukar.barang_id, barang.id))
+    .leftJoin(satuan, eq(retur_penjualan_tukar.satuan_id, satuan.id))
+    .where(eq(retur_penjualan_tukar.retur_id, id))
+    .all()
+
+  return c.json({ success: true, data: { ...retur, items, tukar_items: tukarItems } })
 })
 
 // ── POST /retur-penjualan ─────────────────────────────────────────────────────
@@ -117,7 +180,14 @@ type ItemRetur = {
   barang_id: number
   satuan_id?: number
   jumlah_retur: number
-  harga_jual: number  // harus sesuai snapshot dari penjualan_detail
+  // harga_jual TIDAK diterima dari client — diambil dari snapshot penjualan_detail
+}
+
+type ItemTukar = {
+  barang_id: number
+  satuan_id?: number
+  jumlah: number
+  harga_jual: number
 }
 
 returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) => {
@@ -129,6 +199,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
     kas_bank_id?: number  // wajib jika metode_refund = tunai
     catatan?: string
     items: ItemRetur[]
+    tukar_items?: ItemTukar[]  // wajib untuk tukar_barang (opsional jika belum ditentukan)
   }>()
 
   if (!body.items?.length) throw new HTTPException(400, { message: 'Pilih minimal 1 item untuk diretur' })
@@ -145,7 +216,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
     throw new HTTPException(400, { message: 'Metode kurang_piutang hanya berlaku untuk transaksi hutang' })
   }
 
-  // Ambil semua detail penjualan asal untuk validasi jumlah
+  // Ambil semua detail penjualan asal
   const detailAsal = db.select().from(penjualan_detail)
     .where(eq(penjualan_detail.penjualan_id, body.penjualan_id))
     .all()
@@ -153,7 +224,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
   const detailMap = new Map(detailAsal.map(d => [d.barang_id, d]))
 
   let totalRetur = 0
-  const itemsValidated: (ItemRetur & { subtotal: number })[] = []
+  const itemsValidated: (ItemRetur & { harga_jual: number; subtotal: number })[] = []
 
   for (const item of body.items) {
     const detailAsli = detailMap.get(item.barang_id)
@@ -163,14 +234,45 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
     if (item.jumlah_retur <= 0) {
       throw new HTTPException(400, { message: 'Jumlah retur harus lebih dari 0' })
     }
-    if (item.jumlah_retur > detailAsli.jumlah) {
+
+    // Fix 2: Cek qty kumulatif — jumlah yang sudah diretur sebelumnya
+    const sudahDireturRow = db
+      .select({ total: sql<number>`COALESCE(SUM(${retur_penjualan_detail.jumlah_retur}), 0)` })
+      .from(retur_penjualan_detail)
+      .innerJoin(retur_penjualan, eq(retur_penjualan_detail.retur_id, retur_penjualan.id))
+      .where(and(
+        eq(retur_penjualan.penjualan_id, body.penjualan_id),
+        eq(retur_penjualan_detail.barang_id, item.barang_id),
+      ))
+      .get()
+    const sudahDiretur = sudahDireturRow?.total ?? 0
+    const sisaBolehRetur = detailAsli.jumlah - sudahDiretur
+
+    if (item.jumlah_retur > sisaBolehRetur) {
       throw new HTTPException(400, {
-        message: `Jumlah retur (${item.jumlah_retur}) melebihi jumlah beli (${detailAsli.jumlah})`,
+        message: `Sisa qty yang bisa diretur: ${sisaBolehRetur} (sudah diretur ${sudahDiretur} dari ${detailAsli.jumlah})`,
       })
     }
-    const subtotal = item.harga_jual * item.jumlah_retur
+
+    // Fix 1 + Fix 3: Gunakan harga dari snapshot, hitung net price proporsional (sudah potong diskon)
+    // detailAsli.subtotal = harga_jual * jumlah - diskon_item → hargaNet = subtotal / jumlah
+    const hargaNet = detailAsli.subtotal / detailAsli.jumlah
+    const subtotal = hargaNet * item.jumlah_retur
+
     totalRetur += subtotal
-    itemsValidated.push({ ...item, subtotal })
+    itemsValidated.push({ ...item, harga_jual: hargaNet, subtotal })
+  }
+
+  // Validasi barang pengganti (Fix 5)
+  const tukarItemsValidated: (ItemTukar & { subtotal: number })[] = []
+  if (body.tukar_items?.length) {
+    for (const ti of body.tukar_items) {
+      if (ti.jumlah <= 0) throw new HTTPException(400, { message: 'Jumlah barang pengganti harus lebih dari 0' })
+      if (ti.harga_jual < 0) throw new HTTPException(400, { message: 'Harga barang pengganti tidak valid' })
+      const br = db.select({ id: barang.id }).from(barang).where(eq(barang.id, ti.barang_id)).get()
+      if (!br) throw new HTTPException(400, { message: `Barang pengganti ID ${ti.barang_id} tidak ditemukan` })
+      tukarItemsValidated.push({ ...ti, subtotal: ti.harga_jual * ti.jumlah })
+    }
   }
 
   const tgl = tglSekarang()
@@ -190,7 +292,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
       catatan: body.catatan,
     }).returning().get()
 
-    // 2. Detail + kembalikan stok
+    // 2. Detail item retur + kembalikan stok
     for (const item of itemsValidated) {
       db.insert(retur_penjualan_detail).values({
         retur_id: retur.id,
@@ -238,7 +340,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
       }).run()
     }
 
-    // 4. Kurang piutang → kurangi sisa_piutang di piutang_pelanggan
+    // 4. Kurang piutang → kurangi sisa_piutang
     if (body.metode_refund === 'kurang_piutang') {
       const piutang = db.select().from(piutang_pelanggan)
         .where(eq(piutang_pelanggan.penjualan_id, body.penjualan_id))
@@ -246,7 +348,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
 
       if (piutang) {
         const sisaBaru = Math.max(0, piutang.sisa_piutang - totalRetur)
-        const statusBaru = sisaBaru === 0 ? 'lunas' : piutang.sisa_piutang > totalRetur ? 'sebagian' : piutang.status
+        const statusBaru = sisaBaru === 0 ? 'lunas' : 'sebagian'
         db.update(piutang_pelanggan)
           .set({ sisa_piutang: sisaBaru, status: statusBaru })
           .where(eq(piutang_pelanggan.id, piutang.id))
@@ -262,6 +364,41 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
               .run()
           }
         }
+      }
+    }
+
+    // 5. Tukar barang → catat barang pengganti + kurangi stok pengganti
+    if (body.metode_refund === 'tukar_barang' && tukarItemsValidated.length) {
+      for (const ti of tukarItemsValidated) {
+        db.insert(retur_penjualan_tukar).values({
+          retur_id: retur.id,
+          barang_id: ti.barang_id,
+          satuan_id: ti.satuan_id,
+          jumlah: ti.jumlah,
+          harga_jual: ti.harga_jual,
+          subtotal: ti.subtotal,
+        }).run()
+
+        const brTukar = db.select({ stok: barang.stok_sekarang })
+          .from(barang).where(eq(barang.id, ti.barang_id)).get()
+        if (!brTukar) throw new HTTPException(400, { message: `Barang pengganti ID ${ti.barang_id} tidak ditemukan` })
+
+        db.insert(mutasi_stok).values({
+          barang_id: ti.barang_id,
+          tanggal: tgl,
+          jenis: 'keluar',
+          referensi_tipe: 'retur_penjualan',
+          referensi_id: retur.id,
+          jumlah_sebelum: brTukar.stok,
+          jumlah_perubahan: ti.jumlah,
+          jumlah_sesudah: Math.max(0, brTukar.stok - ti.jumlah),
+          dicatat_oleh: user.id,
+        }).run()
+
+        db.update(barang)
+          .set({ stok_sekarang: Math.max(0, brTukar.stok - ti.jumlah) })
+          .where(eq(barang.id, ti.barang_id))
+          .run()
       }
     }
 
