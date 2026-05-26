@@ -23,7 +23,7 @@ function hapusToast(id: number) {
 export const toast = {
 	subscribe: _toast.subscribe,
 	sukses: (pesan: string) => tambahToast('sukses', pesan, 3000),
-	error: (pesan: string) => tambahToast('error', pesan, null),
+	error: (pesan: string) => tambahToast('error', pesan, 5000),
 	warn: (pesan: string) => tambahToast('warn', pesan, 5000),
 	info: (pesan: string) => tambahToast('info', pesan, 3000),
 	hapus: hapusToast,

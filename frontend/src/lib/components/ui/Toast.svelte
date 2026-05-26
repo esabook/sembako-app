@@ -20,7 +20,7 @@
 
 	const ikon: Record<ToastTipe, string> = {
 		sukses: '✓',
-		error: '✕',
+		error: '⦚',
 		warn: '!',
 		info: 'i',
 	};
