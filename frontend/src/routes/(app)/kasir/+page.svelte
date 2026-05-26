@@ -70,6 +70,7 @@
 	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
+	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
 	import {
 		fetchHistoriPenjualan,
 		fetchDetailPenjualan,
@@ -181,69 +182,38 @@
 		}
 	}
 
-	function escHtml(s: string) {
-		return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c))
-	}
-
 	function cetakStrukHistori(d: HistoriDetail) {
-		const lebar = strUkuran === '58' ? '58mm' : '80mm';
-		const rp = (n: number) => new Intl.NumberFormat('id-ID').format(Math.round(n));
-		const tglObj = new Date(d.tanggal);
-		const tgl = tglObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-		const jam = d.tanggal.length >= 16 ? d.tanggal.slice(11, 16) : '';
-		const METODE_STR: Record<string, string> = { tunai: 'Tunai', transfer: 'Transfer', qris: 'QRIS', hutang: 'Hutang' };
-		const itemsHtml = d.items
-			.map(
-				(item) => `
-			<div style="font-weight:600">${escHtml(item.nama_barang ?? '-')}</div>
-			<div style="display:flex;justify-content:space-between;font-size:8.5pt;color:#444">
-				<span>${item.jumlah} &times; ${rp(item.harga_jual)}</span>
-				<span style="color:#000">${rp(item.subtotal)}</span>
-			</div>
-			${item.diskon_item > 0 ? `<div style="font-size:8pt;color:#b36000">&nbsp;&nbsp;diskon &minus;${rp(item.diskon_item)}</div>` : ''}
-		`
-			)
-			.join('');
-		const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Struk</title>
-<style>
-@page{size:${lebar} auto;margin:4mm 5mm}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Courier New',Courier,monospace;font-size:9.5pt;color:#000;width:100%}
-hr{border:none;border-top:1px dashed #000;margin:5px 0}
-</style></head><body>
-<div style="text-align:center;font-weight:bold;font-size:12pt">${namaToko}</div>
-${alamatToko ? `<div style="text-align:center;font-size:8pt">${alamatToko}</div>` : ''}
-${strHeader ? `<div style="text-align:center;font-size:8pt">${strHeader}</div>` : ''}
-<div style="text-align:center;font-size:8pt;color:#555">${tgl} &middot; ${jam}</div>
-${d.nama_pelanggan ? `<div style="text-align:center;font-size:8.5pt">Pelanggan: <b>${d.nama_pelanggan}</b></div>` : ''}
-<hr>
-${itemsHtml}
-<hr>
-${d.diskon_total > 0 ? `<div style="display:flex;justify-content:space-between;font-size:8.5pt"><span>Diskon</span><span>&minus;${rp(d.diskon_total)}</span></div>` : ''}
-<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:11pt;margin-top:2px">
-	<span>TOTAL</span><span>Rp ${rp(d.total)}</span>
-</div>
-<hr>
-<div style="display:flex;justify-content:space-between;font-size:8.5pt">
-	<span>${METODE_STR[d.metode_bayar] ?? d.metode_bayar}</span><span>${rp(d.bayar)}</span>
-</div>
-<div style="display:flex;justify-content:space-between;font-size:8.5pt">
-	<span>Kembali</span><span>${rp(d.kembalian)}</span>
-</div>
-${d.metode_bayar === 'hutang' ? '<div style="text-align:center;font-weight:bold;font-size:8.5pt;margin-top:3px">[ TRANSAKSI HUTANG ]</div>' : ''}
-<hr>
-<div style="text-align:center;font-size:8pt">${strFooter}</div>
-<div style="text-align:center;font-size:7.5pt;color:#888;margin-top:2px">${d.no_transaksi}</div>
-</body></html>`;
-		const w = window.open('', '_blank', 'width=420,height=700,menubar=no,toolbar=no');
-		if (!w) {
-			toast.error('Popup diblokir browser — izinkan popup untuk halaman ini');
-			return;
-		}
-		w.document.write(html);
-		w.document.close();
-		w.onload = () => { w.print(); w.close(); };
+		const subtotalKotor = d.items.reduce((s, i) => s + i.jumlah * i.harga_jual, 0);
+		const diskonItem    = d.items.reduce((s, i) => s + i.diskon_item, 0);
+		const data: StrukData = {
+			ukuran:        strUkuran as '58' | '80',
+			namaToko,
+			alamat:        alamatToko,
+			header:        strHeader,
+			footer:        strFooter,
+			noTransaksi:   d.no_transaksi,
+			waktu:         new Date(d.tanggal),
+			kasirNama:     '',
+			pelangganNama: d.nama_pelanggan,
+			items: d.items.map((i) => ({
+				nama:       i.nama_barang ?? '-',
+				qty:        i.jumlah,
+				satuan:     null,
+				harga:      i.harga_jual,
+				diskon_item: i.diskon_item,
+			})),
+			subtotalKotor,
+			diskonItem,
+			diskonLain: d.diskon_total,
+			ppn:        0,
+			total:      d.total,
+			metode:     d.metode_bayar,
+			nominal:    d.bayar,
+			kembali:    d.kembalian,
+		};
+		cetakStrukPopup(renderStrukHtml(data), () =>
+			toast.error('Popup diblokir browser — izinkan popup untuk halaman ini')
+		);
 	}
 
 	// ── Fokus otomatis saat popup terbuka ─────────────────────────────────────
@@ -599,78 +569,38 @@ ${d.metode_bayar === 'hutang' ? '<div style="text-align:center;font-weight:bold;
 
 	// ── Cetak struk (popup window, thermal receipt) ──────────────────────────
 	function cetakStruk() {
-		const lebar = strUkuran === '58' ? '58mm' : '80mm';
-		const rp = (n: number) => new Intl.NumberFormat('id-ID').format(Math.round(n));
-		const tgl = $checkoutTime.toLocaleDateString('id-ID', {
-			day: '2-digit',
-			month: 'long',
-			year: 'numeric'
-		});
-		const jam = $checkoutTime.toTimeString().slice(0, 5);
-		const METODE_STR: Record<string, string> = {
-			tunai: 'Tunai',
-			transfer: 'Transfer',
-			qris: 'QRIS',
-			hutang: 'Hutang'
+		const diskonItem = strukItems.reduce((s, i) => s + i.diskon_item, 0);
+		// diskonLain = semua diskon selain per-item (member + promo)
+		const diskonLain = Math.max(0, strukSubtotal - diskonItem - strukTotal);
+		const data: StrukData = {
+			ukuran:        strUkuran as '58' | '80',
+			namaToko,
+			alamat:        alamatToko,
+			header:        strHeader,
+			footer:        strFooter,
+			noTransaksi:   $snap?.noTransaksi ?? '',
+			waktu:         $checkoutTime,
+			kasirNama:     page.data.user?.nama ?? '',
+			pelangganNama: strukPelanggan?.nama ?? null,
+			items: strukItems.map((i) => ({
+				nama:        i.nama_barang ?? '-',
+				qty:         i.jumlah,
+				satuan:      i.singkatan_satuan ?? null,
+				harga:       i.harga_jual,
+				diskon_item: i.diskon_item,
+			})),
+			subtotalKotor: strukSubtotal,
+			diskonItem,
+			diskonLain,
+			ppn:     0,
+			total:   strukTotal,
+			metode:  strukMetode,
+			nominal: strukNominal,
+			kembali: strukKembali,
 		};
-
-		const itemsHtml = strukItems
-			.map(
-				(item) => `
-			<div style="font-weight:600">${escHtml(item.nama_barang ?? '-')}</div>
-			<div style="display:flex;justify-content:space-between;font-size:8.5pt;color:#444">
-				<span>${item.jumlah}${item.singkatan_satuan ? ' ' + escHtml(item.singkatan_satuan) : ''} &times; ${rp(item.harga_jual)}</span>
-				<span style="color:#000">${rp(item.harga_jual * item.jumlah - item.diskon_item)}</span>
-			</div>
-			${item.diskon_item > 0 ? `<div style="font-size:8pt;color:#b36000">&nbsp;&nbsp;diskon &minus;${rp(item.diskon_item)}</div>` : ''}
-		`
-			)
-			.join('');
-
-		const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Struk</title>
-<style>
-@page{size:${lebar} auto;margin:4mm 5mm}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Courier New',Courier,monospace;font-size:9.5pt;color:#000;width:100%}
-hr{border:none;border-top:1px dashed #000;margin:5px 0}
-</style></head><body>
-<div style="text-align:center;font-weight:bold;font-size:12pt">${namaToko}</div>
-${alamatToko ? `<div style="text-align:center;font-size:8pt">${alamatToko}</div>` : ''}
-${strHeader ? `<div style="text-align:center;font-size:8pt">${strHeader}</div>` : ''}
-<div style="text-align:center;font-size:8pt;color:#555">${tgl} &middot; ${jam}</div>
-${strukPelanggan ? `<div style="text-align:center;font-size:8.5pt">Pelanggan: <b>${strukPelanggan.nama}</b></div>` : ''}
-<hr>
-${itemsHtml}
-<hr>
-${strukDiskon > 0 ? `<div style="display:flex;justify-content:space-between;font-size:8.5pt"><span>Diskon member</span><span>&minus;${rp(strukDiskon)}</span></div>` : ''}
-<div style="display:flex;justify-content:space-between;font-weight:bold;font-size:11pt;margin-top:2px">
-	<span>TOTAL</span><span>Rp ${rp(strukTotal)}</span>
-</div>
-<hr>
-<div style="display:flex;justify-content:space-between;font-size:8.5pt">
-	<span>${METODE_STR[strukMetode] ?? strukMetode}</span><span>${rp(strukNominal)}</span>
-</div>
-<div style="display:flex;justify-content:space-between;font-size:8.5pt">
-	<span>Kembali</span><span>${rp(strukKembali)}</span>
-</div>
-${strukMetode === 'hutang' ? '<div style="text-align:center;font-weight:bold;font-size:8.5pt;margin-top:3px">[ TRANSAKSI HUTANG ]</div>' : ''}
-<hr>
-<div style="text-align:center;font-size:8pt">${strFooter}</div>
-${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888;margin-top:2px">${$snap.noTransaksi}</div>` : ''}
-</body></html>`;
-
-		const w = window.open('', '_blank', 'width=420,height=700,menubar=no,toolbar=no');
-		if (!w) {
-			toast.error('Popup diblokir browser — izinkan popup untuk halaman ini');
-			return;
-		}
-		w.document.write(html);
-		w.document.close();
-		w.onload = () => {
-			w.print();
-			w.close();
-		};
+		cetakStrukPopup(renderStrukHtml(data), () =>
+			toast.error('Popup diblokir browser — izinkan popup untuk halaman ini')
+		);
 	}
 
 	onMount(() => {
@@ -1643,7 +1573,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 					/>
 					<!-- Denominasi cepat -->
 					<div class="mt-1.5 flex flex-wrap gap-1">
-						{#each [0, 50000, 100000, 200000, 500000, 1000000] as nom}
+						{#each [0, 50000, 100000, 200000, 500000, 1000000] as nom (nom)}
 							<button
 								type="button"
 								onclick={() => (kasAwal = nom)}
@@ -1811,7 +1741,7 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 						/>
 						<!-- Denominasi cepat -->
 						<div class="mt-1.5 flex flex-wrap gap-1">
-							{#each [0, 50000, 100000, 200000, 500000, 1000000] as nom}
+							{#each [0, 50000, 100000, 200000, 500000, 1000000] as nom (nom)}
 								<button
 									type="button"
 									onclick={() => (kasFisik = nom)}
