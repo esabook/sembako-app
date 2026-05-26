@@ -95,7 +95,7 @@
 	const strukDiskon = $derived($snap?.diskon ?? $diskonMember);
 	const strukTotal = $derived($snap?.total ?? $total);
 	const strukMetode = $derived($snap?.metode ?? $metodeBayar);
-	const strukNominal = $derived($snap ? $snap.nominal : Number($nominalBayar));
+	const strukNominal = $derived($snap ? $snap.nominal : $nominalBayar);
 	const strukKembali = $derived($snap ? $snap.kembalian : $kembalian);
 	const strukPelanggan = $derived($snap?.pelanggan ?? $pelangganDipilih);
 
@@ -1390,19 +1390,20 @@ ${$snap?.noTransaksi ? `<div style="text-align:center;font-size:7.5pt;color:#888
 								type="text"
 								inputmode="numeric"
 								pattern="[0-9]*"
-								value={$nominalBayar ? new Intl.NumberFormat('id-ID').format(Number($nominalBayar)) : ''}
+								value={$nominalBayar > 0 ? new Intl.NumberFormat('id-ID').format($nominalBayar) : ''}
 								oninput={(e) => {
 									const raw = (e.target as HTMLInputElement).value.replace(/\D/g, '');
-									nominalBayar.set(raw);
-									(e.target as HTMLInputElement).value = raw
-										? new Intl.NumberFormat('id-ID').format(Number(raw))
+									const angka = Number(raw) || 0;
+									nominalBayar.set(angka);
+									(e.target as HTMLInputElement).value = angka
+										? new Intl.NumberFormat('id-ID').format(angka)
 										: '';
 								}}
 								placeholder="0"
-								class="w-full rounded border px-3 py-3 text-right font-mono text-xl font-bold outline-none"
+								class="w-full rounded border px-3 py-3 text-right font-mono text-xl font-bold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 								style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 							/>
-							{#if Number($nominalBayar) >= $totalAkhir && $totalAkhir > 0}
+							{#if $nominalBayar >= $totalAkhir && $totalAkhir > 0}
 								<div class="flex justify-between px-1 text-sm">
 									<span style="color:var(--text-dim)">Kembalian</span>
 									<span class="font-mono font-bold" style="color:var(--accent)"

@@ -75,7 +75,7 @@ export type PelangganDipilih = {
   diskon_member: number | null
 }
 export const pelangganDipilih = writable<PelangganDipilih | null>(null)
-export const nominalBayar = writable<string>('')
+export const nominalBayar = writable<number>(0)
 export const itemAktifIdx = writable<number>(-1)
 
 export const subtotal = derived(keranjang, ($k) =>
@@ -101,13 +101,13 @@ export const kembalian = derived(
   [total, nominalBayar, metodeBayar],
   ([$total, $bayar, $metode]) => {
     if ($metode === 'hutang') return 0
-    return Math.max(0, Number($bayar) - $total)
+    return Math.max(0, $bayar - $total)
   }
 )
 
 export function resetKasir() {
   keranjang.set([])
-  nominalBayar.set('')
+  nominalBayar.set(0)
   pelangganDipilih.set(null)
   metodeBayar.set('tunai')
   tipeTransaksi.set('eceran')
