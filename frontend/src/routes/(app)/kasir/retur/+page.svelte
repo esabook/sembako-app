@@ -470,6 +470,26 @@
 
 {#if modalBuat}
 	<Modal judul="Buat Retur Penjualan" lebar="lg" ontutup={tutupModalBuat}>
+		<!-- Footer tombol — satu snippet di level atas agar tetap aktif saat step berubah -->
+		{#snippet footer()}
+			{#if step === 1}
+				<Button variant="ghost" size="sm" onclick={tutupModalBuat}>Batal</Button>
+				<Button variant="primary" size="sm" disabled={!trxAsal} onclick={lanjutStep2}>
+					Lanjut →
+				</Button>
+			{:else if step === 2}
+				<Button variant="ghost" size="sm" onclick={() => (step = 1)}>← Kembali</Button>
+				<Button variant="primary" size="sm" disabled={itemsDipilih.length === 0} onclick={lanjutStep3}>
+					Lanjut →
+				</Button>
+			{:else if step === 3}
+				<Button variant="ghost" size="sm" onclick={() => (step = 2)}>← Kembali</Button>
+				<Button variant="danger" size="sm" loading={saving} onclick={submitRetur}>
+					Proses Retur
+				</Button>
+			{/if}
+		{/snippet}
+
 		<!-- Step indicator -->
 		<div class="mb-4 flex gap-2 text-xs">
 			{#each [['1', 'Cari Transaksi'], ['2', 'Pilih Item'], ['3', 'Konfirmasi']] as [s, label] (s)}
@@ -533,13 +553,6 @@
 					</div>
 				{/if}
 			</div>
-
-			{#snippet footer()}
-				<Button variant="ghost" size="sm" onclick={tutupModalBuat}>Batal</Button>
-				<Button variant="primary" size="sm" disabled={!trxAsal} onclick={lanjutStep2}>
-					Lanjut →
-				</Button>
-			{/snippet}
 		{/if}
 
 		<!-- Step 2: Pilih item -->
@@ -619,13 +632,6 @@
 					</div>
 				{/if}
 			</div>
-
-			{#snippet footer()}
-				<Button variant="ghost" size="sm" onclick={() => (step = 1)}>← Kembali</Button>
-				<Button variant="primary" size="sm" disabled={itemsDipilih.length === 0} onclick={lanjutStep3}>
-					Lanjut →
-				</Button>
-			{/snippet}
 		{/if}
 
 		<!-- Step 3: Konfirmasi -->
@@ -804,13 +810,6 @@
 					<p class="text-xs" style="color:var(--danger)">{errorCari}</p>
 				{/if}
 			</div>
-
-			{#snippet footer()}
-				<Button variant="ghost" size="sm" onclick={() => (step = 2)}>← Kembali</Button>
-				<Button variant="danger" size="sm" loading={saving} onclick={submitRetur}>
-					Proses Retur
-				</Button>
-			{/snippet}
 		{/if}
 	</Modal>
 {/if}
