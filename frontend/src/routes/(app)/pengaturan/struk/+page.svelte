@@ -10,14 +10,17 @@
 		qty: number
 		satuan: string
 		harga: number
+		diskon: number   // diskon per item (Rp)
 	}
 
 	// ── Sample data (contoh barang) ───────────────────────────────────────────
 	const ITEMS: SampleItem[] = [
-		{ nama: 'Indomie Goreng', qty: 5, satuan: 'pcs', harga: 3500 },
-		{ nama: 'Aqua 600ml',     qty: 2, satuan: 'btl', harga: 4000 },
-		{ nama: 'Teh Botol Sosro', qty: 3, satuan: 'btl', harga: 5000 },
+		{ nama: 'Indomie Goreng', qty: 5, satuan: 'pcs', harga: 3500, diskon: 0 },
+		{ nama: 'Aqua 600ml',     qty: 2, satuan: 'btl', harga: 4000, diskon: 1000 },  // diskon Rp 1.000
+		{ nama: 'Teh Botol Sosro', qty: 3, satuan: 'btl', harga: 5000, diskon: 0 },
 	]
+
+	const DISKON_MEMBER = 2500   // contoh diskon member/promo
 
 	// ── State ─────────────────────────────────────────────────────────────────
 	let loading  = $state(true)
@@ -28,12 +31,14 @@
 	let ukuran   = $state('80')
 
 	// ── Kalkulasi ─────────────────────────────────────────────────────────────
-	const totalQty  = ITEMS.reduce((s, i) => s + i.qty, 0)
-	const subtotal  = ITEMS.reduce((s, i) => s + i.qty * i.harga, 0)
-	const ppn       = Math.round(subtotal * 0.1)
-	const total     = subtotal + ppn
-	const bayar     = Math.ceil(total / 1000) * 1000
-	const kembali   = bayar - total
+	const totalQty     = ITEMS.reduce((s, i) => s + i.qty, 0)
+	const subtotalKotor = ITEMS.reduce((s, i) => s + i.qty * i.harga, 0)
+	const totalDiskonItem = ITEMS.reduce((s, i) => s + i.diskon, 0)
+	const subtotal     = subtotalKotor - totalDiskonItem - DISKON_MEMBER
+	const ppn          = Math.round(subtotal * 0.1)
+	const total        = subtotal + ppn
+	const bayar        = Math.ceil(total / 1000) * 1000
+	const kembali      = bayar - total
 
 	// ── Contoh nomor & waktu ──────────────────────────────────────────────────
 	const NO_TRX = 'TRX-' + new Date().toLocaleDateString('sv-SE').replace(/-/g, '') + '-0001'
@@ -129,6 +134,9 @@
 						<span>{item.qty} {item.satuan} × {rp(item.harga)}</span>
 						<span style="color:#000">{rp(item.qty * item.harga)}</span>
 					</div>
+					{#if item.diskon > 0}
+						<div style="font-size:0.82em;color:#b36000">&nbsp;&nbsp;diskon &minus;{rp(item.diskon)}</div>
+					{/if}
 				{/each}
 
 				<!-- 6. Dash line ──────────────────────────────────────────────── -->
@@ -139,7 +147,15 @@
 					<span>Total Qty</span><span>{totalQty}</span>
 				</div>
 				<div style="display:flex;justify-content:space-between;font-size:0.88em">
-					<span>Subtotal</span><span>{rp(subtotal)}</span>
+					<span>Subtotal</span><span>{rp(subtotalKotor)}</span>
+				</div>
+				{#if totalDiskonItem > 0}
+					<div style="display:flex;justify-content:space-between;font-size:0.88em;color:#b36000">
+						<span>Diskon item</span><span>&minus;{rp(totalDiskonItem)}</span>
+					</div>
+				{/if}
+				<div style="display:flex;justify-content:space-between;font-size:0.88em;color:#b36000">
+					<span>Diskon promo</span><span>&minus;{rp(DISKON_MEMBER)}</span>
 				</div>
 				<div style="display:flex;justify-content:space-between;font-size:0.88em">
 					<span>PPN 10%</span><span>{rp(ppn)}</span>
