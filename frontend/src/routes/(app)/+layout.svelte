@@ -177,7 +177,7 @@
 					>
 						<!-- Vertical line indicator kiri -->
 						<span
-							class="absolute left-0 top-0 bottom-0 w-0.5 shrink-0"
+							class="absolute left-0 top-0 bottom-0 {isActive ? 'w-0.5' : 'w-0'} shrink-0"
 							style={isActive ? 'background:var(--accent)' : 'background:var(--border)'}
 						></span>
 

@@ -4,7 +4,7 @@ import { browser } from '$app/environment'
 export type Tema = 'dark' | 'light' | 'eye' | 'bww' | 'bwb' | 'island' | 'klasik'
 
 const STORAGE_KEY = 'tema'
-const DEFAULT: Tema = 'dark'
+const DEFAULT: Tema = 'light'
 
 function temaAwal(): Tema {
   if (!browser) return DEFAULT
