@@ -12,7 +12,7 @@
 		user.set(data.user as import('$lib/stores/auth.js').User);
 	});
 
-	type SidebarState = 'expanded' | 'icon' | 'hidden';
+	type SidebarState = 'expanded' | 'icon';
 	const SIDEBAR_KEY = 'sidebar_state';
 	let sidebarState = $state<SidebarState>('icon');
 	let sidebarReady = $state(false);
@@ -32,20 +32,11 @@
 		if (sidebarState === 'expanded') {
 			sidebarState = 'icon';
 			if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
-		} else if (sidebarState === 'icon') {
-			sidebarState = 'hidden';
-			if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
 		} else {
 			sidebarState = 'expanded';
 			resetIdle();
 		}
 		localStorage.setItem(SIDEBAR_KEY, sidebarState);
-	}
-
-	function restoreSidebar() {
-		sidebarState = 'expanded';
-		localStorage.setItem(SIDEBAR_KEY, 'expanded');
-		resetIdle();
 	}
 
 	onMount(() => {
@@ -55,7 +46,7 @@
 
 		// Baca preferensi sidebar dari localStorage tanpa transisi (instant)
 		const saved = localStorage.getItem(SIDEBAR_KEY);
-		if (saved === 'expanded' || saved === 'icon' || saved === 'hidden') {
+		if (saved === 'expanded' || saved === 'icon') {
 			sidebarState = saved;
 		}
 		sidebarReady = true;
@@ -150,21 +141,20 @@
 	<!-- Body: sidebar selalu tampil + konten -->
 	<div class="flex min-h-0 flex-1">
 		<!-- Sidebar -->
-		{#if sidebarState !== 'hidden'}
 		<aside
 			class="relative flex shrink-0 flex-col border-r {sidebarReady ? 'transition-all duration-200' : ''}"
 			style="background:var(--surface);border-color:var(--border);width:{sidebarState === 'expanded' ? '11rem' : '2.75rem'}"
 		>
-			<!-- Tombol toggle: pojok kanan atas (cycle: expanded→icon→hidden) -->
+			<!-- Tombol toggle: pojok kanan atas (cycle: expanded→icon) -->
 			<button
 				onclick={toggleSidebar}
-				title={sidebarState === 'expanded' ? 'Ciutkan (Ctrl+Home)' : sidebarState === 'icon' ? 'Sembunyikan (Ctrl+Home)' : ''}
-				aria-label={sidebarState === 'expanded' ? 'Ciutkan menu' : 'Sembunyikan menu'}
+				title={sidebarState === 'expanded' ? 'Ciutkan (Ctrl+Home)' : 'Perluas (Ctrl+Home)'}
+				aria-label={sidebarState === 'expanded' ? 'Ciutkan menu' : 'Perluas menu'}
 				class="absolute -right-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-colors"
 				style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"
 			>
 				<svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-					{#if sidebarState === 'expanded' || sidebarState === 'icon'}
+					{#if sidebarState === 'expanded'}
 						<path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 					{:else}
 						<path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -204,18 +194,6 @@
 				{/each}
 			</nav>
 		</aside>
-		{/if}
-
-		<!-- Tombol restore saat sidebar hidden -->
-		{#if sidebarState === 'hidden'}
-			<button
-				onclick={restoreSidebar}
-				title="Tampilkan menu"
-				aria-label="Tampilkan menu"
-				class="fixed left-0 top-1/2 z-20 flex h-40 w-1 -translate-y-1/2 items-center justify-center rounded-r border-y border-r shadow-sm transition-colors"
-				style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"
-			>	</button>
-		{/if}
 
 		<!-- Konten utama -->
 		<main class="min-h-0 flex-1 overflow-auto p-4">
