@@ -108,6 +108,20 @@
   overflow: hidden;
 }
 
+/* ─── Tema Klasik POS ───────────────────────────── */
+[data-theme='klasik'] {
+  --bg: #000000;
+  --surface: #1a1a1a;
+  --surface2: #111111;
+  --border: #333333;
+  --text: #ffffff;
+  --text-dim: #888888;
+  --accent: #ffd700;
+  --warn: #ffd700;
+  --danger: #ff3d00;
+  --info: #2979ff;
+}
+
 /* ─── Base ──────────────────────────────────────── */
 body {
   background-color: var(--bg);

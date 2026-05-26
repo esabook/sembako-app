@@ -29,6 +29,7 @@
 		{ nilai: 'bww',    label: 'BW ☯',   deskripsi: 'Hitam-putih terang' },
 		{ nilai: 'bwb',    label: 'BW ☯',   deskripsi: 'Hitam-putih gelap' },
 		{ nilai: 'island', label: 'ISLAND', deskripsi: 'Panel mengambang' },
+		{ nilai: 'klasik', label: 'KLASIK', deskripsi: 'Kasir terminal' },
 	];
 
 	const ROLE_LABEL: Record<string, string> = {
