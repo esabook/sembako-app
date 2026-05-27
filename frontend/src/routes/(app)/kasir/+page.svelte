@@ -399,6 +399,11 @@
 				closeAll();
 				openSearch();
 				break;
+			case 'F7':
+				e.preventDefault();
+				closeAll();
+				void bukaTutupHistori();
+				break;
 			case 'F8':
 				e.preventDefault();
 				closeAll();
@@ -739,7 +744,7 @@
 						<tr
 							class="cursor-pointer border-t"
 							style={$itemAktifIdx === idx
-								? 'background:var(--surface2);outline:1px solid var(--accent);outline-offset:-1px'
+								? 'background:var(--surface2);outline:1px solid var(--accent);'
 								: 'border-color:var(--border)'}
 							onclick={() => itemAktifIdx.set(idx)}
 						>
@@ -841,14 +846,7 @@
 
 		<!-- Buttons: wrap di HP, single row di desktop -->
 		<div class="flex flex-wrap items-center gap-2 md:order-1">
-			<!-- draft status indicator -->
-			{#if $draftStatus === 'saving'}
-				<span class="font-mono text-xs" style="color:var(--text-dim)">Menyimpan...</span>
-			{:else if $draftStatus === 'saved'}
-				<span class="font-mono text-xs" style="color:var(--text-dim)">✓ Tersimpan</span>
-			{:else if $draftStatus === 'error'}
-				<span class="font-mono text-xs" style="color:var(--danger)">Gagal simpan</span>
-			{/if}
+
 			<!-- mode badge: klik untuk ganti manual -->
 			<button
 				onclick={cycleMode}
@@ -861,20 +859,6 @@
 						: 'border-color:var(--border);color:var(--text-dim)'}
 			>
 				{MODE_LABEL[$kasirMode]}
-			</button>
-			<a
-				href="/kasir/retur"
-				class="rounded border px-3 py-1 text-xs transition-all"
-				style="border-color:var(--border);color:var(--text-dim)"
-			>
-				{$kasirMode === 'pro' ? 'F8' : 'F8 · Retur'}
-			</a>
-			<button
-				onclick={bukaTutupHistori}
-				class="rounded border px-3 py-1 text-xs transition-all"
-				style="border-color:var(--border);color:var(--text-dim)"
-			>
-				{$kasirMode === 'pro' ? 'Hist' : 'Riwayat'}
 			</button>
 			<!-- Shift indicator + buka/tutup -->
 			{#if shiftAktif}
@@ -894,18 +878,6 @@
 					{$kasirMode === 'pro' ? 'F11' : 'F11 · Buka Shift ⚠'}
 				</button>
 			{/if}
-			{#if $keranjang.length > 0}
-				<button
-					onclick={() => {
-						if ($kasirMode === 'guided') konfirmasiReset = true;
-						else resetKasirDenganDraft();
-					}}
-					class="rounded border px-3 py-1 text-xs transition-all"
-					style="border-color:var(--border);color:var(--danger)"
-				>
-					{$kasirMode === 'pro' ? 'F12' : 'F12 · Reset'}
-				</button>
-			{/if}
 			<button
 				onclick={handleProsesBayar}
 				disabled={$keranjang.length === 0 || !shiftAktif}
@@ -914,6 +886,14 @@
 			>
 				{$kasirMode === 'pro' ? 'F10' : 'F10 · PROSES BAYAR'}
 			</button>
+						<!-- draft status indicator -->
+			{#if $draftStatus === 'saving'}
+				<span class="font-mono text-xs" style="color:var(--text-dim)">Menyimpan...</span>
+			{:else if $draftStatus === 'saved'}
+				<span class="font-mono text-xs" style="color:var(--text-dim)">✓ Tersimpan</span>
+			{:else if $draftStatus === 'error'}
+				<span class="font-mono text-xs" style="color:var(--danger)">Gagal simpan</span>
+			{/if}
 		</div>
 	</div>
 </div>
@@ -1859,7 +1839,14 @@
 				>
 			</div>
 			<div class="grid grid-cols-2 gap-x-10 gap-y-2">
-				{#each [['ESC', 'Tutup / batal'], ['F1', 'Panduan ini'], ['Tab', 'Fokus ke kanan'], ['F3', 'Cari barang'], ['Shift+Tab', 'Fokus ke kiri'], ['F8', 'Retur penjualan'], ['↑ ↓', 'Navigasi item'], ['F10', 'Proses bayar'], ['← →', 'Qty − / +'], ['F11', 'Buka / tutup shift'], ['ENTER', 'Pilih / konfirmasi'], ['F12', 'Reset keranjang']] as [key, label] (key)}
+				{#each [
+					['F1', 'Panduan ini'], ['ESC', 'Tutup / batal'], 
+					['F3', 'Cari barang'], ['Tab', 'Fokus ke kanan'], 
+					['F7', 'Riwayat transaksi'], ['Shift+Tab', 'Fokus ke kiri'], 
+					['F8', 'Retur penjualan'], ['↑ ↓', 'Navigasi item'],
+					['F10', 'Proses bayar'], ['← →', 'Qty − / +'],
+					['F11', 'Buka / tutup shift'], ['ENTER', 'Pilih / konfirmasi'], 
+					['F12', 'Reset keranjang']] as [key, label] (key)}
 					<div class="flex items-center gap-3">
 						<span
 							class="w-20 shrink-0 rounded px-2 py-1 text-center font-mono text-xs"
