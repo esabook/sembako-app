@@ -7,7 +7,7 @@ import {
   penjualan, penjualan_detail,
   barang, mutasi_stok,
   piutang_pelanggan, jurnal_kas, kas_bank,
-  pelanggan,
+  pelanggan, karyawan,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -74,6 +74,8 @@ penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
       tanggal: penjualan.tanggal,
       tipe: penjualan.tipe,
       kasir_id: penjualan.kasir_id,
+      kasir_nama: karyawan.nama,
+      kode_karyawan: karyawan.kode_karyawan,
       subtotal: penjualan.subtotal,
       diskon_total: penjualan.diskon_total,
       total: penjualan.total,
@@ -84,6 +86,7 @@ penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
     })
     .from(penjualan)
     .leftJoin(pelanggan, eq(penjualan.pelanggan_id, pelanggan.id))
+    .leftJoin(karyawan, eq(penjualan.kasir_id, karyawan.id))
     .where(eq(penjualan.id, id))
     .get()
   if (!trx) throw new HTTPException(404, { message: 'Transaksi tidak ditemukan' })

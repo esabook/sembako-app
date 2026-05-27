@@ -111,6 +111,7 @@
 			noTransaksi:   $noTransaksi,
 			waktu:         $checkoutTime,
 			kasirNama:     page.data.user?.nama ?? '',
+			kasirKode:     page.data.user?.kode_karyawan ?? null,
 			pelangganNama: strukPelanggan?.nama ?? null,
 			items: strukItems.map((i) => ({
 				nama:        i.nama_barang ?? '-',
@@ -218,7 +219,8 @@
 			footer:        strFooter,
 			noTransaksi:   d.no_transaksi,
 			waktu:         new Date(d.tanggal),
-			kasirNama:     '',
+			kasirNama:     d.kasir_nama ?? '',
+			kasirKode:     d.kode_karyawan ?? null,
 			pelangganNama: d.nama_pelanggan,
 			items: d.items.map((i) => ({
 				nama:       i.nama_barang ?? '-',

@@ -23,6 +23,7 @@ export type StrukData = {
 	noTransaksi: string
 	waktu: Date
 	kasirNama: string
+	kasirKode?: string | null
 	pelangganNama?: string | null
 	// Barang
 	items: StrukItem[]
@@ -106,7 +107,7 @@ ${headerLines}
 ${d.noTransaksi ? `<div style="text-align:center;font-size:8pt;color:#666;margin-top:2px">No: ${escHtml(d.noTransaksi)}</div>` : ''}
 <hr>
 <div style="font-size:8.5pt">Tgl : ${waktuStr}</div>
-${d.kasirNama ? `<div style="font-size:8.5pt">Ksr : ${escHtml(d.kasirNama)}</div>` : ''}
+${d.kasirNama ? `<div style="font-size:8.5pt">Ksr : ${d.kasirKode ? escHtml(d.kasirKode) + ' ' : ''}${escHtml(d.kasirNama)}</div>` : ''}
 ${d.pelangganNama ? `<div style="font-size:8.5pt">Pelanggan: <b>${escHtml(d.pelangganNama)}</b></div>` : ''}
 <hr>
 ${itemsHtml}

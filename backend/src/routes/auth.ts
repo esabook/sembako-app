@@ -18,6 +18,7 @@ export type JWTPayload = {
   id: number
   nama: string
   role: Role
+  kode_karyawan: string
   iat?: number
   exp?: number
 }
@@ -51,6 +52,7 @@ authRouter.post('/login', async (c) => {
     id: user.id,
     nama: user.nama,
     role: user.role,
+    kode_karyawan: user.kode_karyawan,
   }
 
   const token = await new SignJWT(payload as Record<string, unknown>)
@@ -68,7 +70,7 @@ authRouter.post('/login', async (c) => {
 
   return c.json({
     success: true,
-    data: { id: user.id, nama: user.nama, role: user.role },
+    data: { id: user.id, nama: user.nama, role: user.role, kode_karyawan: user.kode_karyawan },
   })
 })
 
@@ -81,6 +83,6 @@ authRouter.get('/me', authMiddleware, (c) => {
   const user = c.get('user') as JWTPayload
   return c.json({
     success: true,
-    data: { id: user.id, nama: user.nama, role: user.role },
+    data: { id: user.id, nama: user.nama, role: user.role, kode_karyawan: user.kode_karyawan },
   })
 })

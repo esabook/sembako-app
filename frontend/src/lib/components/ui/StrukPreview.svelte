@@ -55,7 +55,7 @@
 	<!-- 3. Tanggal, kasir, pelanggan ───────────────────────────────────── -->
 	<div style="font-size:0.85em">Tgl : {waktuStr}</div>
 	{#if data.kasirNama}
-		<div style="font-size:0.85em">Ksr : {data.kasirNama}</div>
+		<div style="font-size:0.85em">Ksr : {data.kasirKode ? data.kasirKode + ' ' : ''}{data.kasirNama}</div>
 	{/if}
 	{#if data.pelangganNama}
 		<div style="font-size:0.85em">Pelanggan: <strong>{data.pelangganNama}</strong></div>

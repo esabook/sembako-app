@@ -53,6 +53,8 @@ export type HistoriItem = {
 export type HistoriDetail = HistoriPenjualan & {
 	pelanggan_id: number | null;
 	nama_pelanggan: string | null;
+	kasir_nama: string | null;
+	kode_karyawan: string | null;
 	subtotal: number;
 	diskon_total: number;
 	bayar: number;

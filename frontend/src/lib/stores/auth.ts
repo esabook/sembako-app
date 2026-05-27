@@ -6,6 +6,7 @@ export type User = {
   id: number
   nama: string
   role: Role
+  kode_karyawan?: string
 }
 
 export const user = writable<User | null>(null)

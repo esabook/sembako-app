@@ -15,6 +15,7 @@
 	let ukuran   = $state<'58' | '80'>('80')
 
 	const kasirNama = $derived($user?.nama ?? 'Kasir')
+	const kasirKode = $derived($user?.kode_karyawan ?? null)
 
 	// ── Sample data (angka tetap, mudah dibaca) ───────────────────────────────
 	const SUBTOTAL_KOTOR = 5 * 3500 + 2 * 4000 + 3 * 5000  // 40.500
@@ -36,6 +37,7 @@
 		noTransaksi: 'TRX-' + new Date().toLocaleDateString('sv-SE').replace(/-/g, '') + '-0001',
 		waktu:       new Date(),
 		kasirNama,
+		kasirKode,
 		pelangganNama: null,
 		items: [
 			{ nama: 'Indomie Goreng',  qty: 5, satuan: 'pcs', harga: 3500, diskon_item: 0           },
