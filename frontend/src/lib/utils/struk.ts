@@ -67,29 +67,32 @@ function rp(n: number): string {
 }
 
 // ── HTML renderer (untuk print popup) ─────────────────────────────────────
+// Struktur & style harus identik dengan StrukPreview.svelte.
+// Pakai satuan em (relatif) agar ukuran 58mm vs 80mm otomatis menyesuaikan.
 
 export function renderStrukHtml(d: StrukData): string {
-	const lebar    = d.ukuran === '58' ? '58mm' : '80mm'
-	const waktuStr = formatWaktuStruk(d.waktu)
-	const totalQty = d.items.reduce((s, i) => s + i.qty, 0)
+	const lebar        = d.ukuran === '58' ? '58mm' : '80mm'
+	const baseFontSize = d.ukuran === '58' ? '8.5pt' : '9.5pt'
+	const waktuStr     = formatWaktuStruk(d.waktu)
+	const totalQty     = d.items.reduce((s, i) => s + i.qty, 0)
 
+	// 1 baris per item: [nama | qty | harga | subtotal] — sama dengan preview
 	const itemsHtml = d.items
-		.map(
-			(item) => `
-<div style="font-weight:600">${escHtml(item.nama)}</div>
-<div style="display:flex;justify-content:space-between;font-size:8.5pt;color:#444">
-  <span>${item.qty}${item.satuan ? ' ' + escHtml(item.satuan) : ''} &times; ${rp(item.harga)}</span>
-  <span style="color:#000">${rp(item.qty * item.harga - item.diskon_item)}</span>
-</div>
-${item.diskon_item > 0 ? `<div style="font-size:8pt;color:#b36000">&nbsp;&nbsp;diskon &minus;${rp(item.diskon_item)}</div>` : ''}`
+		.map((item) =>
+			`<div style="display:flex;justify-content:space-between;">` +
+			`<span>${escHtml(item.nama.slice(0, 20))}</span>` +
+			`<span>${item.qty}</span>` +
+			`<span>${rp(item.harga)}</span>` +
+			`<span>${rp(item.qty * item.harga - item.diskon_item)}</span>` +
+			`</div>`
 		)
 		.join('')
 
 	const headerLines = d.header
-		? d.header.split('\n').map((b) => `<div style="text-align:center;font-size:8pt">${escHtml(b)}</div>`).join('')
+		? d.header.split('\n').map((b) => `<div style="text-align:center;font-size:0.85em">${escHtml(b)}</div>`).join('')
 		: ''
 	const footerLines = d.footer
-		? d.footer.split('\n').map((b) => `<div style="text-align:center;font-size:8pt">${escHtml(b)}</div>`).join('')
+		? d.footer.split('\n').map((b) => `<div style="text-align:center;font-size:0.85em">${escHtml(b)}</div>`).join('')
 		: ''
 
 	return `<!DOCTYPE html>
@@ -97,39 +100,37 @@ ${item.diskon_item > 0 ? `<div style="font-size:8pt;color:#b36000">&nbsp;&nbsp;d
 <style>
 @page{size:${lebar} auto;margin:4mm 5mm}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Courier New',Courier,monospace;font-size:9.5pt;color:#000;width:100%}
-hr{border:none;border-top:1px dashed #000;margin:5px 0}
+body{font-family:'Courier New',Courier,monospace;font-size:${baseFontSize};color:#000;width:100%}
+hr{border:none;border-top:1px dashed #000;margin:4px 0}
 .row{display:flex;justify-content:space-between}
 </style></head><body>
-<div style="text-align:center;font-weight:bold;font-size:12pt">${escHtml(d.namaToko)}</div>
-${d.alamat ? `<div style="text-align:center;font-size:8pt">${escHtml(d.alamat)}</div>` : ''}
+<div style="text-align:center;font-weight:bold;font-size:1.1em;margin-bottom:2px">${escHtml(d.namaToko)}</div>
+${d.alamat ? `<div style="text-align:center;font-size:0.85em;color:#555;margin-bottom:2px">${escHtml(d.alamat)}</div>` : ''}
 ${headerLines}
-${d.noTransaksi ? `<div style="text-align:center;font-size:8pt;color:#666;margin-top:2px">No: ${escHtml(d.noTransaksi)}</div>` : ''}
+${d.noTransaksi ? `<div style="text-align:center;font-size:0.8em;color:#666;margin-top:2px">${escHtml(d.noTransaksi)}</div>` : ''}
 <hr>
-<div style="font-size:8.5pt">Tgl : ${waktuStr}</div>
-${d.kasirNama ? `<div style="font-size:8.5pt">Ksr : ${d.kasirKode ? escHtml(d.kasirKode) + ' ' : ''}${escHtml(d.kasirNama)}</div>` : ''}
-${d.pelangganNama ? `<div style="font-size:8.5pt">Pelanggan: <b>${escHtml(d.pelangganNama)}</b></div>` : ''}
+<div style="font-size:0.85em">Tgl : ${waktuStr}</div>
+${d.kasirNama ? `<div style="font-size:0.85em">Ksr : ${d.kasirKode ? escHtml(d.kasirKode) + ' ' : ''}${escHtml(d.kasirNama)}</div>` : ''}
+${d.pelangganNama ? `<div style="font-size:0.85em">Pelanggan: <b>${escHtml(d.pelangganNama)}</b></div>` : ''}
 <hr>
 ${itemsHtml}
 <hr>
-<div class="row" style="font-size:8.5pt"><span>Total Qty</span><span>${totalQty}</span></div>
-<div class="row" style="font-size:8.5pt"><span>Subtotal</span><span>${rp(d.subtotalKotor)}</span></div>
-${d.diskonItem > 0 ? `<div class="row" style="font-size:8.5pt;color:#b36000"><span>Diskon item</span><span>&minus;${rp(d.diskonItem)}</span></div>` : ''}
-${d.diskonLain > 0 ? `<div class="row" style="font-size:8.5pt;color:#b36000"><span>Diskon</span><span>&minus;${rp(d.diskonLain)}</span></div>` : ''}
-${d.ppn > 0 ? `<div class="row" style="font-size:8.5pt"><span>PPN 10%</span><span>${rp(d.ppn)}</span></div>` : ''}
-<div class="row" style="font-weight:bold;font-size:11pt;margin-top:2px">
+<div class="row" style="font-size:0.88em"><span>Total Qty</span><span>${totalQty}</span></div>
+<div class="row" style="font-size:0.88em"><span>Subtotal</span><span>${rp(d.subtotalKotor)}</span></div>
+${d.diskonItem > 0 ? `<div class="row" style="font-size:0.88em"><span>Diskon item</span><span>&minus;${rp(d.diskonItem)}</span></div>` : ''}
+${d.diskonLain > 0 ? `<div class="row" style="font-size:0.88em"><span>Diskon</span><span>&minus;${rp(d.diskonLain)}</span></div>` : ''}
+${d.ppn > 0 ? `<div class="row" style="font-size:0.88em"><span>PPN 10%</span><span>${rp(d.ppn)}</span></div>` : ''}
+<div class="row" style="font-weight:bold;font-size:1.1em;margin-top:2px">
   <span>TOTAL</span><span>Rp ${rp(d.total)}</span>
 </div>
-<hr>
-<div class="row" style="font-size:8.5pt">
+<div class="row" style="font-size:0.88em;margin-top:2px">
   <span>${escHtml(METODE_LABEL_STRUK[d.metode] ?? d.metode)}</span><span>${rp(d.nominal)}</span>
 </div>
-<div class="row" style="font-size:8.5pt">
+<div class="row" style="font-size:0.88em">
   <span>Kembali</span><span>${rp(d.kembali)}</span>
 </div>
-${d.metode === 'hutang' ? '<div style="text-align:center;font-weight:bold;font-size:8.5pt;margin-top:3px">[ TRANSAKSI HUTANG ]</div>' : ''}
-<hr>
-${footerLines}
+${d.metode === 'hutang' ? '<div style="text-align:center;font-weight:bold;font-size:0.85em;margin-top:3px">[ TRANSAKSI HUTANG ]</div>' : ''}
+${d.footer ? `<hr>${footerLines}` : ''}
 </body></html>`
 }
 
