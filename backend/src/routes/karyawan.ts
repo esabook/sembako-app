@@ -288,22 +288,34 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
 
   const hash = await Bun.password.hash(body.password)
 
-  const row = db.insert(karyawan).values({
-    kode_karyawan: body.kode_karyawan.trim(),
-    nama: body.nama.trim(),
-    role: body.role,
-    username: body.username.trim(),
-    password_hash: hash,
-    gaji_pokok: body.gaji_pokok ?? 0,
-    tipe_gaji: body.tipe_gaji ?? 'bulanan',
-    kontak: body.kontak,
-  }).returning({
-    id: karyawan.id,
-    kode_karyawan: karyawan.kode_karyawan,
-    nama: karyawan.nama,
-    role: karyawan.role,
-    username: karyawan.username,
-  }).get()
+  let row
+  try {
+    row = db.insert(karyawan).values({
+      kode_karyawan: body.kode_karyawan.trim(),
+      nama: body.nama.trim(),
+      role: body.role,
+      username: body.username.trim(),
+      password_hash: hash,
+      gaji_pokok: body.gaji_pokok ?? 0,
+      tipe_gaji: body.tipe_gaji ?? 'bulanan',
+      kontak: body.kontak,
+    }).returning({
+      id: karyawan.id,
+      kode_karyawan: karyawan.kode_karyawan,
+      nama: karyawan.nama,
+      role: karyawan.role,
+      username: karyawan.username,
+    }).get()
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes('UNIQUE constraint failed: karyawan.kode_karyawan')) {
+      throw new HTTPException(409, { message: 'Kode karyawan sudah digunakan' })
+    }
+    if (msg.includes('UNIQUE constraint failed: karyawan.username')) {
+      throw new HTTPException(409, { message: 'Username sudah digunakan' })
+    }
+    throw e
+  }
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -333,13 +345,25 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
     delete (updates as Record<string, unknown>).password
   }
 
-  const row = db.update(karyawan).set(updates).where(eq(karyawan.id, id)).returning({
-    id: karyawan.id,
-    kode_karyawan: karyawan.kode_karyawan,
-    nama: karyawan.nama,
-    role: karyawan.role,
-    username: karyawan.username,
-  }).get()
+  let row
+  try {
+    row = db.update(karyawan).set(updates).where(eq(karyawan.id, id)).returning({
+      id: karyawan.id,
+      kode_karyawan: karyawan.kode_karyawan,
+      nama: karyawan.nama,
+      role: karyawan.role,
+      username: karyawan.username,
+    }).get()
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    if (msg.includes('UNIQUE constraint failed: karyawan.kode_karyawan')) {
+      throw new HTTPException(409, { message: 'Kode karyawan sudah digunakan' })
+    }
+    if (msg.includes('UNIQUE constraint failed: karyawan.username')) {
+      throw new HTTPException(409, { message: 'Username sudah digunakan' })
+    }
+    throw e
+  }
 
   return c.json({ success: true, data: row })
 })
