@@ -155,6 +155,7 @@ export const konfirmasiHapusIdx = writable<number | null>(null);
 export const popupSearch        = writable(false);
 export const popupCheckout      = writable(false);
 export const snap               = writable<Snap | null>(null);
+export const noTransaksi        = writable<string>('');   // no. trx terakhir selesai
 export const checkoutTime       = writable(new Date());
 
 export const scanSessionId  = writable('');
@@ -390,6 +391,7 @@ export async function prosesBayar() {
 
 	if (!hasil) return;
 
+	const noTrx = hasil.no_transaksi;
 	snap.set({
 		items: [...$keranjang],
 		subtotal: get(subtotal),
@@ -400,9 +402,10 @@ export async function prosesBayar() {
 		kembalian: get(kembalian),
 		pelanggan: $pelanggan,
 		tipe: $tipe,
-		noTransaksi: hasil.no_transaksi,
+		noTransaksi: noTrx,
 		waktu: $waktu,
 	});
+	noTransaksi.set(noTrx);
 	incrementTrxCount();
 	void deleteDraft().catch(() => {});
 	draftStatus.set('idle');
