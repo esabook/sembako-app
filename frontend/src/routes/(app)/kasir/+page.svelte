@@ -1418,7 +1418,7 @@
 
 			<!-- ── Kolom 2: Preview Struk ── -->
 			<div
-				class="flex w-64 shrink-0 flex-col border-l"
+				class="hidden w-64 shrink-0 flex-col border-l sm:flex"
 				style="border-color:var(--border);background:var(--surface2)"
 			>
 				<div class="flex-1 overflow-auto p-2">
