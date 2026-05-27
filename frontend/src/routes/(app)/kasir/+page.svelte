@@ -44,7 +44,6 @@
 		cariBarang,
 		openSearch,
 		closeSearch,
-		scanDariPhone,
 		tambahKeKeranjang,
 		ubahJumlah,
 		hapusItem,
@@ -149,7 +148,6 @@
 
 	// ── DOM refs ──────────────────────────────────────────────────────────────
 	let searchInputEl: HTMLInputElement | undefined = $state();
-	let pelangganInputEl: HTMLInputElement | undefined = $state();
 	let bayarInputEl: HTMLInputElement | undefined = $state();
 	let helpCloseBtnEl: HTMLButtonElement | undefined = $state();
 	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
@@ -169,7 +167,6 @@
 	let historiList = $state<HistoriPenjualan[]>([]);
 	let historiDetail = $state<HistoriDetail | null>(null);
 	let historiLoading = $state(false);
-	let historiDetailLoading = $state(false);
 
 	// ── Refresh stok menipis setelah checkout berhasil ───────────────────────
 	$effect(() => {
@@ -193,13 +190,10 @@
 	}
 
 	async function pilihHistori(id: number) {
-		historiDetailLoading = true;
 		try {
 			historiDetail = await fetchDetailPenjualan(id);
 		} catch {
 			toast.error('Gagal memuat detail transaksi');
-		} finally {
-			historiDetailLoading = false;
 		}
 	}
 
@@ -1227,7 +1221,6 @@
 							{:else}
 								<div class="relative">
 									<input
-										bind:this={pelangganInputEl}
 										type="text"
 										placeholder="Cari nama/kartu pelanggan (min. 3 karakter)"
 										value={$pelangganQuery}
