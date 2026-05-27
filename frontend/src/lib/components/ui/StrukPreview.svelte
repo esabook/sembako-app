@@ -2,7 +2,8 @@
 	import type { StrukData } from '$lib/utils/struk'
 	import { formatWaktuStruk, METODE_LABEL_STRUK } from '$lib/utils/struk'
 
-	let { data }: { data: StrukData } = $props()
+	type Props = { data: StrukData; width?: string }
+	let { data, width }: Props = $props()
 
 	const totalQty  = $derived(data.items.reduce((s, i) => s + i.qty, 0))
 	const waktuStr  = $derived(formatWaktuStruk(data.waktu))
@@ -27,7 +28,7 @@
 		color:#000;
 		font-family:'Courier New',Courier,monospace;
 		font-size:{data.ukuran === '58' ? '8.5pt' : '9.5pt'};
-		width:{data.ukuran === '58' ? '200px' : '260px'};
+		width:{width ?? (data.ukuran === '58' ? '200px' : '260px')};
 		box-shadow:0 2px 8px rgba(0,0,0,.15);
 	"
 >
@@ -45,7 +46,7 @@
 	{/if}
 
 	{#if data.noTransaksi}
-		<div style="text-align:center;font-size:0.8em;color:#666;margin-top:2px">No: {data.noTransaksi}</div>
+		<div style="text-align:center;font-size:0.8em;color:#666;margin-top:2px">{data.noTransaksi}</div>
 	{/if}
 
 	<!-- 2. Dash ──────────────────────────────────────────────────────────── -->
@@ -65,14 +66,12 @@
 
 	<!-- 5. Barang ──────────────────────────────────────────────────────── -->
 	{#each data.items as item (item.nama)}
-		<div style="font-weight:600">{item.nama}</div>
-		<div style="display:flex;justify-content:space-between;font-size:0.88em;color:#444">
-			<span>{item.qty}{item.satuan ? ' ' + item.satuan : ''} × {rp(item.harga)}</span>
-			<span style="color:#000">{rp(item.qty * item.harga - item.diskon_item)}</span>
+		<div style="display:flex;justify-content:space-between;">
+		<span>{item.nama.slice(0, 20)}</span>
+		<span>{item.qty}</span>
+		<span>{rp(item.harga)}</span>
+		<span>{rp(item.qty * item.harga - item.diskon_item)}</span>
 		</div>
-		{#if item.diskon_item > 0}
-			<div style="font-size:0.82em;color:#b36000">&nbsp;&nbsp;diskon &minus;{rp(item.diskon_item)}</div>
-		{/if}
 	{/each}
 
 	<!-- 6. Dash ──────────────────────────────────────────────────────────── -->
@@ -87,13 +86,13 @@
 	</div>
 
 	{#if data.diskonItem > 0}
-		<div style="display:flex;justify-content:space-between;font-size:0.88em;color:#b36000">
+		<div style="display:flex;justify-content:space-between;font-size:0.88em;">
 			<span>Diskon item</span><span>&minus;{rp(data.diskonItem)}</span>
 		</div>
 	{/if}
 
 	{#if data.diskonLain > 0}
-		<div style="display:flex;justify-content:space-between;font-size:0.88em;color:#b36000">
+		<div style="display:flex;justify-content:space-between;font-size:0.88em;">
 			<span>Diskon</span><span>&minus;{rp(data.diskonLain)}</span>
 		</div>
 	{/if}

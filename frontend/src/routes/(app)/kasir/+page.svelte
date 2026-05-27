@@ -10,7 +10,6 @@
 		nominalBayar,
 		itemAktifIdx,
 		subtotal,
-		diskonMember,
 		diskonTotal,
 		total,
 		kembalian,
@@ -68,10 +67,11 @@
 		restoreDraft,
 		resetKasirDenganDraft
 	} from './kasir.store';
-	import { rupiah, formatTgl, formatJam, METODE, METODE_LABEL } from './kasir.logic';
+	import { rupiah, METODE, METODE_LABEL } from './kasir.logic';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
+	import StrukPreview from '$lib/components/ui/StrukPreview.svelte';
 	import {
 		fetchHistoriPenjualan,
 		fetchDetailPenjualan,
@@ -92,14 +92,44 @@
 	let strUkuran = $state('80');
 
 	// ── Derived (struk: live atau dari snapshot) ──────────────────────────────
-	const strukItems = $derived($snap?.items ?? $keranjang);
+	const strukItems    = $derived($snap?.items ?? $keranjang);
 	const strukSubtotal = $derived($snap?.subtotal ?? $subtotal);
-	const strukDiskon = $derived($snap?.diskon ?? $diskonMember);
-	const strukTotal = $derived($snap?.total ?? $total);
-	const strukMetode = $derived($snap?.metode ?? $metodeBayar);
-	const strukNominal = $derived($snap ? $snap.nominal : $nominalBayar);
-	const strukKembali = $derived($snap ? $snap.kembalian : $kembalian);
+	const strukTotal    = $derived($snap?.total ?? $total);
+	const strukMetode   = $derived($snap?.metode ?? $metodeBayar);
+	const strukNominal  = $derived($snap ? $snap.nominal : $nominalBayar);
+	const strukKembali  = $derived($snap ? $snap.kembalian : $kembalian);
 	const strukPelanggan = $derived($snap?.pelanggan ?? $pelangganDipilih);
+
+	// ── StrukData reaktif — dipakai preview sidebar & fungsi cetak ────────────
+	const liveStrukData: StrukData = $derived.by(() => {
+		const diskonItem = strukItems.reduce((s, i) => s + i.diskon_item, 0)
+		return {
+			ukuran:        strUkuran as '58' | '80',
+			namaToko,
+			alamat:        alamatToko,
+			header:        strHeader,
+			footer:        strFooter,
+			noTransaksi:   $noTransaksi,
+			waktu:         $checkoutTime,
+			kasirNama:     page.data.user?.nama ?? '',
+			pelangganNama: strukPelanggan?.nama ?? null,
+			items: strukItems.map((i) => ({
+				nama:        i.nama_barang ?? '-',
+				qty:         i.jumlah,
+				satuan:      i.singkatan_satuan ?? null,
+				harga:       i.harga_jual,
+				diskon_item: i.diskon_item,
+			})),
+			subtotalKotor: strukSubtotal,
+			diskonItem,
+			diskonLain:    Math.max(0, strukSubtotal - diskonItem - strukTotal),
+			ppn:           0,
+			total:         strukTotal,
+			metode:        strukMetode,
+			nominal:       strukNominal,
+			kembali:       strukKembali,
+		}
+	});
 
 	// ── Mode GUIDED / NORMAL / PRO ────────────────────────────────────────────
 	const MODE_ORDER: KasirMode[] = ['guided', 'normal', 'pro'];
@@ -568,39 +598,11 @@
 		toast.sukses('Shift ditutup');
 	}
 
-	// ── Cetak struk (popup window, thermal receipt) ──────────────────────────
+	// ── Cetak struk — pakai liveStrukData yang sama dengan preview sidebar ───
 	function cetakStruk() {
-		const diskonItem = strukItems.reduce((s, i) => s + i.diskon_item, 0);
-		// diskonLain = semua diskon selain per-item (member + promo)
-		const diskonLain = Math.max(0, strukSubtotal - diskonItem - strukTotal);
-		const data: StrukData = {
-			ukuran:        strUkuran as '58' | '80',
-			namaToko,
-			alamat:        alamatToko,
-			header:        strHeader,
-			footer:        strFooter,
-			noTransaksi:   $noTransaksi,
-			waktu:         $checkoutTime,
-			kasirNama:     page.data.user?.nama ?? '',
-			pelangganNama: strukPelanggan?.nama ?? null,
-			items: strukItems.map((i) => ({
-				nama:        i.nama_barang ?? '-',
-				qty:         i.jumlah,
-				satuan:      i.singkatan_satuan ?? null,
-				harga:       i.harga_jual,
-				diskon_item: i.diskon_item,
-			})),
-			subtotalKotor: strukSubtotal,
-			diskonItem,
-			diskonLain,
-			ppn:     0,
-			total:   strukTotal,
-			metode:  strukMetode,
-			nominal: strukNominal,
-			kembali: strukKembali,
-		};
-		cetakStrukPopup(renderStrukHtml(data), () =>
-			toast.error('Popup diblokir browser — izinkan popup untuk halaman ini')
+		cetakStrukPopup(
+			renderStrukHtml(liveStrukData),
+			() => toast.error('Popup diblokir browser — izinkan popup untuk halaman ini')
 		);
 	}
 
@@ -1416,88 +1418,11 @@
 
 			<!-- ── Kolom 2: Preview Struk ── -->
 			<div
-				class="flex w-60 shrink-0 flex-col border-l"
+				class="flex w-64 shrink-0 flex-col border-l"
 				style="border-color:var(--border);background:var(--surface2)"
 			>
-				<div
-					class="flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed"
-					style="color:var(--text)"
-				>
-					<div class="mb-2 text-center">
-						<div class="text-sm font-bold tracking-widest">Stokasir</div>
-						<div class="text-xs" style="color:var(--text-dim)">
-							{formatTgl($checkoutTime)} · {formatJam($checkoutTime)}
-						</div>
-						{#if strukPelanggan}
-							<div class="mt-0.5" style="color:var(--accent)">{strukPelanggan.nama}</div>
-						{/if}
-					</div>
-
-					<div
-						class="my-2 border-t border-dashed"
-						style="border-color:var(--text-dim);opacity:0.3"
-					></div>
-
-					{#each strukItems as item (`${item.barang_id}-${item.tipe_harga}`)}
-						<div class="mb-1.5">
-							<div class="truncate font-medium">{item.nama_barang}</div>
-							<div class="flex justify-between" style="color:var(--text-dim)">
-								<span>{item.jumlah} × {rupiah(item.harga_jual)}</span>
-								<span style="color:var(--text)"
-									>{rupiah(item.harga_jual * item.jumlah - item.diskon_item)}</span
-								>
-							</div>
-							{#if item.diskon_item > 0}
-								<div class="text-left" style="color:var(--accent)">−{rupiah(item.diskon_item)}</div>
-							{/if}
-						</div>
-					{/each}
-
-					<div
-						class="my-2 border-t border-dashed"
-						style="border-color:var(--text-dim);opacity:0.3"
-					></div>
-
-					{#if strukDiskon > 0}
-						<div class="mb-1 flex justify-between" style="color:var(--accent)">
-							<span>Diskon member</span>
-							<span>−{rupiah(strukDiskon)}</span>
-						</div>
-					{/if}
-
-					<div class="flex justify-between text-sm font-bold">
-						<span>TOTAL</span>
-						<span style="color:var(--accent)">Rp {rupiah(strukTotal)}</span>
-					</div>
-
-					<div class="mt-1 flex flex-col gap-0.5" style="color:var(--text-dim)">
-						<div class="flex justify-between">
-							<span>{METODE_LABEL[strukMetode]}</span>
-							<span>{rupiah(strukNominal)}</span>
-						</div>
-						<div class="flex justify-between">
-							<span>Kembali</span>
-							<span style="color:var(--text)">{rupiah(strukKembali)}</span>
-						</div>
-					</div>
-
-					{#if strukMetode === 'hutang'}
-						<div class="mt-1 text-center text-xs font-bold" style="color:var(--warn)">
-							── HUTANG ──
-						</div>
-					{/if}
-
-					<div
-						class="my-2 border-t border-dashed"
-						style="border-color:var(--text-dim);opacity:0.3"
-					></div>
-					<div class="text-center" style="color:var(--text-dim)">Terima kasih</div>
-
-					{#if $snap}
-						<div class="mt-1 text-center text-xs" style="color:var(--accent)">
-							{$snap.noTransaksi}
-						</div>
-					{/if}
+				<div class="flex-1 overflow-auto p-2">
+					<StrukPreview data={liveStrukData} width="100%" />
 				</div>
 
 				<!-- cetak / wa -->
