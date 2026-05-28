@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, isNotNull } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
 import { karyawan, absensi, jadwal_kerja, tipe_shift } from '../db/schema.ts'
@@ -17,41 +17,40 @@ function diffMenit(jamA: string, jamB: string): number {
   return (hb * 60 + mb) - (ha * 60 + ma)
 }
 
-// POST /absensi-kiosk/check-pin
+// GET /absensi-kiosk/karyawan — daftar karyawan aktif yang sudah punya PIN (publik)
+absensiKioskRouter.get('/karyawan', (c) => {
+  const list = db
+    .select({ id: karyawan.id, nama: karyawan.nama })
+    .from(karyawan)
+    .where(and(eq(karyawan.is_active, true), isNotNull(karyawan.pin_absensi)))
+    .orderBy(karyawan.nama)
+    .all()
+  return c.json({ success: true, data: list })
+})
+
+// POST /absensi-kiosk/check-pin — verifikasi PIN untuk karyawan tertentu
 absensiKioskRouter.post('/check-pin', async (c) => {
-  const body = await c.req.json<{ pin?: string }>()
+  const body = await c.req.json<{ karyawan_id?: number; pin?: string }>()
   const pin = body.pin ?? ''
+  if (!body.karyawan_id) throw new HTTPException(400, { message: 'karyawan_id wajib' })
   if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
     throw new HTTPException(400, { message: 'PIN harus 4 digit angka' })
   }
 
-  const aktifList = db
-    .select({
-      id: karyawan.id,
-      nama: karyawan.nama,
-      role: karyawan.role,
-      pin_absensi: karyawan.pin_absensi,
-    })
+  const k = db
+    .select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role, pin_absensi: karyawan.pin_absensi })
     .from(karyawan)
-    .where(eq(karyawan.is_active, true))
-    .all()
+    .where(and(eq(karyawan.id, body.karyawan_id), eq(karyawan.is_active, true)))
+    .get()
 
-  let matched: typeof aktifList[0] | undefined
-  for (const k of aktifList) {
-    if (!k.pin_absensi) continue
-    if (await Bun.password.verify(pin, k.pin_absensi)) {
-      matched = k
-      break
-    }
-  }
-
-  if (!matched) throw new HTTPException(401, { message: 'PIN tidak valid' })
+  if (!k || !k.pin_absensi) throw new HTTPException(401, { message: 'PIN tidak valid' })
+  if (!await Bun.password.verify(pin, k.pin_absensi)) throw new HTTPException(401, { message: 'PIN salah' })
 
   const { tanggal } = getWaktuJakarta()
   const existing = db
     .select({ jam_masuk: absensi.jam_masuk, jam_keluar: absensi.jam_keluar })
     .from(absensi)
-    .where(and(eq(absensi.karyawan_id, matched.id), eq(absensi.tanggal, tanggal)))
+    .where(and(eq(absensi.karyawan_id, k.id), eq(absensi.tanggal, tanggal)))
     .get()
 
   let status_hari_ini: 'belum' | 'masuk' | 'selesai'
@@ -61,7 +60,7 @@ absensiKioskRouter.post('/check-pin', async (c) => {
 
   return c.json({
     success: true,
-    data: { id: matched.id, nama: matched.nama, role: matched.role, status_hari_ini },
+    data: { id: k.id, nama: k.nama, role: k.role, status_hari_ini },
   })
 })
 
