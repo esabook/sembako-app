@@ -55,8 +55,20 @@ app.onError((err, c) => {
   if (err instanceof HTTPException) {
     return c.json({ success: false, error: err.message }, err.status)
   }
+  const msg = err instanceof Error ? err.message : String(err)
+  if (msg.includes('UNIQUE constraint failed')) {
+    const kolom = msg.match(/UNIQUE constraint failed: \w+\.(\w+)/)?.[1] ?? 'data'
+    return c.json({ success: false, error: `${kolom} sudah digunakan` }, 409)
+  }
+  if (msg.includes('FOREIGN KEY constraint failed')) {
+    return c.json({ success: false, error: 'Data terkait tidak ditemukan' }, 409)
+  }
+  if (msg.includes('NOT NULL constraint failed')) {
+    const kolom = msg.match(/NOT NULL constraint failed: \w+\.(\w+)/)?.[1] ?? 'field'
+    return c.json({ success: false, error: `${kolom} wajib diisi` }, 400)
+  }
   console.error(err)
-  return c.json({ success: false, error: 'Internal server error' }, 500)
+  return c.json({ success: false, error: 'Terjadi kesalahan server' }, 500)
 })
 
 app.get('/health', (c) => c.json({ success: true, data: { status: 'ok' } }))

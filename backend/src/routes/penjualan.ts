@@ -251,7 +251,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         .where(eq(pelanggan.id, body.pelanggan_id)).get()
 
       if (plg && plg.limit_piutang > 0 && plg.saldo_piutang + total > plg.limit_piutang) {
-        throw new Error(`Limit piutang ${plg.nama} terlampaui`)
+        throw new HTTPException(422, { message: `Limit piutang ${plg.nama} terlampaui` })
       }
 
       db.insert(piutang_pelanggan).values({

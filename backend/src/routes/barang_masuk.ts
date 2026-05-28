@@ -220,11 +220,16 @@ barangMasukRouter.post('/:id/foto', requirePermission('pembelian.buat'), async (
   const filename = `${id}_${Date.now()}.jpg`
   const buf = Buffer.from(await file.arrayBuffer())
 
-  // Invoice disimpan resolusi tinggi (teks faktur harus terbaca)
-  const imgInvoice = await Jimp.fromBuffer(buf)
-  writeFileSync(join(invoiceDir, filename), await imgInvoice.getBuffer(JimpMime.jpeg, { quality: 90 }))
+  let fotoPath: string
+  try {
+    // Invoice disimpan resolusi tinggi (teks faktur harus terbaca)
+    const imgInvoice = await Jimp.fromBuffer(buf)
+    writeFileSync(join(invoiceDir, filename), await imgInvoice.getBuffer(JimpMime.jpeg, { quality: 90 }))
+    fotoPath = `invoice/${filename}`
+  } catch {
+    throw new HTTPException(422, { message: 'Gagal memproses gambar. Pastikan file gambar valid.' })
+  }
 
-  const fotoPath = `invoice/${filename}`
   db.update(barang_masuk)
     .set({ foto_faktur_path: fotoPath })
     .where(eq(barang_masuk.id, id))

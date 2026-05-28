@@ -385,15 +385,21 @@ karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) =
   const filename = `${id}_${Date.now()}.jpg`
   const buf = Buffer.from(await file.arrayBuffer())
 
-  const imgMed = await Jimp.fromBuffer(buf)
-  imgMed.cover({ w: 300, h: 300 })
-  writeFileSync(join(karyawanDir, `med_${filename}`), await imgMed.getBuffer(JimpMime.jpeg, { quality: 85 }))
+  let fotoPath: string
+  try {
+    const imgMed = await Jimp.fromBuffer(buf)
+    imgMed.cover({ w: 300, h: 300 })
+    writeFileSync(join(karyawanDir, `med_${filename}`), await imgMed.getBuffer(JimpMime.jpeg, { quality: 85 }))
 
-  const imgThumb = await Jimp.fromBuffer(buf)
-  imgThumb.cover({ w: 60, h: 60 })
-  writeFileSync(join(karyawanDir, `thumb_${filename}`), await imgThumb.getBuffer(JimpMime.jpeg, { quality: 80 }))
+    const imgThumb = await Jimp.fromBuffer(buf)
+    imgThumb.cover({ w: 60, h: 60 })
+    writeFileSync(join(karyawanDir, `thumb_${filename}`), await imgThumb.getBuffer(JimpMime.jpeg, { quality: 80 }))
 
-  const fotoPath = `karyawan/med_${filename}`
+    fotoPath = `karyawan/med_${filename}`
+  } catch {
+    throw new HTTPException(422, { message: 'Gagal memproses gambar. Pastikan file gambar valid.' })
+  }
+
   db.update(karyawan)
     .set({ foto_path: fotoPath, updated_at: sql`(datetime('now','localtime'))` })
     .where(eq(karyawan.id, id))
