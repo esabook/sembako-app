@@ -22,6 +22,15 @@ export type AbsensiRow = {
   jam_keluar: string | null
   shift: string | null
   status: 'hadir' | 'izin' | 'sakit' | 'alpa'
+  terlambat_menit: number | null
+}
+
+export type RealtimeRow = {
+  id: number
+  karyawan_id: number
+  nama_karyawan: string
+  jam_masuk: string | null
+  terlambat_menit: number | null
 }
 
 export type RekapRow = {

@@ -7,11 +7,11 @@ import type { Column } from '$lib/components/DataTable.svelte'
 import type {
   Karyawan, AbsensiRow, RekapRow, PenggajianRow, KasBank,
   KasbonRow, KasbonStatus, JadwalCicilan, TipeShift, JadwalRow, TukarRow,
-  PerformaRingkasan, PerformaDetail,
+  PerformaRingkasan, PerformaDetail, RealtimeRow,
 } from './karyawan.types'
 import {
   fetchKaryawan, createKaryawan, updateKaryawan, uploadFotoKaryawan, deleteKaryawan,
-  fetchAbsensi, fetchAbsensiRekap, createAbsensi, updateAbsensi, deleteAbsensi,
+  fetchAbsensi, fetchAbsensiRekap, fetchAbsensiRealtime, createAbsensi, updateAbsensi, deleteAbsensi,
   fetchPenggajian, fetchKasBankList, generateGajiApi, updatePenggajian, deletePenggajian,
   fetchKasbon, createKasbon, setujuiKasbonApi, tolakKasbonApi, cairkanKasbonApi,
   cicilKasbonApi, fetchJadwalCicilan, deleteKasbon,
@@ -42,11 +42,12 @@ export function createKaryawanStore() {
 
   const kolAbsensiList: Column[] = [
     ...(isManager ? [{ key: 'nama_karyawan', label: 'Karyawan', minWidth: 120 }] : []),
-    { key: 'tanggal',    label: 'Tanggal', width: 105 },
-    { key: 'jam_masuk',  label: 'Masuk',   width: 75 },
-    { key: 'jam_keluar', label: 'Keluar',  width: 75 },
-    { key: 'durasi',     label: 'Durasi',  width: 80, sortable: false },
-    { key: 'status',     label: 'Status',  width: 90 },
+    { key: 'tanggal',        label: 'Tanggal',   width: 105 },
+    { key: 'jam_masuk',     label: 'Masuk',     width: 75 },
+    { key: 'jam_keluar',    label: 'Keluar',    width: 75 },
+    { key: 'durasi',        label: 'Durasi',    width: 80, sortable: false },
+    { key: 'status',        label: 'Status',    width: 90 },
+    { key: 'terlambat_menit', label: 'Terlambat', width: 90, priority: 2 },
     ...(isManager ? [{ key: 'aksi', label: '', width: 110, sortable: false, hideable: false, align: 'right' as const }] : []),
   ]
 
@@ -89,7 +90,7 @@ export function createKaryawanStore() {
   let loadingKaryawan = $state(false)
   let modalKaryawanOpen = $state(false)
   let editKaryawan    = $state<Partial<Karyawan> | null>(null)
-  let formKaryawan    = $state({ kode_karyawan: '', nama: '', role: 'kasir', username: '', password: '', gaji_pokok: '', tipe_gaji: 'bulanan', kontak: '' })
+  let formKaryawan    = $state({ kode_karyawan: '', nama: '', role: 'kasir', username: '', password: '', gaji_pokok: '', tipe_gaji: 'bulanan', kontak: '', pin_absensi: '' })
   let fotoFile        = $state<File | null>(null)
   let fotoPreview     = $state('')
   let sortKeyKaryawan  = $state('nama')
@@ -131,7 +132,7 @@ export function createKaryawanStore() {
     formKaryawan = {
       kode_karyawan: item?.kode_karyawan ?? '', nama: item?.nama ?? '', role: item?.role ?? 'kasir',
       username: item?.username ?? '', password: '', gaji_pokok: String(item?.gaji_pokok ?? ''),
-      tipe_gaji: item?.tipe_gaji ?? 'bulanan', kontak: item?.kontak ?? '',
+      tipe_gaji: item?.tipe_gaji ?? 'bulanan', kontak: item?.kontak ?? '', pin_absensi: '',
     }
     modalKaryawanOpen = true
   }
@@ -151,6 +152,7 @@ export function createKaryawanStore() {
     }
     if (formKaryawan.password) payload.password = formKaryawan.password
     if (!editKaryawan?.id) payload.password = formKaryawan.password
+    if (typeof formKaryawan.pin_absensi === 'string') payload.pin_absensi = formKaryawan.pin_absensi
 
     let savedId = editKaryawan?.id
     if (editKaryawan?.id) {
@@ -181,6 +183,8 @@ export function createKaryawanStore() {
   }
 
   // ── Tab: Absensi ──────────────────────────────────────────────────────────
+  let realtimeList     = $state<RealtimeRow[]>([])
+  let loadingRealtime  = $state(false)
   let filterBulan      = $state(bulanIni)
   let filterKaryawanId = $state<number | ''>('')
   let absensiList      = $state<AbsensiRow[]>([])
@@ -272,6 +276,14 @@ export function createKaryawanStore() {
     const now = new Date()
     const ok = await withLoading(() => updateAbsensi(absensiHariIni!.id, { jam_keluar: now.toTimeString().slice(0, 5) }), { loadingKey: 'absensi-clockout', loadingPesan: 'Clock out...', modul: 'karyawan', aksi: 'clock_out', errorPesan: 'Gagal clock out' })
     if (ok !== null) muatAbsensi()
+  }
+
+  async function muatRealtime() {
+    if (!isManager) return
+    loadingRealtime = true
+    const hasil = await withLoading(() => fetchAbsensiRealtime(), { loadingKey: 'absensi-realtime', loadingPesan: 'Memuat realtime...', modul: 'karyawan', aksi: 'muat_realtime', errorPesan: 'Gagal memuat data realtime' })
+    if (hasil) realtimeList = hasil
+    loadingRealtime = false
   }
 
   function exportRekapCsv() {
@@ -631,7 +643,9 @@ export function createKaryawanStore() {
     get absensiHariIni() { return absensiHariIni },
     get sortedAbsensi()  { return sortedAbsensi },
     get sortedRekap()    { return sortedRekap },
-    muatAbsensi, bukaFormAbsensi, simpanAbsensi, hapusAbsensi, clockIn, clockOut, exportRekapCsv,
+    get realtimeList()   { return realtimeList },
+    get loadingRealtime(){ return loadingRealtime },
+    muatAbsensi, muatRealtime, bukaFormAbsensi, simpanAbsensi, hapusAbsensi, clockIn, clockOut, exportRekapCsv,
 
     // ── Penggajian ──
     get filterBulanGaji() { return filterBulanGaji },

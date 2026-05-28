@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, and, gte, lte, sql, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, sql, desc, isNull, isNotNull } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import type { Context, Next } from 'hono'
 import { db } from '../db/index.ts'
@@ -23,6 +23,31 @@ function requireAbsensiAkses() {
     await next()
   }
 }
+
+// GET /realtime — karyawan yang sudah masuk hari ini tapi belum pulang
+absensiRouter.get('/realtime', requirePermission('absensi.semua'), async (c) => {
+  const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
+
+  const rows = db
+    .select({
+      id: absensi.id,
+      karyawan_id: absensi.karyawan_id,
+      nama_karyawan: karyawan.nama,
+      jam_masuk: absensi.jam_masuk,
+      terlambat_menit: absensi.terlambat_menit,
+    })
+    .from(absensi)
+    .leftJoin(karyawan, eq(absensi.karyawan_id, karyawan.id))
+    .where(and(
+      eq(absensi.tanggal, today),
+      isNotNull(absensi.jam_masuk),
+      isNull(absensi.jam_keluar),
+    ))
+    .orderBy(absensi.jam_masuk)
+    .all()
+
+  return c.json({ success: true, data: rows })
+})
 
 // GET / — list absensi (filter: bulan, karyawan_id, tgl_mulai, tgl_selesai)
 absensiRouter.get('/', requireAbsensiAkses(), async (c) => {

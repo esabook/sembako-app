@@ -38,6 +38,7 @@ import { budgetTargetRouter } from './routes/budget-target.ts'
 import { promoRouter } from './routes/promo.ts'
 import { jadwalRouter } from './routes/jadwal.ts'
 import { draftRouter } from './routes/draft.ts'
+import { absensiKioskRouter } from './routes/absensi-kiosk.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
 type Variables = { user: JWTPayload }
@@ -113,6 +114,7 @@ app.route('/budget-target', budgetTargetRouter)
 app.route('/promo', promoRouter)
 app.route('/jadwal', jadwalRouter)
 app.route('/draft', draftRouter)
+app.route('/absensi-kiosk', absensiKioskRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 // MIGRATIONS_DIR bisa di-set via env untuk distribusi (default: src/db/migrations untuk dev)

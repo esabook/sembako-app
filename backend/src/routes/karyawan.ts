@@ -280,6 +280,7 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
     gaji_pokok?: number
     tipe_gaji?: 'harian' | 'bulanan'
     kontak?: string
+    pin_absensi?: string
   }>()
 
   if (!body.kode_karyawan?.trim() || !body.nama?.trim() || !body.username?.trim() || !body.password) {
@@ -287,6 +288,7 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
   }
 
   const hash = await Bun.password.hash(body.password)
+  const pinHash = body.pin_absensi?.length === 4 ? await Bun.password.hash(body.pin_absensi) : null
 
   let row
   try {
@@ -299,6 +301,7 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
       gaji_pokok: body.gaji_pokok ?? 0,
       tipe_gaji: body.tipe_gaji ?? 'bulanan',
       kontak: body.kontak,
+      pin_absensi: pinHash,
     }).returning({
       id: karyawan.id,
       kode_karyawan: karyawan.kode_karyawan,
@@ -330,6 +333,7 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
     gaji_pokok?: number
     tipe_gaji?: 'harian' | 'bulanan'
     kontak?: string
+    pin_absensi?: string
   }>()
 
   const existing = db.select().from(karyawan).where(eq(karyawan.id, id)).get()
@@ -343,6 +347,9 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
   if (body.password) {
     updates.password_hash = await Bun.password.hash(body.password)
     delete (updates as Record<string, unknown>).password
+  }
+  if (typeof body.pin_absensi === 'string') {
+    updates.pin_absensi = body.pin_absensi.length === 4 ? await Bun.password.hash(body.pin_absensi) : null
   }
 
   let row

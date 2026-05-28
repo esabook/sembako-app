@@ -23,6 +23,7 @@
   onMount(() => store.muatKaryawan())
 
   $effect(() => { if (tab === 'absensi')    { store.filterBulan; store.filterKaryawanId; store.muatAbsensi() } })
+  $effect(() => { if (tab === 'absensi' && store.isManager) store.muatRealtime() })
   $effect(() => { if (tab === 'penggajian') { store.filterBulanGaji; store.muatPenggajian() } })
   $effect(() => { if (tab === 'kasbon')     { store.filterStatusKasbon; store.muatKasbon() } })
   $effect(() => { if (tab === 'jadwal')     { store.weekStart; store.muatJadwal() } })
@@ -141,6 +142,24 @@
       </div>
     {/if}
 
+    {#if store.isManager && store.realtimeList.length > 0}
+      <div class="rounded border p-3" style="background:var(--surface);border-color:var(--border)">
+        <p class="text-xs font-bold mb-2" style="color:var(--text-dim)">SEDANG BEKERJA ({store.realtimeList.length})</p>
+        <div class="flex flex-wrap gap-2">
+          {#each store.realtimeList as r (r.karyawan_id)}
+            <div class="flex items-center gap-2 px-2 py-1 rounded border text-xs"
+              style="border-color:var(--accent)33;background:var(--surface2)">
+              <span class="font-medium">{r.nama_karyawan}</span>
+              <span style="color:var(--accent)">{r.jam_masuk}</span>
+              {#if r.terlambat_menit}
+                <span class="font-bold" style="color:var(--warn)">+{r.terlambat_menit}mnt</span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
     <div class="flex items-center gap-3 flex-wrap">
       <input type="month" bind:value={store.filterBulan}
         class="px-2 py-1 rounded border text-sm outline-none"
@@ -204,6 +223,17 @@
               {#if !hidden.has('status')}
                 <td class="px-3 py-2">
                   <span class="text-xs font-bold" style="color:{STATUS_COLOR[item.status]}">{item.status.toUpperCase()}</span>
+                </td>
+              {/if}
+              {#if !hidden.has('terlambat_menit')}
+                <td class="px-3 py-2 text-xs">
+                  {#if item.terlambat_menit == null}
+                    <span style="color:var(--text-dim)">—</span>
+                  {:else}
+                    <span class="font-bold" style="color:{item.terlambat_menit > 30 ? 'var(--danger)' : 'var(--warn)'}">
+                      +{item.terlambat_menit} mnt
+                    </span>
+                  {/if}
                 </td>
               {/if}
               {#if !hidden.has('aksi')}
@@ -809,6 +839,16 @@
       <div class="flex flex-col gap-1">
         <label for="f-kontak" class="text-xs" style="color:var(--text-dim)">KONTAK</label>
         <input id="f-kontak" bind:value={store.formKaryawan.kontak} class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="f-pin" class="text-xs" style="color:var(--text-dim)">
+          PIN ABSENSI (4 digit){store.editKaryawan?.id ? ' — kosong = tidak ubah' : ''}
+        </label>
+        <input id="f-pin" type="password" inputmode="numeric" maxlength="4"
+          bind:value={store.formKaryawan.pin_absensi}
+          placeholder="4 digit angka"
+          class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>
       <div class="flex flex-col gap-1">

@@ -2,7 +2,7 @@ import { api } from '$lib/utils/api'
 import type {
   Karyawan, AbsensiRow, RekapRow, PenggajianRow, KasBank,
   KasbonRow, JadwalCicilan, TipeShift, JadwalRow, TukarRow,
-  PerformaRingkasan, PerformaDetail,
+  PerformaRingkasan, PerformaDetail, RealtimeRow,
 } from './karyawan.types'
 
 function unwrap<T>(res: { success: true; data: T } | { success: false; error: string }): T {
@@ -42,6 +42,10 @@ export async function fetchAbsensi(params: URLSearchParams): Promise<AbsensiRow[
 
 export async function fetchAbsensiRekap(bulan: string): Promise<RekapRow[]> {
   return unwrap(await api.get<RekapRow[]>(`/absensi/rekap?bulan=${bulan}`))
+}
+
+export async function fetchAbsensiRealtime(): Promise<RealtimeRow[]> {
+  return unwrap(await api.get<RealtimeRow[]>('/absensi/realtime'))
 }
 
 export async function createAbsensi(payload: Record<string, unknown>): Promise<true> {

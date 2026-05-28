@@ -30,6 +30,7 @@ export const karyawan = sqliteTable('karyawan', {
   tipe_gaji: text('tipe_gaji', { enum: ['harian', 'bulanan'] }).notNull().default('bulanan'),
   kontak: text('kontak'),
   foto_path: text('foto_path'),
+  pin_absensi: text('pin_absensi'),
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   ...timestamps,
 })
@@ -407,6 +408,7 @@ export const absensi = sqliteTable('absensi', {
   status: text('status', {
     enum: ['hadir', 'izin', 'sakit', 'alpa'],
   }).notNull().default('hadir'),
+  terlambat_menit: integer('terlambat_menit'),
   dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
 }, (t) => [
   index('idx_absensi_tanggal').on(t.tanggal),
