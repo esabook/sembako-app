@@ -68,10 +68,9 @@
 	>
 		<!-- Ikon user sederhana -->
 		<span
-			class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+			class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
 			style="background:var(--surface2);color:var(--accent)"
 		>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span>
-		<span class="max-w-24 truncate" style="color:var(--text)">{$user?.nama ?? '—'}</span>
 	</button>
 
 	{#if buka}
