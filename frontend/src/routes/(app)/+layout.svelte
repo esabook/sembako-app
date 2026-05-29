@@ -3,6 +3,8 @@
 	import { user, type Role } from '$lib/stores/auth.js';
 	import { api } from '$lib/utils/api.js';
 	import { onMount } from 'svelte';
+	import { font, FONT_CSS } from '$lib/stores/font.js';
+	import { ukuranFont } from '$lib/stores/ukuran-font.js';
 	import NavClock from '$lib/components/NavClock.svelte';
 	import NavUser from '$lib/components/NavUser.svelte';
 
@@ -121,7 +123,7 @@
 	let visibleNav = $derived(NAV.filter((item) => bolehAkses(item.roles)));
 </script>
 
-<div class="app-root flex min-h-screen flex-col" style="background:var(--bg);color:var(--text)">
+<div class="app-root flex min-h-screen flex-col" style="background:var(--bg);color:var(--text);font-family:{FONT_CSS[$font]};font-size:{$ukuranFont}px">
 	<!-- Top Navbar -->
 	<nav
 		class="app-nav flex h-11 shrink-0 items-center gap-2 border-b px-1.5 text-sm"
@@ -153,7 +155,7 @@
 				class="absolute -right-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-colors"
 				style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"
 			>
-				<svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+				<svg width="0.65em" height="0.65em" viewBox="0 0 24 24" fill="none">
 					{#if sidebarState === 'expanded'}
 						<path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 					{:else}
@@ -182,7 +184,7 @@
 						></span>
 
 						<!-- Icon — posisi kiri selalu sama -->
-						<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"
+						<svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor"
 							class="shrink-0 {sidebarState === 'expanded' ? 'ml-4' : 'mx-auto'} {isActive ? 'opacity-100' : 'opacity-70'}">
 							<path d={item.icon} />
 						</svg>

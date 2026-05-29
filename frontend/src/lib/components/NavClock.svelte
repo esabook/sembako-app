@@ -78,7 +78,7 @@
 		style="color:var(--text-dim)"
 	>
 		<span class="text-xs font-mono tracking-wide" style="color:var(--text)">{waktu}</span>
-		<span class="text-[10px]">{tanggal}</span>
+		<span class="text-[0.7em]">{tanggal}</span>
 	</button>
 
 	{#if bukaKalender}
@@ -108,7 +108,7 @@
 			<!-- Label hari -->
 			<div class="grid grid-cols-7 mb-1">
 				{#each HARI as h}
-					<span class="text-center text-[10px]" style="color:var(--text-dim)">{h}</span>
+					<span class="text-center text-[0.7em]" style="color:var(--text-dim)">{h}</span>
 				{/each}
 			</div>
 

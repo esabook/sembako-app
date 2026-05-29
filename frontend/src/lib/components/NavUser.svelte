@@ -68,7 +68,7 @@
 	>
 		<!-- Ikon user sederhana -->
 		<span
-			class="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+			class="w-8 h-8 rounded-full flex items-center justify-center text-[0.7em] font-bold shrink-0"
 			style="background:var(--surface2);color:var(--accent)"
 		>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span>
 	</button>
@@ -87,14 +87,14 @@
 					>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span>
 					<div class="min-w-0">
 						<div class="text-sm font-medium truncate" style="color:var(--text)">{$user?.nama ?? '—'}</div>
-						<div class="text-[10px]" style="color:var(--text-dim)">{ROLE_LABEL[$user?.role ?? ''] ?? $user?.role}</div>
+						<div class="text-[0.7em]" style="color:var(--text-dim)">{ROLE_LABEL[$user?.role ?? ''] ?? $user?.role}</div>
 					</div>
 				</div>
 			</div>
 
 			<!-- Pilihan tema -->
 			<div class="px-3 py-2 border-b" style="border-color:var(--border)">
-				<div class="text-[10px] uppercase mb-1.5 tracking-wider" style="color:var(--text-dim)">Tema</div>
+				<div class="text-[0.7em] uppercase mb-1.5 tracking-wider" style="color:var(--text-dim)">Tema</div>
 				<div class="flex flex-col gap-0.5">
 					{#each TEMA_LIST as t}
 						<button
@@ -105,7 +105,7 @@
 								: 'color:var(--text-dim)'}
 						>
 							<span>{t.label}</span>
-							<span class="text-[10px]" style="color:var(--text-dim)">{t.deskripsi}</span>
+							<span class="text-[0.7em]" style="color:var(--text-dim)">{t.deskripsi}</span>
 						</button>
 					{/each}
 				</div>

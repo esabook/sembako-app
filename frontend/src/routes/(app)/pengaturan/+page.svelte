@@ -4,6 +4,8 @@
 	import { api } from '$lib/utils/api.js'
 	import { user } from '$lib/stores/auth.js'
 	import { toast } from '$lib/stores/ui.store.js'
+	import { font, FONT_LABEL, FONT_CSS, type FontPilihan } from '$lib/stores/font.js'
+	import { ukuranFont, UKURAN_MIN, UKURAN_MAX } from '$lib/stores/ukuran-font.js'
 	import Button from '$lib/components/ui/Button.svelte'
 	import Spinner from '$lib/components/ui/Spinner.svelte'
 
@@ -188,13 +190,13 @@
 		</section>
 
 		<!-- ── Preferensi ────────────────────────────────────────────── -->
-		<section class="rounded border p-4 space-y-4" style="background:var(--surface);border-color:var(--border)">
+		<section class="rounded border p-4 space-y-5" style="background:var(--surface);border-color:var(--border)">
 			<h2 class="text-sm font-bold uppercase tracking-widest" style="color:var(--text-dim)">Preferensi</h2>
 
-			<div class="space-y-1">
+			<div class="space-y-2">
 				<span class="text-xs" style="color:var(--text-dim)">Tema Default</span>
-				<div class="flex gap-3">
-					{#each [['dark', 'Dark'], ['light', 'Light'], ['eye', 'Eye Comfort']] as [val, label]}
+				<div class="flex flex-wrap gap-3">
+					{#each [['dark','Dark'],['light','Light'],['eye','Eye Comfort'],['bww','BW Putih'],['bwb','BW Hitam'],['island','Island'],['klasik','Klasik']] as [val, label]}
 						<label class="flex items-center gap-2 cursor-pointer">
 							<input
 								type="radio"
@@ -208,7 +210,7 @@
 				</div>
 			</div>
 
-			<div class="space-y-1">
+			<div class="space-y-2">
 				<span class="text-xs" style="color:var(--text-dim)">Harga Default Kasir</span>
 				<div class="flex gap-3">
 					{#each [['eceran', 'Eceran'], ['grosir', 'Grosir']] as [val, label]}
@@ -223,6 +225,50 @@
 						</label>
 					{/each}
 				</div>
+			</div>
+
+			<!-- Font Family -->
+			<div class="space-y-2">
+				<span class="text-xs" style="color:var(--text-dim)">Font</span>
+				<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+					{#each Object.entries(FONT_LABEL) as [id, label]}
+						<button
+							type="button"
+							onclick={() => font.set(id as FontPilihan)}
+							class="rounded border px-3 py-2 text-left transition-colors"
+							style="
+								background:{$font === id ? 'color-mix(in srgb,var(--accent) 12%,var(--surface2))' : 'var(--surface2)'};
+								border-color:{$font === id ? 'var(--accent)' : 'var(--border)'};
+								color:var(--text);
+								font-family:{FONT_CSS[id as FontPilihan]}
+							"
+						>
+							<div class="text-xs truncate" style="color:var(--text-dim)">{label}</div>
+							<div class="text-base leading-tight">Aa 0123</div>
+						</button>
+					{/each}
+				</div>
+			</div>
+
+			<!-- Font Size -->
+			<div class="space-y-2">
+				<div class="flex items-center justify-between">
+					<span class="text-xs" style="color:var(--text-dim)">Ukuran Font</span>
+					<span class="text-xs font-mono" style="color:var(--accent)">{$ukuranFont}px</span>
+				</div>
+				<input
+					type="range"
+					min={UKURAN_MIN}
+					max={UKURAN_MAX}
+					bind:value={$ukuranFont}
+					class="w-full accent-green-500"
+				/>
+				<p
+					class="rounded border px-3 py-2 text-sm"
+					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+				>
+					Preview: Stokasir — Rp 1.234.567 — stok 99 pcs
+				</p>
 			</div>
 		</section>
 

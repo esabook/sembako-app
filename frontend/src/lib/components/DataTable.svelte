@@ -279,14 +279,14 @@
 						style="
 							display:inline-flex;align-items:center;gap:5px;
 							padding:4px 10px;border-radius:6px;border:1px solid var(--border);
-							background:var(--surface2);color:var(--text);font-size:12px;cursor:pointer;
+							background:var(--surface2);color:var(--text);font-size:0.875em;cursor:pointer;
 						"
 					>
-						<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/>
 						</svg>
 						Kolom
-						<span style="color:var(--text-dim);font-size:11px">
+						<span style="color:var(--text-dim);font-size:0.8em">
 							{visibleColumns.length}/{columns.length}
 						</span>
 					</button>
@@ -302,18 +302,18 @@
 					padding:4px 10px;border-radius:6px;border:1px solid var(--border);
 					background:{wrapMode ? 'var(--accent)' : 'var(--surface2)'};
 					color:{wrapMode ? '#000' : 'var(--text)'};
-					font-size:12px;cursor:pointer;transition:background .15s,color .15s;
+					font-size:0.875em;cursor:pointer;transition:background .15s,color .15s;
 				"
 			>
 				{#if wrapMode}
-					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<polyline points="17 10 21 10"/><polyline points="3 10 3 3 21 3"/>
 						<path d="M21 14v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
 						<polyline points="7 14 3 10 7 6"/>
 					</svg>
 					Wrap
 				{:else}
-					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="6" x2="21" y2="6"/>
 						<line x1="3" y1="14" x2="21" y2="14"/>
 					</svg>
@@ -383,7 +383,7 @@
 							>
 								{col.label}
 								{#if sortable}
-									<span style="margin-left:4px;font-size:10px;opacity:{sortKey === col.key ? 0.8 : 0.3}">
+									<span style="margin-left:4px;font-size:0.7em;opacity:{sortKey === col.key ? 0.8 : 0.3}">
 										{sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
 									</span>
 								{/if}
@@ -427,7 +427,7 @@
 
 	<!-- Pagination -->
 	{#if hasPagination}
-		<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--text-dim)">
+		<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:0.875em;color:var(--text-dim)">
 			<span>
 				{#if totalRows === 0}
 					Tidak ada data
@@ -440,7 +440,7 @@
 				<select
 					bind:value={pageSize}
 					onchange={() => { currentPage = 1; }}
-					style="font-size:12px;padding:3px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;"
+					style="font-size:0.875em;padding:3px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;"
 				>
 					{#each PAGE_SIZES as sz}
 						<option value={sz}>{sz === 0 ? 'Semua' : sz} / hal</option>
@@ -463,13 +463,13 @@
 									border:1px solid {currentPage === Number(p) ? 'var(--accent)' : 'var(--border)'};
 									background:{currentPage === Number(p) ? 'var(--accent)' : 'var(--surface2)'};
 									color:{currentPage === Number(p) ? '#000' : 'var(--text)'};
-									font-size:12px;cursor:pointer;font-weight:{currentPage === Number(p) ? '600' : '400'};
+									font-size:0.875em;cursor:pointer;font-weight:{currentPage === Number(p) ? '600' : '400'};
 								"
 							>{p}</button>
 						{/if}
 					{/each}
 				</div>
-				<span class="sm:hidden" style="font-size:12px;color:var(--text)">{currentPage}/{totalPages}</span>
+				<span class="sm:hidden" style="font-size:0.875em;color:var(--text)">{currentPage}/{totalPages}</span>
 				<button
 					disabled={currentPage >= totalPages}
 					onclick={() => { currentPage++; }}
@@ -520,13 +520,13 @@
 					onchange={() => toggleColumn(col.key)}
 					style="accent-color:var(--accent);cursor:pointer;width:15px;height:15px;flex-shrink:0"
 				/>
-				<span style="font-size:13px;color:var(--text);flex:1;line-height:1.3">{col.label || '(kolom)'}</span>
+				<span style="font-size:0.95em;color:var(--text);flex:1;line-height:1.3">{col.label || '(kolom)'}</span>
 				{#if autoHidden && !forceShown}
-					<span style="font-size:10px;color:var(--text-dim);flex-shrink:0">
+					<span style="font-size:0.7em;color:var(--text-dim);flex-shrink:0">
 						{col.priority === 2 ? 'tablet+' : 'desktop'}
 					</span>
 				{:else if autoHidden && forceShown}
-					<span style="font-size:10px;color:var(--accent);flex-shrink:0">paksa</span>
+					<span style="font-size:0.7em;color:var(--accent);flex-shrink:0">paksa</span>
 				{/if}
 			</label>
 		{/each}
