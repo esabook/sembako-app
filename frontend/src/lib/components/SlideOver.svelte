@@ -134,7 +134,6 @@
 <div class="backdrop" class:open onclick={tutup} role="presentation"></div>
 
 <!-- Panel -->
-<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div
   class="so-panel fixed z-50 flex flex-col
          bottom-0 left-0 right-0 rounded-t-2xl border-t
@@ -150,21 +149,24 @@
   "
   role="dialog"
   aria-modal="true"
+  tabindex="-1"
   onclick={(e) => e.stopPropagation()}
   onkeydown={(e) => e.stopPropagation()}
 >
   <!-- Desktop resize handle (left edge) ─────────────────────────────────── -->
-  <!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events -->
-  <div
+  <button
+    type="button"
     class="resize-handle hidden sm:flex absolute inset-y-0 left-0 w-2 cursor-ew-resize items-center z-10"
     class:active={wDragging}
     onmousedown={startWidthDrag}
-    role="separator"
-    aria-orientation="vertical"
-    aria-label="Geser untuk ubah lebar"
+    onkeydown={(e) => {
+      if (e.key === 'ArrowLeft') { panelWidth = Math.min(panelWidth + 8, Math.round(window.innerWidth * 0.85)); localStorage.setItem(KEY_W, String(panelWidth)); e.preventDefault() }
+      if (e.key === 'ArrowRight') { panelWidth = Math.max(panelWidth - 8, MIN_W); localStorage.setItem(KEY_W, String(panelWidth)); e.preventDefault() }
+    }}
+    aria-label="Ubah lebar panel ({Math.round(panelWidth)}px)"
   >
     <div class="indicator w-0.5 h-10 rounded-full ml-0.5" style="background:var(--accent)"></div>
-  </div>
+  </button>
 
   <!-- Mobile drag handle (top) ───────────────────────────────────────────── -->
   <div
@@ -184,7 +186,7 @@
   <button
     onclick={tutup}
     class="absolute w-7 h-7 flex items-center justify-center rounded-full text-base leading-none z-10"
-    style="top:16px;right:16px;background:var(--surface2);color:var(--text-dim)"
+    style="top:4px;right:4px;background:var(--surface2);color:var(--text-dim)"
     aria-label="Tutup"
   >&times;</button>
 
@@ -221,6 +223,12 @@
   }
 
   /* Resize handle — visible on hover & while dragging */
+  .resize-handle {
+    padding: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+  }
   .resize-handle .indicator {
     opacity: 0;
     transition: opacity 0.2s;

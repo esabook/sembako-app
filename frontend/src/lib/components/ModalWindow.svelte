@@ -13,13 +13,6 @@
     children: Snippet;
   } = $props()
 
-  const maxWClass: Record<string, string> = {
-    sm: 'sm:max-w-sm',
-    md: 'sm:max-w-md',
-    lg: 'sm:max-w-lg',
-    xl: 'sm:max-w-xl',
-  }
-
   function tutup() { open = false }
   function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') tutup() }
 </script>
@@ -28,22 +21,23 @@
 
 {#if open}
   <!-- Backdrop -->
-  <!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events -->
   <div
-    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-2 sm:px-0"
     style="background:rgba(0,0,0,0.5)"
     role="dialog"
     aria-modal="true"
     tabindex="-1"
     onclick={tutup}
+    onkeydown={(e) => { if (e.key === 'Escape') tutup() }}
   >
     <!-- Panel -->
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div
-      class="relative flex flex-col overflow-hidden border
-             w-full {maxWClass[maxWidth]}
-             rounded-t-2xl sm:rounded-2xl
-             max-w-[calc(100vw-16px)] sm:max-w-none"
+      class="relative flex flex-col overflow-hidden border w-full rounded-t-2xl sm:rounded-2xl
+             {maxWidth === 'sm' ? 'sm:max-w-sm'
+             : maxWidth === 'lg' ? 'sm:max-w-lg'
+             : maxWidth === 'xl' ? 'sm:max-w-xl'
+             : 'sm:max-w-md'}"
       style="background:var(--surface);border-color:var(--border);max-height:90svh"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
@@ -52,7 +46,7 @@
       <button
         onclick={tutup}
         class="absolute w-7 h-7 flex items-center justify-center rounded-full text-base leading-none z-10"
-        style="top:16px;right:16px;background:var(--surface2);color:var(--text-dim)"
+        style="top:4px;right:4px;background:var(--surface2);color:var(--text-dim)"
         aria-label="Tutup"
       >&times;</button>
 

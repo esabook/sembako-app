@@ -369,6 +369,7 @@
 				searchVal.set(code);
 				openSearch();
 				void cariBarang(code);
+				console.log('deteksi barcode:', code);
 				return;
 			} else {
 				barcodeBuffer = e.key.length === 1 ? e.key : '';
@@ -381,10 +382,12 @@
 				e.preventDefault();
 				if (showHelp) {
 					showHelp = false;
+					console.log('tutup help');
 					break;
 				}
 				closeAll();
 				showHelp = true;
+				console.log('buka help');
 				break;
 			case 'F3':
 				e.preventDefault();
