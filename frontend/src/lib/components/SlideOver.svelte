@@ -1,3 +1,26 @@
+<!--
+  SlideOver — panel geser kanan (desktop) / sheet bawah (mobile)
+
+  Props:
+    open   $bindable(false)  — buka/tutup panel
+    title  string ''         — teks header
+    children Snippet         — konten body (wajib)
+
+  Penggunaan:
+    <SlideOver bind:open={buka} title="Detail">
+      <p>Konten</p>
+    </SlideOver>
+
+  Perilaku:
+    - Desktop (≥640px): geser dari kanan, drag tepi kiri untuk resize (min 260px, max 85vw)
+    - Mobile (<640px) : sheet dari bawah, drag handle atas untuk resize (32–93vh) atau dismiss
+    - Ukuran persisten: localStorage keys `so_width` & `so_height_vh`
+    - Tutup: klik backdrop | Escape | drag mobile ke bawah ≥80px
+
+  Notes:
+    - Body sudah overflow-y-auto — konten panjang langsung scroll
+    - Tidak ada footer bawaan; taruh tombol aksi di dalam children
+-->
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import type { Snippet } from 'svelte'

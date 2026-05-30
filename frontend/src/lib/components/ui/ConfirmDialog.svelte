@@ -1,3 +1,50 @@
+<!--
+  ConfirmDialog — dialog konfirmasi gaya iOS (2 tombol, keyboard-navigable).
+
+  ── Props ─────────────────────────────────────────────────────────────────────
+  open       $bindable(false)   buka/tutup dialog
+  judul      'Konfirmasi'       judul bold di tengah
+  pesan      ''                 teks penjelasan di bawah judul (opsional, pre-wrap)
+  labelKiri  'Batal'            label tombol kiri
+  labelKanan 'OK'               label tombol kanan
+  warnaKiri  undefined          warna teks tombol kiri  (default: #007AFF)
+  warnaKanan undefined          warna teks tombol kanan (default: #007AFF)
+  onkiri     undefined          callback tombol kiri  — dipanggil lalu open=false
+  onkanan    undefined          callback tombol kanan — dipanggil lalu open=false
+
+  ── Penggunaan dasar ──────────────────────────────────────────────────────────
+  <script lang="ts">
+    import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
+    let konfirmBuka = $state(false)
+
+    function hapus() { konfirmBuka = true }
+    function doHapus() { /* aksi hapus */ }
+  </script>
+
+  <button onclick={hapus}>Hapus</button>
+
+  <ConfirmDialog
+    bind:open={konfirmBuka}
+    judul="Hapus data?"
+    pesan="Tindakan ini tidak bisa dibatalkan."
+    labelKiri="Batal"
+    labelKanan="Hapus"
+    warnaKanan="var(--danger)"
+    onkanan={doHapus}
+  />
+
+  ── Keyboard ──────────────────────────────────────────────────────────────────
+  - Escape / klik backdrop → klikKiri() (Batal)
+  - Enter                  → tombol yang sedang fokus (default: kanan)
+  - ArrowLeft / ArrowRight → pindah fokus antar tombol
+  - Fokus awal selalu di tombol kanan (OK) saat dialog terbuka
+
+  ── Notes ─────────────────────────────────────────────────────────────────────
+  - Kedua callback (onkiri/onkanan) dipanggil SEBELUM open di-set false —
+    boleh lakukan async setelah dialog tutup, tidak perlu set open sendiri.
+  - pesan mendukung newline (\n) karena white-space: pre-wrap.
+  - Warna tombol: pakai string CSS apapun ('red', '#FF3B30', 'var(--danger)').
+-->
 <script lang="ts">
   let {
     open = $bindable(false),

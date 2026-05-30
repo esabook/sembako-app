@@ -1,3 +1,43 @@
+<!--
+  ModalWindow — dialog modal dengan backdrop, Escape, dan responsive sheet.
+
+  ── Props ─────────────────────────────────────────────────────────────────────
+  open        $bindable(false)   buka/tutup modal
+  title       ''                 teks header (kosong = header tidak dirender)
+  maxWidth    'md'               lebar panel desktop: 'sm'|'md'|'lg'|'xl'|'3xl'|'4xl'
+  noPadding   false              true = body tanpa padding (untuk konten custom seperti tabel/gambar)
+  fullscreen  false              true = panel penuh layar (h-full, rounded-2xl)
+  ontutup     undefined          callback saat modal ditutup; kalau diisi, open TIDAK di-set false otomatis
+
+  ── Penggunaan dasar ──────────────────────────────────────────────────────────
+  <script lang="ts">
+    import ModalWindow from '$lib/components/ModalWindow.svelte'
+    let buka = $state(false)
+  </script>
+
+  <button onclick={() => buka = true}>Buka</button>
+
+  <ModalWindow bind:open={buka} title="Judul Modal">
+    <p>Konten di sini.</p>
+    <button onclick={() => buka = false}>Tutup</button>
+  </ModalWindow>
+
+  ── Perilaku ──────────────────────────────────────────────────────────────────
+  - Mobile  : muncul dari bawah (items-end), rounded-t-2xl, ada drag handle dekoratif
+  - Desktop : muncul di tengah (items-center), rounded-2xl, max-height 90svh
+  - Tutup   : klik backdrop | Escape | set open=false | panggil ontutup()
+  - body sudah overflow-y-auto flex-1 — konten panjang otomatis scroll
+
+  ── ontutup vs open ───────────────────────────────────────────────────────────
+  Kalau ontutup diisi, DataTable tidak auto-set open=false — caller yang kontrol:
+    <ModalWindow bind:open={buka} ontutup={() => { simpan(); buka = false }}>
+
+  ── noPadding ─────────────────────────────────────────────────────────────────
+  Pakai untuk konten yang butuh edge-to-edge (tabel, gambar, embedded form):
+    <ModalWindow bind:open={buka} noPadding maxWidth="xl">
+      <div class="p-4">...</div>   ← padding diatur sendiri di dalam
+    </ModalWindow>
+-->
 <script lang="ts">
   import type { Snippet } from 'svelte'
 
@@ -6,6 +46,7 @@
     title = '',
     maxWidth = 'md',
     noPadding = false,
+    fullscreen = false,
     ontutup = undefined,
     children,
   }: {
@@ -13,6 +54,7 @@
     title?: string;
     maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '3xl' | '4xl';
     noPadding?: boolean;
+    fullscreen?: boolean;
     ontutup?: () => void;
     children: Snippet;
   } = $props()
@@ -26,7 +68,7 @@
 {#if open}
   <!-- Backdrop -->
   <div
-    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-2 sm:px-0"
+    class="fixed inset-0 z-50 flex justify-center {fullscreen ? 'items-center p-2' : 'items-end sm:items-center px-2 sm:px-0'}"
     style="background:rgba(0,0,0,0.5)"
     role="dialog"
     aria-modal="true"
@@ -37,14 +79,17 @@
     <!-- Panel -->
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div
-      class="relative flex flex-col overflow-hidden border w-full rounded-t-2xl sm:rounded-2xl
-             {maxWidth === 'sm'  ? 'sm:max-w-sm'
-             : maxWidth === 'lg'  ? 'sm:max-w-lg'
-             : maxWidth === 'xl'  ? 'sm:max-w-xl'
-             : maxWidth === '3xl' ? 'sm:max-w-3xl'
-             : maxWidth === '4xl' ? 'sm:max-w-4xl'
-             : 'sm:max-w-md'}"
-      style="background:var(--surface);border-color:var(--border);max-height:90svh"
+      class="relative flex flex-col overflow-hidden border w-full
+             {fullscreen
+               ? 'h-full rounded-2xl'
+               : 'rounded-t-2xl sm:rounded-2xl ' + (
+                   maxWidth === 'sm'  ? 'sm:max-w-sm'
+                 : maxWidth === 'lg'  ? 'sm:max-w-lg'
+                 : maxWidth === 'xl'  ? 'sm:max-w-xl'
+                 : maxWidth === '3xl' ? 'sm:max-w-3xl'
+                 : maxWidth === '4xl' ? 'sm:max-w-4xl'
+                 : 'sm:max-w-md')}"
+      style="background:var(--surface);border-color:var(--border);{fullscreen ? '' : 'max-height:90svh'}"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
     >
@@ -56,10 +101,12 @@
         aria-label="Tutup"
       >&times;</button>
 
-      <!-- Drag handle (mobile only) -->
+      <!-- Drag handle (mobile only, non-fullscreen) -->
+      {#if !fullscreen}
       <div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
         <div class="w-10 h-1 rounded-full" style="background:var(--border)"></div>
       </div>
+      {/if}
 
       <!-- Header -->
       {#if title}

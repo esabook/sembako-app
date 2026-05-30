@@ -1,6 +1,79 @@
+<!--
+  DataTable — tabel data dengan sort, pagination, resize kolom, hide kolom, wrap mode.
+
+  ── Props ─────────────────────────────────────────────────────────────────────
+  columns      Column[]          definisi kolom (wajib)
+  body         Snippet<[Set<string>]>  render <tbody> rows; menerima `effectiveHidden` (lihat contoh)
+  sortKey      $bindable('')     key kolom yang aktif di-sort
+  sortDir      $bindable('asc')  'asc' | 'desc'
+  maxRows      7                 tinggi tabel = maxRows × 40px, lalu scroll
+  rowCount     0                 jumlah baris yang dirender (untuk tampilan empty state)
+  loading      false             tampilkan spinner di body
+  emptyText    'Tidak ada data.' teks saat rowCount === 0
+  tableId      ''                kalau diisi → simpan prefs ke localStorage (key `datatable_${tableId}`)
+  totalRows    undefined         isi untuk aktifkan pagination server-side
+  pageSize     $bindable(25)     baris per halaman (5/10/25/50/100/Semua)
+  currentPage  $bindable(1)      halaman aktif
+  wrapMode     $bindable(false)  true = teks wrap; false = 1 baris + scroll horizontal
+  toolbarEnd   Snippet?          konten ekstra di ujung kanan toolbar (misal: tombol export)
+
+  ── Column type ───────────────────────────────────────────────────────────────
+  key          string    nama field (juga id sort)
+  label        string    header teks
+  width?       number    lebar awal px
+  minWidth?    number    batas minimum resize (default 60)
+  sortable?    boolean   default true (false = nonaktifkan sort di kolom ini)
+  align?       'left' | 'right' | 'center'
+  hideable?    boolean   default true (false = kolom ini tidak muncul di toggle-kolom)
+  defaultHidden? boolean mulai tersembunyi
+  priority?    1|2|3     auto-hide berdasarkan layar: 2=sembunyikan di <640px, 3=sembunyikan di <1024px
+
+  ── Penggunaan dasar ──────────────────────────────────────────────────────────
+  <script lang="ts">
+    import DataTable, { type Column } from '$lib/components/DataTable.svelte'
+
+    const cols: Column[] = [
+      { key: 'nama', label: 'Nama' },
+      { key: 'harga', label: 'Harga', align: 'right', priority: 2 },  // hidden di HP
+      { key: 'aksi', label: '', sortable: false, hideable: false },
+    ]
+    let sortKey = $state('nama')
+    let sortDir = $state<'asc'|'desc'>('asc')
+    let items = $derived(/* sort items by sortKey/sortDir */)
+  </script>
+
+  <DataTable {columns} rowCount={items.length} bind:sortKey bind:sortDir>
+    {#snippet body(hidden)}
+      {#each items as row}
+        <tr>
+          <td>{row.nama}</td>
+          {#if !hidden.has('harga')}<td class="text-right">{row.harga}</td>{/if}
+          <td><button>Edit</button></td>
+        </tr>
+      {/each}
+    {/snippet}
+  </DataTable>
+
+  ── Pagination server-side ────────────────────────────────────────────────────
+  Tambah totalRows + bind:pageSize + bind:currentPage. DataTable hanya render
+  baris yang dikirim — kalkulasi offset/limit di caller.
+
+  <DataTable {columns} {totalRows} rowCount={rows.length}
+             bind:pageSize bind:currentPage bind:sortKey bind:sortDir>
+    {#snippet body(hidden)}...{/snippet}
+  </DataTable>
+
+  ── Notes ─────────────────────────────────────────────────────────────────────
+  - body snippet WAJIB pakai `{#if !hidden.has(key)}` untuk kolom ber-priority/hideable,
+    supaya <td> ikut tersembunyi saat kolom di-toggle.
+  - tableId diisi string unik per halaman → prefs (kolom tersembunyi, lebar, wrapMode,
+    pageSize) otomatis persist ke localStorage.
+  - toolbarEnd dirender di sisi kanan toolbar (margin-left:auto).
+-->
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	export type Column = {
 		key: string;
@@ -24,6 +97,7 @@
 		maxRows = 7,
 		emptyText = 'Tidak ada data.',
 		rowCount = 0,
+		loading = false,
 		body,
 		tableId = '',
 		totalRows = undefined as number | undefined,
@@ -38,6 +112,7 @@
 		maxRows?: number;
 		emptyText?: string;
 		rowCount?: number;
+		loading?: boolean;
 		body: Snippet<[Set<string>]>;
 		tableId?: string;
 		totalRows?: number;
@@ -405,7 +480,13 @@
 				</thead>
 				<!-- FIX 3: class dt-tbody-wrap/nowrap mengaktifkan CSS :global di atas -->
 				<tbody class={wrapMode ? 'dt-tbody-wrap' : 'dt-tbody-nowrap'}>
-					{#if rowCount === 0}
+					{#if loading}
+						<tr>
+							<td colspan={visibleColumns.length} class="px-3 py-10 text-center">
+								<Spinner />
+							</td>
+						</tr>
+					{:else if rowCount === 0}
 						<tr>
 							<td
 								colspan={visibleColumns.length}
@@ -415,8 +496,9 @@
 								{emptyText}
 							</td>
 						</tr>
+					{:else}
+						{@render body(effectiveHidden)}
 					{/if}
-					{@render body(effectiveHidden)}
 				</tbody>
 			</table>
 		</div>
