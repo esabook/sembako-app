@@ -67,6 +67,8 @@
 		resetKasirDenganDraft
 	} from './kasir.store';
 	import { rupiah, METODE, METODE_LABEL } from './kasir.logic';
+	import ShiftBuka from './ShiftBuka.svelte';
+	import ShiftTutup from './ShiftTutup.svelte';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
@@ -152,7 +154,7 @@
 	let bayarInputEl: HTMLInputElement | undefined = $state();
 	let helpCloseBtnEl: HTMLButtonElement | undefined = $state();
 	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
-	function focusEl(el: HTMLElement) { el.focus(); }
+
 
 	// ── Stok menipis ─────────────────────────────────────────────────────────
 	let stokMenipis = $state<StokMenipis[]>([]);
@@ -501,29 +503,10 @@
 		status: string;
 	};
 
-	type RekapShift = {
-		shift_id: number;
-		jam_buka: string;
-		kas_awal: number;
-		kas_sistem: number;
-		jumlah_transaksi: number;
-		total_semua: number;
-		tunai: number;
-		transfer: number;
-		qris: number;
-		hutang: number;
-	};
 
 	let shiftAktif = $state<ShiftAktif | null>(null);
 	let modalBukaShift = $state(false);
 	let modalTutupShift = $state(false);
-	let kasAwal = $state(0);
-	let kasFisik = $state(0);
-	let catatanShift = $state('');
-	let savingShift = $state(false);
-	let rekapShift = $state<RekapShift | null>(null);
-	let loadingRekap = $state(false);
-	let selisihKas = $derived(rekapShift ? kasFisik - rekapShift.kas_sistem : 0);
 
 	async function muatShiftAktif() {
 		const res = await api.get<ShiftAktif | null>('/shift/aktif');
@@ -532,44 +515,13 @@
 
 	async function bukaBukaShift() {
 		await muatShiftAktif();
-		if (shiftAktif) {
-			toast.warn('Shift hari ini sudah dibuka');
-			return;
-		}
-		kasAwal = 0;
-		catatanShift = '';
+		if (shiftAktif) { toast.warn('Shift hari ini sudah dibuka'); return; }
 		modalBukaShift = true;
 	}
 
-	async function simpanBukaShift() {
-		savingShift = true;
-		const res = await api.post<ShiftAktif>('/shift/buka', {
-			kas_awal: kasAwal,
-			catatan: catatanShift || undefined
-		});
-		savingShift = false;
-		if (!res.success) {
-			toast.error(res.error ?? 'Gagal buka shift');
-			return;
-		}
-		shiftAktif = res.data!;
-		modalBukaShift = false;
-		toast.sukses('Shift dibuka');
-	}
-
-	async function bukaTutupShift() {
-		if (!shiftAktif) {
-			toast.warn('Buka shift terlebih dahulu');
-			return;
-		}
-		kasFisik = 0;
-		catatanShift = '';
-		rekapShift = null;
-		loadingRekap = true;
+	function bukaTutupShift() {
+		if (!shiftAktif) { toast.warn('Buka shift terlebih dahulu'); return; }
 		modalTutupShift = true;
-		const res = await api.get<RekapShift>('/shift/rekap-aktif');
-		loadingRekap = false;
-		if (res.success) rekapShift = res.data;
 	}
 
 	function handleProsesBayar() {
@@ -581,22 +533,6 @@
 		}
 		closeAll();
 		openCheckout();
-	}
-
-	async function simpanTutupShift() {
-		savingShift = true;
-		const res = await api.post('/shift/tutup', {
-			kas_fisik: kasFisik,
-			catatan: catatanShift || undefined
-		});
-		savingShift = false;
-		if (!res.success) {
-			toast.error(res.error ?? 'Gagal tutup shift');
-			return;
-		}
-		shiftAktif = null;
-		modalTutupShift = false;
-		toast.sukses('Shift ditutup');
 	}
 
 	// ── Cetak struk — pakai liveStrukData yang sama dengan preview sidebar ───
@@ -615,7 +551,7 @@
 			if (res.success) daftarKasBank = res.data;
 		});
 		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
-		void muatShiftAktif();
+		muatShiftAktif().then(() => { if (!shiftAktif) modalBukaShift = true });
 		fetchStokMenipis().then((d) => { stokMenipis = d; }).catch(() => {});
 		void api.get<Record<string, string>>('/pengaturan').then((res) => {
 			if (!res.success) return;
@@ -1433,302 +1369,16 @@
 	</div>
 {/if}
 
-<!-- ─── Modal Buka Shift ─────────────────────────────────────────────────────── -->
-{#if modalBukaShift}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center"
-		style="background:rgba(0,0,0,0.6)"
-		role="dialog"
-		aria-modal="true"
-		tabindex="-1"
-		onkeydown={(e) => {
-			if (e.key === 'Escape') modalBukaShift = false;
-			if (e.key === 'Enter' && !savingShift) void simpanBukaShift();
-		}}
-	>
-		<div
-			class="w-84 rounded-lg border p-6"
-			style="background:var(--surface);border-color:var(--border)"
-			role="presentation"
-			onclick={(e) => e.stopPropagation()}
-		>
-			<h2 class="mb-1 text-base font-bold">Buka Shift</h2>
-			<p class="mb-4 text-xs" style="color:var(--text-dim)">
-				{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
-				· {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-			</p>
-			<div class="flex flex-col gap-3">
-				<div>
-					<label for="kas-awal" class="mb-1 block text-xs" style="color:var(--text-dim)"
-						>Kas Awal (uang di laci)</label
-					>
-					<input
-						id="kas-awal"
-						type="number"
-						min="0"
-						step="1000"
-						bind:value={kasAwal}
-						use:focusEl
-						class="w-full rounded border px-3 py-2 text-sm outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
-					<!-- Denominasi cepat -->
-					<div class="mt-1.5 flex flex-wrap gap-1">
-						{#each [0, 50000, 100000, 200000, 500000, 1000000] as nom (nom)}
-							<button
-								type="button"
-								onclick={() => (kasAwal = nom)}
-								class="rounded border px-2 py-0.5 text-xs transition-colors"
-								style={kasAwal === nom
-									? 'border-color:var(--accent);color:var(--accent)'
-									: 'border-color:var(--border);color:var(--text-dim)'}
-							>
-								{nom === 0 ? 'Rp 0' : nom >= 1000000 ? '1jt' : nom / 1000 + 'rb'}
-							</button>
-						{/each}
-					</div>
-					{#if kasAwal > 0}
-						<p class="mt-1 rounded-lg border px-3 py-2 text-center font-mono text-lg" style="color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)">{rupiah(kasAwal)}</p>
-					{/if}
-				</div>
-				<div>
-					<label for="catatan-buka" class="mb-1 block text-xs" style="color:var(--text-dim)"
-						>Catatan (opsional)</label
-					>
-					<input
-						id="catatan-buka"
-						type="text"
-						bind:value={catatanShift}
-						placeholder="..."
-						class="w-full rounded border px-3 py-2 text-sm outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
-				</div>
-			</div>
-			<div class="mt-5 flex justify-end gap-2">
-				<button
-					onclick={() => (modalBukaShift = false)}
-					class="rounded border px-4 py-1.5 text-sm"
-					style="border-color:var(--border);color:var(--text-dim)">Batal</button
-				>
-				<button
-					onclick={simpanBukaShift}
-					disabled={savingShift}
-					class="rounded px-4 py-1.5 text-sm font-bold disabled:opacity-60"
-					style="background:var(--accent);color:var(--bg)"
-				>
-					{savingShift ? 'Menyimpan...' : 'Buka Shift'}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
-
-<!-- ─── Modal Tutup Shift ────────────────────────────────────────────────────── -->
-{#if modalTutupShift && shiftAktif}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center"
-		style="background:rgba(0,0,0,0.6)"
-		role="dialog"
-		aria-modal="true"
-		tabindex="-1"
-		onkeydown={(e) => {
-			if (e.key === 'Escape') modalTutupShift = false;
-		}}
-	>
-		<div
-			class="w-[26rem] rounded-lg border p-6"
-			style="background:var(--surface);border-color:var(--border)"
-			role="presentation"
-			onclick={(e) => e.stopPropagation()}
-		>
-			<h2 class="mb-1 text-base font-bold">Tutup Shift</h2>
-			<p class="mb-4 text-xs" style="color:var(--text-dim)">
-				Dibuka {shiftAktif.jam_buka} ·
-				{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
-			</p>
-
-			{#if loadingRekap}
-				<!-- Loading state -->
-				<div class="flex items-center justify-center py-8" style="color:var(--text-dim)">
-					<span class="text-sm">Memuat rekap...</span>
-				</div>
-			{:else if rekapShift}
-				<div class="flex flex-col gap-3">
-					<!-- Rekap transaksi per metode -->
-					<div class="rounded border text-xs" style="background:var(--surface2);border-color:var(--border)">
-						<div class="border-b px-3 py-2 font-bold" style="border-color:var(--border);color:var(--text-dim)">
-							REKAP TRANSAKSI
-						</div>
-						<table class="w-full">
-							<tbody>
-								{#if rekapShift.tunai > 0}
-									<tr class="border-b" style="border-color:var(--border)">
-										<td class="px-3 py-1.5" style="color:var(--text-dim)">Tunai</td>
-										<td class="px-3 py-1.5 text-right font-mono">{rupiah(rekapShift.tunai)}</td>
-									</tr>
-								{/if}
-								{#if rekapShift.transfer > 0}
-									<tr class="border-b" style="border-color:var(--border)">
-										<td class="px-3 py-1.5" style="color:var(--text-dim)">Transfer</td>
-										<td class="px-3 py-1.5 text-right font-mono">{rupiah(rekapShift.transfer)}</td>
-									</tr>
-								{/if}
-								{#if rekapShift.qris > 0}
-									<tr class="border-b" style="border-color:var(--border)">
-										<td class="px-3 py-1.5" style="color:var(--text-dim)">QRIS</td>
-										<td class="px-3 py-1.5 text-right font-mono">{rupiah(rekapShift.qris)}</td>
-									</tr>
-								{/if}
-								{#if rekapShift.hutang > 0}
-									<tr class="border-b" style="border-color:var(--border)">
-										<td class="px-3 py-1.5" style="color:var(--text-dim)">Hutang</td>
-										<td class="px-3 py-1.5 text-right font-mono">{rupiah(rekapShift.hutang)}</td>
-									</tr>
-								{/if}
-								{#if rekapShift.jumlah_transaksi === 0}
-									<tr>
-										<td colspan="2" class="px-3 py-2 text-center text-xs" style="color:var(--text-dim)">
-											Belum ada transaksi
-										</td>
-									</tr>
-								{:else}
-									<tr>
-										<td class="px-3 py-1.5 font-bold">Total · {rekapShift.jumlah_transaksi} trx</td>
-										<td class="px-3 py-1.5 text-right font-mono font-bold" style="color:var(--accent)">
-											{rupiah(rekapShift.total_semua)}
-										</td>
-									</tr>
-								{/if}
-							</tbody>
-						</table>
-					</div>
-
-					<!-- Rekonsiliasi kas -->
-					<div class="rounded border text-xs" style="background:var(--surface2);border-color:var(--border)">
-						<div class="border-b px-3 py-2 font-bold" style="border-color:var(--border);color:var(--text-dim)">
-							REKONSILIASI KAS
-						</div>
-						<div class="px-3 py-2 space-y-1">
-							<div class="flex justify-between">
-								<span style="color:var(--text-dim)">Kas Awal</span>
-								<span class="font-mono">{rupiah(rekapShift.kas_awal)}</span>
-							</div>
-							<div class="flex justify-between">
-								<span style="color:var(--text-dim)">+ Penjualan Tunai</span>
-								<span class="font-mono" style="color:var(--accent)">+{rupiah(rekapShift.tunai)}</span>
-							</div>
-							<div class="flex justify-between border-t pt-1 font-bold" style="border-color:var(--border)">
-								<span>= Kas Seharusnya</span>
-								<span class="font-mono">{rupiah(rekapShift.kas_sistem)}</span>
-							</div>
-						</div>
-					</div>
-
-					<!-- Input kas fisik -->
-					<div>
-						<label for="kas-fisik" class="mb-1 block text-xs" style="color:var(--text-dim)"
-							>Kas Fisik (hitung uang di laci)</label
-						>
-						<input
-							id="kas-fisik"
-							type="number"
-							min="0"
-							step="1000"
-							bind:value={kasFisik}
-							use:focusEl
-							class="w-full rounded border px-3 py-2 text-sm outline-none"
-							style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-						/>
-						<!-- Denominasi cepat -->
-						<div class="mt-1.5 flex flex-wrap gap-1">
-							{#each [0, 50000, 100000, 200000, 500000, 1000000] as nom (nom)}
-								<button
-									type="button"
-									onclick={() => (kasFisik = nom)}
-									class="rounded border px-2 py-0.5 text-xs transition-colors"
-									style={kasFisik === nom
-										? 'border-color:var(--accent);color:var(--accent)'
-										: 'border-color:var(--border);color:var(--text-dim)'}
-								>
-									{nom === 0 ? 'Rp 0' : nom >= 1000000 ? '1jt' : nom / 1000 + 'rb'}
-								</button>
-							{/each}
-							<!-- Tombol "sesuai sistem" -->
-							<button
-								type="button"
-								onclick={() => (kasFisik = rekapShift!.kas_sistem)}
-								class="rounded border px-2 py-0.5 text-xs transition-colors"
-								style={kasFisik === rekapShift.kas_sistem
-									? 'border-color:var(--accent);color:var(--accent)'
-									: 'border-color:var(--border);color:var(--text-dim)'}
-							>
-								= Sistem
-							</button>
-						</div>
-
-						<!-- Selisih real-time -->
-						{#if kasFisik > 0 || selisihKas !== 0}
-							<div class="mt-2 rounded border px-3 py-2 text-xs font-mono" style={
-								selisihKas === 0
-									? 'border-color:var(--accent);color:var(--accent);background:var(--surface2)'
-									: Math.abs(selisihKas) > 50000
-										? 'border-color:var(--danger);color:var(--danger);background:var(--surface2)'
-										: 'border-color:var(--warn);color:var(--warn);background:var(--surface2)'
-							}>
-								{#if selisihKas === 0}
-									✓ SESUAI — kas cocok dengan sistem
-								{:else if selisihKas > 0}
-									+ {rupiah(selisihKas)} lebih dari sistem
-								{:else}
-									− {rupiah(Math.abs(selisihKas))} kurang dari sistem
-								{/if}
-							</div>
-						{/if}
-
-						<!-- Warning selisih besar -->
-						{#if Math.abs(selisihKas) > 50000}
-							<p class="mt-1 text-xs" style="color:var(--danger)">
-								Selisih besar — pastikan hitungan benar sebelum tutup
-							</p>
-						{/if}
-					</div>
-
-					<!-- Catatan -->
-					<div>
-						<label for="catatan-tutup" class="mb-1 block text-xs" style="color:var(--text-dim)"
-							>Catatan (opsional)</label
-						>
-						<input
-							id="catatan-tutup"
-							type="text"
-							bind:value={catatanShift}
-							placeholder="..."
-							class="w-full rounded border px-3 py-2 text-sm outline-none"
-							style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-						/>
-					</div>
-				</div>
-			{/if}
-
-			<div class="mt-5 flex justify-end gap-2">
-				<button
-					onclick={() => (modalTutupShift = false)}
-					class="rounded border px-4 py-1.5 text-sm"
-					style="border-color:var(--border);color:var(--text-dim)">Batal</button
-				>
-				<button
-					onclick={simpanTutupShift}
-					disabled={savingShift || loadingRekap}
-					class="rounded px-4 py-1.5 text-sm font-bold disabled:opacity-60"
-					style="background:var(--warn);color:var(--bg)"
-				>
-					{savingShift ? 'Menyimpan...' : 'Tutup Shift'}
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
+<!-- ─── Shift Buka / Tutup ────────────────────────────────────────────────────── -->
+<ShiftBuka
+	bind:open={modalBukaShift}
+	onberhasil={(shift) => { shiftAktif = shift }}
+/>
+<ShiftTutup
+	bind:open={modalTutupShift}
+	{shiftAktif}
+	onberhasil={() => { shiftAktif = null }}
+/>
 
 <!-- ─── Modal konfirmasi reset (GUIDED mode) ────────────────────────────────── -->
 {#if konfirmasiReset}
