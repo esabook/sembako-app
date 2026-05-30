@@ -4,7 +4,7 @@
 	import { user } from '$lib/stores/auth.js';
 	import { resizeImage } from '$lib/utils/image.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
-	import Modal from '$lib/components/Modal.svelte';
+	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabBarangGuide from './TabBarangGuide.svelte';
@@ -274,7 +274,7 @@
 
 <TabBarangGuide />
 
-<Modal bind:open={modalBarang} title={editBarang?.id ? 'Edit Barang' : 'Tambah Barang'}>
+<SlideOver bind:open={modalBarang} title={editBarang?.id ? 'Edit Barang' : 'Tambah Barang'}>
 	{#snippet children()}
 	<form onsubmit={(e) => { e.preventDefault(); simpanBarang(); }} class="flex flex-col gap-3 text-sm">
 		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{error}</p>{/if}
@@ -363,4 +363,4 @@
 		</div>
 	</form>
 	{/snippet}
-</Modal>
+</SlideOver>

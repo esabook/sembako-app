@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
-	import Modal from '$lib/components/Modal.svelte';
+	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 
@@ -105,7 +105,7 @@
 	</DataTable>
 </div>
 
-<Modal bind:open={modalSupplier} title={editSupplier?.id ? 'Edit Supplier' : 'Tambah Supplier'}>
+<SlideOver bind:open={modalSupplier} title={editSupplier?.id ? 'Edit Supplier' : 'Tambah Supplier'}>
 	{#snippet children()}
 	<form onsubmit={(e) => { e.preventDefault(); simpanSupplier(); }} class="flex flex-col gap-3 text-sm">
 		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{error}</p>{/if}
@@ -122,4 +122,4 @@
 		</div>
 	</form>
 	{/snippet}
-</Modal>
+</SlideOver>

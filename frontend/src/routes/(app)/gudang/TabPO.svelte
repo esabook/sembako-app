@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import { bukaWhatsApp } from '$lib/utils/wa.js';
-	import Modal from '$lib/components/Modal.svelte';
+	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabPOGuide from './TabPOGuide.svelte';
@@ -203,7 +203,7 @@
 	</DataTable>
 </div>
 
-<Modal bind:open={showPoDetail} title="Detail PO — {poDetail?.no_po ?? ''}">
+<SlideOver bind:open={showPoDetail} title="Detail PO — {poDetail?.no_po ?? ''}">
 	{#snippet children()}
 	{#if poDetail}
 	<div class="text-sm flex flex-col gap-3">
@@ -224,6 +224,6 @@
 	</div>
 	{/if}
 	{/snippet}
-</Modal>
+</SlideOver>
 
 <TabPOGuide />

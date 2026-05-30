@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
-	import Modal from '$lib/components/Modal.svelte';
+	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 
 	type PromoTarget = { id?: number; target_tipe: 'barang' | 'kategori'; target_id: number; nama?: string };
@@ -299,7 +299,7 @@
 </div>
 
 <!-- ── Modal Form Promo ──────────────────────────────────────────────────────── -->
-<Modal bind:open={modalOpen} title={editPromo ? 'Edit Promo' : 'Buat Promo Baru'}>
+<SlideOver bind:open={modalOpen} title={editPromo ? 'Edit Promo' : 'Buat Promo Baru'}>
 	{#snippet children()}
 	<form onsubmit={(e) => { e.preventDefault(); simpan(); }} class="flex flex-col gap-3 text-sm">
 		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{error}</p>{/if}
@@ -472,4 +472,4 @@
 		</div>
 	</form>
 	{/snippet}
-</Modal>
+</SlideOver>

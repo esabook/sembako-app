@@ -3,7 +3,7 @@
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
-	import Modal from '$lib/components/Modal.svelte';
+	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabStokGuide from './TabStokGuide.svelte';
@@ -174,7 +174,7 @@
 	</DataTable>
 </div>
 
-<Modal bind:open={showMutasi} title="Riwayat Mutasi — {mutasiNama}">
+<SlideOver bind:open={showMutasi} title="Riwayat Mutasi — {mutasiNama}">
 	{#snippet children()}
 	<div class="space-y-3">
 		<!-- Filter tanggal -->
@@ -245,6 +245,6 @@
 		</div>
 	</div>
 	{/snippet}
-</Modal>
+</SlideOver>
 
 <TabStokGuide />

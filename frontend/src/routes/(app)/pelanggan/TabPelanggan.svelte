@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api } from '$lib/utils/api.js'
-  import Modal from '$lib/components/Modal.svelte'
+  import SlideOver from '$lib/components/SlideOver.svelte'
   import DataTable, { type Column } from '$lib/components/DataTable.svelte'
 
   let { onbukariwayat }: { onbukariwayat?: (id: number, nama: string) => void } = $props()
@@ -405,7 +405,7 @@
 </div>
 
 <!-- MODAL: Tambah/Edit Pelanggan -->
-<Modal bind:open={modalPlgOpen} title={editPlg ? 'Edit Pelanggan' : 'Tambah Pelanggan'}>
+<SlideOver bind:open={modalPlgOpen} title={editPlg ? 'Edit Pelanggan' : 'Tambah Pelanggan'}>
   <div class="space-y-3">
     <div class="grid grid-cols-2 gap-3">
       <div>
@@ -484,10 +484,10 @@
       <button onclick={simpanPlg} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Simpan</button>
     </div>
   </div>
-</Modal>
+</SlideOver>
 
 <!-- MODAL: Assign Kartu ke Pelanggan (searchable) -->
-<Modal bind:open={modalAssignOpen} title="Assign Kartu — {assignTarget?.nama ?? ''}">
+<SlideOver bind:open={modalAssignOpen} title="Assign Kartu — {assignTarget?.nama ?? ''}">
   <div class="space-y-3">
     {#if assignKartuId}
       <!-- Kartu sudah dipilih -->
@@ -552,4 +552,4 @@
       {/if}
     </div>
   </div>
-</Modal>
+</SlideOver>

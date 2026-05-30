@@ -1,6 +1,6 @@
 <script lang="ts">
   import { api } from '$lib/utils/api.js'
-  import Modal from '$lib/components/Modal.svelte'
+  import SlideOver from '$lib/components/SlideOver.svelte'
   import DataTable, { type Column } from '$lib/components/DataTable.svelte'
 
   type Kartu = {
@@ -364,7 +364,7 @@
 </div>
 
 <!-- MODAL: Generate Kartu -->
-<Modal bind:open={modalGenerateOpen} title="Generate Kartu Anggota">
+<SlideOver bind:open={modalGenerateOpen} title="Generate Kartu Anggota">
   <div class="space-y-3">
     <p class="text-xs" style="color:var(--text-dim)">Nomor kartu 10 digit akan di-generate otomatis secara acak dan unik.</p>
     <div class="grid grid-cols-2 gap-3">
@@ -396,10 +396,10 @@
       <button onclick={simpanGenerate} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Generate</button>
     </div>
   </div>
-</Modal>
+</SlideOver>
 
 <!-- MODAL: Edit Tier/Diskon Kartu -->
-<Modal bind:open={modalEditKartuOpen} title="Edit Kartu — {editKartu?.no_kartu ?? ''}">
+<SlideOver bind:open={modalEditKartuOpen} title="Edit Kartu — {editKartu?.no_kartu ?? ''}">
   <div class="space-y-3">
     <div class="grid grid-cols-2 gap-3">
       <div>
@@ -424,10 +424,10 @@
       <button onclick={simpanEditKartu} class="px-4 py-1.5 text-sm rounded font-medium" style="background:var(--accent);color:var(--bg)">Simpan</button>
     </div>
   </div>
-</Modal>
+</SlideOver>
 
 <!-- MODAL: Update Poin -->
-<Modal bind:open={modalPoinOpen} title="Update Poin — {poinTarget?.no_kartu ?? ''}">
+<SlideOver bind:open={modalPoinOpen} title="Update Poin — {poinTarget?.no_kartu ?? ''}">
   {#if poinTarget}
     <div class="space-y-3">
       <div class="text-center py-2 rounded" style="background:var(--surface2)">
@@ -460,10 +460,10 @@
       </div>
     </div>
   {/if}
-</Modal>
+</SlideOver>
 
 <!-- MODAL: Assign Kartu ke Pelanggan (dari sisi kartu) -->
-<Modal bind:open={modalAssignKartuOpen} title="Assign Kartu {assignKartuTarget?.no_kartu ?? ''} ke Pelanggan">
+<SlideOver bind:open={modalAssignKartuOpen} title="Assign Kartu {assignKartuTarget?.no_kartu ?? ''} ke Pelanggan">
   <div class="space-y-3">
     {#if assignPlgId}
       <!-- Pelanggan sudah dipilih -->
@@ -528,4 +528,4 @@
       {/if}
     </div>
   </div>
-</Modal>
+</SlideOver>

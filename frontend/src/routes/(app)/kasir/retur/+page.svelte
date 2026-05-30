@@ -5,7 +5,7 @@
 	import { api } from '$lib/utils/api'
 	import { user } from '$lib/stores/auth.js'
 	import Button from '$lib/components/ui/Button.svelte'
-	import Modal from '$lib/components/ui/Modal.svelte'
+	import SlideOver from '$lib/components/SlideOver.svelte'
 
 	$effect(() => {
 		if ($user && !['pemilik', 'manajer', 'kasir'].includes($user.role)) goto('/kasir')
@@ -466,29 +466,11 @@
 	</div>
 </div>
 
-<!-- ═══ Modal Buat Retur ═══════════════════════════════════════════════════ -->
+<!-- ═══ SlideOver Buat Retur ════════════════════════════════════════════════ -->
 
-{#if modalBuat}
-	<Modal judul="Buat Retur Penjualan" lebar="lg" ontutup={tutupModalBuat}>
-		<!-- Footer tombol — satu snippet di level atas agar tetap aktif saat step berubah -->
-		{#snippet footer()}
-			{#if step === 1}
-				<Button variant="ghost" size="sm" onclick={tutupModalBuat}>Batal</Button>
-				<Button variant="primary" size="sm" disabled={!trxAsal} onclick={lanjutStep2}>
-					Lanjut →
-				</Button>
-			{:else if step === 2}
-				<Button variant="ghost" size="sm" onclick={() => (step = 1)}>← Kembali</Button>
-				<Button variant="primary" size="sm" disabled={itemsDipilih.length === 0} onclick={lanjutStep3}>
-					Lanjut →
-				</Button>
-			{:else if step === 3}
-				<Button variant="ghost" size="sm" onclick={() => (step = 2)}>← Kembali</Button>
-				<Button variant="danger" size="sm" loading={saving} onclick={submitRetur}>
-					Proses Retur
-				</Button>
-			{/if}
-		{/snippet}
+<SlideOver bind:open={modalBuat} title="Buat Retur Penjualan">
+	{#snippet children()}
+	<div class="flex flex-col gap-4">
 
 		<!-- Step indicator -->
 		<div class="mb-4 flex gap-2 text-xs">
@@ -811,13 +793,35 @@
 				{/if}
 			</div>
 		{/if}
-	</Modal>
-{/if}
 
-<!-- ═══ Modal Detail Retur ════════════════════════════════════════════════ -->
+		<!-- Navigasi step (sticky bottom) -->
+		<div class="sticky bottom-0 -mx-4 px-4 py-3 border-t flex justify-end gap-2"
+			style="border-color:var(--border);background:var(--surface)">
+			{#if step === 1}
+				<Button variant="ghost" size="sm" onclick={tutupModalBuat}>Batal</Button>
+				<Button variant="primary" size="sm" disabled={!trxAsal} onclick={lanjutStep2}>
+					Lanjut →
+				</Button>
+			{:else if step === 2}
+				<Button variant="ghost" size="sm" onclick={() => (step = 1)}>← Kembali</Button>
+				<Button variant="primary" size="sm" disabled={itemsDipilih.length === 0} onclick={lanjutStep3}>
+					Lanjut →
+				</Button>
+			{:else if step === 3}
+				<Button variant="ghost" size="sm" onclick={() => (step = 2)}>← Kembali</Button>
+				<Button variant="danger" size="sm" loading={saving} onclick={submitRetur}>
+					Proses Retur
+				</Button>
+			{/if}
+		</div>
+	</div>
+	{/snippet}
+</SlideOver>
 
-{#if modalDetail}
-	<Modal judul="Detail Retur" lebar="md" ontutup={() => (modalDetail = false)}>
+<!-- ═══ SlideOver Detail Retur ══════════════════════════════════════════════ -->
+
+<SlideOver bind:open={modalDetail} title="Detail Retur">
+	{#snippet children()}
 		{#if loadingDetail}
 			<p class="py-8 text-center text-sm" style="color:var(--text-dim)">Memuat...</p>
 		{:else if detailData}
@@ -909,5 +913,5 @@
 				{/if}
 			</div>
 		{/if}
-	</Modal>
-{/if}
+	{/snippet}
+</SlideOver>

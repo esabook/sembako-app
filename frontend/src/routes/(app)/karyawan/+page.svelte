@@ -3,10 +3,11 @@
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import { user } from '$lib/stores/auth.js'
-  import Modal from '$lib/components/Modal.svelte'
+  import SlideOver from '$lib/components/SlideOver.svelte'
   import DataTable from '$lib/components/DataTable.svelte'
   import { createKaryawanStore } from './karyawan.store.svelte.js'
   import type { Tab } from './karyawan.types.js'
+  import FormKaryawan from './FormKaryawan.svelte'
   import {
     ROLE_COLOR, STATUS_COLOR, STATUS_GAJI_COLOR, STATUS_KB, DAY_LABELS,
     rp, fmtRpK, fmtMenit, hitungDurasi,
@@ -800,99 +801,10 @@
 </div>
 
 <!-- ── Modal: Form Karyawan ─────────────────────────────────────────────────── -->
-<Modal bind:open={store.modalKaryawanOpen} title={store.editKaryawan?.id ? 'Edit Karyawan' : 'Tambah Karyawan'}>
-  {#snippet children()}
-  <form onsubmit={(e) => { e.preventDefault(); store.simpanKaryawan() }} class="flex flex-col gap-3 text-sm">
-    <div class="grid grid-cols-2 gap-3">
-      <div class="flex flex-col gap-1">
-        <label for="f-kode" class="text-xs" style="color:var(--text-dim)">KODE *</label>
-        <input id="f-kode" type="text" bind:value={store.formKaryawan.kode_karyawan} required
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="f-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label>
-        <input id="f-nama" type="text" bind:value={store.formKaryawan.nama} required
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="f-role" class="text-xs" style="color:var(--text-dim)">ROLE *</label>
-        <select id="f-role" bind:value={store.formKaryawan.role} class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-          {#each ['pemilik','manajer','kasir','gudang'] as r}
-            <option value={r}>{r}</option>
-          {/each}
-        </select>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="f-username" class="text-xs" style="color:var(--text-dim)">USERNAME *</label>
-        <input id="f-username" bind:value={store.formKaryawan.username} required class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="f-pw" class="text-xs" style="color:var(--text-dim)">PASSWORD {store.editKaryawan?.id ? '(kosong = tidak ubah)' : '*'}</label>
-        <input id="f-pw" type="password" bind:value={store.formKaryawan.password}
-          required={!store.editKaryawan?.id} class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="f-kontak" class="text-xs" style="color:var(--text-dim)">KONTAK</label>
-        <input id="f-kontak" bind:value={store.formKaryawan.kontak} class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="f-pin" class="text-xs" style="color:var(--text-dim)">
-          PIN ABSENSI (4 digit){store.editKaryawan?.id ? ' — kosong = tidak ubah' : ''}
-        </label>
-        <input id="f-pin" type="password" inputmode="numeric" maxlength="4"
-          bind:value={store.formKaryawan.pin_absensi}
-          placeholder="4 digit angka"
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="f-gaji" class="text-xs" style="color:var(--text-dim)">GAJI POKOK</label>
-        <input id="f-gaji" type="number" min="0" bind:value={store.formKaryawan.gaji_pokok} class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
-      <div class="flex flex-col gap-1">
-        <label for="f-tipe" class="text-xs" style="color:var(--text-dim)">TIPE GAJI</label>
-        <select id="f-tipe" bind:value={store.formKaryawan.tipe_gaji} class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-          <option value="bulanan">Bulanan</option>
-          <option value="harian">Harian</option>
-        </select>
-      </div>
-    </div>
-    <div class="flex flex-col gap-1">
-      <label for="f-foto" class="text-xs" style="color:var(--text-dim)">FOTO</label>
-      <div class="flex items-center gap-3">
-        {#if store.fotoPreview}
-          <img src={store.fotoPreview} alt="preview"
-            class="rounded-full object-cover shrink-0"
-            style="width:48px;height:48px;border:1px solid var(--border)" />
-        {:else}
-          <div class="rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
-            style="width:48px;height:48px;background:var(--surface2);border:1px dashed var(--border);color:var(--text-dim)">
-            {store.formKaryawan.nama ? store.formKaryawan.nama.trim().split(/\s+/).slice(0,2).map((w: string)=>w[0]).join('').toUpperCase() : '?'}
-          </div>
-        {/if}
-        <input id="f-foto" type="file" accept="image/*" onchange={store.handleFotoKaryawanChange} class="text-xs" style="color:var(--text)" />
-      </div>
-    </div>
-    <div class="flex justify-end gap-2 mt-1">
-      <button type="button" onclick={() => store.modalKaryawanOpen = false} class="px-3 py-1 rounded text-sm"
-        style="color:var(--text-dim)">Batal</button>
-      <button type="submit" class="px-3 py-1 rounded text-sm font-bold"
-        style="background:var(--accent);color:var(--bg)">Simpan</button>
-    </div>
-  </form>
-  {/snippet}
-</Modal>
+<FormKaryawan {store} />
 
 <!-- ── Modal: Form Absensi ──────────────────────────────────────────────────── -->
-<Modal bind:open={store.modalAbsensiOpen} title={store.editAbsensi ? 'Edit Absensi' : 'Tambah Absensi'}>
+<SlideOver bind:open={store.modalAbsensiOpen} title={store.editAbsensi ? 'Edit Absensi' : 'Tambah Absensi'}>
   {#snippet children()}
   <form onsubmit={(e) => { e.preventDefault(); store.simpanAbsensi() }} class="flex flex-col gap-3 text-sm">
     <div class="grid grid-cols-2 gap-3">
@@ -953,10 +865,10 @@
     </div>
   </form>
   {/snippet}
-</Modal>
+</SlideOver>
 
 <!-- ── Modal: Edit Tunjangan/Potongan ──────────────────────────────────────── -->
-<Modal bind:open={store.modalGajiOpen} title="Edit Tunjangan & Potongan">
+<SlideOver bind:open={store.modalGajiOpen} title="Edit Tunjangan & Potongan">
   {#snippet children()}
   <form onsubmit={(e) => { e.preventDefault(); store.simpanEditGaji() }} class="flex flex-col gap-3 text-sm">
     {#if store.editGaji}
@@ -985,10 +897,10 @@
     </div>
   </form>
   {/snippet}
-</Modal>
+</SlideOver>
 
 <!-- ── Modal: Tandai Dibayar ───────────────────────────────────────────────── -->
-<Modal bind:open={store.modalBayarOpen} title="Tandai Gaji Dibayar">
+<SlideOver bind:open={store.modalBayarOpen} title="Tandai Gaji Dibayar">
   {#snippet children()}
   <div class="flex flex-col gap-3 text-sm">
     <p style="color:var(--text-dim)">Pilih akun kas/bank untuk mencatat pengeluaran gaji (opsional):</p>
@@ -1009,10 +921,10 @@
     </div>
   </div>
   {/snippet}
-</Modal>
+</SlideOver>
 
 <!-- ── Modal: Form Kasbon ───────────────────────────────────────────────────── -->
-<Modal bind:open={store.modalKasbonOpen} title="Tambah Kasbon">
+<SlideOver bind:open={store.modalKasbonOpen} title="Tambah Kasbon">
   {#snippet children()}
   <form onsubmit={(e) => { e.preventDefault(); store.simpanKasbon() }} class="flex flex-col gap-3 text-sm">
     <div class="grid grid-cols-2 gap-3">
@@ -1060,10 +972,10 @@
     </div>
   </form>
   {/snippet}
-</Modal>
+</SlideOver>
 
 <!-- ── Modal: Bayar Cicilan ─────────────────────────────────────────────────── -->
-<Modal bind:open={store.modalCicilOpen} title="Bayar Cicilan Kasbon">
+<SlideOver bind:open={store.modalCicilOpen} title="Bayar Cicilan Kasbon">
   {#snippet children()}
   <div class="flex flex-col gap-3 text-sm">
     <div class="flex flex-col gap-1">
@@ -1080,10 +992,10 @@
     </div>
   </div>
   {/snippet}
-</Modal>
+</SlideOver>
 
 <!-- ── Modal: Jadwal Cicilan ────────────────────────────────────────────────── -->
-<Modal bind:open={store.modalJadwalOpen} title="Jadwal Cicilan Kasbon">
+<SlideOver bind:open={store.modalJadwalOpen} title="Jadwal Cicilan Kasbon">
   {#snippet children()}
   <div class="flex flex-col gap-3 text-sm">
     <p class="text-xs font-bold" style="color:var(--text-dim)">{store.jadwalCicilanNama}</p>
@@ -1125,10 +1037,10 @@
     </div>
   </div>
   {/snippet}
-</Modal>
+</SlideOver>
 
 <!-- ── Modal: Form Tipe Shift ────────────────────────────────────────────────── -->
-<Modal bind:open={store.modalTipeOpen} title={store.editTipe ? 'Edit Tipe Shift' : 'Tambah Tipe Shift'}>
+<SlideOver bind:open={store.modalTipeOpen} title={store.editTipe ? 'Edit Tipe Shift' : 'Tambah Tipe Shift'}>
   {#snippet children()}
   <form onsubmit={(e) => { e.preventDefault(); store.simpanTipe() }} class="flex flex-col gap-3 text-sm">
     <div class="grid grid-cols-2 gap-3">
@@ -1170,10 +1082,10 @@
     </div>
   </form>
   {/snippet}
-</Modal>
+</SlideOver>
 
 <!-- ── Modal: Ajukan Tukar Shift ─────────────────────────────────────────────── -->
-<Modal bind:open={store.modalTukarOpen} title="Ajukan Tukar Shift">
+<SlideOver bind:open={store.modalTukarOpen} title="Ajukan Tukar Shift">
   {#snippet children()}
   <form onsubmit={(e) => { e.preventDefault(); store.ajukanTukar() }} class="flex flex-col gap-3 text-sm">
     <div class="flex flex-col gap-1">
@@ -1215,4 +1127,4 @@
     </div>
   </form>
   {/snippet}
-</Modal>
+</SlideOver>

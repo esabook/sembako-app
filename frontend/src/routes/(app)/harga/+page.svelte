@@ -7,7 +7,7 @@
 	import { toast } from '$lib/stores/ui.store.js'
 	import Button from '$lib/components/ui/Button.svelte'
 	import Spinner from '$lib/components/ui/Spinner.svelte'
-	import Modal from '$lib/components/ui/Modal.svelte'
+	import SlideOver from '$lib/components/SlideOver.svelte'
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte'
 
 	$effect(() => {
@@ -72,15 +72,19 @@
 	)
 
 	// Edit Modal
+	let editOpen = $state(false)
 	let editTarget = $state<BarangHarga | null>(null)
 	let editEceran = $state(0)
 	let editGrosir = $state(0)
 	let saving = $state(false)
+	$effect(() => { if (!editOpen) editTarget = null })
 
 	// Histori Modal
+	let historiOpen = $state(false)
 	let historiTarget = $state<BarangHarga | null>(null)
 	let historiList = $state<HistoriHarga[]>([])
 	let loadingHistori = $state(false)
+	$effect(() => { if (!historiOpen) historiTarget = null })
 
 	// Update Massal
 	let massalChecked = $state<Set<number>>(new Set())
@@ -112,6 +116,7 @@
 		editTarget = b
 		editEceran = b.harga_jual_eceran
 		editGrosir = b.harga_jual_grosir
+		editOpen = true
 	}
 
 	async function simpanEdit() {
@@ -123,7 +128,7 @@
 		})
 		if (res.success) {
 			toast.sukses(`Harga ${editTarget.nama_barang} diperbarui`)
-			editTarget = null
+			editOpen = false
 			await reload()
 		} else {
 			toast.error('Gagal menyimpan harga')
@@ -135,6 +140,7 @@
 
 	async function bukaHistori(b: BarangHarga) {
 		historiTarget = b
+		historiOpen = true
 		historiList = []
 		loadingHistori = true
 		const res = await api.get<HistoriHarga[]>(`/harga/${b.id}/histori`)
@@ -484,97 +490,92 @@
 	{/if}
 </div>
 
-<!-- ── Modal Edit Harga ───────────────────────────────────────────────────── -->
-{#if editTarget}
-	<Modal judul="Edit Harga — {editTarget.nama_barang}" lebar="sm" ontutup={() => (editTarget = null)}>
-		<div class="space-y-4 p-4">
-			<div class="rounded p-3 text-xs" style="background:var(--surface2);color:var(--text-dim)">
-				Harga Beli: <strong style="color:var(--text)">Rp {rp(editTarget.harga_beli_terakhir)}</strong>
-			</div>
-
-			<div class="space-y-1">
-				<label for="edit_eceran" class="text-xs" style="color:var(--text-dim)">Harga Eceran (Rp)</label>
-				<input
-					id="edit_eceran"
-					type="number"
-					bind:value={editEceran}
-					class="w-full rounded border px-3 py-2 text-sm"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-				/>
-				{#if editTarget.harga_beli_terakhir > 0}
-					<p class="text-xs" style={marginColor(((editEceran - editTarget.harga_beli_terakhir) / editTarget.harga_beli_terakhir) * 100)}>
-						Margin: {pct(((editEceran - editTarget.harga_beli_terakhir) / editTarget.harga_beli_terakhir) * 100)}
-					</p>
-				{/if}
-			</div>
-
-			<div class="space-y-1">
-				<label for="edit_grosir" class="text-xs" style="color:var(--text-dim)">Harga Grosir (Rp)</label>
-				<input
-					id="edit_grosir"
-					type="number"
-					bind:value={editGrosir}
-					class="w-full rounded border px-3 py-2 text-sm"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-				/>
-				{#if editTarget.harga_beli_terakhir > 0}
-					<p class="text-xs" style={marginColor(((editGrosir - editTarget.harga_beli_terakhir) / editTarget.harga_beli_terakhir) * 100)}>
-						Margin: {pct(((editGrosir - editTarget.harga_beli_terakhir) / editTarget.harga_beli_terakhir) * 100)}
-					</p>
-				{/if}
-			</div>
+<!-- ── SlideOver Edit Harga ───────────────────────────────────────────────── -->
+<SlideOver bind:open={editOpen} title={editTarget ? `Edit Harga — ${editTarget.nama_barang}` : ''}>
+	{#snippet children()}
+	{#if editTarget}
+	<div class="space-y-4">
+		<div class="rounded p-3 text-xs" style="background:var(--surface2);color:var(--text-dim)">
+			Harga Beli: <strong style="color:var(--text)">Rp {rp(editTarget.harga_beli_terakhir)}</strong>
 		</div>
-		{#snippet footer()}
-			<div class="flex justify-end gap-2 p-4 pt-0">
-				<Button variant="ghost" onclick={() => (editTarget = null)}>Batal</Button>
-				<Button onclick={simpanEdit} loading={saving}>Simpan</Button>
-			</div>
-		{/snippet}
-	</Modal>
-{/if}
 
-<!-- ── Modal Histori Harga ────────────────────────────────────────────────── -->
-{#if historiTarget}
-	<Modal judul="Histori Harga — {historiTarget.nama_barang}" lebar="md" ontutup={() => (historiTarget = null)}>
-		<div class="p-4">
-			{#if loadingHistori}
-				<div class="flex justify-center py-8"><Spinner /></div>
-			{:else if historiList.length === 0}
-				<p class="py-8 text-center text-xs" style="color:var(--text-dim)">Belum ada histori harga</p>
-			{:else}
-				<table class="w-full text-xs">
-					<thead>
-						<tr style="color:var(--text-dim)">
-							<th class="pb-2 text-left font-bold">Tanggal</th>
-							<th class="pb-2 text-right font-bold">Eceran</th>
-							<th class="pb-2 text-right font-bold">Grosir</th>
-							<th class="pb-2 text-left font-bold">Diubah oleh</th>
-							<th class="pb-2 text-left font-bold">Status</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each historiList as h (h.id)}
-							<tr class="border-t" style="border-color:var(--border)">
-								<td class="py-2" style="color:var(--text)">{h.tanggal_berlaku}</td>
-								<td class="py-2 text-right font-mono" style="color:var(--text)">
-									{rp(h.harga_eceran)}
-								</td>
-								<td class="py-2 text-right font-mono" style="color:var(--text)">
-									{rp(h.harga_grosir)}
-								</td>
-								<td class="py-2" style="color:var(--text-dim)">{h.nama_ubah ?? '-'}</td>
-								<td class="py-2">
-									{#if h.tanggal_berakhir === null}
-										<span class="rounded px-1.5 py-0.5 text-xs font-bold" style="background:var(--accent);color:var(--bg)">AKTIF</span>
-									{:else}
-										<span style="color:var(--text-dim)">s/d {h.tanggal_berakhir}</span>
-									{/if}
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+		<div class="space-y-1">
+			<label for="edit_eceran" class="text-xs" style="color:var(--text-dim)">Harga Eceran (Rp)</label>
+			<input
+				id="edit_eceran"
+				type="number"
+				bind:value={editEceran}
+				class="w-full rounded border px-3 py-2 text-sm"
+				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+			/>
+			{#if editTarget.harga_beli_terakhir > 0}
+				<p class="text-xs" style={marginColor(((editEceran - editTarget.harga_beli_terakhir) / editTarget.harga_beli_terakhir) * 100)}>
+					Margin: {pct(((editEceran - editTarget.harga_beli_terakhir) / editTarget.harga_beli_terakhir) * 100)}
+				</p>
 			{/if}
 		</div>
-	</Modal>
-{/if}
+
+		<div class="space-y-1">
+			<label for="edit_grosir" class="text-xs" style="color:var(--text-dim)">Harga Grosir (Rp)</label>
+			<input
+				id="edit_grosir"
+				type="number"
+				bind:value={editGrosir}
+				class="w-full rounded border px-3 py-2 text-sm"
+				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+			/>
+			{#if editTarget.harga_beli_terakhir > 0}
+				<p class="text-xs" style={marginColor(((editGrosir - editTarget.harga_beli_terakhir) / editTarget.harga_beli_terakhir) * 100)}>
+					Margin: {pct(((editGrosir - editTarget.harga_beli_terakhir) / editTarget.harga_beli_terakhir) * 100)}
+				</p>
+			{/if}
+		</div>
+
+		<div class="flex justify-end gap-2 pt-2">
+			<Button variant="ghost" onclick={() => editOpen = false}>Batal</Button>
+			<Button onclick={simpanEdit} loading={saving}>Simpan</Button>
+		</div>
+	</div>
+	{/if}
+	{/snippet}
+</SlideOver>
+
+<!-- ── SlideOver Histori Harga ────────────────────────────────────────────── -->
+<SlideOver bind:open={historiOpen} title={historiTarget ? `Histori Harga — ${historiTarget.nama_barang}` : ''}>
+	{#snippet children()}
+	{#if loadingHistori}
+		<div class="flex justify-center py-8"><Spinner /></div>
+	{:else if historiList.length === 0}
+		<p class="py-8 text-center text-xs" style="color:var(--text-dim)">Belum ada histori harga</p>
+	{:else}
+		<table class="w-full text-xs">
+			<thead>
+				<tr style="color:var(--text-dim)">
+					<th class="pb-2 text-left font-bold">Tanggal</th>
+					<th class="pb-2 text-right font-bold">Eceran</th>
+					<th class="pb-2 text-right font-bold">Grosir</th>
+					<th class="pb-2 text-left font-bold">Diubah oleh</th>
+					<th class="pb-2 text-left font-bold">Status</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each historiList as h (h.id)}
+					<tr class="border-t" style="border-color:var(--border)">
+						<td class="py-2" style="color:var(--text)">{h.tanggal_berlaku}</td>
+						<td class="py-2 text-right font-mono" style="color:var(--text)">{rp(h.harga_eceran)}</td>
+						<td class="py-2 text-right font-mono" style="color:var(--text)">{rp(h.harga_grosir)}</td>
+						<td class="py-2" style="color:var(--text-dim)">{h.nama_ubah ?? '-'}</td>
+						<td class="py-2">
+							{#if h.tanggal_berakhir === null}
+								<span class="rounded px-1.5 py-0.5 text-xs font-bold" style="background:var(--accent);color:var(--bg)">AKTIF</span>
+							{:else}
+								<span style="color:var(--text-dim)">s/d {h.tanggal_berakhir}</span>
+							{/if}
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	{/if}
+	{/snippet}
+</SlideOver>
