@@ -1,0 +1,77 @@
+<script lang="ts">
+  import type { Snippet } from 'svelte'
+
+  let {
+    open = $bindable(false),
+    title = '',
+    maxWidth = 'md',
+    children,
+  }: {
+    open?: boolean;
+    title?: string;
+    maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+    children: Snippet;
+  } = $props()
+
+  const maxWClass: Record<string, string> = {
+    sm: 'sm:max-w-sm',
+    md: 'sm:max-w-md',
+    lg: 'sm:max-w-lg',
+    xl: 'sm:max-w-xl',
+  }
+
+  function tutup() { open = false }
+  function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') tutup() }
+</script>
+
+<svelte:window onkeydown={onKeydown} />
+
+{#if open}
+  <!-- Backdrop -->
+  <!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events -->
+  <div
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+    style="background:rgba(0,0,0,0.5)"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    onclick={tutup}
+  >
+    <!-- Panel -->
+    <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+    <div
+      class="relative flex flex-col overflow-hidden border
+             w-full {maxWClass[maxWidth]}
+             rounded-t-2xl sm:rounded-2xl
+             max-w-[calc(100vw-16px)] sm:max-w-none"
+      style="background:var(--surface);border-color:var(--border);max-height:90svh"
+      onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+    >
+      <!-- Close button -->
+      <button
+        onclick={tutup}
+        class="absolute w-7 h-7 flex items-center justify-center rounded-full text-base leading-none z-10"
+        style="top:16px;right:16px;background:var(--surface2);color:var(--text-dim)"
+        aria-label="Tutup"
+      >&times;</button>
+
+      <!-- Drag handle (mobile only) -->
+      <div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+        <div class="w-10 h-1 rounded-full" style="background:var(--border)"></div>
+      </div>
+
+      <!-- Header -->
+      {#if title}
+        <div class="border-b shrink-0" style="border-color:var(--border);padding:16px;padding-right:48px">
+          <h3 class="text-sm font-bold" style="color:var(--text)">{title}</h3>
+        </div>
+      {/if}
+
+      <!-- Body -->
+      <div class="overflow-y-auto flex-1 px-4 sm:px-6 py-4">
+        {@render children()}
+      </div>
+    </div>
+  </div>
+{/if}
