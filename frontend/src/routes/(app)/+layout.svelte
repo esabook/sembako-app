@@ -3,6 +3,7 @@
 	import { user, type Role } from '$lib/stores/auth.js';
 	import { api } from '$lib/utils/api.js';
 	import { onMount } from 'svelte';
+	import { tinykeys } from 'tinykeys';
 	import { font, FONT_CSS } from '$lib/stores/font.js';
 	import { ukuranFont } from '$lib/stores/ukuran-font.js';
 	import NavClock from '$lib/components/NavClock.svelte';
@@ -54,22 +55,19 @@
 		sidebarReady = true;
 
 		if (sidebarState === 'expanded') resetIdle();
-		function handleKeydown(e: KeyboardEvent) {
-			resetIdle();
-			if (e.ctrlKey && e.key === 'Home') {
-				e.preventDefault();
-				toggleSidebar();
-			}
-		}
 
 		window.addEventListener('mousemove', resetIdle, { passive: true });
-		window.addEventListener('keydown', handleKeydown);
+		window.addEventListener('keydown', resetIdle, { passive: true });
 		window.addEventListener('pointerdown', resetIdle, { passive: true });
+		const cleanupKeys = tinykeys(window, {
+			'Control+Home': (e) => { e.preventDefault(); toggleSidebar(); },
+		});
 		return () => {
 			if (idleTimer) clearTimeout(idleTimer);
 			window.removeEventListener('mousemove', resetIdle);
-			window.removeEventListener('keydown', handleKeydown);
+			window.removeEventListener('keydown', resetIdle);
 			window.removeEventListener('pointerdown', resetIdle);
+			cleanupKeys();
 		};
 	});
 

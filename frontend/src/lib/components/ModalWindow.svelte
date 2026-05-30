@@ -91,7 +91,7 @@
                  : 'sm:max-w-md')}"
       style="background:var(--surface);border-color:var(--border);{fullscreen ? '' : 'max-height:90svh'}"
       onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
+      onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); tutup(); } else { e.stopPropagation(); } }}
     >
       <!-- Close button -->
       <button

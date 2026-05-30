@@ -21,14 +21,13 @@
   konsisten dengan HTML string yang dicetak ke popup print window.
 -->
 <div
-	class="inline-block rounded border p-4 text-left"
+	class="inline-block rounded border p-2 text-left"
 	style="
 		background:#fff;
 		border-color:#ccc;
 		color:#000;
 		font-family:'Courier New',Courier,monospace;
 		font-size:{data.ukuran === '58' ? '8.5pt' : '9.5pt'};
-		width:{width ?? (data.ukuran === '58' ? '200px' : '260px')};
 		box-shadow:0 2px 8px rgba(0,0,0,.15);
 	"
 >

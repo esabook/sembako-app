@@ -48,11 +48,9 @@
     · {new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
   </p>
 
-  <!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events -->
   <form
     class="flex flex-col gap-4"
     onsubmit={(e) => { e.preventDefault(); void simpan() }}
-    onkeydown={(e) => { if (e.key === 'Enter' && !saving) { e.preventDefault(); void simpan() } }}
   >
     <div>
       <label for="kas-awal" class="mb-1 block text-xs" style="color:var(--text-dim)">

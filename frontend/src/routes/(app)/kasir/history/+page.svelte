@@ -184,6 +184,8 @@
 	});
 </script>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') history.back() }} />
+
 <div class="flex h-full flex-col gap-0">
 	<!-- Header -->
 	<div class="flex items-center justify-between">

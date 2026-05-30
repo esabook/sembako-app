@@ -63,7 +63,12 @@
 
   // ── Close ─────────────────────────────────────────────────────────────────
   function tutup() { open = false }
-  function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') tutup() }
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && open) {
+      e.stopImmediatePropagation()
+      tutup()
+    }
+  }
 
   // ── Desktop: drag left edge → resize width ────────────────────────────────
   let wDragging = $state(false)

@@ -55,6 +55,7 @@
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import { tinykeys } from 'tinykeys';
 	import {
 		fetchStokMenipis,
 		type StokMenipis
@@ -116,10 +117,6 @@
 		cariTimer = setTimeout(() => cariBarang($searchVal), 200);
 	}
 
-	// ── Barcode scanner: buffer untuk USB/BT scanner ──────────────────────────
-	let lastKeyTime = 0;
-	let barcodeBuffer = '';
-
 	// ── Keyboard: search popup ────────────────────────────────────────────────
 	function onSearchKeydown(e: KeyboardEvent) {
 		if (e.key === 'ArrowDown') {
@@ -152,22 +149,16 @@
 		showHelp = false;
 	}
 
-	function onKeydown(e: KeyboardEvent) {
-		console.log(e.key);
-		if (konfirmasiReset) return;
+	const inInput = () => ['INPUT', 'TEXTAREA'].includes(
+		(document.activeElement as HTMLElement)?.tagName ?? ''
+	);
 
-		if ($konfirmasiHapusIdx !== null && e.key !== 'F1') {
-			// ConfirmDialog menangani Escape/Enter/Arrow lewat onkeydown panel (stopPropagation).
-			// Guard ini hanya blokir shortcut page lain (search, checkout, dll) agar tidak aktif.
-			return;
-		}
-
-		const inInput = ['INPUT', 'TEXTAREA'].includes(
-			(document.activeElement as HTMLElement)?.tagName ?? ''
-		);
-
-		// barcode scanner detection (hanya di main screen)
-		if (!inInput && !$popupSearch && !$popupCheckout) {
+	// Barcode scanner: timing < 50ms antar karakter — tidak bisa pakai tinykeys
+	function setupBarcodeDetector(): () => void {
+		let lastKeyTime = 0;
+		let barcodeBuffer = '';
+		function handleKey(e: KeyboardEvent) {
+			if (inInput() || $popupSearch || $popupCheckout) return;
 			const now = Date.now();
 			if (now - lastKeyTime < 50 && e.key.length === 1) {
 				barcodeBuffer += e.key;
@@ -178,126 +169,15 @@
 				searchVal.set(code);
 				openSearch();
 				void cariBarang(code);
-				console.log('deteksi barcode:', code);
+				e.stopImmediatePropagation();
 				return;
 			} else {
 				barcodeBuffer = e.key.length === 1 ? e.key : '';
 			}
 			lastKeyTime = now;
 		}
-
-		switch (e.key) {
-			case 'F1':
-				e.preventDefault();
-				if (showHelp) {
-					showHelp = false;
-					console.log('tutup help');
-					break;
-				}
-				closeAll();
-				showHelp = true;
-				console.log('buka help');
-				break;
-			case 'F3':
-				e.preventDefault();
-				if ($popupSearch) {
-					closeSearch();
-					break;
-				}
-				closeAll();
-				openSearch();
-				break;
-			case 'F7':
-				e.preventDefault();
-				closeAll();
-				void goto('/kasir/history');
-				break;
-			case 'F8':
-				e.preventDefault();
-				closeAll();
-				void goto('/kasir/retur');
-				break;
-			case 'F10':
-				e.preventDefault();
-				if ($keranjang.length === 0) break;
-				if ($popupCheckout) {
-					tutupCheckout();
-					break;
-				}
-				handleProsesBayar();
-				break;
-			case 'F11':
-				e.preventDefault();
-				if (modalBukaShift || modalTutupShift) {
-					modalBukaShift = false;
-					modalTutupShift = false;
-					break;
-				}
-				closeAll();
-				if (shiftAktif) void bukaTutupShift();
-				else void bukaBukaShift();
-				break;
-			case 'F12':
-				e.preventDefault();
-				if ($keranjang.length === 0) break;
-				closeAll();
-				konfirmasiReset = true;
-				break;
-			case 'Escape':
-				e.preventDefault();
-				if (showHelp) {
-					showHelp = false;
-					return;
-				}
-				if ($qrLarge) {
-					qrLarge.set(false);
-					return;
-				}
-				if ($popupCheckout) {
-					tutupCheckout();
-					return;
-				}
-				if ($popupSearch) {
-					closeSearch();
-					return;
-				}
-				if (modalBukaShift) {
-					modalBukaShift = false;
-					return;
-				}
-				if (modalTutupShift) {
-					modalTutupShift = false;
-					return;
-				}
-				break;
-		}
-
-		// navigasi keranjang
-		if (!$popupSearch && !$popupCheckout && !inInput && $keranjang.length > 0) {
-			if (e.key === 'ArrowRight' && $itemAktifIdx >= 0) {
-				e.preventDefault();
-				ubahJumlah($itemAktifIdx, 1);
-			} else if ((e.key === 'ArrowLeft') && $itemAktifIdx >= 0) {
-				e.preventDefault();
-				const cur = $keranjang[$itemAktifIdx];
-				if (cur && cur.jumlah <= 1) konfirmasiHapusIdx.set($itemAktifIdx);
-				else ubahJumlah($itemAktifIdx, -1);
-			} else if (e.key === 'ArrowDown') {
-				e.preventDefault();
-				itemAktifIdx.update((i) => Math.min(i < 0 ? 0 : i + 1, $keranjang.length - 1));
-			} else if (e.key === 'ArrowUp') {
-				e.preventDefault();
-				itemAktifIdx.update((i) => Math.max(i - 1, 0));
-			} else if (e.key === 'Enter' && $itemAktifIdx >= 0) {
-				e.preventDefault();
-				const el = diskonInputRefs[$itemAktifIdx];
-				el?.focus();
-				el?.select();
-			} else if (e.key === 'Delete'){
-				e.stopPropagation();
-				konfirmasiHapusIdx.set($itemAktifIdx);
-			}
-		}
+		window.addEventListener('keydown', handleKey);
+		return () => window.removeEventListener('keydown', handleKey);
 	}
 
 	// ── Shift management ─────────────────────────────────────────────────────
@@ -361,15 +241,125 @@
 			if (s.struk_ukuran) strUkuran  = s.struk_ukuran;
 		});
 		const cleanupDraft = initDraftSync();
+		// barcode detector harus didaftarkan SEBELUM tinykeys agar stopImmediatePropagation bekerja
+		const cleanupBarcode = setupBarcodeDetector();
+		const cleanupKeys = tinykeys(window, {
+			'F1': (e) => {
+				e.preventDefault();
+				if (showHelp) { showHelp = false; return; }
+				closeAll();
+				showHelp = true;
+			},
+			'F3': (e) => {
+				e.preventDefault();
+				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
+				if ($popupSearch) { closeSearch(); return; }
+				closeAll();
+				openSearch();
+			},
+			'F7': (e) => {
+				e.preventDefault();
+				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
+				closeAll();
+				void goto('/kasir/history');
+			},
+			'F8': (e) => {
+				e.preventDefault();
+				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
+				closeAll();
+				void goto('/kasir/retur');
+			},
+			'F10': (e) => {
+				e.preventDefault();
+				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
+				if ($keranjang.length === 0) return;
+				if ($popupCheckout) { tutupCheckout(); return; }
+				handleProsesBayar();
+			},
+			'F11': (e) => {
+				e.preventDefault();
+				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
+				if (modalBukaShift || modalTutupShift) {
+					modalBukaShift = false;
+					modalTutupShift = false;
+					return;
+				}
+				closeAll();
+				if (shiftAktif) bukaTutupShift();
+				else void bukaBukaShift();
+			},
+			'F12': (e) => {
+				e.preventDefault();
+				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
+				if ($keranjang.length === 0) return;
+				closeAll();
+				konfirmasiReset = true;
+			},
+			'Escape': (e) => {
+				e.preventDefault();
+				if (showHelp) { showHelp = false; return; }
+				if ($qrLarge) { qrLarge.set(false); return; }
+				if ($popupCheckout) { tutupCheckout(); return; }
+				if ($popupSearch) { closeSearch(); return; }
+				if (modalBukaShift) { modalBukaShift = false; return; }
+				if (modalTutupShift) { modalTutupShift = false; return; }
+			},
+			'ArrowUp': (e) => {
+				if (inInput() || $popupSearch || $popupCheckout) return;
+				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
+				if ($keranjang.length === 0) return;
+				e.preventDefault();
+				itemAktifIdx.update((i) => Math.max(i - 1, 0));
+			},
+			'ArrowDown': (e) => {
+				if (inInput() || $popupSearch || $popupCheckout) return;
+				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
+				if ($keranjang.length === 0) return;
+				e.preventDefault();
+				itemAktifIdx.update((i) => Math.min(i < 0 ? 0 : i + 1, $keranjang.length - 1));
+			},
+			'ArrowLeft': (e) => {
+				if (inInput() || $popupSearch || $popupCheckout) return;
+				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
+				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
+				e.preventDefault();
+				const cur = $keranjang[$itemAktifIdx];
+				if (cur && cur.jumlah <= 1) konfirmasiHapusIdx.set($itemAktifIdx);
+				else ubahJumlah($itemAktifIdx, -1);
+			},
+			'ArrowRight': (e) => {
+				if (inInput() || $popupSearch || $popupCheckout) return;
+				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
+				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
+				e.preventDefault();
+				ubahJumlah($itemAktifIdx, 1);
+			},
+			'Enter': (e) => {
+				if (inInput() || $popupSearch || $popupCheckout) return;
+				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
+				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
+				e.preventDefault();
+				const el = diskonInputRefs[$itemAktifIdx];
+				el?.focus();
+				el?.select();
+			},
+			'Delete': (e) => {
+				if (inInput() || $popupSearch || $popupCheckout) return;
+				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
+				if ($keranjang.length === 0) return;
+				e.stopPropagation();
+				konfirmasiHapusIdx.set($itemAktifIdx);
+			},
+		});
 		return () => {
 			clearTimeout(cariTimer);
 			cleanupKasirScan();
 			cleanupDraft();
+			cleanupBarcode();
+			cleanupKeys();
 		};
 	});
 </script>
-
-<svelte:window onkeydown={onKeydown} />
 
 <div class="flex h-full flex-col">
 <!-- ─── Alert stok menipis ────────────────────────────────────────────────── -->
@@ -607,14 +597,18 @@
 					{$kasirMode === 'pro' ? 'F11' : 'F11 · Buka Shift ⚠'}
 				</button>
 			{/if}
-			<button
+
+			{#if $keranjang.length > 0}
+				<button
 				onclick={handleProsesBayar}
-				disabled={$keranjang.length === 0 || !shiftAktif}
+				disabled={!shiftAktif}
 				class="rounded px-4 py-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 sm:px-3 sm:py-1"
 				style="background:var(--accent);color:var(--bg)"
 			>
 				{$kasirMode === 'pro' ? 'F10' : 'F10 · PROSES BAYAR'}
 			</button>
+			{/if}
+			
 						<!-- draft status indicator -->
 			{#if $draftStatus === 'saving'}
 				<span class="font-mono text-xs" style="color:var(--text-dim)">Menyimpan...</span>
