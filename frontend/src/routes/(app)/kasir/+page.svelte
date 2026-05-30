@@ -52,7 +52,6 @@
 	import ShiftTutup from './ShiftTutup.svelte';
 	import KasirHelp from './KasirHelp.svelte';
 	import KasirCheckout from './KasirCheckout.svelte';
-	import KasirHistori from './KasirHistori.svelte';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -97,9 +96,6 @@
 	let stokAlertDismissed = $state(false);
 
 	// ── History transaksi ─────────────────────────────────────────────────────
-	let modalHistori = $state(false);
-	function bukaTutupHistori() { modalHistori = !modalHistori; }
-
 	// ── Refresh stok menipis setelah checkout berhasil ───────────────────────
 	$effect(() => {
 		if ($snap) {
@@ -214,7 +210,7 @@
 			case 'F7':
 				e.preventDefault();
 				closeAll();
-				void bukaTutupHistori();
+				void goto('/kasir/history');
 				break;
 			case 'F8':
 				e.preventDefault();
@@ -903,8 +899,4 @@
 <!-- ─── Modal panduan shortcut keyboard ─────────────────────────────────────── -->
 <KasirHelp bind:open={showHelp} oncariBara={openSearch} />
 
-<!-- ─── Modal Riwayat Transaksi ─────────────────────────────────────────────── -->
-<KasirHistori
-	bind:open={modalHistori}
-	{namaToko} {alamatToko} {strHeader} {strFooter} {strUkuran}
-/>
+

@@ -36,6 +36,7 @@ export type HistoriPenjualan = {
 	metode_bayar: 'tunai' | 'transfer' | 'qris' | 'hutang';
 	status: 'lunas' | 'hutang' | 'void';
 	kasir_id: number | null;
+	retur_id: number | null;
 };
 
 export type HistoriItem = {

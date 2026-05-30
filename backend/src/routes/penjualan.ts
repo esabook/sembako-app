@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, and, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, sqlite } from '../db/index.ts'
 import { catatLog } from '../utils/log.ts'
@@ -46,6 +46,7 @@ penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
       metode_bayar: penjualan.metode_bayar,
       status: penjualan.status,
       kasir_id: penjualan.kasir_id,
+      retur_id: sql<number | null>`(SELECT id FROM retur_penjualan WHERE penjualan_id = penjualan.id ORDER BY id DESC LIMIT 1)`,
     })
     .from(penjualan)
     .where(

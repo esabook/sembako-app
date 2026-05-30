@@ -6,6 +6,8 @@
 	import { user } from '$lib/stores/auth.js'
 	import Button from '$lib/components/ui/Button.svelte'
 	import SlideOver from '$lib/components/SlideOver.svelte'
+	import ReturDetailSlideOver from './ReturDetailSlideOver.svelte'
+	import type { ReturDetail } from './retur.types.js'
 
 	$effect(() => {
 		if ($user && !['pemilik', 'manajer', 'kasir'].includes($user.role)) goto('/kasir')
@@ -72,36 +74,6 @@
 		satuan_id: number | null
 		jumlah: number
 		harga_jual: number
-	}
-
-	type ReturDetail = {
-		id: number
-		no_retur: string
-		no_transaksi: string | null
-		tanggal: string
-		total_retur: number
-		alasan: string | null
-		metode_refund: string
-		catatan: string | null
-		kasir_nama: string | null
-		items: {
-			barang_id: number
-			nama_barang: string
-			kode_barang: string
-			nama_satuan: string | null
-			jumlah_retur: number
-			harga_jual: number
-			subtotal: number
-		}[]
-		tukar_items: {
-			barang_id: number
-			nama_barang: string
-			kode_barang: string
-			nama_satuan: string | null
-			jumlah: number
-			harga_jual: number
-			subtotal: number
-		}[]
 	}
 
 	type KasBank = { id: number; nama: string; tipe: 'kas' | 'bank' }
@@ -372,7 +344,7 @@
 	})
 </script>
 
-<div class="flex min-h-[calc(100vh-44px)] flex-col gap-4 p-4">
+<div class="flex min-h-[calc(100vh-44px)] flex-col gap-4">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div>
@@ -820,98 +792,4 @@
 
 <!-- ═══ SlideOver Detail Retur ══════════════════════════════════════════════ -->
 
-<SlideOver bind:open={modalDetail} title="Detail Retur">
-	{#snippet children()}
-		{#if loadingDetail}
-			<p class="py-8 text-center text-sm" style="color:var(--text-dim)">Memuat...</p>
-		{:else if detailData}
-			<div class="space-y-3 text-xs">
-				<div class="grid grid-cols-2 gap-x-4 gap-y-1 rounded border p-3" style="background:var(--surface2);border-color:var(--border)">
-					<span style="color:var(--text-dim)">No Retur</span>
-					<span class="font-mono font-bold" style="color:var(--accent)">{detailData.no_retur}</span>
-					<span style="color:var(--text-dim)">Transaksi Asal</span>
-					<span class="font-mono" style="color:var(--text)">{detailData.no_transaksi ?? '-'}</span>
-					<span style="color:var(--text-dim)">Tanggal</span>
-					<span style="color:var(--text)">{fmtTgl(detailData.tanggal)}</span>
-					<span style="color:var(--text-dim)">Kasir</span>
-					<span style="color:var(--text)">{detailData.kasir_nama ?? '-'}</span>
-					<span style="color:var(--text-dim)">Metode Refund</span>
-					<span style="color:var(--text)">{labelMetode[detailData.metode_refund] ?? detailData.metode_refund}</span>
-					<span style="color:var(--text-dim)">Alasan</span>
-					<span style="color:var(--text)">{detailData.alasan ?? '-'}</span>
-					{#if detailData.catatan}
-						<span style="color:var(--text-dim)">Catatan</span>
-						<span style="color:var(--text)">{detailData.catatan}</span>
-					{/if}
-				</div>
-
-				<!-- Item diretur -->
-				<div class="rounded border" style="border-color:var(--border)">
-					<table class="w-full">
-						<thead>
-							<tr class="border-b" style="border-color:var(--border)">
-								<th class="px-3 py-2 text-left font-semibold" style="color:var(--text-dim)">Barang</th>
-								<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Qty</th>
-								<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Harga</th>
-								<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Subtotal</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each detailData.items as item (item.barang_id)}
-								<tr class="border-b" style="border-color:var(--border)">
-									<td class="px-3 py-2" style="color:var(--text)">
-										<div class="font-bold">{item.nama_barang}</div>
-										<div style="color:var(--text-dim)">{item.kode_barang}</div>
-									</td>
-									<td class="px-3 py-2 text-right font-mono" style="color:var(--text)">{item.jumlah_retur}</td>
-									<td class="px-3 py-2 text-right font-mono" style="color:var(--text-dim)">Rp {fmt(item.harga_jual)}</td>
-									<td class="px-3 py-2 text-right font-mono font-bold" style="color:var(--danger)">Rp {fmt(item.subtotal)}</td>
-								</tr>
-							{/each}
-						</tbody>
-						<tfoot>
-							<tr>
-								<td colspan="3" class="px-3 py-2 text-right font-bold text-xs" style="color:var(--text)">Total Retur</td>
-								<td class="px-3 py-2 text-right font-mono font-bold" style="color:var(--danger)">
-									-Rp {fmt(detailData.total_retur)}
-								</td>
-							</tr>
-						</tfoot>
-					</table>
-				</div>
-
-				<!-- Barang pengganti (tukar_barang) -->
-				{#if detailData.tukar_items?.length > 0}
-					<div>
-						<p class="text-xs font-bold mb-1.5" style="color:var(--warn)">Barang Pengganti</p>
-						<div class="rounded border" style="border-color:var(--border)">
-							<table class="w-full">
-								<thead>
-									<tr class="border-b" style="border-color:var(--border)">
-										<th class="px-3 py-2 text-left font-semibold" style="color:var(--text-dim)">Barang</th>
-										<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Qty</th>
-										<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Harga</th>
-										<th class="px-3 py-2 text-right font-semibold" style="color:var(--text-dim)">Subtotal</th>
-									</tr>
-								</thead>
-								<tbody>
-									{#each detailData.tukar_items as ti (ti.barang_id)}
-										<tr class="border-b" style="border-color:var(--border)">
-											<td class="px-3 py-2" style="color:var(--text)">
-												<div class="font-bold">{ti.nama_barang}</div>
-												<div style="color:var(--text-dim)">{ti.kode_barang}</div>
-											</td>
-											<td class="px-3 py-2 text-right font-mono" style="color:var(--text)">{ti.jumlah}</td>
-											<td class="px-3 py-2 text-right font-mono" style="color:var(--text-dim)">Rp {fmt(ti.harga_jual)}</td>
-											<td class="px-3 py-2 text-right font-mono font-bold" style="color:var(--accent)">Rp {fmt(ti.subtotal)}</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-					</div>
-				{/if}
-			</div>
-		{/if}
-	{/snippet}
-</SlideOver>
+<ReturDetailSlideOver bind:open={modalDetail} data={detailData} loading={loadingDetail} />
