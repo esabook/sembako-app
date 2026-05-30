@@ -62,7 +62,7 @@
 {#if open && shiftAktif}
   <!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events -->
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center"
+    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
     style="background:rgba(0,0,0,0.6)"
     role="dialog"
     aria-modal="true"
@@ -71,11 +71,17 @@
   >
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div
-      class="w-[26rem] rounded-lg border p-6"
-      style="background:var(--surface);border-color:var(--border)"
+      class="w-full sm:max-w-lg rounded-t-2xl sm:rounded-xl border overflow-hidden flex flex-col"
+      style="background:var(--surface);border-color:var(--border);max-height:90svh"
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
     >
+      <!-- drag handle (mobile) -->
+      <div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+        <div class="w-10 h-1 rounded-full" style="background:var(--border)"></div>
+      </div>
+
+      <div class="overflow-y-auto flex-1 px-4 sm:px-6 pt-4 pb-2">
       <h2 class="mb-1 text-base font-bold">Tutup Shift</h2>
       <p class="mb-4 text-xs" style="color:var(--text-dim)">
         Dibuka {shiftAktif.jam_buka} ·
@@ -173,7 +179,17 @@
               class="w-full rounded border px-3 py-2 text-sm outline-none"
               style="background:var(--surface2);border-color:var(--border);color:var(--text)"
             />
-            <div class="mt-1.5 flex flex-wrap gap-1">
+           <div class="mt-1.5 flex gap-1 overflow-x-auto pb-0.5" style="scrollbar-width:none">
+               <button
+                type="button"
+                onclick={() => kasFisik = rekapShift!.kas_sistem}
+                class="rounded border px-2 py-0.5 text-xs transition-colors"
+                style={kasFisik === rekapShift.kas_sistem
+                  ? 'border-color:var(--accent);color:var(--accent)'
+                  : 'border-color:var(--border);color:var(--text-dim)'}
+              >
+                =&nbsp;Sistem
+              </button>
               {#each [0, 50000, 100000, 200000, 500000, 1000000] as nom (nom)}
                 <button
                   type="button"
@@ -183,19 +199,10 @@
                     ? 'border-color:var(--accent);color:var(--accent)'
                     : 'border-color:var(--border);color:var(--text-dim)'}
                 >
-                  {nom === 0 ? 'Rp 0' : nom >= 1000000 ? '1jt' : nom / 1000 + 'rb'}
+                  {nom === 0 ? 'Rp0' : nom >= 1000000 ? (nom / 1000000) + 'jt' : (nom / 1000) + 'rb'}
                 </button>
               {/each}
-              <button
-                type="button"
-                onclick={() => kasFisik = rekapShift!.kas_sistem}
-                class="rounded border px-2 py-0.5 text-xs transition-colors"
-                style={kasFisik === rekapShift.kas_sistem
-                  ? 'border-color:var(--accent);color:var(--accent)'
-                  : 'border-color:var(--border);color:var(--text-dim)'}
-              >
-                = Sistem
-              </button>
+             
             </div>
 
             {#if kasFisik > 0 || selisihKas !== 0}
@@ -239,16 +246,18 @@
           </div>
         </div>
       {/if}
+      </div><!-- end scroll -->
 
-      <div class="mt-5 flex justify-end gap-2">
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-4 sm:px-6 py-4 border-t shrink-0"
+        style="border-color:var(--border)">
         <button
           onclick={() => open = false}
-          class="rounded border px-4 py-1.5 text-sm"
+          class="w-full sm:w-auto rounded border px-4 py-2 text-sm"
           style="border-color:var(--border);color:var(--text-dim)">Batal</button>
         <button
           onclick={simpan}
           disabled={saving || loadingRekap}
-          class="rounded px-4 py-1.5 text-sm font-bold disabled:opacity-60"
+          class="w-full sm:w-auto rounded px-4 py-2 text-sm font-bold disabled:opacity-60"
           style="background:var(--warn);color:var(--bg)">
           {saving ? 'Menyimpan...' : 'Tutup Shift'}
         </button>
