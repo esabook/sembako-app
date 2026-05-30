@@ -11,7 +11,7 @@
   }: {
     open?: boolean;
     title?: string;
-    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '3xl';
+    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '3xl' | '4xl';
     noPadding?: boolean;
     ontutup?: () => void;
     children: Snippet;
@@ -42,6 +42,7 @@
              : maxWidth === 'lg'  ? 'sm:max-w-lg'
              : maxWidth === 'xl'  ? 'sm:max-w-xl'
              : maxWidth === '3xl' ? 'sm:max-w-3xl'
+             : maxWidth === '4xl' ? 'sm:max-w-4xl'
              : 'sm:max-w-md'}"
       style="background:var(--surface);border-color:var(--border);max-height:90svh"
       onclick={(e) => e.stopPropagation()}
