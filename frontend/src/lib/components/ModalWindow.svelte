@@ -5,15 +5,19 @@
     open = $bindable(false),
     title = '',
     maxWidth = 'md',
+    noPadding = false,
+    ontutup = undefined,
     children,
   }: {
     open?: boolean;
     title?: string;
-    maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '3xl';
+    noPadding?: boolean;
+    ontutup?: () => void;
     children: Snippet;
   } = $props()
 
-  function tutup() { open = false }
+  function tutup() { if (ontutup) { ontutup(); return } open = false }
   function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') tutup() }
 </script>
 
@@ -34,9 +38,10 @@
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div
       class="relative flex flex-col overflow-hidden border w-full rounded-t-2xl sm:rounded-2xl
-             {maxWidth === 'sm' ? 'sm:max-w-sm'
-             : maxWidth === 'lg' ? 'sm:max-w-lg'
-             : maxWidth === 'xl' ? 'sm:max-w-xl'
+             {maxWidth === 'sm'  ? 'sm:max-w-sm'
+             : maxWidth === 'lg'  ? 'sm:max-w-lg'
+             : maxWidth === 'xl'  ? 'sm:max-w-xl'
+             : maxWidth === '3xl' ? 'sm:max-w-3xl'
              : 'sm:max-w-md'}"
       style="background:var(--surface);border-color:var(--border);max-height:90svh"
       onclick={(e) => e.stopPropagation()}
@@ -63,7 +68,7 @@
       {/if}
 
       <!-- Body -->
-      <div class="overflow-y-auto flex-1 px-4 sm:px-6 py-4">
+      <div class="{noPadding ? 'overflow-hidden flex-1' : 'overflow-y-auto flex-1 px-4 sm:px-6 py-4'}">
         {@render children()}
       </div>
     </div>
