@@ -69,6 +69,7 @@
 	import { rupiah, METODE, METODE_LABEL } from './kasir.logic';
 	import ShiftBuka from './ShiftBuka.svelte';
 	import ShiftTutup from './ShiftTutup.svelte';
+	import KasirHelp from './KasirHelp.svelte';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
@@ -149,10 +150,10 @@
 	// Panduan shortcut keyboard
 	let showHelp = $state(false);
 
+
 	// ── DOM refs ──────────────────────────────────────────────────────────────
 	let searchInputEl: HTMLInputElement | undefined = $state();
 	let bayarInputEl: HTMLInputElement | undefined = $state();
-	let helpCloseBtnEl: HTMLButtonElement | undefined = $state();
 	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
 
 
@@ -248,9 +249,6 @@
 	// ── Fokus otomatis saat popup terbuka ─────────────────────────────────────
 	$effect(() => {
 		if ($popupSearch) setTimeout(() => searchInputEl?.focus(), 0);
-	});
-	$effect(() => {
-		if (showHelp) setTimeout(() => helpCloseBtnEl?.focus(), 0);
 	});
 	$effect(() => {
 		if ($popupCheckout) setTimeout(() => bayarInputEl?.focus(), 50);
@@ -1444,70 +1442,7 @@
 {/if}
 
 <!-- ─── Modal panduan shortcut keyboard ─────────────────────────────────────── -->
-{#if showHelp}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center"
-		style="background:rgba(0,0,0,0.6)"
-		role="dialog"
-		aria-modal="true"
-		tabindex="-1"
-		onclick={() => (showHelp = false)}
-		onkeydown={(e) => {
-			if (e.key === 'Escape' || e.key === 'F1') {
-				e.preventDefault();
-				e.stopPropagation();
-				showHelp = false;
-			} else if (e.key === 'F3') {
-				e.preventDefault();
-				e.stopPropagation();
-				showHelp = false;
-				openSearch();
-			} else if (e.key === 'Tab') {
-				e.preventDefault();
-			}
-		}}
-	>
-		<div
-			class="w-full max-w-2xl rounded-lg border p-6"
-			style="background:var(--surface);border-color:var(--border)"
-			role="presentation"
-			onclick={(e) => e.stopPropagation()}
-			onkeydown={() => {}}
-		>
-			<div class="mb-5 flex items-center justify-between">
-				<span class="font-bold">Shortcut Keyboard</span>
-				<button
-					bind:this={helpCloseBtnEl}
-					onclick={() => (showHelp = false)}
-					class="px-1 text-xl leading-none"
-					style="color:var(--text-dim)">&times;</button
-				>
-			</div>
-			<div class="grid grid-cols-2 gap-x-10 gap-y-2">
-				{#each [
-					['F1', 'Panduan ini'], ['ESC', 'Tutup / batal'], 
-					['F3', 'Cari barang'], ['Tab', 'Fokus ke kanan'], 
-					['F7', 'Riwayat transaksi'], ['Shift+Tab', 'Fokus ke kiri'], 
-					['F8', 'Retur penjualan'], ['↑ ↓', 'Navigasi item'],
-					['F10', 'Proses bayar'], ['← →', 'Qty − / +'],
-					['F11', 'Buka / tutup shift'], ['ENTER', 'Pilih / konfirmasi'], 
-					['F12', 'Reset keranjang']] as [key, label] (key)}
-					<div class="flex items-center gap-3">
-						<span
-							class="w-20 shrink-0 rounded px-2 py-1 text-center font-mono text-xs"
-							style="background:var(--surface2);color:var(--accent);border:1px solid var(--border)"
-							>{key}</span
-						>
-						<span class="text-sm whitespace-nowrap" style="color:var(--text-dim)">{label}</span>
-					</div>
-				{/each}
-			</div>
-			<p class="mt-5 text-center text-xs" style="color:var(--text-dim)">
-				Tekan ESC atau F1 untuk tutup
-			</p>
-		</div>
-	</div>
-{/if}
+<KasirHelp bind:open={showHelp} oncariBara={openSearch} />
 
 <!-- ─── Modal Riwayat Transaksi ─────────────────────────────────────────────── -->
 {#if modalHistori}
