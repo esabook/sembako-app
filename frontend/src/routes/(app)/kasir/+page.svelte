@@ -74,6 +74,7 @@
 	import { toast } from '$lib/stores/ui.store';
 	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
 	import StrukPreview from '$lib/components/ui/StrukPreview.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import {
 		fetchHistoriPenjualan,
 		fetchDetailPenjualan,
@@ -82,6 +83,10 @@
 		type HistoriDetail,
 		type StokMenipis
 	} from './kasir.api';
+
+	// ── ConfirmDialog hapus item keranjang ────────────────────────────────────
+	let konfirmasiHapusOpen = $state(false);
+	$effect(() => { konfirmasiHapusOpen = $konfirmasiHapusIdx !== null; });
 
 	// ── Akun kas/bank (untuk selector checkout) ──────────────────────────────
 	let daftarKasBank = $state<{ id: number; nama: string; tipe: string }[]>([]);
@@ -330,26 +335,11 @@
 
 	function onKeydown(e: KeyboardEvent) {
 		console.log(e.key);
-		if (konfirmasiReset) {
-			if (e.key === 'Enter') {
-				e.preventDefault();
-				konfirmasiReset = false;
-				resetKasirDenganDraft();
-			} else if (e.key === 'Escape') {
-				e.preventDefault();
-				konfirmasiReset = false;
-			}
-			return;
-		}
+		if (konfirmasiReset) return;
 
-		if ($konfirmasiHapusIdx !== null && (e.key !== 'F1')) {
-			if (e.key === 'Enter') {
-				e.preventDefault();
-				hapusItem($konfirmasiHapusIdx);
-			} else if (e.key === 'Escape') {
-				e.preventDefault();
-				konfirmasiHapusIdx.set(null);
-			}
+		if ($konfirmasiHapusIdx !== null && e.key !== 'F1') {
+			// ConfirmDialog menangani Escape/Enter/Arrow lewat onkeydown panel (stopPropagation).
+			// Guard ini hanya blokir shortcut page lain (search, checkout, dll) agar tidak aktif.
 			return;
 		}
 
@@ -432,8 +422,7 @@
 				e.preventDefault();
 				if ($keranjang.length === 0) break;
 				closeAll();
-				if ($kasirMode === 'guided') konfirmasiReset = true;
-				else resetKasirDenganDraft();
+				konfirmasiReset = true;
 				break;
 			case 'Escape':
 				e.preventDefault();
@@ -1382,67 +1371,27 @@
 />
 
 <!-- ─── Modal konfirmasi reset (GUIDED mode) ────────────────────────────────── -->
-{#if konfirmasiReset}
-	<div
-		class="fixed inset-0 z-40 flex items-center justify-center"
-		style="background:rgba(0,0,0,0.55)"
-	>
-		<div
-			class="w-72 rounded-lg border p-6 text-center"
-			style="background:var(--surface);border-color:var(--border)"
-		>
-			<p class="mb-1 font-bold">Reset keranjang?</p>
-			<p class="mb-5 text-sm" style="color:var(--text-dim)">
-				{$keranjang.length} item akan dihapus dari keranjang
-			</p>
-			<div class="flex justify-center gap-2">
-				<button
-					onclick={() => {
-						konfirmasiReset = false;
-						resetKasirDenganDraft();
-					}}
-					class="rounded px-4 py-1.5 text-sm font-bold transition-all active:scale-95"
-					style="background:var(--danger);color:#fff">Ya, reset (Enter)</button
-				>
-				<button
-					onclick={() => (konfirmasiReset = false)}
-					class="rounded border px-4 py-1.5 text-sm transition-all active:scale-95"
-					style="border-color:var(--border);color:var(--text-dim)">Batal (ESC)</button
-				>
-			</div>
-		</div>
-	</div>
-{/if}
+<ConfirmDialog
+	bind:open={konfirmasiReset}
+	judul="Reset keranjang?"
+	pesan="{$keranjang.length} item akan dihapus dari keranjang"
+	labelKiri="Batal"
+	labelKanan="Reset"
+	warnaKanan="var(--danger)"
+	onkanan={resetKasirDenganDraft}
+/>
 
 <!-- ─── Modal konfirmasi hapus ──────────────────────────────────────────────── -->
-{#if $konfirmasiHapusIdx !== null}
-	<div
-		class="fixed inset-0 z-40 flex items-center justify-center"
-		style="background:rgba(0,0,0,0.55)"
-	>
-		<div
-			class="w-72 rounded-lg border p-6 text-center"
-			style="background:var(--surface);border-color:var(--border)"
-		>
-			<p class="mb-1 font-bold">Hapus dari keranjang?</p>
-			<p class="mb-5 text-sm" style="color:var(--text-dim)">
-				{$keranjang[$konfirmasiHapusIdx]?.nama_barang ?? ''}
-			</p>
-			<div class="flex justify-center gap-2">
-				<button
-					onclick={() => hapusItem($konfirmasiHapusIdx!)}
-					class="rounded px-4 py-1.5 text-sm font-bold transition-all active:scale-95"
-					style="background:var(--danger);color:#fff">Ya (Enter)</button
-				>
-				<button
-					onclick={() => konfirmasiHapusIdx.set(null)}
-					class="rounded border px-4 py-1.5 text-sm transition-all active:scale-95"
-					style="border-color:var(--border);color:var(--text-dim)">Batal (ESC)</button
-				>
-			</div>
-		</div>
-	</div>
-{/if}
+<ConfirmDialog
+	bind:open={konfirmasiHapusOpen}
+	judul="Hapus dari keranjang?"
+	pesan={$konfirmasiHapusIdx !== null ? ($keranjang[$konfirmasiHapusIdx]?.nama_barang ?? '') : ''}
+	labelKiri="Batal"
+	labelKanan="Hapus"
+	warnaKanan="var(--danger)"
+	onkiri={() => konfirmasiHapusIdx.set(null)}
+	onkanan={() => $konfirmasiHapusIdx !== null && hapusItem($konfirmasiHapusIdx)}
+/>
 
 <!-- ─── Modal panduan shortcut keyboard ─────────────────────────────────────── -->
 <KasirHelp bind:open={showHelp} oncariBara={openSearch} />
