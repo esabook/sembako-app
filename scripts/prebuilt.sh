@@ -183,8 +183,8 @@ if ! $SKIP_CERT; then
     # Tanya IP jika belum ada dari args
     if [[ ${#EXTRA_IPS[@]} -eq 0 ]]; then
         echo ""
-        echo "  Cert akan di-generate untuk: localhost, 127.0.0.1"
-        echo "  Tambah IP server (LAN) supaya HP karyawan bisa HTTPS langsung ke IP."
+        echo "  Cert akan di-generate untuk: localhost, 127.0.0.1, stokasir.local"
+        echo "  IP server LAN disertakan supaya HP karyawan bisa HTTPS langsung ke IP."
         echo ""
 
         # Auto-detect IP
@@ -192,10 +192,17 @@ if ! $SKIP_CERT; then
         if command -v ip &>/dev/null; then
             DETECTED_IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' | head -1 || true)
         fi
-        DEFAULT_IP="${DETECTED_IP:-192.168.1.x}"
+        [[ -z "$DETECTED_IP" ]] && command -v hostname &>/dev/null && \
+            DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
+        DEFAULT_IP="${DETECTED_IP:-}"
 
-        read -rp "  IP server target (Enter untuk skip, pisah spasi jika >1) [$DEFAULT_IP]: " IP_INPUT
-        IP_INPUT="${IP_INPUT:-}"
+        if [[ -n "$DEFAULT_IP" ]]; then
+            echo "  IP terdeteksi: ${CYAN}$DEFAULT_IP${NC} (akan disertakan otomatis)"
+        fi
+
+        read -rp "  IP tambahan? (Enter = pakai deteksi otomatis, spasi untuk beberapa IP) [${DEFAULT_IP:-kosong}]: " IP_INPUT
+        # Jika Enter tanpa input: pakai IP yang terdeteksi
+        IP_INPUT="${IP_INPUT:-$DEFAULT_IP}"
         if [[ -n "$IP_INPUT" ]]; then
             read -ra EXTRA_IPS <<< "$IP_INPUT"
         fi

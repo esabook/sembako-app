@@ -599,6 +599,11 @@ server {
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
+    # SSE (Server-Sent Events) — wajib untuk scanner HP
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+    proxy_set_header Connection '';
   }
 
   location / {
@@ -691,6 +696,11 @@ server {
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-Proto https;
+    # SSE (Server-Sent Events) — wajib untuk scanner HP
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 3600s;
+    proxy_set_header Connection '';
   }
 
   location / {
