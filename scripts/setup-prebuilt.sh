@@ -128,7 +128,7 @@ MODE="${1:-}"
 if [[ -z "$MODE" ]]; then
     echo "Pilih mode:"
     echo "  1) install   — install & konfigurasi dari awal"
-    echo "  2) repair    — restart service (konfigurasi tetap)"
+    echo "  2) repair    — salin ulang artifact + restart (konfigurasi & data tetap)"
     echo "  3) uninstall — hapus service & config (data opsional)"
     echo ""
     read -rp "Pilihan [1/2/3]: " CHOICE
@@ -205,46 +205,128 @@ do_uninstall() {
 }
 
 # ══════════════════════════════════════════════════════════════
-# REPAIR — restart service
+# REPAIR — salin ulang artifact prebuilt + restart service
 # ══════════════════════════════════════════════════════════════
 do_repair() {
-    header "Repair / Restart Stokasir"
+    header "Repair Stokasir — Salin Artifact + Restart"
+
+    # ── Deteksi install dir ───────────────────────────────────
+    local _install_dir="" _env_file="" _data_dir="" _port_be=3000 _port_fe=5173
 
     if [[ "$OS" == "mac" ]]; then
         LAUNCH_DIR="$HOME/Library/LaunchAgents"
         if [[ -f "$LAUNCH_DIR/stokasir.backend.plist" ]]; then
-            launchctl unload "$LAUNCH_DIR/stokasir.backend.plist"  2>/dev/null || true
-            launchctl unload "$LAUNCH_DIR/stokasir.frontend.plist" 2>/dev/null || true
+            _install_dir=$(grep -A1 'WorkingDirectory' "$LAUNCH_DIR/stokasir.backend.plist" \
+                | grep '<string>' | sed 's/.*<string>\(.*\)<\/string>/\1/' || true)
+            # WorkingDirectory di plist → $INSTALL_DIR/backend, naik satu level
+            [[ -n "$_install_dir" ]] && _install_dir=$(dirname "$_install_dir")
+        fi
+    else
+        if systemctl list-unit-files stokasir-backend.service &>/dev/null 2>&1; then
+            _env_file=$(systemctl show stokasir-backend -p EnvironmentFiles 2>/dev/null \
+                | grep -oP '/\S+\.env' | head -1 || true)
+            local _svc_dir
+            _svc_dir=$(systemctl show stokasir-backend -p WorkingDirectory 2>/dev/null \
+                | cut -d= -f2 || true)
+            # WorkingDirectory → $INSTALL_DIR/backend, naik satu level
+            [[ -n "$_svc_dir" ]] && _install_dir=$(dirname "$_svc_dir")
+        fi
+    fi
+
+    [[ -z "$_install_dir" ]] && _install_dir="$HOME/stokasir"
+    read -rp "  Folder install [$_install_dir]: " _input_dir
+    _install_dir="${_input_dir:-$_install_dir}"
+
+    [[ ! -d "$_install_dir" ]] && error "Folder '$_install_dir' tidak ditemukan. Jalankan mode install terlebih dahulu."
+
+    # Baca .env untuk data dir & port
+    _env_file="$_install_dir/.env"
+    if [[ -f "$_env_file" ]]; then
+        _data_dir=$(grep '^DATABASE_URL=' "$_env_file" | cut -d= -f2 | xargs dirname || true)
+        _port_be=$(grep '^PORT=' "$_env_file" | cut -d= -f2 || echo "3000")
+    fi
+    [[ -z "$_data_dir" || "$_data_dir" == "." ]] && _data_dir="$_install_dir/data"
+
+    info "Install dir : $_install_dir"
+    info "Data dir    : $_data_dir"
+
+    # ── Stop service ─────────────────────────────────────────
+    header "Menghentikan service..."
+    if [[ "$OS" == "mac" ]]; then
+        launchctl unload "$LAUNCH_DIR/stokasir.backend.plist"  2>/dev/null || true
+        launchctl unload "$LAUNCH_DIR/stokasir.frontend.plist" 2>/dev/null || true
+    else
+        sudo systemctl stop stokasir-backend stokasir-frontend 2>/dev/null || true
+    fi
+    kill_stray_stokasir
+    kill_port_proc "$_port_be"
+    kill_port_proc "$_port_fe"
+    ok "Service dihentikan"
+
+    # ── Salin ulang artifact ──────────────────────────────────
+    header "Salin artifact prebuilt..."
+
+    info "Salin backend..."
+    mkdir -p "$_install_dir/backend"
+    if [[ "$MANIFEST_MODE" == "compile" && -n "$BACKEND_BINARY" ]]; then
+        cp "$BACKEND_BINARY" "$_install_dir/backend/stokasir"
+        chmod +x "$_install_dir/backend/stokasir"
+        ok "Binary backend diperbarui → $_install_dir/backend/stokasir"
+    else
+        cp "$PREBUILT_DIR/app/backend/server.js" "$_install_dir/backend/server.js"
+        ok "Bundle backend diperbarui → $_install_dir/backend/server.js"
+    fi
+
+    info "Salin migrations..."
+    rm -rf "$_install_dir/backend/migrations"
+    cp -r "$PREBUILT_DIR/app/backend/migrations" "$_install_dir/backend/migrations"
+    ok "Migrations diperbarui"
+
+    info "Salin frontend..."
+    mkdir -p "$_install_dir/frontend"
+    rm -rf "$_install_dir/frontend"
+    cp -r "$PREBUILT_DIR/app/frontend/." "$_install_dir/frontend/"
+    ok "Frontend diperbarui ($(du -sh "$_install_dir/frontend" | cut -f1))"
+
+    # ── Ganti database? (default N) ───────────────────────────
+    local _db_path="$_data_dir/data.db"
+    if [[ -f "$PREBUILT_DIR/app/backend/data.db" ]]; then
+        echo ""
+        warn "Prebuilt menyertakan data.db bawaan."
+        warn "Mengganti database akan MENGHAPUS semua data transaksi & stok!"
+        read -rp "  Ganti database dengan data.db bawaan? [y/N]: " _REPLACE_DB
+        if [[ "${_REPLACE_DB,,}" == "y" ]]; then
+            cp "$_db_path" "$_db_path.bak.$(date +%Y%m%d_%H%M%S)" 2>/dev/null || true
+            cp "$PREBUILT_DIR/app/backend/data.db" "$_db_path"
+            ok "Database diganti (backup disimpan sebagai .bak)"
+        else
+            ok "Database tetap dipertahankan"
+        fi
+    fi
+
+    # ── Start service ─────────────────────────────────────────
+    header "Menjalankan ulang service..."
+    if [[ "$OS" == "mac" ]]; then
+        if [[ -f "$LAUNCH_DIR/stokasir.backend.plist" ]]; then
             launchctl load "$LAUNCH_DIR/stokasir.backend.plist"
             launchctl load "$LAUNCH_DIR/stokasir.frontend.plist"
             ok "Launchd service di-restart"
         else
-            warn "Service tidak ditemukan — jalankan mode install terlebih dahulu"
+            warn "Plist tidak ditemukan — jalankan mode install untuk mendaftarkan service"
         fi
     else
         if systemctl list-unit-files stokasir-backend.service &>/dev/null 2>&1; then
-            # Baca port dari .env jika ada, lalu kill proses liar
-            local _env_file
-            _env_file=$(systemctl show stokasir-backend -p EnvironmentFiles 2>/dev/null | grep -oP '/\S+\.env' | head -1 || true)
-            [[ -z "$_env_file" ]] && _env_file="$HOME/stokasir/.env"
-            local _port_be=3000 _port_fe=5173
-            if [[ -f "$_env_file" ]]; then
-                _port_be=$(grep '^PORT=' "$_env_file" | cut -d= -f2 || echo "3000")
-            fi
-            kill_stray_stokasir
-            kill_port_proc "$_port_be"
-            kill_port_proc "$_port_fe"
             sudo systemctl daemon-reload
             sudo systemctl restart stokasir-backend stokasir-frontend
             ok "Systemd service di-restart"
         else
-            warn "Service tidak ditemukan — jalankan mode install terlebih dahulu"
+            warn "Service tidak terdaftar — jalankan mode install terlebih dahulu"
         fi
     fi
 
     echo ""
     echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════╗${RESET}"
-    echo -e "${BOLD}${GREEN}║        Stokasir berhasil di-restart!         ║${RESET}"
+    echo -e "${BOLD}${GREEN}║     Stokasir berhasil di-repair & restart!   ║${RESET}"
     echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════╝${RESET}"
     echo ""
 }

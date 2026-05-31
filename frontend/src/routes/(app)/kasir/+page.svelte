@@ -4,7 +4,6 @@
 	import { page } from '$app/state';
 	import {
 		keranjang,
-		tipeTransaksi,
 		itemAktifIdx,
 		subtotal,
 		diskonTotal,
@@ -16,24 +15,17 @@
 	import {
 		// state
 		searchVal,
-		searchResults,
-		searchSelectedIdx,
-		cariLoading,
 		konfirmasiHapusIdx,
 		popupSearch,
 		popupCheckout,
 		snap,
-		scanSessionId,
-		scanUrl,
-		qrDataUrl,
 		qrLarge,
-		scannerStatus,
 		draftStatus,
 		// actions
 		cariBarang,
 		openSearch,
 		closeSearch,
-		tambahKeKeranjang,
+		dummyJumlah,
 		ubahJumlah,
 		hapusItem,
 		ubahDiskon,
@@ -52,6 +44,8 @@
 	import ShiftTutup from './ShiftTutup.svelte';
 	import KasirHelp from './KasirHelp.svelte';
 	import KasirCheckout from './KasirCheckout.svelte';
+	import KasirQrPanel from './KasirQrPanel.svelte';
+	import KasirSpotlight from './KasirSpotlight.svelte';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -88,7 +82,6 @@
 	let showHelp = $state(false);
 
 	// ── DOM refs ──────────────────────────────────────────────────────────────
-	let searchInputEl: HTMLInputElement | undefined = $state();
 	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
 
 
@@ -104,41 +97,6 @@
 			fetchStokMenipis().then((d) => { stokMenipis = d; }).catch(() => {});
 		}
 	});
-
-	// ── Fokus otomatis saat search popup terbuka ─────────────────────────────
-	$effect(() => {
-		if ($popupSearch) setTimeout(() => searchInputEl?.focus(), 0);
-	});
-
-	// ── Debounce cari barang (DOM concern — exception per CLAUDE_v2.md) ───────
-	let cariTimer: ReturnType<typeof setTimeout>;
-	function handleSearchInput() {
-		clearTimeout(cariTimer);
-		cariTimer = setTimeout(() => cariBarang($searchVal), 200);
-	}
-
-	// ── Keyboard: search popup ────────────────────────────────────────────────
-	function onSearchKeydown(e: KeyboardEvent) {
-		if (e.key === 'ArrowDown') {
-			e.preventDefault();
-			searchSelectedIdx.update((i) => Math.min(i + 1, Math.min(7, $searchResults.length - 1)));
-		} else if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			searchSelectedIdx.update((i) => Math.max(i - 1, 0));
-		} else if (e.key === 'Enter') {
-			e.preventDefault();
-			const idx = $searchSelectedIdx >= 0 ? $searchSelectedIdx : 0;
-			const sel = $searchResults[idx];
-			if (sel) tambahKeKeranjang(sel);
-		} else if (e.key === 'Escape') {
-			e.preventDefault();
-			if ($qrLarge) {
-				qrLarge.set(false);
-				return;
-			}
-			closeSearch();
-		}
-	}
 
 	// ── Keyboard: global ──────────────────────────────────────────────────────
 	function closeAll() {
@@ -316,13 +274,14 @@
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0) return;
 				e.preventDefault();
-				itemAktifIdx.update((i) => Math.min(i < 0 ? 0 : i + 1, $keranjang.length - 1));
+				itemAktifIdx.update((i) => Math.min(i < 0 ? 0 : i + 1, $keranjang.length));
 			},
 			'ArrowLeft': (e) => {
 				if (inInput() || $popupSearch || $popupCheckout) return;
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
 				e.preventDefault();
+				if ($itemAktifIdx === $keranjang.length) { dummyJumlah.update((n: number) => Math.max(1, n - 1)); return; }
 				const cur = $keranjang[$itemAktifIdx];
 				if (cur && cur.jumlah <= 1) konfirmasiHapusIdx.set($itemAktifIdx);
 				else ubahJumlah($itemAktifIdx, -1);
@@ -332,6 +291,7 @@
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
 				e.preventDefault();
+				if ($itemAktifIdx === $keranjang.length) { dummyJumlah.update((n: number) => n + 1); return; }
 				ubahJumlah($itemAktifIdx, 1);
 			},
 			'Enter': (e) => {
@@ -339,6 +299,7 @@
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
 				e.preventDefault();
+				if ($itemAktifIdx === $keranjang.length) { openSearch(); return; }
 				const el = diskonInputRefs[$itemAktifIdx];
 				el?.focus();
 				el?.select();
@@ -352,7 +313,6 @@
 			},
 		});
 		return () => {
-			clearTimeout(cariTimer);
 			cleanupKasirScan();
 			cleanupDraft();
 			cleanupBarcode();
@@ -536,6 +496,42 @@
 							</td>
 						</tr>
 					{/each}
+					<!-- Dummy row: klik nama/enter → buka cari barang -->
+					<tr
+						class="border-t"
+						style={$itemAktifIdx === $keranjang.length
+							? 'background:var(--surface2);outline:1px solid var(--accent);'
+							: `border-color:var(--border);opacity:0.4`}
+						onclick={() => itemAktifIdx.set($keranjang.length)}
+					>
+						<td class="px-3 py-2" style="color:var(--text-dim)">+</td>
+						<td class="px-3 py-2">
+							<button
+								class="text-sm italic"
+								style="color:var(--text-dim)"
+								onclick={(e) => { e.stopPropagation(); openSearch(); }}
+							>Tambah barang...</button>
+						</td>
+						<td></td>
+						<td class="px-2 py-1">
+							<div class="flex items-center justify-center gap-1">
+								<button
+									onclick={(e) => { e.stopPropagation(); dummyJumlah.update((n: number) => Math.max(1, n - 1)); }}
+									class="h-6 w-6 rounded text-center leading-none"
+									style="background:var(--surface);color:var(--text-dim)">&lt;</button
+								>
+								<span class="w-8 text-center font-mono">{$dummyJumlah}</span>
+								<button
+									onclick={(e) => { e.stopPropagation(); dummyJumlah.update((n: number) => n + 1); }}
+									class="h-6 w-6 rounded text-center leading-none"
+									style="background:var(--surface);color:var(--text-dim)">&gt;</button
+								>
+							</div>
+						</td>
+						<td></td>
+						<td></td>
+						<td></td>
+					</tr>
 				</tbody>
 			</table>
 		{/if}
@@ -625,7 +621,7 @@
 <!-- ─── Spotlight Search ──────────────────────────────────────────────────── -->
 {#if $popupSearch}
 	<div
-		class="fixed inset-0 z-50 flex flex-col items-center px-4 pt-20"
+		class="fixed inset-0 z-50 flex flex-col items-center px-2 pt-20"
 		style="background:rgba(0,0,0,0.65)"
 		onclick={closeSearch}
 		role="none"
@@ -636,218 +632,10 @@
 			role="none"
 		>
 			<!-- spotlight box -->
-			<div
-				class="min-w-0 flex-1 overflow-hidden rounded-xl border shadow-2xl"
-				style="background:var(--surface);border-color:var(--border)"
-				role="none"
-			>
-				<!-- input row -->
-				<div class="flex items-center gap-3 border-b px-4 py-3" style="border-color:var(--border)">
-					<!-- tipe toggle -->
-					<div class="flex shrink-0 gap-1">
-						{#each ['eceran', 'grosir'] as const as t (t)}
-							<button
-								onclick={() => tipeTransaksi.set(t)}
-								class="rounded border px-2 py-0.5 text-xs font-bold transition-all"
-								style={$tipeTransaksi === t
-									? 'background:var(--accent);color:var(--bg);border-color:var(--accent)'
-									: 'border-color:var(--border);color:var(--text-dim)'}
-								>{t === 'eceran' ? 'ECR' : 'GRS'}</button
-							>
-						{/each}
-					</div>
-					<input
-						bind:this={searchInputEl}
-						type="text"
-						placeholder="Cari nama atau kode barang..."
-						bind:value={$searchVal}
-						oninput={handleSearchInput}
-						onkeydown={onSearchKeydown}
-						class="flex-1 bg-transparent text-base outline-none"
-						style="color:var(--text)"
-					/>
-					{#if $cariLoading}
-						<span class="shrink-0 text-xs" style="color:var(--text-dim)">mencari...</span>
-					{/if}
-					<kbd
-						class="shrink-0 rounded border px-1.5 py-0.5 font-mono text-xs"
-						style="border-color:var(--border);color:var(--text-dim)">ESC</kbd
-					>
-				</div>
-
-				<!-- results -->
-				{#if $searchResults.length > 0}
-					<div class="max-h-96 overflow-y-auto">
-						{#each $searchResults.slice(0, 8) as br, i (br.id)}
-							<button
-								onclick={() => tambahKeKeranjang(br)}
-								class="w-full border-t px-4 py-3 text-left transition-colors"
-								style="border-color:var(--border);background:{$searchSelectedIdx === i
-									? 'var(--surface2)'
-									: 'transparent'}"
-							>
-								<div class="flex items-center justify-between gap-4">
-									<div class="flex min-w-0 items-center gap-3">
-										{#if br.foto_path}
-											<img
-												src="/uploads/{br.foto_path.replace('med_', 'thumb_')}"
-												alt={br.nama_barang}
-												class="h-9 w-9 shrink-0 rounded object-cover"
-												style="border:1px solid var(--border)"
-											/>
-										{:else}
-											<div
-												class="h-9 w-9 shrink-0 rounded"
-												style="background:var(--surface2);border:1px solid var(--border)"
-											></div>
-										{/if}
-										<div class="min-w-0">
-											<span class="mr-2 font-mono text-xs" style="color:var(--text-dim)"
-												>{br.kode_barang}</span
-											>
-											<span class="font-medium">{br.nama_barang}</span>
-											<span
-												class="ml-2 text-xs"
-												style="color:{br.stok_sekarang <= 0 ? 'var(--danger)' : 'var(--text-dim)'}"
-											>
-												stok {br.stok_sekarang}
-												{br.singkatan_satuan ?? ''}
-											</span>
-										</div>
-									</div>
-									<div class="flex shrink-0 gap-4 font-mono text-sm">
-										<span
-											style="color:{$tipeTransaksi === 'eceran'
-												? 'var(--accent)'
-												: 'var(--text-dim)'}"
-										>
-											<span class="mr-1 text-xs" style="color:var(--text-dim)">ECR</span>
-											{rupiah(br.harga_jual_eceran)}
-										</span>
-										<span
-											style="color:{$tipeTransaksi === 'grosir'
-												? 'var(--accent)'
-												: 'var(--text-dim)'}"
-										>
-											<span class="mr-1 text-xs" style="color:var(--text-dim)">GRS</span>
-											{rupiah(br.harga_jual_grosir)}
-										</span>
-									</div>
-								</div>
-							</button>
-						{/each}
-					</div>
-				{:else if $searchVal && !$cariLoading}
-					<p class="px-4 py-6 text-center text-sm" style="color:var(--text-dim)">
-						Barang tidak ditemukan
-					</p>
-				{:else}
-					<p class="px-4 py-4 text-center text-xs" style="color:var(--text-dim)">
-						Ketik nama, kode, atau scan barcode — harga aktif: <span style="color:var(--accent)"
-							>{$tipeTransaksi.toUpperCase()}</span
-						>
-					</p>
-				{/if}
-			</div>
+			<KasirSpotlight />
 
 			<!-- QR panel: scan dari HP -->
-			<div
-				class="flex shrink-0 cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 shadow-2xl select-none"
-				style="background:var(--surface);border-color:var(--border)"
-				onclick={() => {
-					if ($qrDataUrl) qrLarge.set(true);
-				}}
-				role="none"
-				title="Klik untuk perbesar QR"
-			>
-				{#if $qrDataUrl}
-					<img
-						src={$qrDataUrl}
-						alt="Scan dari HP"
-						class="h-24 w-24 rounded"
-						style="image-rendering:pixelated"
-					/>
-				{:else}
-					<div class="h-24 w-24 animate-pulse rounded" style="background:var(--surface2)"></div>
-				{/if}
-				<div class="flex items-center gap-1.5">
-					<span
-						class="h-1.5 w-1.5 shrink-0 rounded-full"
-						style="background:{$scannerStatus === 'connected'
-							? 'var(--accent)'
-							: $scannerStatus === 'disconnected'
-								? 'var(--warn)'
-								: 'var(--border)'}"
-					></span>
-					<p class="text-xs" style="color:var(--text-dim)">
-						{$scannerStatus === 'connected'
-							? 'HP terhubung'
-							: $scannerStatus === 'disconnected'
-								? 'HP terputus'
-								: 'HP scanner'}
-					</p>
-				</div>
-				{#if $scanSessionId}
-					<p class="font-mono text-xs tracking-widest" style="color:var(--accent)">
-						{$scanSessionId}
-					</p>
-				{/if}
-				<p class="text-xs" style="color:var(--text-dim)">↗ klik perbesar</p>
-			</div>
-
-			<!-- Large QR overlay -->
-			{#if $qrLarge}
-				<div
-					class="fixed inset-0 z-[60] flex items-center justify-center"
-					style="background:rgba(0,0,0,0.88)"
-					onclick={() => qrLarge.set(false)}
-					role="none"
-				>
-					<div
-						class="flex flex-col items-center gap-4"
-						onclick={(e) => e.stopPropagation()}
-						role="none"
-					>
-						<img
-							src={$qrDataUrl}
-							alt="Scan dari HP"
-							class="h-80 w-80 rounded-xl"
-							style="image-rendering:pixelated"
-						/>
-						<p class="text-sm" style="color:var(--text-dim)">
-							Arahkan HP ke QR · atau ketik manual:
-						</p>
-						<div
-							class="rounded-lg border px-4 py-3 text-center"
-							style="background:var(--surface);border-color:var(--border)"
-						>
-							<p class="mb-1 text-xs" style="color:var(--text-dim)">Buka di browser HP</p>
-							<p class="font-mono text-base tracking-wide" style="color:var(--accent)">
-								{$scanUrl}
-							</p>
-						</div>
-						<div class="flex gap-6 text-center">
-							<div>
-								<p class="mb-0.5 text-xs" style="color:var(--text-dim)">Alamat server</p>
-								<p class="font-mono text-sm" style="color:var(--text)">{location.hostname}</p>
-							</div>
-							<div style="color:var(--border)">·</div>
-							<div>
-								<p class="mb-0.5 text-xs" style="color:var(--text-dim)">Halaman</p>
-								<p class="font-mono text-sm" style="color:var(--text)">/scan</p>
-							</div>
-							<div style="color:var(--border)">·</div>
-							<div>
-								<p class="mb-0.5 text-xs" style="color:var(--text-dim)">Kode sesi</p>
-								<p class="font-mono text-lg font-bold tracking-widest" style="color:var(--accent)">
-									{$scanSessionId}
-								</p>
-							</div>
-						</div>
-						<p class="text-xs" style="color:var(--text-dim)">klik luar / ESC untuk tutup</p>
-					</div>
-				</div>
-			{/if}
+			<KasirQrPanel />
 		</div>
 		<!-- end flex row -->
 	</div>

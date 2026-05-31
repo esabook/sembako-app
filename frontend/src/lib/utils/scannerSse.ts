@@ -1,29 +1,25 @@
-const SSE_TIMEOUT_MS = 15_000;
-
 export function connectScannerSse(sessionId: string, onScan: (kode: string) => void): () => void {
-	let sse: EventSource | null = null;
-	let lastEventMs = 0;
-	let watchdog: ReturnType<typeof setInterval> | null = null;
+	const abort = new AbortController();
 
-	function connect() {
-		sse?.close();
-		sse = new EventSource(`/api/scan-relay/kasir/${sessionId}`);
-		sse.onopen = () => { lastEventMs = Date.now(); };
-		sse.onmessage = (e) => {
-			lastEventMs = Date.now();
-			const msg = JSON.parse(e.data as string) as { type: string; kode?: string };
-			if (msg.type === 'scan' && msg.kode) onScan(msg.kode);
-		};
-		sse.onerror = () => {};
+	async function pollLoop() {
+		while (!abort.signal.aborted) {
+			try {
+				const res = await fetch(`/api/scan-relay/kasir/${sessionId}`, {
+					signal: abort.signal,
+					credentials: 'include',
+				});
+				if (abort.signal.aborted) break;
+				if (!res.ok) { await new Promise((r) => setTimeout(r, 2000)); continue; }
+				const body = await res.json() as { success: boolean; data: { kode: string } | null };
+				if (abort.signal.aborted) break;
+				if (body.data?.kode) onScan(body.data.kode);
+			} catch {
+				if (abort.signal.aborted) break;
+				await new Promise((r) => setTimeout(r, 2000));
+			}
+		}
 	}
 
-	connect();
-	watchdog = setInterval(() => {
-		if (lastEventMs > 0 && Date.now() - lastEventMs > SSE_TIMEOUT_MS) connect();
-	}, 5_000);
-
-	return () => {
-		sse?.close();
-		if (watchdog) clearInterval(watchdog);
-	};
+	void pollLoop();
+	return () => abort.abort();
 }

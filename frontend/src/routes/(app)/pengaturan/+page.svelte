@@ -6,6 +6,7 @@
 	import { toast } from '$lib/stores/ui.store.js'
 	import { font, FONT_LABEL, FONT_CSS, type FontPilihan } from '$lib/stores/font.js'
 	import { ukuranFont, UKURAN_MIN, UKURAN_MAX } from '$lib/stores/ukuran-font.js'
+	import { audioLoad, audioSave, playKasirSound, type AudioMode } from '$lib/utils/audio.js'
 	import Button from '$lib/components/ui/Button.svelte'
 	import Spinner from '$lib/components/ui/Spinner.svelte'
 
@@ -43,6 +44,13 @@
 		harga_default: 'eceran',
 	})
 
+	// ── Audio Kasir (localStorage, per-device) ──────────────────────────────────
+	let audioOn       = $state(true)
+	let audioMode     = $state<AudioMode>('beep')
+	let audioFileName = $state('')
+	let audioFileSrc  = $state('')
+	let audioFileErr  = $state('')
+
 	onMount(async () => {
 		const res = await api.get<Settings>('/pengaturan')
 		if (res.success) {
@@ -51,7 +59,41 @@
 			toast.error('Gagal memuat pengaturan')
 		}
 		loading = false
+
+		const a = audioLoad()
+		audioOn       = a.on
+		audioMode     = a.mode
+		audioFileName = a.name
+		audioFileSrc  = a.src
 	})
+
+	function simpanAudio() {
+		audioSave({ on: audioOn, mode: audioMode, src: audioFileSrc, name: audioFileName })
+	}
+
+	function pilihFileAudio(e: Event) {
+		const file = (e.target as HTMLInputElement).files?.[0]
+		if (!file) return
+		audioFileErr = ''
+		if (file.size > 2 * 1024 * 1024) {
+			audioFileErr = 'File terlalu besar (maks. 2MB). Gunakan klip pendek.'
+			return
+		}
+		const reader = new FileReader()
+		reader.onload = (ev) => {
+			audioFileSrc  = ev.target?.result as string
+			audioFileName = file.name
+			simpanAudio()
+		}
+		reader.readAsDataURL(file)
+	}
+
+	function hapusFileAudio() {
+		audioFileSrc  = ''
+		audioFileName = ''
+		audioMode     = 'beep'
+		simpanAudio()
+	}
 
 	async function simpan() {
 		saving = true
@@ -270,6 +312,77 @@
 					Preview: Stokasir — Rp 1.234.567 — stok 99 pcs
 				</p>
 			</div>
+		</section>
+
+		<!-- ── Audio Kasir ──────────────────────────────────────────── -->
+		<section class="rounded border p-4 space-y-4" style="background:var(--surface);border-color:var(--border)">
+			<div class="flex items-center justify-between">
+				<h2 class="text-sm font-bold uppercase tracking-widest" style="color:var(--text-dim)">Audio Kasir</h2>
+				<span class="text-xs" style="color:var(--text-dim)">Tersimpan di perangkat ini</span>
+			</div>
+
+			<label class="flex items-center gap-3 cursor-pointer select-none">
+				<input
+					type="checkbox"
+					bind:checked={audioOn}
+					onchange={simpanAudio}
+					class="accent-green-500 w-4 h-4 shrink-0"
+				/>
+				<span class="text-sm" style="color:var(--text)">Aktifkan suara saat item ditambahkan ke keranjang</span>
+			</label>
+
+			{#if audioOn}
+				<div class="flex gap-5">
+					{#each [['beep', 'Beep bawaan'], ['file', 'File audio']] as const as [val, label]}
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="radio"
+								bind:group={audioMode}
+								value={val}
+								onchange={simpanAudio}
+								class="accent-green-500"
+							/>
+							<span class="text-sm" style="color:var(--text)">{label}</span>
+						</label>
+					{/each}
+				</div>
+
+				{#if audioMode === 'file'}
+					<div class="space-y-2">
+						<div class="flex flex-wrap items-center gap-3">
+							<label
+								class="cursor-pointer rounded border px-3 py-1.5 text-sm"
+								style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+							>
+								📂 Pilih file...
+								<input type="file" accept="audio/*" class="hidden" onchange={pilihFileAudio} />
+							</label>
+							{#if audioFileName}
+								<span class="text-xs truncate max-w-48 font-mono" style="color:var(--accent)">{audioFileName}</span>
+								<button type="button" onclick={hapusFileAudio} class="text-xs shrink-0" style="color:var(--danger)">
+									✕ hapus
+								</button>
+							{:else}
+								<span class="text-xs" style="color:var(--text-dim)">Belum ada file dipilih</span>
+							{/if}
+						</div>
+						{#if audioFileErr}
+							<p class="text-xs" style="color:var(--danger)">{audioFileErr}</p>
+						{:else}
+							<p class="text-xs" style="color:var(--text-dim)">Format: MP3, WAV, OGG. Disarankan di bawah 500KB.</p>
+						{/if}
+					</div>
+				{/if}
+
+				<button
+					type="button"
+					onclick={() => playKasirSound()}
+					class="inline-flex items-center gap-2 rounded border px-3 py-1.5 text-sm"
+					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+				>
+					▶ Preview suara
+				</button>
+			{/if}
 		</section>
 
 		<!-- ── Backup Database ──────────────────────────────────────── -->

@@ -52,8 +52,12 @@ const OFFLINE_HTML = `<!DOCTYPE html>
 </html>`;
 
 self.addEventListener('install', (event) => {
+	// Promise.allSettled — satu asset gagal tidak batalkan seluruh install
+	// (cache.addAll bersifat atomik: satu gagal → semua gagal → SW lama tetap aktif)
 	event.waitUntil(
-		caches.open(STATIC_CACHE).then((cache) => cache.addAll(ASSETS))
+		caches.open(STATIC_CACHE).then((cache) =>
+			Promise.allSettled(ASSETS.map((url) => cache.add(url)))
+		)
 	);
 	self.skipWaiting();
 });
@@ -112,21 +116,26 @@ self.addEventListener('fetch', (event) => {
 
 // Navigation: coba network, fallback ke cached page, lalu offline HTML
 async function networkFirstNav(request: Request): Promise<Response> {
-	try {
-		const response = await fetch(request);
-		if (response.ok) {
-			const cache = await caches.open(STATIC_CACHE);
-			cache.put(request, response.clone());
+	// Coba fetch — kalau gagal, retry 1x setelah 800ms
+	// (SW kadang gagal di request pertama saat baru aktif / resume dari background)
+	for (let attempt = 0; attempt < 2; attempt++) {
+		try {
+			const response = await fetch(request);
+			if (response.ok) {
+				const cache = await caches.open(STATIC_CACHE);
+				cache.put(request, response.clone());
+			}
+			return response;
+		} catch {
+			if (attempt === 0) await new Promise((r) => setTimeout(r, 800));
 		}
-		return response;
-	} catch {
-		const cached = await caches.match(request);
-		if (cached) return cached;
-		return new Response(OFFLINE_HTML, {
-			status: 503,
-			headers: { 'Content-Type': 'text/html; charset=utf-8' },
-		});
 	}
+	const cached = await caches.match(request);
+	if (cached) return cached;
+	return new Response(OFFLINE_HTML, {
+		status: 503,
+		headers: { 'Content-Type': 'text/html; charset=utf-8' },
+	});
 }
 
 async function cacheFirst(request: Request, cacheName: string): Promise<Response> {

@@ -16,6 +16,7 @@ import { bukaWhatsApp } from '$lib/utils/wa';
 import { fetchBarang, fetchPelanggan, submitPenjualan, getDraft, saveDraft, deleteDraft } from './kasir.api';
 import type { BarangResult, PelangganResult, ScannerStatus, Snap, PromoAktif } from './kasir.types';
 import { api } from '$lib/utils/api';
+import { playKasirSound } from '$lib/utils/audio';
 
 // ── Promo aktif ──────────────────────────────────────────────────────────────
 
@@ -164,22 +165,66 @@ export const qrDataUrl      = writable('');
 export const qrLarge        = writable(false);
 export const scannerStatus  = writable<ScannerStatus>('idle');
 
+export const dummyJumlah    = writable(1);
+
 // Derived: apakah loading spesifik sedang berjalan
 export const cariLoading  = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-cari'));
 export const prosesLoading = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-bayar'));
 
-// ── SSE internals (browser-only, tidak reaktif) ────────────────────────────
+// ── Long-poll scanner + pre-qty sync (browser-only, tidak reaktif) ───────────
 
-let kasirSse: EventSource | null = null;
-let lastSseEventMs = 0;
-let sseWatchdog: ReturnType<typeof setInterval> | null = null;
-const SSE_TIMEOUT_MS = 15_000;
+let kasirAbort: AbortController | null = null;
+let _kasirDummySub: (() => void) | null = null;
+let _kasirDummyTimer: ReturnType<typeof setTimeout> | null = null;
+let _lastSyncedDummyFromPhone = 1;
+
+function postPreQty(sid: string, qty: number) {
+	if (!sid) return;
+	void fetch(`/api/scan-relay/kasir-pre-qty/${sid}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ qty }),
+		credentials: 'include',
+	}).catch(() => {});
+}
+
+function resetDummyJumlah(sid: string) {
+	_lastSyncedDummyFromPhone = 1;
+	dummyJumlah.set(1);
+	postPreQty(sid, 1);
+}
+
+async function preQtyPollLoop(sid: string, signal: AbortSignal) {
+	let knownQty: number | null = null;
+	while (!signal.aborted) {
+		try {
+			const url = knownQty === null
+				? `/api/scan-relay/kasir-pre-qty/${sid}`
+				: `/api/scan-relay/kasir-pre-qty/${sid}?known=${knownQty}`;
+			const res = await fetch(url, { signal, credentials: 'include' });
+			if (signal.aborted) break;
+			if (!res.ok) { await new Promise((r) => setTimeout(r, 2000)); continue; }
+			const body = await res.json() as { success: boolean; data: { qty: number } };
+			if (signal.aborted) break;
+			const qty = body.data.qty;
+			knownQty = qty;
+			if (qty !== get(dummyJumlah)) {
+				_lastSyncedDummyFromPhone = qty;
+				dummyJumlah.set(qty);
+			}
+		} catch {
+			if (signal.aborted) break;
+			await new Promise((r) => setTimeout(r, 2000));
+		}
+	}
+}
 
 export function resetKasirDenganDraft() {
 	if (_draftTimer) clearTimeout(_draftTimer);
 	void deleteDraft().catch(() => {});
 	draftStatus.set('idle');
 	resetKasir();
+	resetDummyJumlah(get(scanSessionId));
 }
 
 // ── Cari barang ───────────────────────────────────────────────────────────────
@@ -264,6 +309,8 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 		];
 	});
 	closeSearch();
+	playKasirSound();
+	resetDummyJumlah(get(scanSessionId));
 }
 
 export function ubahJumlah(idx: number, delta: number) {
@@ -410,6 +457,7 @@ export async function prosesBayar() {
 	void deleteDraft().catch(() => {});
 	draftStatus.set('idle');
 	resetKasir();
+	resetDummyJumlah(get(scanSessionId));
 }
 
 // ── Kirim Struk WhatsApp ─────────────────────────────────────────────────────
@@ -466,42 +514,31 @@ export function kirimNotifHutangWA(s: Snap): void {
 	bukaWhatsApp(s.pelanggan?.kontak ?? null, lines.join('\n'));
 }
 
-// ── SSE Scanner ───────────────────────────────────────────────────────────────
+// ── Long-poll Scanner ────────────────────────────────────────────────────────
 
-export function connectKasirSse() {
-	kasirSse?.close();
-	const sid = get(scanSessionId);
-	kasirSse = new EventSource(`/api/scan-relay/kasir/${sid}`);
-	kasirSse.onopen = () => {
-		scannerStatus.set('connected');
-		lastSseEventMs = Date.now();
-	};
-	kasirSse.onmessage = (e) => {
-		lastSseEventMs = Date.now();
-		const msg = JSON.parse(e.data as string) as {
-			type: string;
-			kode?: string;
-			qty?: number;
-		};
-		if (msg.type === 'scan' && msg.kode) {
-			if (get(popupCheckout) && !get(pelangganDipilih)) {
-				void muatPelanggan(msg.kode);
-			} else {
-				void scanDariPhone(msg.kode, msg.qty ?? 1);
+async function kasirPollLoop(sid: string, signal: AbortSignal) {
+	while (!signal.aborted) {
+		try {
+			const res = await fetch(`/api/scan-relay/kasir/${sid}`, { signal, credentials: 'include' });
+			if (signal.aborted) break;
+			if (!res.ok) { scannerStatus.set('disconnected'); await new Promise((r) => setTimeout(r, 2000)); continue; }
+			const body = await res.json() as { success: boolean; data: { kode: string; qty: number } | null };
+			if (signal.aborted) break;
+			scannerStatus.set('connected');
+			if (body.data) {
+				const { kode, qty } = body.data;
+				if (get(popupCheckout) && !get(pelangganDipilih)) {
+					void muatPelanggan(kode);
+				} else {
+					void scanDariPhone(kode, qty);
+				}
 			}
-		}
-	};
-	kasirSse.onerror = () => scannerStatus.set('disconnected');
-}
-
-export function startSseWatchdog() {
-	if (sseWatchdog) clearInterval(sseWatchdog);
-	sseWatchdog = setInterval(() => {
-		if (lastSseEventMs > 0 && Date.now() - lastSseEventMs > SSE_TIMEOUT_MS) {
+		} catch {
+			if (signal.aborted) break;
 			scannerStatus.set('disconnected');
-			connectKasirSse();
+			await new Promise((r) => setTimeout(r, 2000));
 		}
-	}, 5_000);
+	}
 }
 
 export async function initKasirScan(userId: number, host: string, protocol: string) {
@@ -511,11 +548,26 @@ export async function initKasirScan(userId: number, host: string, protocol: stri
 	scanUrl.set(url);
 	const dataUrl = await QRCode.toDataURL(url, { width: 128, margin: 1 });
 	qrDataUrl.set(dataUrl);
-	connectKasirSse();
-	startSseWatchdog();
+
+	kasirAbort = new AbortController();
+	void kasirPollLoop(sid, kasirAbort.signal);
+	void preQtyPollLoop(sid, kasirAbort.signal);
+
+	// dummyJumlah → debounced POST ke /kasir-pre-qty (kasir → phone)
+	_kasirDummySub = dummyJumlah.subscribe((val) => {
+		if (val === _lastSyncedDummyFromPhone) return;
+		if (_kasirDummyTimer) clearTimeout(_kasirDummyTimer);
+		_kasirDummyTimer = setTimeout(() => {
+			_lastSyncedDummyFromPhone = val;
+			postPreQty(sid, val);
+		}, 300);
+	});
 }
 
 export function cleanupKasirScan() {
-	if (sseWatchdog) clearInterval(sseWatchdog);
-	kasirSse?.close();
+	kasirAbort?.abort();
+	kasirAbort = null;
+	_kasirDummySub?.();
+	_kasirDummySub = null;
+	if (_kasirDummyTimer) { clearTimeout(_kasirDummyTimer); _kasirDummyTimer = null; }
 }
