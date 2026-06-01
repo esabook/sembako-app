@@ -135,6 +135,32 @@ const hasil = await withLoading(() => fetchData(), {
 if (hasil) data = hasil
 ```
 
+### Async utilities — wajib dari `lib/utils/async.ts`
+
+```
+withLoading(fn, opts)   → semua async di store (sudah ada)
+withIdle(fn, timeout?)  → defer komputasi berat ke idle time main thread
+debounce(fn, delay)     → input/filter/search — ganti manual setTimeout
+dedupe(key, fn)         → cegah duplicate fetch bersamaan
+createTaskQueue()       → serial async tasks (draft save, checkout multi-step)
+```
+
+**withIdle** — pakai dalam `$effect` untuk komputasi berat:
+```typescript
+loading = true
+return withIdle(() => {
+  hasil = hitungBerat(data, filter)
+  loading = false
+})
+```
+
+**debounce** — pakai di `$effect` untuk input reaktif:
+```typescript
+const cariBounced = debounce(cariBarang, 200)
+$effect(() => { cariBounced(query); return () => cariBounced.cancel() })
+```
+Di component scope wajib dalam `$effect` + `return () => d.cancel()` — jika tidak, timer pending bisa fire setelah navigasi. Di module-level store boleh di luar `$effect`.
+
 ### CSS — custom properties (jangan hardcode warna)
 ```
 var(--bg) var(--surface) var(--surface2) var(--border)
@@ -194,43 +220,36 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 ✗ tabel tanpa overflow-x-auto di HP   → konten terpotong
 ✗ {#each items as x} tanpa key        → Svelte rebuild semua node, pakai (x.id)
 ✗ $derived berat dipakai langsung     → UI freeze, pakai pola deferred di bawah
+✗ komputasi berat sync di main thread → withIdle(), bukan setTimeout(fn,0)
+✗ new Worker() untuk data kecil       → overhead, withIdle() cukup s/d ~10rb baris
 ```
 
 ### No-freeze: komputasi berat setelah state berubah
 
 Untuk filter/toggle yang memicu komputasi ulang banyak data (tabel, grafik):
-- Jangan pakai `$derived` langsung — semua hitung sinkron sebelum browser bisa repaint
-- Pola: `$state` + `$effect` + `requestIdleCallback` → browser repaint loading dulu, baru hitung
+- `$derived` tidak cocok — sinkron, memblokir repaint browser
+- Pola: `$state` + `$effect` + `withIdle()` → browser repaint loading-state dulu, baru hitung
 
 ```typescript
 import { untrack } from 'svelte'
+import { withIdle } from '$lib/utils/async'
 
-// 1. Init eager dengan untrack — render pertama langsung tampil
-const _init = untrack(() => hitungData(data, filter))
-let hasil = $state(_init)
+// Init eager pakai untrack — render pertama langsung tampil tanpa loading
+let hasil = $state(untrack(() => hitungData(data, filter)))
 let loading = $state(false)
 let firstRun = true
 
-// Fallback Safari < 16.4
-const ric =
-  typeof requestIdleCallback !== 'undefined'
-    ? requestIdleCallback
-    : (cb: IdleRequestCallback, _?: IdleRequestOptions) =>
-        setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 0) as unknown as number
-
 $effect(() => {
-  const f = filter   // baca dep reaktif
+  const f = filter   // baca dep reaktif di sini
   const d = data
 
   if (firstRun) { firstRun = false; return }
 
   loading = true
-  const id = ric(() => {
+  return withIdle(() => {
     hasil = hitungData(d, f)
     loading = false
-  }, { timeout: 300 })
-
-  return () => cancelIdleCallback(id)
+  })
 })
 ```
 
@@ -240,6 +259,31 @@ $effect(() => {
   ...
 </div>
 ```
+
+### Thread & Task Management
+
+```
+IO (fetch/file)          → sudah non-blocking — tidak perlu intervensi
+Main thread (UI/Svelte)  → jaga responsif: defer komputasi berat dengan withIdle()
+Web Worker               → hanya jika withIdle() tidak cukup (kriteria di bawah)
+```
+
+**Kriteria pilih mana:**
+```
+< 50ms, jarang dipanggil          → sync biasa
+> 50ms, atau dipicu filter/reaktif → withIdle()
+> 10.000 baris / > 100ms terukur   → Web Worker
+```
+
+**Web Worker — hanya untuk:**
+- CSV export > 10.000 baris
+- Generate label/barcode massal
+- Proses yang stabil > 100ms (bukan estimasi)
+
+**Jangan pakai Web Worker untuk:**
+- Data < 1.000 baris — withIdle() cukup
+- Fungsi yang butuh DOM / Svelte state langsung
+- One-shot on-click — blok sebentar tidak kritis
 
 ### Key wajib di {#each}
 
@@ -256,44 +300,6 @@ $effect(() => {
 
 | Modul | Status |
 |-------|--------|
-| Auth + RBAC, Master Data | ✅ |
-| Kasir + Scanner + Shift | ✅ |
-| Gudang (PO, terima, opname, label) | ✅ |
-| Keuangan (jurnal, hutang, piutang) | ✅ |
-| Laporan (L/R, arus kas, neraca, aging) | ✅ |
-| Absensi, Penggajian, Kasbon | ✅ |
-| Pengaturan Toko, Manajemen Harga | ✅ |
-| Retur Penjualan, Notifikasi, Audit Trail | ✅ |
-| WhatsApp (wa.me reminder piutang) | ✅ |
-| Kartu Anggota | ✅ |
-| Jadwal & Shift Kerja | ✅ |
-| Promo & Diskon (admin + kasir) | ✅ |
-| Budget & Target | ✅ |
-| Retur Penjualan dari UI kasir | ✅ |
-| History transaksi kasir (filter + cetak ulang) | ✅ |
-| Alert stok menipis di kasir | ✅ |
-| Info Server + QR koneksi HP | ✅ |
-| PWA installable (Add to Home Screen) | ✅ |
-| Backup database (download SQLite) | ✅ |
-| Dashboard chart toggle 7/30 hari + rata-rata | ✅ |
-| Riwayat mutasi stok per barang (filter + detail) | ✅ |
-| Absensi: durasi kerja, filter karyawan, export CSV rekap | ✅ |
-| WA alert tombol cepat ke pemilik dari notifikasi | ✅ |
-| Service Worker / offline cache (static + API stale-while-revalidate) | ✅ |
-| Rebrand ke Stokasir (nama, path, docs) | ✅ |
-| Halaman panduan penggunaan (/panduan — accordion + TOC + FAQ) | ✅ |
-| Halaman panduan instalasi (/panduan/instalasi — per device) | ✅ |
-| Shortcut Ctrl+Home toggle sidebar | ✅ |
-| DEPLOY.md: panduan server Windows / Mac / Linux | ✅ |
-| Packaging: build.sh (compile/bundle) + package.sh (XAMPP-style zip + Bun bundled) | ✅ |
-| Setup scripts: setup.sh (Linux/Mac/Pi) + setup.ps1 (Windows) | ✅ |
-| HTML-only installer: buka instalasi.html → auto-unduh bootstrap script → polling server otomatis | ✅ |
-| Murni Bun tanpa Node.js/npm: adapter-bun + systemd/launchd/Task Scheduler | ✅ |
-| Browser installer (instalasi.ts + instalasi.html): git clone → double-click → install | ✅ |
-
-Branch aktif: `development`
-
----
 
 ## BUGFIX WAJIB (sebelum deploy)
 
