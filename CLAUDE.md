@@ -192,6 +192,62 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 ✗ {kondisi ? <span>...</span> : ...}  → JSX tidak valid di Svelte, pakai {#if}
 ✗ lebar fixed px di elemen utama      → pakai %, max-w-, atau w-full
 ✗ tabel tanpa overflow-x-auto di HP   → konten terpotong
+✗ {#each items as x} tanpa key        → Svelte rebuild semua node, pakai (x.id)
+✗ $derived berat dipakai langsung     → UI freeze, pakai pola deferred di bawah
+```
+
+### No-freeze: komputasi berat setelah state berubah
+
+Untuk filter/toggle yang memicu komputasi ulang banyak data (tabel, grafik):
+- Jangan pakai `$derived` langsung — semua hitung sinkron sebelum browser bisa repaint
+- Pola: `$state` + `$effect` + `requestIdleCallback` → browser repaint loading dulu, baru hitung
+
+```typescript
+import { untrack } from 'svelte'
+
+// 1. Init eager dengan untrack — render pertama langsung tampil
+const _init = untrack(() => hitungData(data, filter))
+let hasil = $state(_init)
+let loading = $state(false)
+let firstRun = true
+
+// Fallback Safari < 16.4
+const ric =
+  typeof requestIdleCallback !== 'undefined'
+    ? requestIdleCallback
+    : (cb: IdleRequestCallback, _?: IdleRequestOptions) =>
+        setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 0) as unknown as number
+
+$effect(() => {
+  const f = filter   // baca dep reaktif
+  const d = data
+
+  if (firstRun) { firstRun = false; return }
+
+  loading = true
+  const id = ric(() => {
+    hasil = hitungData(d, f)
+    loading = false
+  }, { timeout: 300 })
+
+  return () => cancelIdleCallback(id)
+})
+```
+
+```svelte
+<!-- Dim konten + blok interaksi saat loading -->
+<div style={loading ? 'opacity:0.55;pointer-events:none' : ''}>
+  ...
+</div>
+```
+
+### Key wajib di {#each}
+
+```svelte
+✓ {#each items as item (item.id)}          → by id (paling stabil)
+✓ {#each rows as row (row.tanggal)}        → by natural key
+✓ {#each [7, 30] as n (n)}                → by value untuk list statis
+✗ {#each items as item}                    → no key, full rebuild saat update
 ```
 
 ---
