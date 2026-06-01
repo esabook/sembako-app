@@ -282,7 +282,7 @@
 		<div class="p-3 rounded border flex flex-col gap-2" style="border-color:var(--border);background:var(--surface)">
 			<div>
 				<div class="text-xs mb-1" style="color:var(--text-dim)">Ukuran label</div>
-				{#each Object.entries(UKURAN) as [key, val]}
+				{#each Object.entries(UKURAN) as [key, val] (key)}
 					<label class="flex items-center gap-2 cursor-pointer py-0.5">
 						<input type="radio" bind:group={ukuran} value={key} style="accent-color:var(--accent)" />
 						<span class="text-xs" style="color:var(--text)">{val.label}</span>

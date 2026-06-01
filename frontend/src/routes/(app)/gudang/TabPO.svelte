@@ -117,7 +117,7 @@
 				<label for="po-sup" class="text-xs" style="color:var(--text-dim)">SUPPLIER *</label>
 				<select id="po-sup" bind:value={poSupplier} class="px-2 py-1.5 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)">
 					<option value="">— pilih —</option>
-					{#each supplierList as s}<option value={s.id}>{s.nama_supplier}</option>{/each}
+					{#each supplierList as s (s.id)}<option value={s.id}>{s.nama_supplier}</option>{/each}
 				</select>
 			</div>
 			<div class="flex flex-col gap-1">
@@ -140,7 +140,7 @@
 					<th class="px-2 py-2 w-8"></th>
 				</tr></thead>
 				<tbody>
-					{#each poItems as item, idx}
+					{#each poItems as item, idx (item.barang_id)}
 					<tr class="border-t" style="border-color:var(--border)">
 						<td class="px-3 py-2">{item.nama_barang}</td>
 						<td class="px-2 py-1 text-right"><input type="number" min="1" bind:value={item.jumlah} class="w-24 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
@@ -173,7 +173,7 @@
 		maxRows={12}
 	>
 		{#snippet body(hidden)}
-			{#each pagedPO as po}
+			{#each pagedPO as po (po.id)}
 			<tr class="border-t" style="border-color:var(--border)">
 				{#if !hidden.has('no_po')}
 					<td class="px-3 py-2 font-mono text-xs">{po.no_po}</td>
@@ -214,7 +214,7 @@
 			<div>Total: <span style="color:var(--text)">{rupiah(poDetail.total_nilai)}</span></div>
 		</div>
 		<div class="flex gap-2 flex-wrap">
-			{#each ['draft', 'dikirim', 'sebagian', 'lunas', 'batal'] as s}
+			{#each ['draft', 'dikirim', 'sebagian', 'lunas', 'batal'] as s (s)}
 				{#if s !== poDetail.status}
 				<button onclick={() => ubahStatusPO(poDetail!.id, s)} class="px-2 py-1 rounded text-xs border" style="border-color:var(--border);color:{SPC[s]}">→ {s}</button>
 				{/if}

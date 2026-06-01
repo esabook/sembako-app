@@ -274,7 +274,7 @@
 			emptyText="Belum ada kategori. Tambah di atas atau tampilkan data bawaan."
 		>
 			{#snippet body(hidden)}
-				{#each sortedKategori as item}
+				{#each sortedKategori as item (item.id)}
 					<tr class="border-t" style="border-color:var(--border)">
 						{#if editKategoriId === item.id}
 							{#if !hidden.has('nama')}
@@ -333,7 +333,7 @@
 					</tr>
 				{/each}
 				{#if showPredefinedKategori}
-					{#each PREDEFINED_KATEGORI as p}
+					{#each PREDEFINED_KATEGORI as p (p.kode)}
 						<tr class="border-t" style="border-color:var(--border);background:color-mix(in srgb, var(--surface2) 60%, transparent)">
 							{#if !hidden.has('nama')}
 								<td class="px-3 py-2 text-xs">
@@ -398,7 +398,7 @@
 			emptyText="Belum ada satuan. Tambah di atas atau tampilkan data bawaan."
 		>
 			{#snippet body(hidden)}
-				{#each sortedSatuan as item}
+				{#each sortedSatuan as item (item.id)}
 					<tr class="border-t" style="border-color:var(--border)">
 						{#if editSatuanId === item.id}
 							{#if !hidden.has('nama')}
@@ -459,7 +459,7 @@
 					</tr>
 				{/each}
 				{#if showPredefinedSatuan}
-					{#each PREDEFINED_SATUAN as p}
+					{#each PREDEFINED_SATUAN as p (p.singkatan)}
 						<tr class="border-t" style="border-color:var(--border);background:color-mix(in srgb, var(--surface2) 60%, transparent)">
 							{#if !hidden.has('nama')}
 								<td class="px-3 py-2 text-xs">

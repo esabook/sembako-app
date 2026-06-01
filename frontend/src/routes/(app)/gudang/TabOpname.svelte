@@ -165,7 +165,7 @@
 			maxRows={10}
 		>
 			{#snippet body(hidden)}
-				{#each sortedOpname as op}
+				{#each sortedOpname as op (op.id)}
 				<tr class="border-t" style="border-color:var(--border)">
 					{#if !hidden.has('no_opname')}
 						<td class="px-3 py-2 text-xs font-mono">{op.no_opname}</td>
@@ -235,7 +235,7 @@
 			maxRows={14}
 		>
 			{#snippet body(hidden)}
-				{#each pagedItems as item}
+				{#each pagedItems as item (item.id)}
 				<tr class="border-t" style="border-color:var(--border);background:{item.stok_fisik !== null ? 'transparent' : 'rgba(255,179,0,.04)'}">
 					{#if !hidden.has('kode_barang')}
 						<td class="px-3 py-2 font-mono text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>

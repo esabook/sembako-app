@@ -115,7 +115,7 @@
         { label: 'Total Belanja', val: `Rp ${fmt(summary.total_belanja)}`, accent: true },
         { label: 'Rata-rata/Transaksi', val: `Rp ${fmt(summary.rata_per_trx)}`, accent: false },
         { label: 'Terakhir Belanja', val: summary.terakhir_belanja ? tglFmt(summary.terakhir_belanja) : '—', accent: false },
-      ] as card}
+      ] as card (card.label)}
         <div class="rounded-lg border p-3" style="background:var(--surface);border-color:var(--border)">
           <div class="text-xs mb-1" style="color:var(--text-dim)">{card.label}</div>
           <div class="text-sm font-bold" style="color:{card.accent ? 'var(--accent)' : 'var(--text)'}">
@@ -229,7 +229,7 @@
                           </tr>
                         </thead>
                         <tbody>
-                          {#each detailMap[trx.id] as item}
+                          {#each detailMap[trx.id] as item (item.id)}
                             <tr>
                               <td class="py-0.5 pr-4" style="color:var(--text)">{item.nama_barang}</td>
                               <td class="py-0.5 pr-3 text-right" style="color:var(--text-dim)">{item.jumlah}</td>

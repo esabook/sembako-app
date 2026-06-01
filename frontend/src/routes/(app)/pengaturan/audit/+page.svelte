@@ -183,7 +183,7 @@
 				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 			>
 				<option value="">Semua modul</option>
-				{#each modulList as m}
+				{#each modulList as m (m)}
 					<option value={m}>{labelModul(m)}</option>
 				{/each}
 			</select>
@@ -212,7 +212,7 @@
 				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 			>
 				<option value="">Semua karyawan</option>
-				{#each karyawanList as k}
+				{#each karyawanList as k (k.id)}
 					<option value={String(k.id)}>{k.nama} ({k.role})</option>
 				{/each}
 			</select>
@@ -415,7 +415,7 @@
 					<div>
 						<div class="mb-1" style="color:var(--text-dim)">Detail Perubahan</div>
 						<div class="p-3 rounded" style="background:var(--surface2);color:var(--text)">
-							{#each Object.entries(detailItem.detail_json) as [k, v]}
+							{#each Object.entries(detailItem.detail_json) as [k, v] (k)}
 								<div class="flex gap-2">
 									<span style="color:var(--text-dim);min-width:120px">{k}:</span>
 									<span>{String(v)}</span>

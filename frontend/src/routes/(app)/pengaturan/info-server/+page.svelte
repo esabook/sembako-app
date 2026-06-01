@@ -137,7 +137,7 @@
 				['3', 'Tap notifikasi yang muncul → browser akan membuka aplikasi'],
 				['4', 'Atau ketik manual URL di atas ke browser HP'],
 				['5', 'Login dengan akun yang diberikan pemilik'],
-			] as [no, langkah]}
+			] as [no, langkah] (no)}
 				<li class="flex items-start gap-3 text-sm">
 					<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold mt-0.5"
 						style="background:var(--accent);color:#000">{no}</span>
@@ -163,7 +163,7 @@
 						['Runtime', `Bun ${info.bun_version}`],
 						['Platform', info.platform],
 						['Uptime Server', formatUptime(info.uptime_detik)],
-					] as [label, val]}
+					] as [label, val] (label)}
 						<tr class="border-t" style="border-color:var(--border)">
 							<td class="py-1.5 pr-4 text-xs w-36" style="color:var(--text-dim)">{label}</td>
 							<td class="py-1.5 font-mono text-xs">

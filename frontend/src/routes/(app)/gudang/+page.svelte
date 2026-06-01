@@ -33,7 +33,7 @@
 </script>
 
 <div class="flex gap-1 mb-4 border-b overflow-x-auto" style="border-color:var(--border);scrollbar-width:none">
-	{#each TABS as t}
+	{#each TABS as t (t.id)}
 		<button
 			onclick={() => goto(`?tab=${t.id}`, { replaceState: true, keepFocus: true, noScroll: true })}
 			class="px-3 py-2 text-xs font-bold border-b-2 -mb-px shrink-0 whitespace-nowrap"

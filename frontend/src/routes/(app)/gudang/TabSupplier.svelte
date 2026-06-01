@@ -79,7 +79,7 @@
 		maxRows={12}
 	>
 		{#snippet body(hidden)}
-			{#each pagedSupplier as item}
+			{#each pagedSupplier as item (item.id)}
 			<tr class="border-t" style="border-color:var(--border)">
 				{#if !hidden.has('kode_supplier')}
 					<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_supplier}</td>

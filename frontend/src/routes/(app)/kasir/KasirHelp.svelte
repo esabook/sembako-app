@@ -36,7 +36,7 @@
 <ModalWindow bind:open title="Shortcut Keyboard" maxWidth="xl">
   {#snippet children()}
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 sm:gap-x-6">
-    {#each [col1, col2] as col, i}
+    {#each [col1, col2] as col, i (i)}
       <div class="flex flex-col">
         {#each col as [key, label] (key)}
           <div class="flex items-center justify-between gap-3 py-2" style="border-bottom:1px solid var(--border)">

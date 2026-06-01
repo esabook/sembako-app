@@ -96,7 +96,7 @@
 			<div class="px-3 py-2 border-b" style="border-color:var(--border)">
 				<div class="text-[0.7em] uppercase mb-1.5 tracking-wider" style="color:var(--text-dim)">Tema</div>
 				<div class="flex flex-col gap-0.5">
-					{#each TEMA_LIST as t}
+					{#each TEMA_LIST as t (t.nilai)}
 						<button
 							onclick={() => tema.set(t.nilai)}
 							class="flex items-center justify-between px-2 py-1 rounded text-xs transition-colors w-full text-left"

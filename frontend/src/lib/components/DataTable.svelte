@@ -424,7 +424,7 @@
 				<!-- FIX 4: kolom terakhir tidak diberi width → auto-expand di wrap mode -->
 				{#if wrapMode}
 					<colgroup>
-						{#each visibleColumns as col, i}
+						{#each visibleColumns as col, i (col.key)}
 							<col style={
 								i < visibleColumns.length - 1 && colWidths[col.key] !== null
 									? `width:${colWidths[col.key]}px`
@@ -435,7 +435,7 @@
 				{/if}
 				<thead>
 					<tr>
-						{#each visibleColumns as col, i}
+						{#each visibleColumns as col, i (col.key)}
 							{@const sortable = col.sortable !== false && Boolean(col.key)}
 							<th
 								style="
@@ -521,7 +521,7 @@
 					onchange={() => { currentPage = 1; }}
 					style="font-size:0.875em;padding:3px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;"
 				>
-					{#each PAGE_SIZES as sz}
+					{#each PAGE_SIZES as sz (sz)}
 						<option value={sz}>{sz === 0 ? 'Semua' : sz} / hal</option>
 					{/each}
 				</select>
@@ -531,7 +531,7 @@
 					style="padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;opacity:{currentPage <= 1 ? 0.35 : 1};"
 				>‹</button>
 				<div class="hidden sm:flex" style="align-items:center;gap:3px">
-					{#each pageNumbers as p}
+					{#each pageNumbers as p, i (i)}
 						{#if p === '...'}
 							<span style="padding:0 4px;color:var(--text-dim)">…</span>
 						{:else}
@@ -581,7 +581,7 @@
 			padding:6px;
 		"
 	>
-		{#each hideableColumns as col}
+		{#each hideableColumns as col (col.key)}
 			{@const hidden = effectiveHidden.has(col.key)}
 			{@const autoHidden = autoHiddenKeys.has(col.key)}
 			{@const forceShown = userForceShow.has(col.key)}

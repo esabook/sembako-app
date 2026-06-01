@@ -411,7 +411,7 @@
 				<!-- Target yang sudah dipilih -->
 				{#if fbTargets.length > 0}
 					<div class="flex flex-wrap gap-1 mb-1">
-						{#each fbTargets as t, i}
+						{#each fbTargets as t, i (t.target_id)}
 							<span class="flex items-center gap-1 px-2 py-0.5 rounded text-xs"
 								style="background:var(--surface2);color:var(--text)">
 								{t.nama ?? t.target_id}

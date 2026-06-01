@@ -1,6 +1,67 @@
 import { loading, errors, toast } from '$lib/stores/ui.store';
 import type { WithLoadingOpts } from '$lib/types/error.types';
 
+// --- withIdle ---
+
+const _hasRic = typeof requestIdleCallback !== 'undefined';
+
+/** Defer komputasi ke idle time browser. Return cleanup fn untuk cancelIdleCallback. */
+export function withIdle(fn: () => void, timeout = 300): () => void {
+	if (_hasRic) {
+		const id = requestIdleCallback(() => fn(), { timeout });
+		return () => cancelIdleCallback(id);
+	}
+	const id = setTimeout(fn, 0);
+	return () => clearTimeout(id);
+}
+
+// --- debounce ---
+
+/** Return fungsi debounced + method .cancel(). */
+export function debounce<T extends (...args: Parameters<T>) => void>(
+	fn: T,
+	delay: number
+): T & { cancel: () => void } {
+	let tid: ReturnType<typeof setTimeout> | undefined;
+	const debounced = (...args: Parameters<T>) => {
+		clearTimeout(tid);
+		tid = setTimeout(() => fn(...args), delay);
+	};
+	debounced.cancel = () => clearTimeout(tid);
+	return debounced as T & { cancel: () => void };
+}
+
+// --- dedupe ---
+
+const _inflight = new Map<string, Promise<unknown>>();
+
+/** Panggilan identik yang masih pending → pakai Promise yang sama, bukan request baru. */
+export function dedupe<T>(key: string, fn: () => Promise<T>): Promise<T> {
+	if (_inflight.has(key)) return _inflight.get(key) as Promise<T>;
+	// Promise.resolve().then(fn) memastikan sync throw dari fn() masuk rejected Promise,
+	// sehingga .finally() selalu jalan dan key tidak tertinggal di Map selamanya.
+	const p = Promise.resolve().then(fn).finally(() => _inflight.delete(key));
+	_inflight.set(key, p);
+	return p;
+}
+
+// --- createTaskQueue ---
+
+/** Task queue serial: task berikut tunggu task sebelumnya selesai sebelum jalan. */
+export function createTaskQueue() {
+	let _chain = Promise.resolve();
+	return {
+		enqueue<T>(fn: () => Promise<T>): Promise<T> {
+			return new Promise<T>((resolve, reject) => {
+				_chain = _chain.then(() => fn().then(resolve, reject));
+			});
+		},
+		flush(): Promise<void> {
+			return _chain;
+		},
+	};
+}
+
 // Petaan error teknis → pesan ramah user (lihat CLAUDE_v2.md).
 function petakanError(asli: string): string {
 	const s = asli.toLowerCase();

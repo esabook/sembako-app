@@ -39,7 +39,7 @@
 				{ field: 'Stok Minimum', desc: 'Batas stok terendah sebelum sistem memberi peringatan. Jika stok ≤ minimum, status berubah menjadi HAMPIR HABIS.' },
 				{ field: 'Stok Sekarang', desc: 'Dihitung otomatis dari mutasi stok (terima barang, penjualan, koreksi, opname). Jangan diubah manual kecuali lewat koreksi stok.' },
 				{ field: 'Lokasi Rak', desc: 'Posisi fisik barang di gudang. Contoh: A1, B3-ATAS. Membantu saat stok opname atau ambil barang.' },
-			] as row}
+			] as row (row.field)}
 			<div class="flex gap-2">
 				<span class="shrink-0 font-bold w-44" style="color:var(--text)">{row.field}</span>
 				<span style="color:var(--text-dim)">{row.desc}</span>

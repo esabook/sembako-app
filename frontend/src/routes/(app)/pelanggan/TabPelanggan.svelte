@@ -520,7 +520,7 @@
           {:else if kartuSearchResults.length > 0}
             <div class="absolute z-20 top-full left-0 right-0 mt-1 rounded border max-h-48 overflow-y-auto shadow-lg"
               style="background:var(--surface);border-color:var(--border)">
-              {#each kartuSearchResults as k}
+              {#each kartuSearchResults as k (k.id)}
                 <button
                   onclick={() => pilihKartu(k)}
                   class="w-full text-left px-3 py-2 text-xs border-t"

@@ -700,7 +700,7 @@
         { label: 'Hari ini', fn: () => { const t = new Date().toLocaleDateString('sv-SE'); periode = { dari: t, sampai: t }; muat() } },
         { label: 'Minggu ini', fn: () => { const now = new Date(); const mon = new Date(now); mon.setDate(now.getDate() - now.getDay() + 1); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); periode = { dari: mon.toLocaleDateString('sv-SE'), sampai: sun.toLocaleDateString('sv-SE') }; muat() } },
         { label: 'Bulan ini', fn: () => { periode = defaultPeriode(); muat() } },
-      ] as s}
+      ] as s (s.label)}
         <button
           onclick={s.fn}
           style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
@@ -721,7 +721,7 @@
       {#each [
         { label: 'Hari ini', fn: () => { neracaTanggal = new Date().toLocaleDateString('sv-SE'); muatNeraca() } },
         { label: 'Akhir bulan lalu', fn: () => { const d = new Date(); d.setDate(0); neracaTanggal = d.toLocaleDateString('sv-SE'); muatNeraca() } },
-      ] as s}
+      ] as s (s.label)}
         <button
           onclick={s.fn}
           style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
@@ -743,7 +743,7 @@
       {#each [
         { label: 'Bulan ini', fn: () => { periodeBR = bulanIniStr(); muatBudgetRealisasi() } },
         { label: 'Bulan lalu', fn: () => { const d = new Date(); d.setMonth(d.getMonth() - 1); periodeBR = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; muatBudgetRealisasi() } },
-      ] as s}
+      ] as s (s.label)}
         <button
           onclick={s.fn}
           style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
@@ -781,7 +781,7 @@
       {#each [
         { label: 'Bulan ini', fn: () => { periodeMargin = defaultPeriode(); muatMarginProduk() } },
         { label: 'Bulan lalu', fn: () => { periodeMargin = periodeSebelumnya(); muatMarginProduk() } },
-      ] as s}
+      ] as s (s.label)}
         <button onclick={s.fn}
           style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
         >{s.label}</button>
@@ -813,7 +813,7 @@
       {#each [
         { label: 'Bulan ini', fn: () => { periodePelanggan = defaultPeriode(); muatTopPelanggan() } },
         { label: 'Bulan lalu', fn: () => { periodePelanggan = periodeSebelumnya(); muatTopPelanggan() } },
-      ] as s}
+      ] as s (s.label)}
         <button onclick={s.fn}
           style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
         >{s.label}</button>
@@ -837,7 +837,7 @@
       {#each [
         { label: 'Bulan ini', fn: () => { periodeSupplier = defaultPeriode(); muatPembelianSupplier() } },
         { label: 'Bulan lalu', fn: () => { periodeSupplier = periodeSebelumnya(); muatPembelianSupplier() } },
-      ] as s}
+      ] as s (s.label)}
         <button onclick={s.fn}
           style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
         >{s.label}</button>
@@ -872,7 +872,7 @@
       {#each [
         { label: 'Bulan ini', fn: () => { periodeJam = defaultPeriode(); muatAnalitikJam() } },
         { label: 'Bulan lalu', fn: () => { periodeJam = periodeSebelumnya(); muatAnalitikJam() } },
-      ] as s}
+      ] as s (s.label)}
         <button onclick={s.fn}
           style="padding:.25rem .6rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.72rem; cursor:pointer"
         >{s.label}</button>
@@ -959,7 +959,7 @@
         ['Penjualan Bruto', labaRugi.penjualan.bruto, false],
         ['Diskon', labaRugi.penjualan.diskon, true],
         ['Penjualan Bersih', labaRugi.penjualan.bersih, false],
-      ] as [label, val, minus]}
+      ] as [label, val, minus] (label)}
         <div style="display:flex; justify-content:space-between; padding:.3rem 0; font-size:.85rem; color:{label === 'Penjualan Bersih' ? 'var(--text)' : 'var(--text-dim)'}; font-weight:{label === 'Penjualan Bersih' ? '600' : '400'}">
           <span>{label}</span>
           <span>{minus ? '(' : ''}Rp {fmt(val as number)}{minus ? ')' : ''}</span>
@@ -988,7 +988,7 @@
         <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem; padding-bottom:.3rem; border-bottom:1px solid var(--border)">
           Biaya Operasional
         </div>
-        {#each Object.entries(labaRugi.biaya_operasional.per_kategori) as [kat, jml]}
+        {#each Object.entries(labaRugi.biaya_operasional.per_kategori) as [kat, jml] (kat)}
           <div style="display:flex; justify-content:space-between; padding:.3rem 0; font-size:.85rem; color:var(--text-dim)">
             <span style="text-transform:capitalize">{kat.replace(/_/g, ' ')}</span>
             <span>(Rp {fmt(jml)})</span>
@@ -1029,7 +1029,7 @@
         ['Saldo Awal', arusKas.saldo_awal, 'var(--text)'],
         ['Net Periode', arusKas.net, arusKas.net >= 0 ? 'var(--accent)' : 'var(--danger)'],
         ['Saldo Akhir', arusKas.saldo_akhir, arusKas.saldo_akhir >= 0 ? 'var(--accent)' : 'var(--danger)'],
-      ] as [label, val, warna]}
+      ] as [label, val, warna] (label)}
         <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.75rem 1rem">
           <div style="font-size:.7rem; color:var(--text-dim); margin-bottom:.25rem">{label}</div>
           <div style="font-size:1rem; font-weight:700; color:{warna}">Rp {fmt(val as number)}</div>
@@ -1045,13 +1045,13 @@
       <table style="width:100%; border-collapse:collapse; font-size:.83rem">
         <thead>
           <tr>
-            {#each ['Akun','Saldo Awal','Masuk','Keluar','Saldo Akhir'] as h}
+            {#each ['Akun','Saldo Awal','Masuk','Keluar','Saldo Akhir'] as h (h)}
               <th style="padding:.4rem .5rem; text-align:{h==='Akun'?'left':'right'}; color:var(--text-dim); font-size:.72rem; font-weight:600">{h}</th>
             {/each}
           </tr>
         </thead>
         <tbody>
-          {#each arusKas.per_akun as akun}
+          {#each arusKas.per_akun as akun (akun.id)}
             <tr style="border-bottom:1px solid var(--border)">
               <td style="padding:.4rem .5rem; color:var(--text)">{akun.nama}</td>
               <td style="padding:.4rem .5rem; text-align:right; color:var(--text-dim)">Rp {fmt(akun.saldo_awal)}</td>
@@ -1084,13 +1084,13 @@
         <table style="width:100%; border-collapse:collapse; font-size:.83rem">
           <thead>
             <tr>
-              {#each ['Kategori','Masuk','Keluar'] as h}
+              {#each ['Kategori','Masuk','Keluar'] as h (h)}
                 <th style="padding:.35rem .5rem; text-align:{h==='Kategori'?'left':'right'}; color:var(--text-dim); font-size:.72rem; font-weight:600">{h}</th>
               {/each}
             </tr>
           </thead>
           <tbody>
-            {#each Object.entries(arusKas.per_kategori).sort((a,b) => (b[1].masuk+b[1].keluar)-(a[1].masuk+a[1].keluar)) as [kat, val]}
+            {#each Object.entries(arusKas.per_kategori).sort((a,b) => (b[1].masuk+b[1].keluar)-(a[1].masuk+a[1].keluar)) as [kat, val] (kat)}
               <tr style="border-bottom:1px solid var(--border)">
                 <td style="padding:.35rem .5rem; color:var(--text); text-transform:capitalize">{kat.replace(/_/g,' ')}</td>
                 <td style="padding:.35rem .5rem; text-align:right; color:{val.masuk>0?'var(--accent)':'var(--text-dim)'}">
@@ -1130,7 +1130,7 @@
         </div>
 
         <div style="font-size:.75rem; color:var(--text-dim); margin:.5rem 0 .25rem; font-weight:600">Kas & Bank</div>
-        {#each neraca.aset.kas_bank as akun}
+        {#each neraca.aset.kas_bank as akun (akun.id)}
           <div style="display:flex; justify-content:space-between; font-size:.82rem; padding:.2rem 0; color:var(--text-dim)">
             <span>{akun.nama}</span>
             <span>Rp {fmt(akun.saldo)}</span>
@@ -1206,13 +1206,13 @@
     {#each [
       { title: 'Piutang Pelanggan', buckets: aging.piutang, total: aging.total_piutang, prefix: 'p' },
       { title: 'Hutang Supplier', buckets: aging.hutang, total: aging.total_hutang, prefix: 'h' },
-    ] as section}
+    ] as section (section.prefix)}
       <div style="margin-bottom:1.75rem">
         <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem; padding-bottom:.35rem; border-bottom:1px solid var(--border)">
           {section.title} — Total Rp {fmt(section.total)}
         </div>
 
-        {#each section.buckets as bucket, i}
+        {#each section.buckets as bucket, i (bucket.label)}
           {@const key = `${section.prefix}_${i}`}
           {@const warna = i === 0 ? 'var(--accent)' : i === 1 ? 'var(--warn)' : 'var(--danger)'}
           {#if bucket.jumlah > 0}
@@ -1244,7 +1244,7 @@
                       </tr>
                     </thead>
                     <tbody>
-                      {#each bucket.items as item}
+                      {#each bucket.items as item, i (i)}
                         <tr style="border-top:1px solid var(--border)">
                           <td style="padding:.35rem .85rem; color:var(--text)">{item.nama}</td>
                           <td style="padding:.35rem .5rem; text-align:right; color:var(--text-dim); font-family:monospace">{item.jatuh_tempo || '—'}</td>
@@ -1313,7 +1313,7 @@
             { label: 'Omzet', target: br.target?.target_omzet ?? null, real: br.realisasi.realisasi_omzet, isRp: true, higher: true },
             { label: 'Transaksi', target: br.target?.target_transaksi ?? null, real: br.realisasi.realisasi_transaksi, isRp: false, higher: true },
             { label: 'Margin %', target: br.target?.target_margin_pct ?? null, real: br.realisasi.realisasi_margin_pct, isRp: false, higher: true, isPct: true },
-          ] as row}
+          ] as row (row.label)}
             {@const pct = row.target && row.target > 0 ? (row.real / row.target) * 100 : null}
             {@const ok = pct !== null ? (row.higher ? pct >= 90 : pct <= 110) : null}
             <tr style="border-top:1px solid var(--border)">
@@ -1353,7 +1353,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each br.budgets as b}
+            {#each br.budgets as b (b.kategori)}
               {@const real = br.realisasi.realisasi_budget[b.kategori] ?? 0}
               {@const selisih = b.nilai_budget - real}
               <tr style="border-top:1px solid var(--border)">
@@ -1404,7 +1404,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each px.bulan as b, i}
+          {#each px.bulan as b, i (b.periode)}
             <tr style="border-top:1px solid var(--border); opacity:{b.omset === 0 ? 0.45 : 1}">
               <td style="padding:.4rem .75rem; color:var(--text)">{BULAN[i]}</td>
               <td style="padding:.4rem .75rem; text-align:right; color:var(--text-dim)">
@@ -1448,7 +1448,7 @@
         { label: 'Total HPP', val: fmtRp(mp.total_hpp), color: 'var(--text-dim)' },
         { label: 'Total Margin', val: fmtRp(mp.total_margin), color: mp.total_margin >= 0 ? 'var(--accent)' : 'var(--danger)' },
         { label: 'Rata-rata Margin %', val: `${mp.margin_pct_rata.toFixed(1)}%`, color: mp.margin_pct_rata >= 15 ? 'var(--accent)' : mp.margin_pct_rata >= 8 ? 'var(--warn)' : 'var(--danger)' },
-      ] as card}
+      ] as card (card.label)}
         <div style="padding:.75rem 1rem; background:var(--surface); border:1px solid var(--border); border-radius:6px">
           <div style="font-size:.7rem; color:var(--text-dim); margin-bottom:.25rem">{card.label}</div>
           <div style="font-size:.9rem; font-weight:700; color:{card.color}">{card.val}</div>
@@ -1472,7 +1472,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each mp.produk as p, i}
+          {#each mp.produk as p, i (p.barang_id)}
             {@const warnaMargin = p.margin_pct >= 15 ? 'var(--accent)' : p.margin_pct >= 8 ? 'var(--warn)' : 'var(--danger)'}
             <tr style="border-top:1px solid var(--border)">
               <td style="padding:.35rem .75rem; color:var(--text-dim); font-size:.75rem">{i + 1}</td>
@@ -1533,7 +1533,7 @@
             { label: 'Biaya Operasional', v1: p1.biaya_operasional.total, v2: p2.biaya_operasional.total, isRp: true, higher: false },
             { label: 'Laba Bersih', v1: p1.laba_bersih, v2: p2.laba_bersih, isRp: true, higher: true },
             { label: 'Margin Bersih %', v1: p1.margin_bersih_persen, v2: p2.margin_bersih_persen, isRp: false, isPct: true, higher: true },
-          ] as row}
+          ] as row (row.label)}
             {@const d = delta(row.v1, row.v2)}
             {@const dp = deltaPct(row.v1, row.v2)}
             {@const warna = warnaSelisih(d, row.higher)}
@@ -1572,7 +1572,7 @@
         { label: 'Total Nilai Stok', val: fmtRp(p.total_nilai), color: 'var(--accent)' },
         { label: 'Jumlah SKU Aktif', val: String(p.jumlah_sku), color: 'var(--text)' },
         { label: 'SKU Tanpa Stok', val: String(p.sku_tanpa_stok), color: p.sku_tanpa_stok > 0 ? 'var(--warn)' : 'var(--text-dim)' },
-      ] as card}
+      ] as card (card.label)}
         <div style="padding:.75rem 1rem; background:var(--surface); border:1px solid var(--border); border-radius:6px">
           <div style="font-size:.7rem; color:var(--text-dim); margin-bottom:.25rem">{card.label}</div>
           <div style="font-size:.9rem; font-weight:700; color:{card.color}">{card.val}</div>
@@ -1592,7 +1592,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each p.produk as pr, i}
+          {#each p.produk as pr, i (pr.barang_id)}
             <tr style="border-top:1px solid var(--border); opacity:{pr.stok <= 0 ? 0.4 : 1}">
               <td style="padding:.35rem .75rem; color:var(--text-dim); font-size:.75rem">{i + 1}</td>
               <td style="padding:.35rem .75rem; color:var(--text); font-weight:500">{pr.nama_barang}</td>
@@ -1638,7 +1638,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each tp.pelanggan as pl, i}
+            {#each tp.pelanggan as pl, i (pl.pelanggan_id)}
               <tr style="border-top:1px solid var(--border)">
                 <td style="padding:.35rem .75rem; color:var(--text-dim); font-size:.75rem">{i + 1}</td>
                 <td style="padding:.35rem .75rem; color:var(--text); font-weight:500">{pl.nama}</td>
@@ -1689,7 +1689,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each ps.supplier as s, i}
+            {#each ps.supplier as s, i (s.supplier_id)}
               <tr style="border-top:1px solid var(--border)">
                 <td style="padding:.35rem .75rem; color:var(--text-dim); font-size:.75rem">{i + 1}</td>
                 <td style="padding:.35rem .75rem; color:var(--text); font-weight:500">{s.nama_supplier}</td>
@@ -1735,7 +1735,7 @@
           </tr>
         </thead>
         <tbody>
-          {#each rp.bulan as b, i}
+          {#each rp.bulan as b, i (b.periode_bulan)}
             <tr style="border-top:1px solid var(--border); opacity:{b.total_gaji === 0 ? 0.4 : 1}">
               <td style="padding:.4rem .75rem; color:var(--text)">{BULAN[i]}</td>
               <td style="padding:.4rem .5rem; text-align:right; color:var(--text-dim)" class="hidden sm:table-cell">{b.jumlah_karyawan > 0 ? b.jumlah_karyawan : '—'}</td>
@@ -1795,7 +1795,7 @@
         Jumlah Transaksi per Jam
       </div>
       <div style="display:flex; align-items:flex-end; gap:2px; height:140px; padding-bottom:1.5rem; position:relative">
-        {#each aj.per_jam as jam}
+        {#each aj.per_jam as jam (jam.jam)}
           {@const pct = maxTrx > 0 ? (jam.jumlah_transaksi / maxTrx) * 100 : 0}
           {@const isSibuk = aj.jam_sibuk.includes(jam.jam)}
           <div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%; position:relative; min-width:0"
@@ -1831,7 +1831,7 @@
         Omzet per Jam
       </div>
       <div style="display:flex; align-items:flex-end; gap:2px; height:100px; padding-bottom:1.5rem; position:relative">
-        {#each aj.per_jam as jam}
+        {#each aj.per_jam as jam (jam.jam)}
           {@const pct = maxOmzet > 0 ? (jam.omzet / maxOmzet) * 100 : 0}
           {@const isSibuk = aj.jam_sibuk.includes(jam.jam)}
           <div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%; position:relative; min-width:0"
@@ -1868,7 +1868,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each aj.per_jam.filter(r => r.jumlah_transaksi > 0) as jam}
+            {#each aj.per_jam.filter(r => r.jumlah_transaksi > 0) as jam (jam.jam)}
               {@const isSibuk = aj.jam_sibuk.includes(jam.jam)}
               {@const pct = maxTrx > 0 ? (jam.jumlah_transaksi / maxTrx) * 100 : 0}
               <tr style="border-top:1px solid var(--border); background:{isSibuk ? 'rgba(245,197,24,.06)' : 'transparent'}">

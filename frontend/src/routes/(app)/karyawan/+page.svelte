@@ -34,7 +34,7 @@
 <!-- ── Tab bar ──────────────────────────────────────────────────────────────── -->
 <div class="flex flex-col gap-4">
   <div class="flex gap-1 border-b overflow-x-auto" style="border-color:var(--border);scrollbar-width:none">
-    {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift'],['performa','Performa Shift']] as const) as [key, label]}
+    {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift'],['performa','Performa Shift']] as const) as [key, label] (key)}
       <button
         onclick={() => goto(`?tab=${key}`, { replaceState: true, keepFocus: true, noScroll: true })}
         class="px-4 py-2 text-sm font-medium border-b-2 transition-colors shrink-0"
@@ -71,7 +71,7 @@
         </div>
       {/snippet}
       {#snippet body(hidden)}
-        {#each store.pagedKaryawan as item}
+        {#each store.pagedKaryawan as item (item.id)}
           <tr class="border-t" style="border-color:var(--border)">
             {#if !hidden.has('kode_karyawan')}
               <td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_karyawan}</td>
@@ -204,7 +204,7 @@
         maxRows={14}
       >
         {#snippet body(hidden)}
-          {#each store.sortedAbsensi as item}
+          {#each store.sortedAbsensi as item (item.id)}
             <tr class="border-t" style="border-color:var(--border)">
               {#if !hidden.has('nama_karyawan')}
                 <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
@@ -258,7 +258,7 @@
         maxRows={14}
       >
         {#snippet body(hidden)}
-          {#each store.sortedRekap as item}
+          {#each store.sortedRekap as item (item.karyawan_id)}
             <tr class="border-t" style="border-color:var(--border)">
               {#if !hidden.has('nama_karyawan')}
                 <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
@@ -318,7 +318,7 @@
       maxRows={12}
     >
       {#snippet body(hidden)}
-        {#each store.sortedGaji as item}
+        {#each store.sortedGaji as item (item.id)}
           <tr class="border-t" style="border-color:var(--border)">
             {#if !hidden.has('nama_karyawan')}
               <td class="px-3 py-2 font-medium">{item.nama_karyawan}</td>
@@ -383,7 +383,7 @@
   {#if tab === 'kasbon'}
     <div class="flex items-center gap-2 flex-wrap">
       <div class="flex gap-1 text-sm flex-wrap">
-        {#each ([['pengajuan','Pengajuan'],['disetujui','Disetujui'],['aktif','Aktif'],['lunas','Lunas'],['ditolak','Ditolak'],['','Semua']] as const) as [v, l]}
+        {#each ([['pengajuan','Pengajuan'],['disetujui','Disetujui'],['aktif','Aktif'],['lunas','Lunas'],['ditolak','Ditolak'],['','Semua']] as const) as [v, l] (v + l)}
           <button onclick={() => store.filterStatusKasbon = v}
             class="px-3 py-1 rounded text-xs border"
             style="{store.filterStatusKasbon === v
@@ -410,7 +410,7 @@
       maxRows={12}
     >
       {#snippet body(hidden)}
-        {#each store.sortedKasbon as item}
+        {#each store.sortedKasbon as item (item.id)}
           {@const st = STATUS_KB[item.status]}
           <tr class="border-t" style="border-color:var(--border)">
             {#if !hidden.has('nama_karyawan')}
@@ -510,7 +510,7 @@
           <thead>
             <tr style="background:var(--surface2)">
               <th class="px-3 py-2 text-left font-medium" style="color:var(--text-dim);min-width:120px">Karyawan</th>
-              {#each store.weekDays as d, i}
+              {#each store.weekDays as d, i (d)}
                 <th class="px-2 py-2 text-center font-medium" style="color:var(--text-dim);min-width:90px">
                   <span>{DAY_LABELS[i]}</span>
                   <span class="block text-xs opacity-60">{d.slice(5)}</span>
@@ -522,7 +522,7 @@
             {#each store.karyawanList as k (k.id)}
               <tr style="border-top:1px solid var(--border)">
                 <td class="px-3 py-2 font-medium" style="color:var(--text)">{k.nama}</td>
-                {#each store.weekDays as d}
+                {#each store.weekDays as d (d)}
                   {@const entries = store.jadwalUntuk(k.id, d)}
                   <td class="px-1 py-1 text-center align-top" style="border-left:1px solid var(--border)">
                     <div class="flex flex-col gap-1 items-center">
@@ -645,7 +645,7 @@
               { label: 'Total Transaksi', val: String(d.ringkasan.total_transaksi), sub: `~${d.ringkasan.avg_transaksi_per_shift}/shift` },
               { label: 'Total Penjualan', val: `Rp ${fmtRpK(d.ringkasan.total_penjualan)}`, sub: `~${fmtRpK(d.ringkasan.avg_penjualan_per_shift)}/shift`, accent: true },
               { label: 'Rata-rata/Trx', val: `Rp ${fmtRpK(d.ringkasan.rata_per_trx)}`, sub: `${fmtMenit(d.ringkasan.avg_durasi_menit)} avg shift` },
-            ] as c}
+            ] as c (c.label)}
               <div class="rounded border p-3" style="background:var(--surface);border-color:var(--border)">
                 <div class="text-xs mb-0.5" style="color:var(--text-dim)">{c.label}</div>
                 <div class="text-sm font-bold" style="color:{c.accent ? 'var(--accent)' : 'var(--text)'}">{c.val}</div>
@@ -663,7 +663,7 @@
             { label: 'Alpa', val: d.absensi.alpa, color: 'var(--danger)' },
             { label: 'Void', val: d.ringkasan.total_void, color: d.ringkasan.total_void > 0 ? 'var(--danger)' : 'var(--text-dim)' },
             { label: 'Void rate', val: `${d.ringkasan.void_rate_pct}%`, color: d.ringkasan.void_rate_pct > 1 ? 'var(--warn)' : 'var(--text-dim)' },
-          ] as stat}
+          ] as stat (stat.label)}
             <div class="flex items-center gap-1.5 rounded border px-2 py-1" style="border-color:var(--border)">
               <span style="color:var(--text-dim)">{stat.label}</span>
               <span class="font-bold" style="color:{stat.color}">{stat.val}</span>
@@ -676,7 +676,7 @@
           <div>
             <p class="text-xs font-semibold mb-2" style="color:var(--text-dim)">Penjualan per Shift</p>
             <div class="flex items-end gap-0.5 overflow-x-auto" style="height:80px;padding-bottom:1.5rem">
-              {#each d.per_shift as s}
+              {#each d.per_shift as s (s.id)}
                 {@const pct = (s.total_penjualan / maxPenjualan) * 100}
                 <div class="flex flex-col items-center shrink-0" style="min-width:22px;height:100%;position:relative"
                   title="{s.tanggal.slice(8)} {s.jam_buka}–{s.jam_tutup ?? '?'} | {s.jumlah_transaksi} trx | Rp {fmtRpK(s.total_penjualan)}">
@@ -815,7 +815,7 @@
             class="px-2 py-1 rounded border outline-none"
             style="background:var(--surface2);border-color:var(--border);color:var(--text)">
             <option value="">-- Pilih --</option>
-            {#each store.karyawanList as k}
+            {#each store.karyawanList as k (k.id)}
               <option value={String(k.id)}>{k.nama}</option>
             {/each}
           </select>
@@ -908,7 +908,7 @@
       class="px-2 py-1 rounded border outline-none"
       style="background:var(--surface2);border-color:var(--border);color:var(--text)">
       <option value="">-- Tidak catat ke jurnal --</option>
-      {#each store.kasBankList as kb}
+      {#each store.kasBankList as kb (kb.id)}
         <option value={String(kb.id)}>{kb.nama} ({kb.tipe})</option>
       {/each}
     </select>
@@ -934,7 +934,7 @@
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)">
           <option value="">-- Pilih --</option>
-          {#each store.karyawanList as k}
+          {#each store.karyawanList as k (k.id)}
             <option value={String(k.id)}>{k.nama}</option>
           {/each}
         </select>
@@ -1108,7 +1108,7 @@
         class="px-2 py-1 rounded border outline-none"
         style="background:var(--surface2);border-color:var(--border);color:var(--text)">
         <option value="">-- Pilih Karyawan --</option>
-        {#each store.karyawanList.filter(k => $user && k.id !== $user.id) as k}
+        {#each store.karyawanList.filter(k => $user && k.id !== $user.id) as k (k.id)}
           <option value={String(k.id)}>{k.nama}</option>
         {/each}
       </select>

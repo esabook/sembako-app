@@ -164,7 +164,7 @@
 
 			<!-- Nav links -->
 			<nav class="flex flex-col overflow-y-auto overflow-x-hidden py-2">
-				{#each visibleNav as item}
+				{#each visibleNav as item (item.href)}
 					{@const isActive = page.url.pathname.startsWith(item.href)}
 					<a
 						href={item.href}

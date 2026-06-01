@@ -184,13 +184,13 @@
         </div>
 
         <div class="flex gap-4">
-          {#each pinSlots as slot}
+          {#each pinSlots as slot, i (i)}
             <span class="text-4xl font-bold" style="color:{slot === '●' ? 'var(--accent)' : 'var(--border)'}">{slot}</span>
           {/each}
         </div>
 
         <div class="grid grid-cols-3 gap-3">
-          {#each ['1','2','3','4','5','6','7','8','9','','0','⌫'] as key}
+          {#each ['1','2','3','4','5','6','7','8','9','','0','⌫'] as key, i (i)}
             {#if key === ''}
               <div></div>
             {:else}

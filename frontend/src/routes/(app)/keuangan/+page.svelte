@@ -403,7 +403,7 @@
   <!-- Tabs -->
   <div style="border-bottom:1px solid var(--border); margin-bottom:1rem">
     <div style="display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:-1px">
-      {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank'],['budget','Budget & Target']] as [TabKey, string][]) as [t, label]}
+      {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank'],['budget','Budget & Target']] as [TabKey, string][]) as [t, label] (t)}
         <button
           onclick={() => goto(`?tab=${t}`, { replaceState: true, keepFocus: true, noScroll: true })}
           style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; flex-shrink:0"
@@ -426,7 +426,7 @@
   {#if tab === 'hutang'}
     <div style="display:flex; gap:.5rem; margin-bottom:.75rem; align-items:center">
       <span style="font-size:.75rem; color:var(--text-dim)">Status:</span>
-      {#each (['semua','belum','sebagian','lunas'] as const) as s}
+      {#each (['semua','belum','sebagian','lunas'] as const) as s (s)}
         <button
           onclick={() => filterStatusHutang = s}
           style="padding:.25rem .6rem; border:1px solid {filterStatusHutang===s ? 'var(--accent)' : 'var(--border)'}; background:{filterStatusHutang===s ? 'rgba(0,230,118,.15)' : 'transparent'}; color:{filterStatusHutang===s ? 'var(--accent)' : 'var(--text-dim)'}; border-radius:4px; font-family:inherit; font-size:.72rem; cursor:pointer"
@@ -445,7 +445,7 @@
       maxRows={12}
     >
       {#snippet body(hidden)}
-        {#each pagedHutang as h}
+        {#each pagedHutang as h (h.id)}
           <tr style="border-bottom:1px solid var(--border)">
             {#if !hidden.has('nama_supplier')}
               <td style="padding:.55rem .6rem; color:var(--text)">{h.nama_supplier ?? '—'}</td>
@@ -492,7 +492,7 @@
   {#if tab === 'piutang'}
     <div style="display:flex; gap:.5rem; margin-bottom:.75rem; align-items:center">
       <span style="font-size:.75rem; color:var(--text-dim)">Status:</span>
-      {#each (['semua','belum','sebagian','lunas'] as const) as s}
+      {#each (['semua','belum','sebagian','lunas'] as const) as s (s)}
         <button
           onclick={() => filterStatusPiutang = s}
           style="padding:.25rem .6rem; border:1px solid {filterStatusPiutang===s ? 'var(--accent)' : 'var(--border)'}; background:{filterStatusPiutang===s ? 'rgba(0,230,118,.15)' : 'transparent'}; color:{filterStatusPiutang===s ? 'var(--accent)' : 'var(--text-dim)'}; border-radius:4px; font-family:inherit; font-size:.72rem; cursor:pointer"
@@ -511,7 +511,7 @@
       maxRows={12}
     >
       {#snippet body(hidden)}
-        {#each pagedPiutang as p}
+        {#each pagedPiutang as p (p.id)}
           <tr style="border-bottom:1px solid var(--border)">
             {#if !hidden.has('nama_pelanggan')}
               <td style="padding:.55rem .6rem; color:var(--text)">{p.nama_pelanggan ?? '—'}</td>
@@ -576,7 +576,7 @@
         <select bind:value={filterKasBankId} onchange={muatJurnal}
           style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem">
           <option value={0}>Semua Akun</option>
-          {#each kasBankList as kb}
+          {#each kasBankList as kb (kb.id)}
             <option value={kb.id}>{kb.nama}</option>
           {/each}
         </select>
@@ -610,7 +610,7 @@
       maxRows={14}
     >
       {#snippet body(hidden)}
-        {#each pagedJurnal as j}
+        {#each pagedJurnal as j (j.id)}
           <tr style="border-bottom:1px solid var(--border)">
             {#if !hidden.has('tanggal')}
               <td style="padding:.55rem .6rem; color:var(--text-dim)">{tglFmt(j.tanggal)}</td>
@@ -650,7 +650,7 @@
       <p style="color:var(--text-dim); font-size:.85rem">Belum ada akun kas/bank.</p>
     {:else}
       <div style="display:grid; gap:.75rem; margin-bottom:1rem">
-        {#each kasBankSaldo as kb}
+        {#each kasBankSaldo as kb (kb.id)}
           <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.9rem 1rem">
             <div style="display:flex; justify-content:space-between; align-items:flex-start">
               <div>
@@ -828,7 +828,7 @@
         <table style="width:100%; border-collapse:collapse; font-size:.82rem">
           <thead>
             <tr style="border-bottom:1px solid var(--border)">
-              {#each ['Kategori','Budget','Realisasi','Sisa','Status',''] as h, i}
+              {#each ['Kategori','Budget','Realisasi','Sisa','Status',''] as h, i (i)}
                 <th style="padding:.5rem .6rem; text-align:{i > 0 && i < 5 ? 'right' : 'left'}; color:var(--text-dim); font-weight:600; font-size:.72rem; white-space:nowrap">{h}</th>
               {/each}
             </tr>
@@ -890,7 +890,7 @@
         <table style="width:100%; border-collapse:collapse; font-size:.82rem">
           <thead>
             <tr style="border-bottom:1px solid var(--border)">
-              {#each ['Bulan','Target Omzet','Realisasi','Capaian','Transaksi',''] as h, i}
+              {#each ['Bulan','Target Omzet','Realisasi','Capaian','Transaksi',''] as h, i (i)}
                 <th style="padding:.5rem .6rem; text-align:{i > 0 && i < 5 ? 'right' : 'left'}; color:var(--text-dim); font-weight:600; font-size:.72rem; white-space:nowrap">{h}</th>
               {/each}
             </tr>
@@ -962,7 +962,7 @@
           <label for="bh-akun" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Akun Kas/Bank</label>
           <select id="bh-akun" bind:value={formBayarHutang.kas_bank_id}
             style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
-            {#each kasBankList as kb}
+            {#each kasBankList as kb (kb.id)}
               <option value={kb.id}>{kb.nama}</option>
             {/each}
           </select>
@@ -1010,7 +1010,7 @@
           <label for="bp-akun" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Akun Kas/Bank</label>
           <select id="bp-akun" bind:value={formBayarPiutang.kas_bank_id}
             style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
-            {#each kasBankList as kb}
+            {#each kasBankList as kb (kb.id)}
               <option value={kb.id}>{kb.nama}</option>
             {/each}
           </select>
@@ -1050,7 +1050,7 @@
           <label for="jm-akun" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Akun Kas/Bank</label>
           <select id="jm-akun" bind:value={formJurnal.kas_bank_id}
             style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
-            {#each kasBankList as kb}
+            {#each kasBankList as kb (kb.id)}
               <option value={kb.id}>{kb.nama}</option>
             {/each}
           </select>

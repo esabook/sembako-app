@@ -96,7 +96,7 @@
 				<label for="bm-sup" class="text-xs" style="color:var(--text-dim)">SUPPLIER *</label>
 				<select id="bm-sup" bind:value={bmSupplier} class="px-2 py-1.5 rounded border outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)">
 					<option value="">— pilih —</option>
-					{#each supplierList as s}<option value={s.id}>{s.nama_supplier}</option>{/each}
+					{#each supplierList as s (s.id)}<option value={s.id}>{s.nama_supplier}</option>{/each}
 				</select>
 			</div>
 			<div class="flex flex-col gap-1">
@@ -124,7 +124,7 @@
 			<input type="text" placeholder="Cari / scan barang..." bind:value={bmSearchVal} oninput={() => cariBM(bmSearchVal)} class="w-full px-3 py-1.5 rounded border text-sm outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
 			{#if bmSearchRes.length > 0}
 			<div class="absolute z-10 top-full left-0 right-0 mt-1 rounded border shadow-lg" style="background:var(--surface);border-color:var(--border)">
-				{#each bmSearchRes.slice(0, 6) as br}
+				{#each bmSearchRes.slice(0, 6) as br (br.id)}
 					<button onclick={() => tambahBM(br)} class="w-full text-left px-3 py-2 text-sm border-t flex justify-between" style="border-color:var(--border)">
 						<span>{br.kode_barang} — {br.nama_barang}</span>
 						<span class="text-xs" style="color:var(--text-dim)">stok {br.stok_sekarang}</span>
@@ -144,7 +144,7 @@
 					<th class="px-2 py-2 w-8"></th>
 				</tr></thead>
 				<tbody>
-					{#each bmItems as item, idx}
+					{#each bmItems as item, idx (item.barang_id)}
 					<tr class="border-t" style="border-color:var(--border)">
 						<td class="px-3 py-2"><div>{item.nama_barang}</div><div class="text-xs" style="color:var(--text-dim)">{item.kode}</div></td>
 						<td class="px-2 py-1 text-right"><input type="number" min="0.01" step="0.01" bind:value={item.jumlah} class="w-20 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
@@ -167,7 +167,7 @@
 	<div class="lg:w-64 lg:shrink-0">
 		<h3 class="font-bold text-sm mb-3">Riwayat Penerimaan</h3>
 		<div class="flex flex-col gap-2">
-			{#each bmList.slice(0, 10) as bm}
+			{#each bmList.slice(0, 10) as bm (bm.id)}
 			<div class="rounded border p-3 text-xs" style="background:var(--surface);border-color:var(--border)">
 				<div class="flex justify-between items-start">
 					<div class="font-bold" style="color:var(--accent)">{bm.no_penerimaan}</div>

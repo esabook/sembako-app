@@ -139,7 +139,7 @@
 		maxRows={14}
 	>
 		{#snippet body(hidden)}
-			{#each pagedStok as item}
+			{#each pagedStok as item (item.id)}
 				{@const st = statusStok(item)}
 				<tr class="border-t" style="border-color:var(--border)">
 					{#if !hidden.has('kode_barang')}
@@ -221,7 +221,7 @@
 						</tr>
 					</thead>
 					<tbody>
-						{#each mutasiList as m}
+						{#each mutasiList as m (m.id)}
 						<tr class="border-t" style="border-color:var(--border)">
 							<td class="px-3 py-1.5 font-mono" style="color:var(--text-dim)">{m.tanggal.slice(0, 16)}</td>
 							<td class="px-3 py-1.5">

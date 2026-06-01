@@ -270,7 +270,7 @@
 
 	<!-- Tab -->
 	<div class="flex gap-1 border-b" style="border-color:var(--border)">
-		{#each [['daftar', 'DAFTAR HARGA'], ['massal', 'UPDATE MASSAL']] as [id, label]}
+		{#each [['daftar', 'DAFTAR HARGA'], ['massal', 'UPDATE MASSAL']] as [id, label] (id)}
 			<button
 				onclick={() => goto(`?tab=${id}`, { replaceState: true, keepFocus: true, noScroll: true })}
 				class="px-3 py-2 text-xs font-bold border-b-2 -mb-px"
@@ -372,7 +372,7 @@
 				<h2 class="text-xs font-bold uppercase" style="color:var(--text-dim)">Parameter Perubahan</h2>
 
 				<div class="flex gap-4">
-					{#each [['persen', 'Persentase (%)'], ['rupiah', 'Nominal (Rp)']] as [val, label]}
+					{#each [['persen', 'Persentase (%)'], ['rupiah', 'Nominal (Rp)']] as [val, label] (val)}
 						<label class="flex items-center gap-2 cursor-pointer">
 							<input type="radio" bind:group={massalTipe} value={val} class="accent-green-500" onchange={() => { sudahSimulasi = false; massalPreview = [] }} />
 							<span class="text-sm" style="color:var(--text)">{label}</span>

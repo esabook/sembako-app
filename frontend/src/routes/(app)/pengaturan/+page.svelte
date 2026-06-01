@@ -198,7 +198,7 @@
 			<div class="space-y-1">
 				<span class="text-xs" style="color:var(--text-dim)">Ukuran Kertas</span>
 				<div class="flex gap-3">
-					{#each [['58', '58mm'], ['80', '80mm']] as [val, label]}
+					{#each [['58', '58mm'], ['80', '80mm']] as [val, label] (val)}
 						<label class="flex items-center gap-2 cursor-pointer">
 							<input
 								type="radio"
@@ -238,7 +238,7 @@
 			<div class="space-y-2">
 				<span class="text-xs" style="color:var(--text-dim)">Tema Default</span>
 				<div class="flex flex-wrap gap-3">
-					{#each [['dark','Dark'],['light','Light'],['eye','Eye Comfort'],['bww','BW Putih'],['bwb','BW Hitam'],['island','Island'],['klasik','Klasik']] as [val, label]}
+					{#each [['dark','Dark'],['light','Light'],['eye','Eye Comfort'],['bww','BW Putih'],['bwb','BW Hitam'],['island','Island'],['klasik','Klasik']] as [val, label] (val)}
 						<label class="flex items-center gap-2 cursor-pointer">
 							<input
 								type="radio"
@@ -255,7 +255,7 @@
 			<div class="space-y-2">
 				<span class="text-xs" style="color:var(--text-dim)">Harga Default Kasir</span>
 				<div class="flex gap-3">
-					{#each [['eceran', 'Eceran'], ['grosir', 'Grosir']] as [val, label]}
+					{#each [['eceran', 'Eceran'], ['grosir', 'Grosir']] as [val, label] (val)}
 						<label class="flex items-center gap-2 cursor-pointer">
 							<input
 								type="radio"
@@ -273,7 +273,7 @@
 			<div class="space-y-2">
 				<span class="text-xs" style="color:var(--text-dim)">Font</span>
 				<div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-					{#each Object.entries(FONT_LABEL) as [id, label]}
+					{#each Object.entries(FONT_LABEL) as [id, label] (id)}
 						<button
 							type="button"
 							onclick={() => font.set(id as FontPilihan)}
@@ -333,7 +333,7 @@
 
 			{#if audioOn}
 				<div class="flex gap-5">
-					{#each [['beep', 'Beep bawaan'], ['file', 'File audio']] as const as [val, label]}
+					{#each [['beep', 'Beep bawaan'], ['file', 'File audio']] as const as [val, label] (val)}
 						<label class="flex items-center gap-2 cursor-pointer">
 							<input
 								type="radio"
