@@ -11,6 +11,7 @@
 	import type { ChartDay, SummaryRow, SummaryStats } from './dashboard.logic';
 	import type { DashboardData } from './dashboard.types';
 	import { untrack } from 'svelte';
+	import { withIdle } from '$lib/utils/async';
 
 	let { data }: { data: DashboardData } = $props();
 
@@ -31,13 +32,6 @@
 	let chartAvg = $state(_cavg0);
 	let chartAvgPct = $state(_cmax0 > 0 ? (_cavg0 / _cmax0) * 100 : 0);
 
-	// Fallback untuk Safari < 16.4 yang belum support requestIdleCallback
-	const ric =
-		typeof requestIdleCallback !== 'undefined'
-			? requestIdleCallback
-			: (cb: IdleRequestCallback, _opts?: IdleRequestOptions) =>
-					setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 }), 0) as unknown as number;
-
 	// Skip run pertama — state sudah benar dari inisialisasi di atas
 	let firstRun = true;
 
@@ -52,30 +46,25 @@
 
 		// loading = true → browser repaint → idle callback hitung data baru
 		loading = true;
-		const id = ric(
-			() => {
-				const r = buildSummaryRows(d.penjualan_30hari, d.today, p);
-				const s = buildSummaryStats(r);
-				const c = buildChartDays(d.penjualan_30hari, d.today, p);
-				const max = Math.max(...c.map((x) => x.total), 1);
-				const avg = c.reduce((sum, x) => sum + x.total, 0) / c.length;
+		return withIdle(() => {
+			const r = buildSummaryRows(d.penjualan_30hari, d.today, p);
+			const s = buildSummaryStats(r);
+			const c = buildChartDays(d.penjualan_30hari, d.today, p);
+			const max = Math.max(...c.map((x) => x.total), 1);
+			const avg = c.reduce((sum, x) => sum + x.total, 0) / c.length;
 
-				rows = r;
-				stats = s;
-				chartDays = c;
-				chartMax = max;
-				chartAvg = avg;
-				chartAvgPct = max > 0 ? (avg / max) * 100 : 0;
-				loading = false;
-			},
-			{ timeout: 300 }
-		);
-
-		return () => cancelIdleCallback(id as number);
+			rows = r;
+			stats = s;
+			chartDays = c;
+			chartMax = max;
+			chartAvg = avg;
+			chartAvgPct = max > 0 ? (avg / max) * 100 : 0;
+			loading = false;
+		});
 	});
 </script>
 
-<div class="flex flex-col gap-5" style={loading ? 'pointer-events:none;opacity:0.55;transition:opacity .1s' : 'transition:opacity .15s'}>
+<div class="flex flex-col gap-5">
 	<!-- ── TODAY ZONE ────────────────────────────────────────────────────────── -->
 	<div class="flex flex-col gap-2">
 		<h3 class="text-xs font-bold tracking-wider uppercase" style="color:var(--text-dim)">

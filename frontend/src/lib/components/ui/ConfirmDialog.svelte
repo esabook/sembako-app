@@ -54,6 +54,7 @@
     labelKanan = 'OK',
     warnaKiri = undefined,
     warnaKanan = undefined,
+    cancelable = true,
     onkiri,
     onkanan,
   }: {
@@ -64,6 +65,7 @@
     labelKanan?: string
     warnaKiri?: string  // warna teks tombol kiri  (default: #007AFF)
     warnaKanan?: string // warna teks tombol kanan (default: #007AFF)
+    cancelable?: boolean  // bisa ditutup dengan klik backdrop atau Escape (default: true)
     onkiri?: () => void
     onkanan?: () => void
   } = $props()
@@ -72,7 +74,7 @@
   let btnKiri = $state<HTMLButtonElement | null>(null)
   let btnKanan = $state<HTMLButtonElement | null>(null)
 
-  function tutup() { open = false }
+  function tutup() { if (cancelable) open = false }
   function klikKiri() { onkiri?.(); tutup() }
   function klikKanan() { onkanan?.(); tutup() }
 

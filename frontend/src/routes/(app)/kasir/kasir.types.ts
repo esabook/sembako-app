@@ -72,6 +72,16 @@ export type StokMenipis = {
 	satuan: string | null;
 };
 
+export type ShiftAktif = {
+	id: number;
+	tanggal: string;
+	jam_buka: string;
+	kas_awal: number;
+	jumlah_transaksi: number;
+	total_penjualan: number;
+	status: string;
+};
+
 export type PromoAktif = {
 	id: number;
 	nama: string;

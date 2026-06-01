@@ -5,12 +5,7 @@
 	import {
 		keranjang,
 		itemAktifIdx,
-		subtotal,
-		diskonTotal,
-		kasirMode,
-		initKasirMode,
-		setModeOverride,
-		type KasirMode
+		initKasirMode
 	} from '$lib/stores/kasir';
 	import {
 		// state
@@ -20,7 +15,6 @@
 		popupCheckout,
 		snap,
 		qrLarge,
-		draftStatus,
 		// actions
 		cariBarang,
 		openSearch,
@@ -28,24 +22,22 @@
 		dummyJumlah,
 		ubahJumlah,
 		hapusItem,
-		ubahDiskon,
 		openCheckout,
 		tutupCheckout,
 		initKasirScan,
 		cleanupKasirScan,
 		loadPromoAktif,
-		totalAkhir,
 		initDraftSync,
 		restoreDraft,
 		resetKasirDenganDraft
 	} from './kasir.store';
-	import { rupiah } from './kasir.logic';
 	import ShiftBuka from './ShiftBuka.svelte';
 	import ShiftTutup from './ShiftTutup.svelte';
 	import KasirHelp from './KasirHelp.svelte';
 	import KasirCheckout from './KasirCheckout.svelte';
 	import KasirQrPanel from './KasirQrPanel.svelte';
 	import KasirSpotlight from './KasirSpotlight.svelte';
+	import KasirKeranjang from './KasirKeranjang.svelte';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -54,10 +46,10 @@
 		fetchStokMenipis,
 		type StokMenipis
 	} from './kasir.api';
+	import type { ShiftAktif } from './kasir.types';
 
 	// ── ConfirmDialog hapus item keranjang ────────────────────────────────────
-	let konfirmasiHapusOpen = $state(false);
-	$effect(() => { konfirmasiHapusOpen = $konfirmasiHapusIdx !== null; });
+	let konfirmasiHapusOpen = $derived($konfirmasiHapusIdx !== null);
 
 	// ── Pengaturan toko (dipakai cetakStrukHistori + KasirCheckout) ───────────
 	let namaToko  = $state('Stokasir');
@@ -65,15 +57,6 @@
 	let strHeader  = $state('');
 	let strFooter  = $state('Terima kasih sudah berbelanja!');
 	let strUkuran  = $state('80');
-
-	// ── Mode GUIDED / NORMAL / PRO ────────────────────────────────────────────
-	const MODE_ORDER: KasirMode[] = ['guided', 'normal', 'pro'];
-	const MODE_LABEL: Record<KasirMode, string> = { guided: 'GUIDED', normal: 'NORMAL', pro: 'PRO' };
-	function cycleMode() {
-		const cur = $kasirMode;
-		const next = MODE_ORDER[(MODE_ORDER.indexOf(cur) + 1) % MODE_ORDER.length]!;
-		setModeOverride(next);
-	}
 
 	// Reset confirm
 	let konfirmasiReset = $state(false);
@@ -139,17 +122,6 @@
 	}
 
 	// ── Shift management ─────────────────────────────────────────────────────
-
-	type ShiftAktif = {
-		id: number;
-		tanggal: string;
-		jam_buka: string;
-		kas_awal: number;
-		jumlah_transaksi: number;
-		total_penjualan: number;
-		status: string;
-	};
-
 
 	let shiftAktif = $state<ShiftAktif | null>(null);
 	let modalBukaShift = $state(false);
@@ -344,278 +316,13 @@
 {/if}
 
 <!-- ─── Main: Keranjang + Bottom Bar ─────────────────────────────────────── -->
-<div class="flex min-h-0 flex-1 flex-col">
-	<!-- Keranjang table -->
-	<div class="min-h-0 flex-1 overflow-y-auto rounded border" style="border-color:var(--border)">
-		{#if $keranjang.length === 0}
-			<div
-				class="flex h-full flex-col items-center justify-center gap-3 m-4"
-				style="color:var(--text-dim)"
-			>
-				{#if $kasirMode === 'guided'}
-					<p class="text-xs font-bold tracking-widest" style="color:var(--text-dim)">
-						PANDUAN KASIR
-					</p>
-					<div class="flex flex-col gap-2 text-left text-sm">
-						<div class="flex items-center gap-3">
-							<span
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-								style="background:var(--accent);color:var(--bg)">1</span
-							>
-							<span
-								>Tekan <kbd
-									class="rounded border px-1.5 py-0.5 font-mono text-xs"
-									style="border-color:var(--border)">F3</kbd
-								> atau klik tombol di bawah untuk cari barang</span
-							>
-						</div>
-						<div class="flex items-center gap-3" style="opacity:0.5">
-							<span
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-								style="background:var(--surface2);color:var(--text-dim)">2</span
-							>
-							<span
-								>Tekan <kbd
-									class="rounded border px-1.5 py-0.5 font-mono text-xs"
-									style="border-color:var(--border)">Enter</kbd
-								> untuk pilih / konfirmasi</span
-							>
-						</div>
-						<div class="flex items-center gap-3" style="opacity:0.5">
-							<span
-								class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold"
-								style="background:var(--surface2);color:var(--text-dim)">3</span
-							>
-							<span
-								>Tekan <kbd
-									class="rounded border px-1.5 py-0.5 font-mono text-xs"
-									style="border-color:var(--border)">F10</kbd
-								> untuk proses pembayaran</span
-							>
-						</div>
-					</div>
-				{:else}
-					<p class="text-sm mt-4">Keranjang kosong</p>
-				{/if}
-				<button
-					onclick={openSearch}
-					class="rounded border px-4 py-2 font-mono text-sm transition-all"
-					style="border-color:var(--accent);color:var(--accent);margin-bottom:2rem"
-				>
-					F3 · Cari / scan barang
-				</button>
-			</div>
-		{:else}
-			<table class="w-full text-sm">
-				<thead class="sticky top-0" style="background:var(--surface2)">
-					<tr style="color:var(--text-dim)">
-						<th class="w-6 px-3 py-2 text-left font-medium">#</th>
-						<th class="px-3 py-2 text-left font-medium">Barang</th>
-						<th class="w-28 px-3 py-2 text-right font-medium">Harga</th>
-						<th class="w-28 px-2 py-2 text-center font-medium">Jml</th>
-						<th class="w-24 px-3 py-2 text-right font-medium">Diskon</th>
-						<th class="w-28 px-3 py-2 text-right font-medium">Subtotal</th>
-						<th class="w-8 px-2 py-2"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each $keranjang as item, idx (`${item.barang_id}-${item.tipe_harga}`)}
-						<tr
-							class="cursor-pointer border-t"
-							style={$itemAktifIdx === idx
-								? 'background:var(--surface2);outline:1px solid var(--accent);'
-								: 'border-color:var(--border)'}
-							onclick={() => itemAktifIdx.set(idx)}
-						>
-							<td class="px-3 py-2" style="color:var(--text-dim)">{idx + 1}</td>
-							<td class="px-3 py-2">
-								<div class="flex items-center gap-1.5">
-									<span>{item.nama_barang}</span>
-									<span class="rounded px-1 text-xs font-bold" style="background:var(--surface2);color:var(--accent)">{item.tipe_harga === 'grosir' ? 'GRS' : 'ECR'}</span>
-								</div>
-								<div class="text-xs" style="color:var(--text-dim)">{item.kode_barang}</div>
-							</td>
-							<td class="px-3 py-2 text-right font-mono">{rupiah(item.harga_jual)}</td>
-							<td class="px-2 py-1">
-								<div class="flex items-center justify-center gap-1">
-									<button
-										onclick={(e) => {
-											e.stopPropagation();
-											if (item.jumlah <= 1) konfirmasiHapusIdx.set(idx);
-											else ubahJumlah(idx, -1);
-										}}
-										class="h-6 w-6 rounded text-center leading-none"
-										style="background:var(--surface);color:var(--text-dim)">&lt;</button
-									>
-									<span class="w-8 text-center font-mono">{item.jumlah}</span>
-									<button
-										onclick={(e) => {
-											e.stopPropagation();
-											ubahJumlah(idx, 1);
-										}}
-										class="h-6 w-6 rounded text-center leading-none"
-										style="background:var(--surface);color:var(--text-dim)">&gt;</button
-									>
-								</div>
-								<div class="mt-0.5 text-center text-xs" style="color:var(--text-dim)">
-									{item.singkatan_satuan}
-								</div>
-							</td>
-							<td class="px-3 py-1 text-right">
-								<input
-									bind:this={diskonInputRefs[idx]}
-									type="number"
-									min="0"
-									step="500"
-									value={item.diskon_item}
-									oninput={(e) => ubahDiskon(idx, (e.target as HTMLInputElement).value)}
-									onclick={(e) => e.stopPropagation()}
-									onkeydown={(e) => {
-										if (e.key === 'Enter' || e.key === 'Escape') {
-											e.preventDefault();
-											e.stopPropagation();
-											(e.target as HTMLInputElement).blur();
-										}
-									}}
-									class="w-20 [appearance:textfield] rounded border px-2 py-0.5 text-right text-xs outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-									style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-								/>
-							</td>
-							<td class="px-3 py-2 text-right font-mono font-medium">
-								{rupiah(item.harga_jual * item.jumlah - item.diskon_item)}
-							</td>
-							<td class="px-4 py-4 text-center">
-								<button
-									onclick={(e) => {
-										e.stopPropagation();
-										konfirmasiHapusIdx.set(idx);
-									}}
-									class="text-m"
-									style="color:var(--danger)">✕</button
-								>
-							</td>
-						</tr>
-					{/each}
-					<!-- Dummy row: klik nama/enter → buka cari barang -->
-					<tr
-						class="border-t"
-						style={$itemAktifIdx === $keranjang.length
-							? 'background:var(--surface2);outline:1px solid var(--accent);'
-							: `border-color:var(--border);opacity:0.4`}
-						onclick={() => itemAktifIdx.set($keranjang.length)}
-					>
-						<td class="px-3 py-2" style="color:var(--text-dim)">+</td>
-						<td class="px-3 py-2">
-							<button
-								class="text-sm italic"
-								style="color:var(--text-dim)"
-								onclick={(e) => { e.stopPropagation(); openSearch(); }}
-							>Tambah barang...</button>
-						</td>
-						<td></td>
-						<td class="px-2 py-1">
-							<div class="flex items-center justify-center gap-1">
-								<button
-									onclick={(e) => { e.stopPropagation(); dummyJumlah.update((n: number) => Math.max(1, n - 1)); }}
-									class="h-6 w-6 rounded text-center leading-none"
-									style="background:var(--surface);color:var(--text-dim)">&lt;</button
-								>
-								<span class="w-8 text-center font-mono">{$dummyJumlah}</span>
-								<button
-									onclick={(e) => { e.stopPropagation(); dummyJumlah.update((n: number) => n + 1); }}
-									class="h-6 w-6 rounded text-center leading-none"
-									style="background:var(--surface);color:var(--text-dim)">&gt;</button
-								>
-							</div>
-						</td>
-						<td></td>
-						<td></td>
-						<td></td>
-					</tr>
-				</tbody>
-			</table>
-		{/if}
-	</div>
-
-	<!-- Bottom bar -->
-	<div
-		class="flex shrink-0 flex-col gap-2 border-t px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-4"
-		style="border-color:var(--border)"
-	>
-		<!-- Totals: tampil di atas di HP, kanan di desktop -->
-		<div class="flex items-center justify-between gap-3 md:order-2 md:justify-end md:gap-5">
-			<table class="text-xs md:text-sm">
-				<tbody>
-					<tr>
-						<td style="color:var(--text-dim)">Subtotal</td>
-						<td class="font-mono" style="color:var(--text)">&nbsp;{rupiah($subtotal)}</td>
-					</tr>
-					<tr>
-						<td style="color:var(--text-dim)">Diskon</td>
-						<td class="font-mono">&nbsp;{rupiah($diskonTotal)}</td>
-					</tr>
-				</tbody>
-			</table>
-			<span class="font-mono text-3xl font-bold md:text-6xl">{rupiah($totalAkhir)}</span>
-		</div>
-
-		<!-- Buttons: wrap di HP, single row di desktop -->
-		<div class="flex flex-wrap items-center gap-2 md:order-1">
-
-			<!-- mode badge: klik untuk ganti manual -->
-			<button
-				onclick={cycleMode}
-				title="Mode kasir — klik untuk ganti"
-				class="rounded border px-3 py-1 font-mono text-xs font-bold transition-all"
-				style={$kasirMode === 'guided'
-					? 'border-color:var(--info);color:var(--info)'
-					: $kasirMode === 'pro'
-						? 'border-color:var(--accent);color:var(--accent)'
-						: 'border-color:var(--border);color:var(--text-dim)'}
-			>
-				{MODE_LABEL[$kasirMode]}
-			</button>
-			<!-- Shift indicator + buka/tutup -->
-			{#if shiftAktif}
-				<button
-					onclick={bukaTutupShift}
-					class="rounded border px-3 py-1 text-xs transition-all"
-					style="border-color:var(--accent);color:var(--accent)"
-				>
-					{$kasirMode === 'pro' ? 'F11' : `F11 · Shift ${shiftAktif.jam_buka}`}
-				</button>
-			{:else}
-				<button
-					onclick={bukaBukaShift}
-					class="rounded border px-3 py-1 text-xs font-bold transition-all"
-					style="border-color:var(--warn);color:var(--warn)"
-				>
-					{$kasirMode === 'pro' ? 'F11' : 'F11 · Buka Shift ⚠'}
-				</button>
-			{/if}
-
-			{#if $keranjang.length > 0}
-				<button
-				onclick={handleProsesBayar}
-				disabled={!shiftAktif}
-				class="rounded px-4 py-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40 sm:px-3 sm:py-1"
-				style="background:var(--accent);color:var(--bg)"
-			>
-				{$kasirMode === 'pro' ? 'F10' : 'F10 · PROSES BAYAR'}
-			</button>
-			{/if}
-			
-						<!-- draft status indicator -->
-			{#if $draftStatus === 'saving'}
-				<span class="font-mono text-xs" style="color:var(--text-dim)">Menyimpan...</span>
-			{:else if $draftStatus === 'saved'}
-				<span class="font-mono text-xs" style="color:var(--text-dim)">✓ Tersimpan</span>
-			{:else if $draftStatus === 'error'}
-				<span class="font-mono text-xs" style="color:var(--danger)">Gagal simpan</span>
-			{/if}
-		</div>
-	</div>
-</div>
+<KasirKeranjang
+	bind:diskonInputRefs
+	{shiftAktif}
+	onbukaTutupShift={bukaTutupShift}
+	onbukaBukaShift={() => void bukaBukaShift()}
+	onprocesBayar={handleProsesBayar}
+/>
 </div>
 
 <!-- ─── Spotlight Search ──────────────────────────────────────────────────── -->
@@ -674,6 +381,7 @@
 	labelKiri="Batal"
 	labelKanan="Hapus"
 	warnaKanan="var(--danger)"
+	cancelable={false}
 	onkiri={() => konfirmasiHapusIdx.set(null)}
 	onkanan={() => $konfirmasiHapusIdx !== null && hapusItem($konfirmasiHapusIdx)}
 />
