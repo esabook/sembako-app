@@ -348,3 +348,22 @@ Body: jelaskan KENAPA berubah, bukan APA yang berubah.
 ```
 
 Contoh: `fix(kasir): reset tipeTransaksi ke eceran setelah checkout`
+
+---
+
+## FORMAT RECAP AKHIR RESPONS
+
+Setiap kali selesai mengerjakan task, akhiri respons dengan **recap dalam format git commit** — langsung bisa di-copy untuk `git commit -m`.
+
+Format:
+```
+<type>(<scope>): <deskripsi singkat>
+
+<body: kenapa berubah — opsional, hanya jika perlu konteks>
+```
+
+Aturan:
+- Hanya 1 blok kode fenced (triple backtick) di akhir respons
+- Tanpa label/header "Recap:" atau sejenisnya — langsung kodenya
+- Jika perubahan mencakup banyak file/scope, pilih scope yang paling dominan
+- Bahasa Indonesia, imperatif, huruf kecil

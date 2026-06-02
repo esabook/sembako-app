@@ -11,9 +11,8 @@
 
 
   const shortcuts: [string, string][] = [
-    ['F1',           'Panduan ini'],
-    ['Ctrl+Alt+E',   'Tipe → Eceran'],
-    ['Ctrl+Alt+G',   'Tipe → Grosir'],
+    ['F1',           'Panduan shortcut ini'],
+    ['Ctrl+Home',   'Menu navigasi'],
     ['F3',           'Cari barang'],
     ['F7',        'Riwayat transaksi'],
     ['F8',        'Retur penjualan'],
