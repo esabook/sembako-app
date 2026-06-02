@@ -20,13 +20,7 @@ const CACHEABLE_API = [
 	'/kartu-anggota',
 ];
 
-const OFFLINE_HTML = `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Stokasir — Offline</title>
-  <style>
+const SHARED_STYLE = `
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;
          display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem}
@@ -39,7 +33,16 @@ const OFFLINE_HTML = `<!DOCTYPE html>
            padding:.75rem 1.5rem;font-size:.875rem;font-weight:600;
            cursor:pointer;width:100%}
     button:active{background:#2563eb}
-  </style>
+    button:disabled{background:#475569;cursor:default}
+`;
+
+const OFFLINE_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stokasir — Offline</title>
+  <style>${SHARED_STYLE}</style>
 </head>
 <body>
   <div class="card">
@@ -48,6 +51,38 @@ const OFFLINE_HTML = `<!DOCTYPE html>
     <p>Pastikan HP terhubung ke WiFi toko dan server menyala, lalu coba lagi.</p>
     <button onclick="location.reload()">Coba Lagi</button>
   </div>
+</body>
+</html>`;
+
+// Ditampilkan saat online tapi fetch gagal (misal: sertifikat nginx diperbarui).
+// Tombol unregister SW agar browser bisa handle cert natively (tanpa diintersep SW).
+const CONN_ERROR_HTML = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stokasir — Koneksi Bermasalah</title>
+  <style>${SHARED_STYLE}</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔒</div>
+    <h1>Koneksi Gagal</h1>
+    <p>Server aktif tapi koneksi ditolak. Sertifikat keamanan mungkin baru diperbarui.<br><br>Tekan tombol di bawah untuk menghubungkan ulang.</p>
+    <button id="btn" onclick="reconnect()">Hubungkan Ulang</button>
+  </div>
+  <script>
+    async function reconnect() {
+      const btn = document.getElementById('btn');
+      btn.disabled = true;
+      btn.textContent = 'Menghubungkan...';
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) await reg.unregister();
+      } catch {}
+      location.reload();
+    }
+  </script>
 </body>
 </html>`;
 
@@ -114,7 +149,7 @@ self.addEventListener('fetch', (event) => {
 	// Semua lainnya — lewat langsung ke network (tidak di-intercept)
 });
 
-// Navigation: coba network, fallback ke cached page, lalu offline HTML
+// Navigation: coba network, fallback ke cached page, lalu halaman error yang tepat
 async function networkFirstNav(request: Request): Promise<Response> {
 	// Coba fetch — kalau gagal, retry 1x setelah 800ms
 	// (SW kadang gagal di request pertama saat baru aktif / resume dari background)
@@ -132,7 +167,17 @@ async function networkFirstNav(request: Request): Promise<Response> {
 	}
 	const cached = await caches.match(request);
 	if (cached) return cached;
-	return new Response(OFFLINE_HTML, {
+
+	// Bedakan: benar offline vs online tapi koneksi gagal (misal cert nginx berubah).
+	// Jika online tapi fetch tetap gagal, tampilkan halaman reconnect yang akan
+	// unregister SW — agar browser bisa handle cert baru secara native.
+	if (!navigator.onLine) {
+		return new Response(OFFLINE_HTML, {
+			status: 503,
+			headers: { 'Content-Type': 'text/html; charset=utf-8' },
+		});
+	}
+	return new Response(CONN_ERROR_HTML, {
 		status: 503,
 		headers: { 'Content-Type': 'text/html; charset=utf-8' },
 	});
