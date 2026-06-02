@@ -74,21 +74,60 @@
 	function handleTabTrap(e: KeyboardEvent) {
 		ctrlAltHeld = e.ctrlKey && e.altKey;
 
-		if (e.key === 'Escape') { tutupCheckout(); return; }
+		if (e.key === 'Escape') {
+			tutupCheckout();
+			return;
+		}
 
 		// Ctrl+Alt shortcuts via e.code (layout-independent — bekerja meski AltGr)
 		if (e.ctrlKey && e.altKey && !guard()) {
 			switch (e.code) {
-				case 'KeyE': e.preventDefault(); tipeTransaksi.set('eceran'); return;
-				case 'KeyG': e.preventDefault(); tipeTransaksi.set('grosir'); return;
-				case 'KeyP': e.preventDefault(); pelangganExpanded = true; setTimeout(() => pelangganInputEl?.focus(), 0); return;
-				case 'KeyT': e.preventDefault(); metodeBayar.set('tunai'); metodeBayarExpanded = false; return;
-				case 'KeyR': e.preventDefault(); metodeBayar.set('transfer'); metodeBayarExpanded = false; return;
-				case 'KeyQ': e.preventDefault(); metodeBayar.set('qris'); metodeBayarExpanded = false; return;
-				case 'KeyH': e.preventDefault(); metodeBayar.set('hutang'); metodeBayarExpanded = false; return;
-				case 'KeyM': e.preventDefault(); metodeBayarExpanded = !metodeBayarExpanded; return;
-				case 'KeyN': e.preventDefault(); bayarInputEl?.focus(); bayarInputEl?.select(); return;
-				case 'KeyS': e.preventDefault(); selesaiButtonEl?.focus(); return;
+				case 'KeyE':
+					e.preventDefault();
+					tipeTransaksi.set('eceran');
+					return;
+				case 'KeyG':
+					e.preventDefault();
+					tipeTransaksi.set('grosir');
+					return;
+				case 'KeyP':
+					e.preventDefault();
+					pelangganExpanded = true;
+					setTimeout(() => pelangganInputEl?.focus(), 0);
+					return;
+				case 'KeyT':
+					e.preventDefault();
+					metodeBayar.set('tunai');
+					metodeBayarExpanded = false;
+					return;
+				case 'KeyR':
+					e.preventDefault();
+					metodeBayar.set('transfer');
+					metodeBayarExpanded = false;
+					return;
+				case 'KeyQ':
+					e.preventDefault();
+					metodeBayar.set('qris');
+					metodeBayarExpanded = false;
+					return;
+				case 'KeyH':
+					e.preventDefault();
+					metodeBayar.set('hutang');
+					metodeBayarExpanded = false;
+					return;
+				case 'KeyM':
+					e.preventDefault();
+					metodeBayarExpanded = !metodeBayarExpanded;
+					return;
+				case 'KeyN':
+					e.preventDefault();
+					bayarInputEl?.focus();
+					bayarInputEl?.select();
+					return;
+				case 'KeyS':
+					e.preventDefault();
+					selesaiButtonEl?.focus();
+					return;
 			}
 		}
 
@@ -162,7 +201,8 @@
 
 	// ── Effects ────────────────────────────────────────────────────────────────
 	$effect(() => {
-		if ($popupCheckout) setTimeout(() => bayarInputEl?.focus(), 50);
+		if ($popupCheckout && window.matchMedia('(pointer: fine)').matches)
+			setTimeout(() => bayarInputEl?.focus(), 50);
 	});
 
 	$effect(() => {
@@ -178,7 +218,8 @@
 			const next = e.relatedTarget as HTMLElement | null;
 			if (!next || !modalEl!.contains(next)) {
 				setTimeout(() => {
-					if ($popupCheckout && !$snap) bayarInputEl?.focus();
+					if ($popupCheckout && !$snap && window.matchMedia('(pointer: fine)').matches)
+						bayarInputEl?.focus();
 				}, 0);
 			}
 		}
@@ -219,7 +260,6 @@
 		void api.get<{ id: number; nama: string; tipe: string }[]>('/keuangan/kas-bank').then((res) => {
 			if (res.success) daftarKasBank = res.data;
 		});
-
 	});
 </script>
 
@@ -532,13 +572,13 @@
 
 				<!-- GUIDED: step hint -->
 				{#if $kasirMode === 'guided'}
-					<div class="flex gap-1 text-xs" style="color:var(--text-dim)">
-						<span class="rounded px-1.5" style="background:var(--surface2)">Ctrl+Alt</span>
-						<span class="rounded px-1.5" style="background:var(--surface2)">(m) Pilih metode</span>
+					<div class="flex flex-wrap gap-1 text-xs" style="color:var(--text-dim)">
+						<span class="rounded px-1.5  whitespace-nowrap" style="background:var(--surface2)">Ctrl+Alt+?: </span>
+						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)">(m) Pilih metode</span>
 						<span>→</span>
-						<span class="rounded px-1.5" style="background:var(--surface2)">(n) Input nominal</span>
+						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)">(n) Input nominal</span>
 						<span>→</span>
-						<span class="rounded px-1.5" style="background:var(--surface2)">(s) Klik SELESAI</span>
+						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)">(s) Klik SELESAI</span>
 					</div>
 				{/if}
 			{/if}

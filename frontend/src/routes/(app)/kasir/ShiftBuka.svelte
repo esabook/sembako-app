@@ -25,7 +25,9 @@
     if (open) { kasAwal = 0; catatan = '' }
   })
 
-  function focusEl(el: HTMLElement) { el.focus() }
+  function focusEl(el: HTMLElement) {
+    if (window.matchMedia('(pointer: fine)').matches) el.focus()
+  }
 
   async function simpan() {
     saving = true
