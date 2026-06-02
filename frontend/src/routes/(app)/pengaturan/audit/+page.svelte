@@ -273,7 +273,6 @@
 			{:else}
 				{#each rows as row (row.id)}
 					{@const risiko = badgeRisiko(row.aksi)}
-					<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
 					<tr
 						onclick={() => detailItem = row}
 						class="border-b cursor-pointer font-mono text-xs"
@@ -356,7 +355,7 @@
 
 <!-- Modal Detail -->
 {#if detailItem}
-	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		class="fixed inset-0 flex items-center justify-center z-50"
 		style="background:rgba(0,0,0,0.6)"
@@ -366,7 +365,7 @@
 		onclick={() => detailItem = null}
 		onkeydown={(e) => e.key === 'Escape' && (detailItem = null)}
 	>
-		<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
 			class="rounded border max-w-lg w-full mx-4 overflow-hidden"
 			style="background:var(--surface);border-color:var(--border)"

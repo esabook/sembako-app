@@ -321,7 +321,6 @@
 		<!-- relative container: video + overlays -->
 		<div class="relative flex-1 min-h-0">
 			<!-- Video feed -->
-			<!-- svelte-ignore a11y_media_has_caption -->
 			<video
 				bind:this={videoEl}
 				autoplay

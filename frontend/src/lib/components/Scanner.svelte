@@ -107,7 +107,6 @@
 
 		<!-- Viewfinder -->
 		<div class="relative w-full rounded overflow-hidden" style="aspect-ratio:4/3;background:#000;border:2px solid var(--accent)">
-			<!-- svelte-ignore a11y_media_has_caption -->
 			<video bind:this={videoEl} playsinline class="w-full h-full object-cover"></video>
 			<!-- Aiming guide -->
 			<div class="absolute inset-0 flex items-center justify-center pointer-events-none">

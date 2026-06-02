@@ -438,19 +438,16 @@
     <div>
       <p class="block text-xs mb-1" style="color:var(--text-dim)">Jenis Kelamin</p>
       <div class="flex gap-2">
-        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label for="gender-pria" class="flex items-center gap-1.5 text-sm cursor-pointer px-3 py-1.5 rounded border flex-1 justify-center"
           style="border-color:var(--border);{formPlg.gender === 'pria' ? 'background:var(--surface2);border-color:var(--accent)' : ''}">
           <input id="gender-pria" type="radio" bind:group={formPlg.gender} value="pria" class="sr-only" />
           <span style="color:#40c4ff">♂</span> Pria
         </label>
-        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label for="gender-wanita" class="flex items-center gap-1.5 text-sm cursor-pointer px-3 py-1.5 rounded border flex-1 justify-center"
           style="border-color:var(--border);{formPlg.gender === 'wanita' ? 'background:var(--surface2);border-color:var(--accent)' : ''}">
           <input id="gender-wanita" type="radio" bind:group={formPlg.gender} value="wanita" class="sr-only" />
           <span style="color:#ff80ab">♀</span> Wanita
         </label>
-        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label for="gender-kosong" class="flex items-center gap-1.5 text-sm cursor-pointer px-3 py-1.5 rounded border flex-1 justify-center"
           style="border-color:var(--border);{formPlg.gender === '' ? 'background:var(--surface2)' : ''}">
           <input id="gender-kosong" type="radio" bind:group={formPlg.gender} value="" class="sr-only" />

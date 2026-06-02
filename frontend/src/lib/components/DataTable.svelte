@@ -460,7 +460,7 @@
 									</span>
 								{/if}
 								{#if i < visibleColumns.length - 1}
-									<!-- svelte-ignore a11y_no_noninteractive_element_interactions a11y_click_events_have_key_events -->
+									<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 									<div
 										role="separator"
 										aria-orientation="vertical"
@@ -561,7 +561,7 @@
 
 <!-- FIX 2: Dropdown kolom pakai position:fixed + koordinat JS agar tidak terpotong di layar kecil -->
 {#if showColDropdown}
-	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
 		data-col-dropdown
 		onclick={(e) => e.stopPropagation()}

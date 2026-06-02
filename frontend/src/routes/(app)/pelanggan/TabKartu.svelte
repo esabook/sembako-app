@@ -437,11 +437,9 @@
       <div>
         <p class="block text-xs mb-1" style="color:var(--text-dim)">Operasi</p>
         <div class="flex gap-3">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
           <label for="poin-tambah" class="flex items-center gap-1.5 text-sm cursor-pointer" style="color:var(--text)">
             <input id="poin-tambah" type="radio" bind:group={formPoin.mode} value="tambah" /> Tambah
           </label>
-          <!-- svelte-ignore a11y_label_has_associated_control -->
           <label for="poin-kurang" class="flex items-center gap-1.5 text-sm cursor-pointer" style="color:var(--text)">
             <input id="poin-kurang" type="radio" bind:group={formPoin.mode} value="kurang" /> Kurangi
           </label>

@@ -158,7 +158,6 @@
 />
 
 <!-- Backdrop -->
-<!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events -->
 <div class="backdrop" class:open onclick={tutup} role="presentation"></div>
 
 <!-- Panel -->

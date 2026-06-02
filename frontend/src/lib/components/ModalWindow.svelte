@@ -77,7 +77,7 @@
     onkeydown={(e) => { if (e.key === 'Escape') tutup() }}
   >
     <!-- Panel -->
-    <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="relative flex flex-col overflow-hidden border w-full
              {fullscreen
