@@ -46,11 +46,13 @@ frontend/src/
     kasir/retur/   gudang/label/
   lib/
     components/{ui,data,form,layout}/
-    stores/        utils/{api.ts,async.ts,wa.ts}
+    stores/        utils/{api.ts,async.ts,wa.ts,audit.ts}
 
 backend/src/
   routes/   db/{schema.ts,index.ts,migrations/}
   middleware/{auth.ts,upload.ts}
+  lib/{event-bus.ts,hooks.ts}   ← SOP engine
+  utils/{log.ts,audit.ts}
 ```
 
 ---
@@ -79,9 +81,38 @@ Cek role di frontend: `import { user } from '$lib/stores/auth.js'` → `$user.ro
 5. Hutang/piutang otomatis dari transaksi — tidak ada input ganda
 6. Multi-tabel → wajib db.transaction()
 7. Laporan approve → tersimpan sebagai JSON snapshot
+8. Tabel baru WAJIB spread ...tenantField dan ...auditFields (lihat di bawah)
 ```
 
 Schema detail → `backend/src/db/schema.ts`
+
+### Helper schema wajib untuk tabel baru
+
+```typescript
+// Sudah didefinisikan di schema.ts — tinggal spread:
+// tenantField  → tenant_id INTEGER NOT NULL DEFAULT 1 (A1, siap multi-tenant)
+// auditFields  → created_by INTEGER + updated_by INTEGER (A2, nullable)
+
+export const tabel_baru = sqliteTable('tabel_baru', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  // ... kolom bisnis ...
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,   // ← wajib
+  ...auditFields,   // ← wajib (nullable, isi via getAuditBy)
+  ...timestamps,    // ← wajib
+})
+```
+
+Isi `created_by`/`updated_by` di route — pakai helper `utils/audit.ts`:
+
+```typescript
+import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
+
+// INSERT:
+db.insert(tabel).values({ ...data, ...getAuditBy(c) })
+// UPDATE:
+db.update(tabel).set({ ...data, ...getUpdatedBy(c) })
+```
 
 ---
 
@@ -322,6 +353,57 @@ Pertimbangan jangka panjang:
 
 ---
 
+## SOP ENGINE — EVENT BUS (Fase B)
+
+File: `backend/src/lib/event-bus.ts` (bus), `backend/src/lib/hooks.ts` (handler registry).
+`initHooks()` dipanggil sekali di `index.ts` saat startup.
+
+### Emit event di route
+
+```typescript
+import { bus } from '../lib/event-bus.ts'
+
+// Blocking — cek sebelum aksi (bisa ditolak hook)
+const result = await bus.emitBefore('absensi.masuk', { karyawan_id, tanggal })
+if (!result.ok) {
+  return c.json({ success: false, error: result.reason, data: result.data }, 428)
+}
+
+// Fire-and-forget — setelah aksi berhasil
+bus.emit('checkout', { penjualan_id, total, kasir_id, items })
+```
+
+### Tambah hook baru (di hooks.ts)
+
+```typescript
+// Non-blocking (after):
+bus.register('checkout', async ({ penjualan_id }) => { /* kirim notif, dll */ })
+
+// Blocking (before):
+bus.registerBefore('absensi.masuk', async ({ karyawan_id }) => {
+  if (kondisiBlokir) return { ok: false, reason: 'alasan', data: { ... } }
+  return { ok: true }
+})
+```
+
+### Event yang sudah ada
+
+```
+'absensi.masuk'   → before: cek SOP checklist; after: (slot kosong)
+'absensi.pulang'  → (slot kosong)
+'checkout'        → after: cek stok minimum → notifikasi_log
+'barang_masuk'    → (slot kosong)
+'stok.kritis'     → (slot kosong, emitted manual jika perlu)
+```
+
+### SOP Checklist (B4 POC)
+
+Kiosk `/absensi-kiosk/masuk` → 428 jika ada `sop_rule` checklist aktif belum selesai.
+Flow: `GET /sop/checklist-hari-ini` → tampilkan item → `POST /sop/checklist/:id/selesai` → retry masuk.
+Rule dibuat via `POST /sop/rule` dengan `config_json: [{ id, label, wajib }]`.
+
+---
+
 ## POLA WAJIB DIJAGA
 
 ```
@@ -331,6 +413,8 @@ Pertimbangan jangka panjang:
 4. Load data: onMount ATAU $effect — jangan keduanya untuk data yang sama
 5. Permission guard di setiap halaman sensitif:
    $effect(() => { if ($user && !['pemilik','manajer'].includes($user.role)) goto('/kasir') })
+6. Tabel baru → spread ...tenantField + ...auditFields + ...timestamps (lihat §ATURAN DATABASE)
+7. Aksi penting di route → emit event ke bus (sebelum/sesudah sesuai kebutuhan)
 ```
 
 ---
