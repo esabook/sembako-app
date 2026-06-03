@@ -43,6 +43,7 @@ import { sopRouter } from './routes/sop.ts'
 import { approvalRouter } from './routes/approval.ts'
 import { lampiranRouter } from './routes/lampiran.ts'
 import { initHooks } from './lib/hooks.ts'
+import { initScheduler } from './lib/scheduler.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
 type Variables = { user: JWTPayload }
@@ -131,6 +132,8 @@ console.log('Database migrations OK')
 
 // Daftarkan semua SOP hooks ke event bus
 initHooks()
+// Jalankan alert scheduler (cek setiap menit berdasarkan notifikasi_config)
+initScheduler()
 
 // Auto-seed: buat admin default hanya jika belum ada karyawan sama sekali (db segar)
 const [{ total }] = db.select({ total: count() }).from(karyawan).all()

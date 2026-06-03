@@ -22,6 +22,7 @@ export type SopEventMap = {
   'stok.kritis': { barang_id: number; nama: string; stok: number; minimum: number }
   'approval.disetujui': { approval_id: number; referensi_tipe: string; referensi_id: number; diproses_oleh: number }
   'approval.ditolak': { approval_id: number; referensi_tipe: string; referensi_id: number; diproses_oleh: number }
+  'notifikasi.wa': { pesan: string; penerima: string; jenis: string }
 }
 
 export type BeforeResult =
