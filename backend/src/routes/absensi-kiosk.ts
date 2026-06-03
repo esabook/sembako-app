@@ -3,6 +3,7 @@ import { eq, and, isNotNull } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
 import { karyawan, absensi, jadwal_kerja, tipe_shift } from '../db/schema.ts'
+import { bus } from '../lib/event-bus.ts'
 
 export const absensiKioskRouter = new Hono()
 
@@ -71,6 +72,12 @@ absensiKioskRouter.post('/masuk', async (c) => {
 
   const { tanggal, jam } = getWaktuJakarta()
 
+  // B4 POC — cek SOP checklist sebelum clock-in
+  const beforeResult = await bus.emitBefore('absensi.masuk', { karyawan_id: body.karyawan_id, tanggal })
+  if (!beforeResult.ok) {
+    return c.json({ success: false, error: beforeResult.reason, data: beforeResult.data }, 428)
+  }
+
   const existing = db
     .select({ id: absensi.id })
     .from(absensi)
@@ -106,6 +113,7 @@ absensiKioskRouter.post('/masuk', async (c) => {
     .returning()
     .get()
 
+  bus.emit('absensi.masuk', { karyawan_id: body.karyawan_id, tanggal })
   return c.json({ success: true, data: row }, 201)
 })
 

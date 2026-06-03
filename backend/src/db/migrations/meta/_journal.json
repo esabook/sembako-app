@@ -169,6 +169,13 @@
       "when": 1780447306818,
       "tag": "0024_stormy_dazzler",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1780449312306,
+      "tag": "0025_slippery_maestro",
+      "breakpoints": true
     }
   ]
 }

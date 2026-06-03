@@ -39,6 +39,8 @@ import { promoRouter } from './routes/promo.ts'
 import { jadwalRouter } from './routes/jadwal.ts'
 import { draftRouter } from './routes/draft.ts'
 import { absensiKioskRouter } from './routes/absensi-kiosk.ts'
+import { sopRouter } from './routes/sop.ts'
+import { initHooks } from './lib/hooks.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
 type Variables = { user: JWTPayload }
@@ -115,12 +117,16 @@ app.route('/promo', promoRouter)
 app.route('/jadwal', jadwalRouter)
 app.route('/draft', draftRouter)
 app.route('/absensi-kiosk', absensiKioskRouter)
+app.route('/sop', sopRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 // MIGRATIONS_DIR bisa di-set via env untuk distribusi (default: src/db/migrations untuk dev)
 const migrationsFolder = process.env.MIGRATIONS_DIR ?? './src/db/migrations'
 migrate(db, { migrationsFolder })
 console.log('Database migrations OK')
+
+// Daftarkan semua SOP hooks ke event bus
+initHooks()
 
 // Auto-seed: buat admin default hanya jika belum ada karyawan sama sekali (db segar)
 const [{ total }] = db.select({ total: count() }).from(karyawan).all()

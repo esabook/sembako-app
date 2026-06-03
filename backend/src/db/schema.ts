@@ -729,3 +729,45 @@ export const draft_keranjang_item = sqliteTable('draft_keranjang_item', {
   harga_jual: real('harga_jual').notNull(),
   diskon_item: real('diskon_item').notNull().default(0),
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SOP ENGINE (Fase B)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Aturan SOP disimpan sebagai data — bukan dikoding di route.
+// tipe: checklist = harus diselesaikan sebelum event berlanjut (blocking)
+//       notif     = kirim notifikasi saat event terjadi (non-blocking)
+//       blokir    = tolak event tanpa syarat tambahan
+export const sop_rule = sqliteTable('sop_rule', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama: text('nama').notNull(),
+  event_name: text('event_name').notNull(), // misal: 'before:absensi.masuk'
+  tipe: text('tipe', { enum: ['checklist', 'notif', 'blokir'] }).notNull().default('checklist'),
+  deskripsi: text('deskripsi'),
+  // JSON: untuk checklist → [{ id, label, wajib }]; untuk notif → { pesan }
+  config_json: text('config_json', { mode: 'json' }),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  urutan: integer('urutan').notNull().default(0),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_sop_rule_event').on(t.event_name),
+])
+
+// Jejak eksekusi tiap rule per transaksi/karyawan
+export const sop_instance = sqliteTable('sop_instance', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  rule_id: integer('rule_id').notNull().references(() => sop_rule.id),
+  karyawan_id: integer('karyawan_id').references(() => karyawan.id),
+  status: text('status', {
+    enum: ['pending', 'selesai', 'timeout', 'dibatalkan'],
+  }).notNull().default('pending'),
+  payload_json: text('payload_json', { mode: 'json' }), // event payload
+  hasil_json: text('hasil_json', { mode: 'json' }),     // hasil checklist / bukti
+  dibuat_at: text('dibuat_at').notNull().default(sql`(datetime('now','localtime'))`),
+  diselesaikan_at: text('diselesaikan_at'),
+}, (t) => [
+  index('idx_sop_instance_rule').on(t.rule_id),
+  index('idx_sop_instance_karyawan').on(t.karyawan_id),
+  index('idx_sop_instance_status').on(t.status),
+])

@@ -11,6 +11,7 @@ import {
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
+import { bus } from '../lib/event-bus.ts'
 
 export const penjualanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -276,6 +277,14 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   })
 
   const result = trxFn()
+
+  bus.emit('checkout', {
+    penjualan_id: result.id,
+    total: result.total,
+    kasir_id: user.id,
+    items: body.items.map((i) => ({ barang_id: i.barang_id, jumlah: i.jumlah })),
+  })
+
   return c.json({ success: true, data: result }, 201)
 })
 
