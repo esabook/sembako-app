@@ -1,0 +1,25 @@
+server:
+  host: "127.0.0.1"   # JANGAN ubah ke 0.0.0.0 — agent hanya boleh diakses lokal
+  port: 9999
+
+printer:
+  # type: usb | serial | network
+  type: "usb"
+
+  # USB raw device (Linux/Pi — paling umum untuk thermal printer)
+  device: "/dev/usb/lp0"
+
+  # Serial port (USB-to-serial adapter atau RS232)
+  # type: "serial"
+  # device: "/dev/ttyUSB0"   # Linux
+  # device: "COM3"            # Windows
+
+  # Network printer (TCP RAW port 9100)
+  # type: "network"
+  # host: "192.168.1.200"
+  # port: 9100
+
+  # Lebar karakter per baris:
+  #   32 → kertas 58mm
+  #   42 → kertas 80mm (default)
+  width: 42

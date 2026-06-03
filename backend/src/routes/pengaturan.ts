@@ -118,6 +118,8 @@ const DEFAULTS: Record<string, string> = {
   struk_ukuran: '80',
   struk_copy: '1',
   auto_cetak: 'false',
+  printer_mode: 'browser',
+  printer_bridge_port: '9999',
   wa_nomor: '',
   tema_default: 'dark',
   harga_default: 'eceran',

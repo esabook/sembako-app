@@ -157,6 +157,57 @@ hr{border:none;border-top:1px dashed #000;margin:4px 0}
 </style></head><body>${sections}</body></html>`
 }
 
+// ── Agent bridge ───────────────────────────────────────────────────────────
+// mode='agent-local' : frontend → http://localhost:PORT/cetak  (cloud VPS + PWA)
+// mode='agent-server': frontend → /api/printer/cetak (backend proxy, on-premise)
+// Returns true jika cetak berhasil — caller harus fallback ke popup jika false.
+export async function cetakViaAgent(
+	data: StrukData,
+	copies: number,
+	mode: 'agent-local' | 'agent-server',
+	bridgePort = '9999',
+): Promise<boolean> {
+	const payload = JSON.stringify({ data, copies })
+	try {
+		const url =
+			mode === 'agent-local'
+				? `http://localhost:${bridgePort}/cetak`
+				: '/api/printer/cetak'
+		const res = await fetch(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			credentials: mode === 'agent-server' ? 'include' : 'omit',
+			body: payload,
+			signal: AbortSignal.timeout(8000),
+		})
+		if (!res.ok) return false
+		const json = (await res.json()) as { ok?: boolean; success?: boolean }
+		return json.ok === true || json.success === true
+	} catch {
+		return false
+	}
+}
+
+// Cek apakah agent aktif (dipakai di settings page untuk status badge).
+export async function cekStatusAgent(
+	mode: 'agent-local' | 'agent-server',
+	bridgePort = '9999',
+): Promise<boolean> {
+	try {
+		const url =
+			mode === 'agent-local'
+				? `http://localhost:${bridgePort}/health`
+				: '/api/printer/status'
+		const res = await fetch(url, {
+			credentials: mode === 'agent-server' ? 'include' : 'omit',
+			signal: AbortSignal.timeout(2000),
+		})
+		return res.ok
+	} catch {
+		return false
+	}
+}
+
 export function cetakStrukPopup(html: string, onBlokir: () => void): void {
 	const w = window.open('', '_blank', 'width=420,height=700,menubar=no,toolbar=no')
 	if (!w) {

@@ -4,7 +4,7 @@
 	import ModalWindow from '$lib/components/ModalWindow.svelte';
 	import StrukPreview from '$lib/components/ui/StrukPreview.svelte';
 	import { api } from '$lib/utils/api.js';
-	import { buildStrukHtmlCopies, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
+	import { buildStrukHtmlCopies, cetakStrukPopup, cetakViaAgent, type StrukData } from '$lib/utils/struk';
 	import { rupiah, METODE, METODE_LABEL } from './kasir.logic';
 	import {
 		keranjang,
@@ -45,6 +45,8 @@
 		strUkuran = '80',
 		strCopy = '1',
 		autoCetak = false,
+		printerMode = 'browser',
+		printerBridgePort = '9999',
 	}: {
 		namaToko?: string;
 		alamatToko?: string;
@@ -53,6 +55,8 @@
 		strUkuran?: string;
 		strCopy?: string;
 		autoCetak?: boolean;
+		printerMode?: string;
+		printerBridgePort?: string;
 	} = $props();
 
 	// ── State lokal ────────────────────────────────────────────────────────────
@@ -254,8 +258,19 @@
 		}
 	}
 
-	function cetakStruk() {
+	async function cetakStruk() {
 		const copies = Math.max(1, parseInt(strCopy) || 1)
+		// Coba via agent bridge jika mode bukan browser
+		if (printerMode === 'agent-local' || printerMode === 'agent-server') {
+			const ok = await cetakViaAgent(
+				liveStrukData,
+				copies,
+				printerMode as 'agent-local' | 'agent-server',
+				printerBridgePort,
+			)
+			if (ok) return
+			// Jika agent gagal (offline / error), lanjut ke fallback popup browser
+		}
 		cetakStrukPopup(buildStrukHtmlCopies(liveStrukData, copies), () =>
 			alert('Popup diblokir browser — izinkan popup untuk halaman ini')
 		);
@@ -265,7 +280,7 @@
 	let prevSnap: typeof $snap = null
 	$effect(() => {
 		if ($snap && !prevSnap && autoCetak) {
-			cetakStruk()
+			void cetakStruk()
 		}
 		prevSnap = $snap
 	})
@@ -610,7 +625,7 @@
 			<!-- cetak / wa -->
 			<div class="flex shrink-0 flex-col gap-2 border-t p-3" style="border-color:var(--border)">
 				<button
-					onclick={cetakStruk}
+					onclick={() => void cetakStruk()}
 					class="w-full rounded border py-2 text-xs font-medium transition-all hover:opacity-80"
 					style="border-color:var(--border);color:var(--text-dim)"
 				>
