@@ -162,6 +162,13 @@
       "when": 1779966869803,
       "tag": "0023_brown_blockbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1780447306818,
+      "tag": "0024_stormy_dazzler",
+      "breakpoints": true
     }
   ]
 }
