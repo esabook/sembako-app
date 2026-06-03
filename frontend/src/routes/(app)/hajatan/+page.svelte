@@ -189,37 +189,37 @@
   {#snippet children()}
   <div class="space-y-4">
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nama Acara *</label>
-      <input bind:value={fNamaAcara} type="text" placeholder="Pernikahan, Syukuran, dll"
+      <label for="fh-nama" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nama Acara *</label>
+      <input id="fh-nama" bind:value={fNamaAcara} type="text" placeholder="Pernikahan, Syukuran, dll"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nama Penyelenggara *</label>
-      <input bind:value={fNamaPenyelenggara} type="text" placeholder="Bpk/Ibu ..."
+      <label for="fh-penyelenggara" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nama Penyelenggara *</label>
+      <input id="fh-penyelenggara" bind:value={fNamaPenyelenggara} type="text" placeholder="Bpk/Ibu ..."
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Tanggal Acara *</label>
-      <input bind:value={fTanggal} type="date"
+      <label for="fh-tgl" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Tanggal Acara *</label>
+      <input id="fh-tgl" bind:value={fTanggal} type="date"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Alamat</label>
-      <input bind:value={fAlamat} type="text"
+      <label for="fh-alamat" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Alamat</label>
+      <input id="fh-alamat" bind:value={fAlamat} type="text"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Estimasi Tamu</label>
-      <input bind:value={fEstimasi} type="number" min="0"
+      <label for="fh-estimasi" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Estimasi Tamu</label>
+      <input id="fh-estimasi" bind:value={fEstimasi} type="number" min="0"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Total Order (Rp)</label>
-      <input bind:value={fTotalOrder} type="number" min="0"
+      <label for="fh-total" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Total Order (Rp)</label>
+      <input id="fh-total" bind:value={fTotalOrder} type="number" min="0"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Status</label>
+      <p class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Status</p>
       <div class="flex flex-wrap gap-2">
         {#each ['persiapan','konfirmasi','selesai','batal'] as s (s)}
           <button onclick={() => fStatus = s}
@@ -233,8 +233,8 @@
       </div>
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Catatan</label>
-      <textarea bind:value={fCatatan} rows="3"
+      <label for="fh-catatan" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Catatan</label>
+      <textarea id="fh-catatan" bind:value={fCatatan} rows="3"
         class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
     </div>
     <div class="flex gap-2 pt-2">

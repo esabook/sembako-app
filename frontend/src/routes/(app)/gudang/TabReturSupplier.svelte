@@ -225,6 +225,7 @@
 		emptyText={loading ? 'Memuat...' : 'Belum ada retur supplier'}
 		maxRows={12}
 	>
+		{#snippet body()}
 		{#each paged as row (row.id)}
 			<tr class="border-b text-sm" style="border-color:var(--border)">
 				<td class="px-3 py-2 font-mono text-xs">{row.no_retur}</td>
@@ -243,6 +244,7 @@
 				</td>
 			</tr>
 		{/each}
+		{/snippet}
 	</DataTable>
 </div>
 
@@ -297,8 +299,8 @@
 
 		<!-- Pilih dokumen penerimaan -->
 		<div class="flex flex-col gap-1">
-			<label class="text-xs font-bold" style="color:var(--text-dim)">Dokumen Penerimaan *</label>
-			<select bind:value={fBmId} onchange={onBmChange}
+			<label for="rs-bm" class="text-xs font-bold" style="color:var(--text-dim)">Dokumen Penerimaan *</label>
+			<select id="rs-bm" bind:value={fBmId} onchange={onBmChange}
 				class="border rounded px-2 py-2" style="background:var(--surface);border-color:var(--border);color:var(--text)">
 				<option value="">-- Pilih --</option>
 				{#each bmList as bm (bm.id)}
@@ -341,7 +343,7 @@
 
 		<!-- Metode refund -->
 		<div class="flex flex-col gap-1">
-			<label class="text-xs font-bold" style="color:var(--text-dim)">Metode Refund *</label>
+			<p class="text-xs font-bold" style="color:var(--text-dim)">Metode Refund *</p>
 			<div class="flex gap-3">
 				<label class="flex items-center gap-1 cursor-pointer">
 					<input type="radio" bind:group={fMetode} value="kurang_hutang"> Kurang Hutang
@@ -354,8 +356,8 @@
 
 		{#if fMetode === 'kurang_hutang'}
 			<div class="flex flex-col gap-1">
-				<label class="text-xs font-bold" style="color:var(--text-dim)">Hutang yang Dikurangi *</label>
-				<select bind:value={fHutangId}
+				<label for="rs-hutang" class="text-xs font-bold" style="color:var(--text-dim)">Hutang yang Dikurangi *</label>
+				<select id="rs-hutang" bind:value={fHutangId}
 					class="border rounded px-2 py-2" style="background:var(--surface);border-color:var(--border);color:var(--text)">
 					<option value="">-- Pilih hutang --</option>
 					{#each hutangList as h (h.id)}
@@ -365,8 +367,8 @@
 			</div>
 		{:else}
 			<div class="flex flex-col gap-1">
-				<label class="text-xs font-bold" style="color:var(--text-dim)">Kas/Bank Penerima *</label>
-				<select bind:value={fKasBankId}
+				<label for="rs-kasbank" class="text-xs font-bold" style="color:var(--text-dim)">Kas/Bank Penerima *</label>
+				<select id="rs-kasbank" bind:value={fKasBankId}
 					class="border rounded px-2 py-2" style="background:var(--surface);border-color:var(--border);color:var(--text)">
 					<option value="">-- Pilih --</option>
 					{#each kasList as k (k.id)}
@@ -377,14 +379,14 @@
 		{/if}
 
 		<div class="flex flex-col gap-1">
-			<label class="text-xs font-bold" style="color:var(--text-dim)">Alasan Retur</label>
-			<input type="text" bind:value={fAlasan} placeholder="mis. barang rusak, salah kirim"
+			<label for="rs-alasan" class="text-xs font-bold" style="color:var(--text-dim)">Alasan Retur</label>
+			<input id="rs-alasan" type="text" bind:value={fAlasan} placeholder="mis. barang rusak, salah kirim"
 				class="border rounded px-2 py-2" style="background:var(--surface);border-color:var(--border);color:var(--text)">
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<label class="text-xs font-bold" style="color:var(--text-dim)">Catatan</label>
-			<textarea bind:value={fCatatan} rows="2"
+			<label for="rs-catatan" class="text-xs font-bold" style="color:var(--text-dim)">Catatan</label>
+			<textarea id="rs-catatan" bind:value={fCatatan} rows="2"
 				class="border rounded px-2 py-2 resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
 		</div>
 

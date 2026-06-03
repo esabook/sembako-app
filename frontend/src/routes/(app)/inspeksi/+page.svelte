@@ -217,12 +217,12 @@
   {#snippet children()}
   <div class="space-y-4">
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Tanggal *</label>
-      <input bind:value={fTanggal} type="date"
+      <label for="fi-tgl" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Tanggal *</label>
+      <input id="fi-tgl" bind:value={fTanggal} type="date"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-2" style="color:var(--text-dim)">Jenis Inspeksi</label>
+      <p class="block text-sm font-medium mb-2" style="color:var(--text-dim)">Jenis Inspeksi</p>
       <div class="flex flex-wrap gap-2">
         {#each Object.entries(JENIS_LABEL) as [k, v] (k)}
           <button onclick={() => fJenis = k}
@@ -236,27 +236,27 @@
       </div>
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Area yang Diperiksa</label>
-      <input bind:value={fArea} type="text" placeholder="Gudang, Kasir, Toilet, dll"
+      <label for="fi-area" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Area yang Diperiksa</label>
+      <input id="fi-area" bind:value={fArea} type="text" placeholder="Gudang, Kasir, Toilet, dll"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Temuan</label>
-      <textarea bind:value={fTemuan} rows="3" placeholder="Masalah atau kondisi yang ditemukan"
+      <label for="fi-temuan" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Temuan</label>
+      <textarea id="fi-temuan" bind:value={fTemuan} rows="3" placeholder="Masalah atau kondisi yang ditemukan"
         class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Tindakan</label>
-      <textarea bind:value={fTindakan} rows="2" placeholder="Tindakan yang sudah/akan dilakukan"
+      <label for="fi-tindakan" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Tindakan</label>
+      <textarea id="fi-tindakan" bind:value={fTindakan} rows="2" placeholder="Tindakan yang sudah/akan dilakukan"
         class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nilai (1–100)</label>
-      <input bind:value={fNilai} type="number" min="1" max="100"
+      <label for="fi-nilai" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nilai (1–100)</label>
+      <input id="fi-nilai" bind:value={fNilai} type="number" min="1" max="100"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-2" style="color:var(--text-dim)">Status</label>
+      <p class="block text-sm font-medium mb-2" style="color:var(--text-dim)">Status</p>
       <div class="flex gap-2">
         {#each [['draft','Draft','#f59e0b'],['selesai','Selesai','#10b981']] as [k, v, color] (k)}
           <button onclick={() => fStatus = k}
@@ -270,8 +270,8 @@
       </div>
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Catatan</label>
-      <textarea bind:value={fCatatan} rows="2"
+      <label for="fi-catatan" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Catatan</label>
+      <textarea id="fi-catatan" bind:value={fCatatan} rows="2"
         class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
     </div>
     <div class="flex gap-2 pt-2">

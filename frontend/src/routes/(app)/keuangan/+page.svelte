@@ -1113,9 +1113,10 @@
 
 <!-- ── Modal: Form Pinjaman/Investasi ────────────────────────────────────────── -->
 {#if piFormOpen}
-  <div role="dialog" aria-modal="true"
+  <div role="dialog" aria-modal="true" tabindex="-1"
     style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
-    onclick|self={() => piFormOpen=false}>
+    onclick={(e) => { if (e.target === e.currentTarget) piFormOpen=false }}
+    onkeydown={(e) => { if (e.key === 'Escape') piFormOpen=false }}>
     <div class="rounded-lg p-5 w-full max-w-md flex flex-col gap-3 text-sm overflow-y-auto max-h-full"
       style="background:var(--surface);max-height:90vh">
       <h2 class="font-bold text-base">{editPiId ? 'Edit' : 'Tambah'} Pinjaman / Investasi</h2>
@@ -1128,46 +1129,46 @@
         {/each}
       </div>
       <div class="flex flex-col gap-1">
-        <label class="text-xs" style="color:var(--text-dim)">{fPiTipe === 'pinjaman' ? 'NAMA PEMBERI PINJAMAN' : 'NAMA PENERIMA/PROYEK'} *</label>
-        <input bind:value={fPiNama} required placeholder="mis. Bank BRI, Koperasi, ..."
+        <label for="pi-nama" class="text-xs" style="color:var(--text-dim)">{fPiTipe === 'pinjaman' ? 'NAMA PEMBERI PINJAMAN' : 'NAMA PENERIMA/PROYEK'} *</label>
+        <input id="pi-nama" bind:value={fPiNama} required placeholder="mis. Bank BRI, Koperasi, ..."
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div class="flex flex-col gap-1">
-          <label class="text-xs" style="color:var(--text-dim)">JUMLAH POKOK (Rp) *</label>
-          <input type="number" min="1" bind:value={fPiPokok} required
+          <label for="pi-pokok" class="text-xs" style="color:var(--text-dim)">JUMLAH POKOK (Rp) *</label>
+          <input id="pi-pokok" type="number" min="1" bind:value={fPiPokok} required
             class="px-2 py-1 rounded border outline-none"
             style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-xs" style="color:var(--text-dim)">BUNGA (% per tahun)</label>
-          <input type="number" min="0" step="0.1" bind:value={fPiBunga}
+          <label for="pi-bunga" class="text-xs" style="color:var(--text-dim)">BUNGA (% per tahun)</label>
+          <input id="pi-bunga" type="number" min="0" step="0.1" bind:value={fPiBunga}
             class="px-2 py-1 rounded border outline-none"
             style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-xs" style="color:var(--text-dim)">CICILAN/BULAN (Rp)</label>
-          <input type="number" min="0" bind:value={fPiCicilan}
+          <label for="pi-cicilan" class="text-xs" style="color:var(--text-dim)">CICILAN/BULAN (Rp)</label>
+          <input id="pi-cicilan" type="number" min="0" bind:value={fPiCicilan}
             class="px-2 py-1 rounded border outline-none"
             style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-xs" style="color:var(--text-dim)">TANGGAL MULAI *</label>
-          <input type="date" bind:value={fPiMulai} required
+          <label for="pi-mulai" class="text-xs" style="color:var(--text-dim)">TANGGAL MULAI *</label>
+          <input id="pi-mulai" type="date" bind:value={fPiMulai} required
             class="px-2 py-1 rounded border outline-none"
             style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
         </div>
         <div class="flex flex-col gap-1 col-span-2">
-          <label class="text-xs" style="color:var(--text-dim)">JATUH TEMPO</label>
-          <input type="date" bind:value={fPiJatuh}
+          <label for="pi-jatuh" class="text-xs" style="color:var(--text-dim)">JATUH TEMPO</label>
+          <input id="pi-jatuh" type="date" bind:value={fPiJatuh}
             class="px-2 py-1 rounded border outline-none"
             style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
         </div>
       </div>
       <div class="flex flex-col gap-1">
-        <label class="text-xs" style="color:var(--text-dim)">CATATAN</label>
-        <input bind:value={fPiCatatan} placeholder="Opsional"
+        <label for="pi-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
+        <input id="pi-catatan" bind:value={fPiCatatan} placeholder="Opsional"
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>
@@ -1182,15 +1183,16 @@
 
 <!-- ── Modal: Bayar Cicilan Pinjaman ─────────────────────────────────────────── -->
 {#if piCicilOpen}
-  <div role="dialog" aria-modal="true"
+  <div role="dialog" aria-modal="true" tabindex="-1"
     style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
-    onclick|self={() => piCicilOpen=false}>
+    onclick={(e) => { if (e.target === e.currentTarget) piCicilOpen=false }}
+    onkeydown={(e) => { if (e.key === 'Escape') piCicilOpen=false }}>
     <div class="rounded-lg p-5 w-full max-w-sm flex flex-col gap-3 text-sm"
       style="background:var(--surface)">
       <h2 class="font-bold text-base">Bayar Cicilan</h2>
       <div class="flex flex-col gap-1">
-        <label class="text-xs" style="color:var(--text-dim)">JUMLAH CICILAN (Rp) *</label>
-        <input type="number" min="1" bind:value={cicilJumlah}
+        <label for="pi-cicil-jml" class="text-xs" style="color:var(--text-dim)">JUMLAH CICILAN (Rp) *</label>
+        <input id="pi-cicil-jml" type="number" min="1" bind:value={cicilJumlah}
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>

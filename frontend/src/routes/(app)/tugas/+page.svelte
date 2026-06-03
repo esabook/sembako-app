@@ -221,18 +221,18 @@
   {#snippet children()}
   <div class="space-y-4">
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nama Tugas *</label>
-      <input bind:value={fNama} type="text" placeholder="Misal: Sapu lantai toko"
+      <label for="ft-nama" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nama Tugas *</label>
+      <input id="ft-nama" bind:value={fNama} type="text" placeholder="Misal: Sapu lantai toko"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Kategori</label>
-      <input bind:value={fKategori} type="text" placeholder="kebersihan / keamanan / dll"
+      <label for="ft-kat" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Kategori</label>
+      <input id="ft-kat" bind:value={fKategori} type="text" placeholder="kebersihan / keamanan / dll"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
-      <label class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Urutan</label>
-      <input bind:value={fUrutan} type="number" min="0"
+      <label for="ft-urutan" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Urutan</label>
+      <input id="ft-urutan" bind:value={fUrutan} type="number" min="0"
         class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
     </div>
     <div class="flex gap-2 pt-2">
