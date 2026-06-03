@@ -9,7 +9,7 @@
     if ($user && !['pemilik', 'manajer', 'sales'].includes($user.role)) goto('/kasir')
   })
 
-  const tab = $derived<'kunjungan'|'agenda'>((page.url.searchParams.get('tab') as any) ?? 'kunjungan')
+  const tab = $derived<'kunjungan'|'agenda'|'pipeline'>((page.url.searchParams.get('tab') as any) ?? 'kunjungan')
 
   type KunjunganRow = {
     id: number; pelanggan_id: number|null; nama_warung: string; alamat: string|null
@@ -149,11 +149,81 @@
   }
 
   $effect(() => { if (tab === 'agenda') { aBulan; aStatus; muatAgenda() } })
+
+  // ── Pipeline Grosir ───────────────────────────────────────────────────────
+  type PipelineRow = {
+    id: number; nama_pelanggan: string; pelanggan_id: number|null
+    nilai_estimasi: number; tahap: string
+    produk_minat: string|null; catatan: string|null
+    tanggal_masuk: string; tanggal_update: string|null; nama_petugas: string|null
+  }
+
+  const TAHAP_ORDER = ['prospek','dikunjungi','penawaran','negosiasi','deal','batal']
+  const TAHAP_COLOR: Record<string, string> = {
+    prospek: '#6b7280', dikunjungi: '#3b82f6', penawaran: '#f59e0b',
+    negosiasi: '#8b5cf6', deal: '#10b981', batal: '#ef4444',
+  }
+
+  let pRows = $state<PipelineRow[]>([])
+  let pTahap = $state('')
+  let pFormOpen = $state(false)
+  let pError = $state('')
+  let editPId = $state<number|null>(null)
+  let fPNama = $state('')
+  let fPNilai = $state<number|''>(0)
+  let fPTahap = $state('prospek')
+  let fPProduk = $state('')
+  let fPCatatan = $state('')
+  let fPTanggal = $state(new Date().toISOString().slice(0,10))
+
+  async function muatPipeline() {
+    const q = new URLSearchParams()
+    if (pTahap) q.set('tahap', pTahap)
+    const r = await api.get<PipelineRow[]>(`/sales/pipeline?${q}`)
+    if (r.success) pRows = r.data
+  }
+
+  function bukaPForm(row?: PipelineRow) {
+    editPId = row?.id ?? null
+    fPNama = row?.nama_pelanggan ?? ''
+    fPNilai = row?.nilai_estimasi ?? 0
+    fPTahap = row?.tahap ?? 'prospek'
+    fPProduk = row?.produk_minat ?? ''
+    fPCatatan = row?.catatan ?? ''
+    fPTanggal = row?.tanggal_masuk ?? new Date().toISOString().slice(0,10)
+    pError = ''; pFormOpen = true
+  }
+
+  async function simpanP() {
+    pError = ''
+    if (!fPNama.trim()) { pError = 'Nama pelanggan wajib'; return }
+    const body = { nama_pelanggan: fPNama.trim(), nilai_estimasi: Number(fPNilai)||0,
+      tahap: fPTahap, produk_minat: fPProduk||undefined,
+      catatan: fPCatatan||undefined, tanggal_masuk: fPTanggal }
+    const r = editPId
+      ? await api.put(`/sales/pipeline/${editPId}`, body)
+      : await api.post('/sales/pipeline', body)
+    if (!r.success) { pError = (r as any).error; return }
+    pFormOpen = false; muatPipeline()
+  }
+
+  async function ubahTahap(id: number, tahap: string) {
+    await api.put(`/sales/pipeline/${id}`, { tahap })
+    muatPipeline()
+  }
+
+  async function hapusP(id: number) {
+    if (!confirm('Hapus pipeline ini?')) return
+    await api.delete(`/sales/pipeline/${id}`)
+    muatPipeline()
+  }
+
+  $effect(() => { if (tab === 'pipeline') { pTahap; muatPipeline() } })
 </script>
 
 <div class="flex flex-col gap-4">
-  <div class="flex gap-1 border-b" style="border-color:var(--border)">
-    {#each ([['kunjungan','Kunjungan Warung'],['agenda','Agenda Supplier']] as const) as [key, label] (key)}
+  <div class="flex gap-1 border-b overflow-x-auto" style="border-color:var(--border)">
+    {#each ([['kunjungan','Kunjungan Warung'],['agenda','Agenda Supplier'],['pipeline','Pipeline Grosir']] as const) as [key, label] (key)}
       <button onclick={() => goto(`?tab=${key}`, { replaceState: true, keepFocus: true, noScroll: true })}
         class="px-4 py-2 text-sm font-medium border-b-2 transition-colors shrink-0"
         style="{tab===key ? 'border-color:var(--accent);color:var(--accent)' : 'border-color:transparent;color:var(--text-dim)'}">
@@ -399,6 +469,147 @@
     {#if aError}<p class="text-xs" style="color:var(--danger)">{aError}</p>{/if}
     <div class="flex justify-end gap-2 mt-1">
       <button type="button" onclick={() => aFormOpen=false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
+      <button type="submit" class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
+    </div>
+  </form>
+  {/snippet}
+</SlideOver>
+
+<!-- ════════ PIPELINE GROSIR ════════ -->
+{#if tab === 'pipeline'}
+  <div class="flex flex-wrap gap-2 items-end mb-2">
+    <select bind:value={pTahap}
+      class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+      <option value="">Semua Tahap</option>
+      {#each TAHAP_ORDER as t (t)}
+        <option value={t} style="color:{TAHAP_COLOR[t]}">{t.charAt(0).toUpperCase()+t.slice(1)}</option>
+      {/each}
+    </select>
+    <button onclick={() => bukaPForm()}
+      class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Tambah Prospek</button>
+  </div>
+
+  <!-- Ringkasan per tahap -->
+  {#if pRows.length > 0}
+    <div class="flex gap-2 overflow-x-auto pb-1">
+      {#each TAHAP_ORDER as t (t)}
+        {@const cnt = pRows.filter(r => r.tahap === t).length}
+        {@const total = pRows.filter(r => r.tahap === t).reduce((s, r) => s + r.nilai_estimasi, 0)}
+        {#if cnt > 0}
+          <div class="flex-shrink-0 rounded-lg px-3 py-2 border text-center min-w-[80px]"
+            style="background:var(--surface);border-color:{TAHAP_COLOR[t]}33">
+            <p class="text-xs font-semibold" style="color:{TAHAP_COLOR[t]}">{t}</p>
+            <p class="text-lg font-bold" style="color:var(--text)">{cnt}</p>
+            {#if total > 0}
+              <p class="text-xs" style="color:var(--text-dim)">{(total/1e6).toFixed(1)}jt</p>
+            {/if}
+          </div>
+        {/if}
+      {/each}
+    </div>
+  {/if}
+
+  {#if pRows.length === 0}
+    <p class="text-sm text-center py-12" style="color:var(--text-dim)">Belum ada pipeline grosir.</p>
+  {:else}
+    <div class="space-y-2">
+      {#each pRows as row (row.id)}
+        <div class="rounded-lg border p-3" style="background:var(--surface);border-color:var(--border)">
+          <div class="flex items-start justify-between gap-2 flex-wrap">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="font-semibold text-sm" style="color:var(--text)">{row.nama_pelanggan}</p>
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium text-white"
+                  style="background:{TAHAP_COLOR[row.tahap]}">{row.tahap}</span>
+              </div>
+              {#if row.nilai_estimasi > 0}
+                <p class="text-xs mt-0.5 font-medium" style="color:var(--accent)">
+                  Estimasi: Rp {row.nilai_estimasi.toLocaleString('id-ID')}
+                </p>
+              {/if}
+              {#if row.produk_minat}
+                <p class="text-xs mt-0.5" style="color:var(--text-dim)">Minat: {row.produk_minat}</p>
+              {/if}
+              {#if row.catatan}
+                <p class="text-xs mt-0.5 italic" style="color:var(--text-dim)">{row.catatan}</p>
+              {/if}
+              <p class="text-xs mt-1" style="color:var(--text-dim)">
+                Masuk: {new Date(row.tanggal_masuk).toLocaleDateString('id-ID', { day:'numeric', month:'short' })}
+                {#if row.nama_petugas} · {row.nama_petugas}{/if}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-1 flex-shrink-0">
+              <!-- Tombol maju tahap -->
+              {#each TAHAP_ORDER as t (t)}
+                {#if t !== row.tahap && t !== 'batal'}
+                  <button onclick={() => ubahTahap(row.id, t)}
+                    class="text-xs px-2 py-0.5 rounded border"
+                    style="color:{TAHAP_COLOR[t]};border-color:{TAHAP_COLOR[t]}44">→ {t}</button>
+                {/if}
+              {/each}
+              <button onclick={() => bukaPForm(row)}
+                class="text-xs px-2 py-1 rounded" style="background:var(--surface2);color:var(--text)">Edit</button>
+              <button onclick={() => hapusP(row.id)}
+                class="text-xs px-2 py-1 rounded" style="background:#fee2e2;color:#dc2626">Hapus</button>
+            </div>
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+{/if}
+
+<!-- Pipeline SlideOver -->
+<SlideOver bind:open={pFormOpen} title={editPId ? 'Edit Pipeline' : 'Tambah Prospek Grosir'}>
+  {#snippet children()}
+  <form onsubmit={(e) => { e.preventDefault(); simpanP() }} class="flex flex-col gap-3">
+    <div class="flex flex-col gap-1">
+      <label for="fp-nama" class="text-xs" style="color:var(--text-dim)">NAMA PELANGGAN/WARUNG *</label>
+      <input id="fp-nama" bind:value={fPNama} required placeholder="Nama toko/warung grosir"
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fp-nilai" class="text-xs" style="color:var(--text-dim)">ESTIMASI NILAI ORDER (Rp)</label>
+      <input id="fp-nilai" type="number" min="0" bind:value={fPNilai}
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fp-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL MASUK *</label>
+      <input id="fp-tgl" type="date" bind:value={fPTanggal} required
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <span class="text-xs" style="color:var(--text-dim)">TAHAP</span>
+      <div class="flex flex-wrap gap-1">
+        {#each TAHAP_ORDER as t (t)}
+          <button type="button" onclick={() => fPTahap = t}
+            class="text-xs px-2 py-1 rounded border transition-colors"
+            style={fPTahap === t
+              ? `background:${TAHAP_COLOR[t]};color:white;border-color:${TAHAP_COLOR[t]}`
+              : 'background:var(--surface);color:var(--text-dim);border-color:var(--border)'}>
+            {t}
+          </button>
+        {/each}
+      </div>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fp-produk" class="text-xs" style="color:var(--text-dim)">PRODUK YANG DIMINATI</label>
+      <input id="fp-produk" bind:value={fPProduk} placeholder="Beras, Minyak, dll"
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fp-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
+      <textarea id="fp-catatan" bind:value={fPCatatan} rows="2"
+        class="px-2 py-1 rounded border outline-none resize-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)"></textarea>
+    </div>
+    {#if pError}<p class="text-xs" style="color:var(--danger)">{pError}</p>{/if}
+    <div class="flex justify-end gap-2 mt-1">
+      <button type="button" onclick={() => pFormOpen=false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
       <button type="submit" class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
     </div>
   </form>

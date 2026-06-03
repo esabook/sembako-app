@@ -126,6 +126,24 @@
 			icon: 'M12 3L2 12h3v8h6v-5h2v5h6v-8h3L12 3zm0 2.7l5 4.5V18h-2v-5H9v5H7v-7.8l5-4.5z'
 		},
 		{
+			href: '/tugas',
+			label: 'Tugas Harian',
+			roles: ['pemilik', 'manajer', 'kasir', 'gudang', 'sales', 'pelayanan'],
+			icon: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z'
+		},
+		{
+			href: '/hajatan',
+			label: 'Acara & Hajatan',
+			roles: ['pemilik', 'manajer', 'kasir'],
+			icon: 'M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z'
+		},
+		{
+			href: '/inspeksi',
+			label: 'Inspeksi Toko',
+			roles: ['pemilik', 'manajer'],
+			icon: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z'
+		},
+		{
 			href: '/tamu',
 			label: 'Tamu Birokrasi',
 			roles: ['pemilik', 'manajer'],

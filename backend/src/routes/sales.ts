@@ -1,9 +1,9 @@
-// C2: Kunjungan Sales + Agenda Supplier
+// C2: Kunjungan Sales + Agenda Supplier + Pipeline Grosir
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
-import { kunjungan_sales, agenda_supplier, pelanggan, karyawan, supplier } from '../db/schema.ts'
+import { kunjungan_sales, agenda_supplier, pipeline_grosir, pelanggan, karyawan, supplier } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
 import type { JWTPayload } from './auth.ts'
@@ -199,5 +199,95 @@ salesRouter.delete('/agenda-supplier/:id', requirePermission('pembelian.lihat'),
   const existing = db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(eq(agenda_supplier.id, id)).get()
   if (!existing) throw new HTTPException(404, { message: 'Agenda tidak ditemukan' })
   db.delete(agenda_supplier).where(eq(agenda_supplier.id, id)).run()
+  return c.json({ success: true, data: null })
+})
+
+// ── Pipeline Grosir ───────────────────────────────────────────────────────────
+
+salesRouter.get('/pipeline', requirePermission('pelanggan.lihat'), async (c) => {
+  const tahap = c.req.query('tahap')
+
+  const conds = []
+  if (tahap) conds.push(eq(pipeline_grosir.tahap, tahap as any))
+
+  const rows = db
+    .select({
+      id: pipeline_grosir.id,
+      nama_pelanggan: pipeline_grosir.nama_pelanggan,
+      pelanggan_id: pipeline_grosir.pelanggan_id,
+      nilai_estimasi: pipeline_grosir.nilai_estimasi,
+      tahap: pipeline_grosir.tahap,
+      produk_minat: pipeline_grosir.produk_minat,
+      catatan: pipeline_grosir.catatan,
+      tanggal_masuk: pipeline_grosir.tanggal_masuk,
+      tanggal_update: pipeline_grosir.tanggal_update,
+      nama_petugas: karyawan.nama,
+    })
+    .from(pipeline_grosir)
+    .leftJoin(karyawan, eq(pipeline_grosir.petugas_id, karyawan.id))
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(pipeline_grosir.tahap, desc(pipeline_grosir.tanggal_masuk))
+    .all()
+
+  return c.json({ success: true, data: rows })
+})
+
+salesRouter.post('/pipeline', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const body = await c.req.json<{
+    nama_pelanggan: string; pelanggan_id?: number
+    nilai_estimasi?: number
+    tahap?: 'prospek' | 'dikunjungi' | 'penawaran' | 'negosiasi' | 'deal' | 'batal'
+    produk_minat?: string; catatan?: string; tanggal_masuk: string
+  }>()
+
+  if (!body.nama_pelanggan?.trim()) throw new HTTPException(400, { message: 'nama_pelanggan wajib' })
+  if (!body.tanggal_masuk) throw new HTTPException(400, { message: 'tanggal_masuk wajib' })
+
+  const row = db.insert(pipeline_grosir).values({
+    nama_pelanggan: body.nama_pelanggan.trim(),
+    pelanggan_id: body.pelanggan_id,
+    nilai_estimasi: body.nilai_estimasi ?? 0,
+    tahap: body.tahap ?? 'prospek',
+    petugas_id: user.id,
+    produk_minat: body.produk_minat,
+    catatan: body.catatan,
+    tanggal_masuk: body.tanggal_masuk,
+    tanggal_update: body.tanggal_masuk,
+    ...getAuditBy(c),
+  }).returning().get()
+
+  return c.json({ success: true, data: row }, 201)
+})
+
+salesRouter.put('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json<Partial<{
+    nama_pelanggan: string; nilai_estimasi: number; tahap: string
+    produk_minat: string; catatan: string
+  }>>()
+
+  const existing = db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(eq(pipeline_grosir.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Pipeline tidak ditemukan' })
+
+  const tanggal_update = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
+  const row = db.update(pipeline_grosir).set({
+    ...(body.nama_pelanggan !== undefined && { nama_pelanggan: body.nama_pelanggan }),
+    ...(body.nilai_estimasi !== undefined && { nilai_estimasi: body.nilai_estimasi }),
+    ...(body.tahap !== undefined && { tahap: body.tahap as any }),
+    ...(body.produk_minat !== undefined && { produk_minat: body.produk_minat }),
+    ...(body.catatan !== undefined && { catatan: body.catatan }),
+    tanggal_update,
+    ...getUpdatedBy(c),
+  }).where(eq(pipeline_grosir.id, id)).returning().get()
+
+  return c.json({ success: true, data: row })
+})
+
+salesRouter.delete('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const id = Number(c.req.param('id'))
+  const existing = db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(eq(pipeline_grosir.id, id)).get()
+  if (!existing) throw new HTTPException(404, { message: 'Pipeline tidak ditemukan' })
+  db.delete(pipeline_grosir).where(eq(pipeline_grosir.id, id)).run()
   return c.json({ success: true, data: null })
 })

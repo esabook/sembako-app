@@ -1052,6 +1052,93 @@ export const tagihan_utilitas = sqliteTable('tagihan_utilitas', {
   ...timestamps,
 })
 
+// ─── C5: Checklist Tugas Harian (Kebersihan, dll) ────────────────────────────
+export const checklist_item = sqliteTable('checklist_item', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama: text('nama').notNull(),
+  kategori: text('kategori').notNull().default('kebersihan'),
+  urutan: integer('urutan').notNull().default(0),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+export const checklist_log = sqliteTable('checklist_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  item_id: integer('item_id').notNull().references(() => checklist_item.id),
+  tanggal: text('tanggal').notNull(),
+  karyawan_id: integer('karyawan_id').references(() => karyawan.id),
+  selesai: integer('selesai', { mode: 'boolean' }).notNull().default(false),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_checklist_log_tanggal').on(t.tanggal),
+  index('idx_checklist_log_item').on(t.item_id),
+])
+
+// ─── C2: Pipeline Grosir ─────────────────────────────────────────────────────
+export const pipeline_grosir = sqliteTable('pipeline_grosir', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama_pelanggan: text('nama_pelanggan').notNull(),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  nilai_estimasi: integer('nilai_estimasi').notNull().default(0),
+  tahap: text('tahap', {
+    enum: ['prospek', 'dikunjungi', 'penawaran', 'negosiasi', 'deal', 'batal'],
+  }).notNull().default('prospek'),
+  petugas_id: integer('petugas_id').references(() => karyawan.id),
+  produk_minat: text('produk_minat'),
+  catatan: text('catatan'),
+  tanggal_masuk: text('tanggal_masuk').notNull(),
+  tanggal_update: text('tanggal_update'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+}, (t) => [
+  index('idx_pipeline_tahap').on(t.tahap),
+])
+
+// ─── C5: Acara / Hajatan Besar ───────────────────────────────────────────────
+export const acara_hajatan = sqliteTable('acara_hajatan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama_acara: text('nama_acara').notNull(),
+  nama_penyelenggara: text('nama_penyelenggara').notNull(),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  tanggal_acara: text('tanggal_acara').notNull(),
+  alamat: text('alamat'),
+  estimasi_tamu: integer('estimasi_tamu'),
+  catatan: text('catatan'),
+  status: text('status', {
+    enum: ['persiapan', 'konfirmasi', 'selesai', 'batal'],
+  }).notNull().default('persiapan'),
+  total_order: integer('total_order').notNull().default(0),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C5: Inspeksi Toko ───────────────────────────────────────────────────────
+export const inspeksi_toko = sqliteTable('inspeksi_toko', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tanggal: text('tanggal').notNull(),
+  jenis: text('jenis', {
+    enum: ['rutin', 'mendadak', 'bulanan', 'tahunan'],
+  }).notNull().default('rutin'),
+  petugas_id: integer('petugas_id').references(() => karyawan.id),
+  area: text('area'),
+  temuan: text('temuan'),
+  tindakan: text('tindakan'),
+  nilai: integer('nilai'),
+  status: text('status', {
+    enum: ['draft', 'selesai'],
+  }).notNull().default('draft'),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
 // Jejak eksekusi tiap rule per transaksi/karyawan
 export const sop_instance = sqliteTable('sop_instance', {
   id: integer('id').primaryKey({ autoIncrement: true }),
