@@ -901,6 +901,39 @@ export const approval = sqliteTable('approval', {
   index('idx_approval_status').on(t.status),
 ])
 
+// ─── C5: Pinjaman & Investasi ─────────────────────────────────────────────────
+export const pinjaman_investasi = sqliteTable('pinjaman_investasi', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tipe: text('tipe', { enum: ['pinjaman', 'investasi'] }).notNull(),
+  nama: text('nama').notNull(),
+  jumlah_pokok: integer('jumlah_pokok').notNull(),
+  bunga_persen: real('bunga_persen').notNull().default(0),
+  cicilan_per_bulan: integer('cicilan_per_bulan').notNull().default(0),
+  tanggal_mulai: text('tanggal_mulai').notNull(),
+  jatuh_tempo: text('jatuh_tempo'),
+  sisa_pokok: integer('sisa_pokok').notNull(),
+  status: text('status', { enum: ['aktif', 'lunas', 'macet'] }).notNull().default('aktif'),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C5: Tamu Birokrasi ───────────────────────────────────────────────────────
+export const tamu_birokrasi = sqliteTable('tamu_birokrasi', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama_tamu: text('nama_tamu').notNull(),
+  instansi: text('instansi'),
+  keperluan: text('keperluan').notNull(),
+  tanggal: text('tanggal').notNull(),
+  jam_masuk: text('jam_masuk'),
+  jam_keluar: text('jam_keluar'),
+  keterangan: text('keterangan'),
+  dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  ...tenantField,
+  ...timestamps,
+})
+
 // ─── C4: Inventaris Aset Tetap ───────────────────────────────────────────────
 export const aset_tetap = sqliteTable('aset_tetap', {
   id: integer('id').primaryKey({ autoIncrement: true }),
