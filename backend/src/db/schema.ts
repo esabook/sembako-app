@@ -488,6 +488,64 @@ export const kasbon = sqliteTable('kasbon', {
   check('chk_kasbon_cicilan_pos', sql`${t.cicilan_per_bulan} >= 0`),
 ])
 
+// ═══════════════════════════════════════════════════════════════════════════
+// HR LANJUTAN (Fase C1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Pengajuan izin/cuti/sakit — approval via primitif B5.
+// Setelah disetujui, hook akan insert baris absensi otomatis.
+export const pengajuan_izin = sqliteTable('pengajuan_izin', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  jenis: text('jenis', { enum: ['cuti', 'izin', 'sakit'] }).notNull(),
+  tanggal_mulai: text('tanggal_mulai').notNull(),
+  tanggal_selesai: text('tanggal_selesai').notNull(),
+  alasan: text('alasan'),
+  bukti_path: text('bukti_path'),         // opsional foto dokter/surat
+  status: text('status', {
+    enum: ['menunggu', 'disetujui', 'ditolak'],
+  }).notNull().default('menunggu'),
+  diproses_oleh: integer('diproses_oleh').references(() => karyawan.id),
+  catatan_proses: text('catatan_proses'),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_izin_karyawan').on(t.karyawan_id),
+  index('idx_izin_status').on(t.status),
+])
+
+// Evaluasi berkala karyawan — penilaian performa oleh manajer/pemilik.
+export const evaluasi_karyawan = sqliteTable('evaluasi_karyawan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  periode: text('periode').notNull(),        // YYYY-MM atau YYYY-Q1 dst
+  nilai: integer('nilai').notNull(),         // 1–5
+  catatan: text('catatan'),
+  dinilai_oleh: integer('dinilai_oleh').notNull().references(() => karyawan.id),
+  tanggal: text('tanggal').notNull(),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_eval_karyawan').on(t.karyawan_id),
+])
+
+// Sanksi dan insentif — berdampak ke total penggajian bulan tersebut.
+export const sanksi_insentif = sqliteTable('sanksi_insentif', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  tipe: text('tipe', { enum: ['sanksi', 'insentif'] }).notNull(),
+  jenis: text('jenis').notNull(),            // 'terlambat' | 'lembur' | 'bonus' | 'potongan' | dst
+  jumlah: real('jumlah').notNull(),          // nominal rupiah, selalu positif
+  tanggal: text('tanggal').notNull(),
+  keterangan: text('keterangan'),
+  periode_bulan: text('periode_bulan').notNull(), // YYYY-MM — untuk grouping penggajian
+  dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_si_karyawan_bulan').on(t.karyawan_id, t.periode_bulan),
+])
+
 // ─── Shift Kasir ────────────────────────────────────────────────────────────
 
 export const shift_kasir = sqliteTable('shift_kasir', {

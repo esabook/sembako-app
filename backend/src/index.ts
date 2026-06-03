@@ -33,6 +33,9 @@ import { pengaturanRouter } from './routes/pengaturan.ts'
 import { hargaRouter } from './routes/harga.ts'
 import { returPenjualanRouter } from './routes/retur-penjualan.ts'
 import { returSupplierRouter } from './routes/retur-supplier.ts'
+import { izinRouter } from './routes/izin.ts'
+import { evaluasiRouter } from './routes/evaluasi.ts'
+import { sanksiInsentifRouter } from './routes/sanksi-insentif.ts'
 import { notifikasiRouter } from './routes/notifikasi.ts'
 import { auditRouter } from './routes/audit.ts'
 import { budgetTargetRouter } from './routes/budget-target.ts'
@@ -115,6 +118,9 @@ app.route('/pengaturan', pengaturanRouter)
 app.route('/harga', hargaRouter)
 app.route('/retur-penjualan', returPenjualanRouter)
 app.route('/retur-supplier', returSupplierRouter)
+app.route('/izin', izinRouter)
+app.route('/evaluasi', evaluasiRouter)
+app.route('/sanksi-insentif', sanksiInsentifRouter)
 app.route('/notifikasi', notifikasiRouter)
 app.route('/audit', auditRouter)
 app.route('/budget-target', budgetTargetRouter)

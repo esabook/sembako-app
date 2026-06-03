@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { eq, and, gte, lte, sql, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
-import { penggajian, karyawan, absensi, kasbon, jurnal_kas } from '../db/schema.ts'
+import { penggajian, karyawan, absensi, kasbon, jurnal_kas, sanksi_insentif } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
 
@@ -113,10 +113,21 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
       .all()
     const potonganKasbon = kasbonRows.reduce((s, r) => s + r.cicilan, 0)
 
+    // Insentif dan sanksi bulan ini
+    const siRows = db
+      .select({ tipe: sanksi_insentif.tipe, jumlah: sanksi_insentif.jumlah })
+      .from(sanksi_insentif)
+      .where(and(eq(sanksi_insentif.karyawan_id, k.id), eq(sanksi_insentif.periode_bulan, body.bulan)))
+      .all()
+    const totalInsentif = siRows.filter((r) => r.tipe === 'insentif').reduce((s, r) => s + r.jumlah, 0)
+    const totalSanksi = siRows.filter((r) => r.tipe === 'sanksi').reduce((s, r) => s + r.jumlah, 0)
+
     // Hitung total gaji
     const gajiBase =
       k.tipe_gaji === 'harian' ? k.gaji_pokok * hariHadir : k.gaji_pokok
-    const total = Math.max(0, gajiBase - potonganKasbon)
+    const tunjangan = totalInsentif
+    const potonganLain = totalSanksi
+    const total = Math.max(0, gajiBase + tunjangan - potonganKasbon - potonganLain)
 
     const row = db
       .insert(penggajian)
@@ -126,9 +137,9 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
         hari_kerja: hariKerja,
         hari_hadir: hariHadir,
         gaji_pokok: k.gaji_pokok,
-        tunjangan: 0,
+        tunjangan,
         potongan_kasbon: potonganKasbon,
-        potongan_lain: 0,
+        potongan_lain: potonganLain,
         total_gaji: total,
         status: 'draft',
       })

@@ -1,4 +1,40 @@
-export type Tab = 'data' | 'absensi' | 'penggajian' | 'kasbon' | 'jadwal' | 'performa'
+export type Tab = 'data' | 'absensi' | 'penggajian' | 'kasbon' | 'jadwal' | 'performa' | 'izin' | 'evaluasi' | 'sanksi'
+
+export type IzinRow = {
+  id: number
+  karyawan_id: number
+  nama_karyawan: string
+  jenis: 'cuti' | 'izin' | 'sakit'
+  tanggal_mulai: string
+  tanggal_selesai: string
+  alasan: string | null
+  status: 'menunggu' | 'disetujui' | 'ditolak'
+  catatan_proses: string | null
+  created_at: string
+}
+
+export type EvaluasiRow = {
+  id: number
+  karyawan_id: number
+  nama_karyawan: string
+  periode: string
+  nilai: number
+  catatan: string | null
+  dinilai_oleh: number
+  tanggal: string
+}
+
+export type SanksiInsentifRow = {
+  id: number
+  karyawan_id: number
+  nama_karyawan: string
+  tipe: 'sanksi' | 'insentif'
+  jenis: string
+  jumlah: number
+  tanggal: string
+  periode_bulan: string
+  keterangan: string | null
+}
 
 export type Karyawan = {
   id: number

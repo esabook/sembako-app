@@ -197,6 +197,13 @@
       "when": 1780454928220,
       "tag": "0028_milky_robin_chapel",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1780459580468,
+      "tag": "0029_huge_magneto",
+      "breakpoints": true
     }
   ]
 }
