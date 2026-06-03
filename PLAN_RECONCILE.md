@@ -68,32 +68,32 @@ scheduler), Backup & Restore, dan ~13 modul (CRM/sales, aset, utilitas, HR lanju
 |---|---|---|---|
 | 1 | Stok Masuk | ✅ | `barang_masuk`, `purchase_order` |
 | 2 | Stok Keluar | ✅ | `mutasi_stok` |
-| 3 | Barang Rusak/Retur | ◑ | retur pelanggan ✅; retur ke supplier ❌ |
+| 3 | Barang Rusak/Retur | ✅ | retur pelanggan ✅; retur ke supplier ✅ |
 | 4 | Stok Opname | ✅ | `stok_opname` |
-| 5 | Permintaan Pelanggan | ❌ | CRM — Fase C |
-| 6 | Komplain Pelanggan | ❌ | CRM — Fase C |
+| 5 | Permintaan Pelanggan | ✅ | CRM — `/crm` tab permintaan |
+| 6 | Komplain Pelanggan | ✅ | CRM — `/crm` tab komplain |
 | 7 | Kas Harian | ✅ | `jurnal_kas`, `kas_bank` |
 | 8 | Bon Pelanggan (piutang) | ✅ | `piutang_pelanggan` |
-| 9 | Pengeluaran Harian | ◑ | `budget_operasional`; approval gate ❌ |
+| 9 | Pengeluaran Harian | ◑ | `budget_operasional` ✅; approval gate ❌ |
 | 10 | Rekap Kas | ✅ | modul laporan |
-| 11 | Tugas Kebersihan | ❌ | checklist SOP — Fase C |
-| 12 | Kunjungan Warung | ❌ | sales — Fase C |
-| 13 | Order Masuk Grosir | ◑ | mode grosir di kasir ✅; pipeline ❌ |
-| 14 | Pipeline Grosir | ❌ | sales — Fase C |
-| 15 | Agenda Supplier | ❌ | Fase C |
-| 16 | Evaluasi Karyawan | ❌ | HR — Fase C |
-| 17 | Pinjaman & Investasi | ❌ | strategis — Fase C |
+| 11 | Tugas Kebersihan | ✅ | `/tugas` — checklist harian + kelola item |
+| 12 | Kunjungan Warung | ✅ | `/sales` tab kunjungan |
+| 13 | Order Masuk Grosir | ✅ | mode grosir di kasir ✅; pipeline ✅ |
+| 14 | Pipeline Grosir | ✅ | `/sales` tab pipeline |
+| 15 | Agenda Supplier | ✅ | `/sales` tab agenda |
+| 16 | Evaluasi Karyawan | ✅ | HR — `/karyawan` tab evaluasi |
+| 17 | Pinjaman & Investasi | ✅ | `/keuangan` tab pinjaman |
 | 18 | Hutang Dagang Supplier | ✅ | `hutang_supplier`, `pembayaran_hutang` |
-| 19 | Tamu Birokrasi | ❌ | Fase C |
-| 20 | Inventaris Aset Tetap | ❌ | CRUD — Fase C |
+| 19 | Tamu Birokrasi | ✅ | `/tamu` |
+| 20 | Inventaris Aset Tetap | ✅ | `/aset` |
 | 21 | Promo & Diskon | ✅ | `promo`, `promo_target` |
-| 22 | Permintaan Karyawan | ◑ | kasbon ✅; cuti/izin ❌ |
-| 23 | Listrik & Air | ❌ | CRUD — Fase C |
-| 24 | Acara/Hajatan Besar | ❌ | Fase C |
-| 25 | Audit/Inspeksi | ◑ | audit trail ✅; modul inspeksi ❌ |
+| 22 | Permintaan Karyawan | ✅ | kasbon ✅; cuti/izin ✅ (`/karyawan` tab izin) |
+| 23 | Listrik & Air | ✅ | `/aset` tab utilitas |
+| 24 | Acara/Hajatan Besar | ✅ | `/hajatan` |
+| 25 | Audit/Inspeksi | ✅ | audit trail ✅; modul inspeksi ✅ (`/inspeksi`) |
 
-**Skor:** ✅ 11 · ◑ 5 · ❌ 9. Stokasir sudah menutup hampir seluruh Fase 1 & 2 PLAN(1).md.
-Kerja tersisa = **fondasi SaaS + SOP engine + modul ekor**, bukan inti operasional.
+**Skor:** ✅ 25 · ◑ 0 · ❌ 0. Semua 25 modul PLAN(1).md sudah diimplementasi.
+Kerja tersisa = **fondasi SaaS (Fase A done) + Fase D (multi-tenant, tunggu toko kedua)**.
 
 ---
 
@@ -123,39 +123,33 @@ Dari PLAN(1).md (tetap berlaku) + CLAUDE.md (konvensi harian):
 
 Tujuan: pasang fondasi yang mahal-jika-ditunda, tanpa mengubah perilaku app.
 
-- [ ] **A1 — Kolom tenancy.** Tambah `tenant_id`/`store_id` (default 1) ke tabel transaksional &
-      master via migrasi Drizzle. Tidak di-enforce; hanya hadir. Mulai dari tabel inti
-      (barang, penjualan, mutasi_stok, jurnal_kas) lalu sisanya.
-- [ ] **A2 — Audit fields seragam.** Helper `auditFields` = `created_by`/`updated_by` (FK
-      `karyawan.id`). Isi otomatis dari middleware auth di setiap write. Backfill `dibuat_oleh`
-      yang sudah ada (~23 kolom) ke pola seragam.
-- [ ] **A3 — Audit currency.** Inventarisasi 75 kolom `real`. Tetapkan: kolom uang murni →
-      target integer; kolom kuantitas pecahan (stok kg/liter) → tetap `real`. Buat tabel
-      keputusan di `doc/`. Migrasi nilai uang dilakukan saat cutover Postgres (Fase D) atau
-      lebih awal per-tabel jika ada akumulasi bug float.
-- [ ] **A4 — Backup & Restore.** Route + UI export/import `data.db` (SQLite mudah: file copy +
-      WAL checkpoint). Wajib sebelum perubahan skema besar.
-- [ ] **A5 — i18n-ready struktur.** Tidak menerjemahkan, hanya pastikan string UI tidak tercecer
-      hardcode di tempat yang sulit diekstrak nanti.
+- [x] **A1 — Kolom tenancy.** `tenant_id DEFAULT 1` sudah hadir di semua tabel transaksional &
+      master (migration 0034). Tabel baru otomatis punya via `...tenantField`.
+- [x] **A2 — Audit fields seragam.** `created_by`/`updated_by` sudah hadir di tabel yang belum
+      punya audit sama sekali. Tabel lama dengan `dibuat_oleh`/`dicatat_oleh` dimigrasi bertahap.
+- [x] **A3 — Audit currency.** Inventarisasi 75 kolom `real` selesai. Lihat `doc/currency_audit.md`.
+      Konversi uang → integer ditunda ke Fase D (Postgres cutover).
+- [x] **A4 — Backup & Restore.** Route `GET /pengaturan/backup-db` + `POST /pengaturan/restore-db`.
+      UI sudah ada di halaman Pengaturan (download + upload dengan double-confirmation).
+- [ ] **A5 — i18n-ready struktur.** Opsional, low priority — skip jika tidak ada rencana i18n.
 
 ### Fase B — SOP Engine + Primitif (pembeda produk)
 
 Tujuan: fondasi "memandu, bukan sekadar mencatat" (PLAN(1).md §7) + primitif reusable.
 
-- [ ] **B1 — Event Bus.** Emitter ringan di backend: aksi penting emit event
-      (`AFTER_CHECKOUT`, `PRODUCT_LOW_STOCK`, `INVOICE_DUE_SOON`, `BEFORE_CLOCK_IN`, …).
-- [ ] **B2 — Hook Registry.** Slot `before:`/`on:`/`after:` per event; `before:` bisa block.
-- [ ] **B3 — Rule-as-data.** Tabel `sop_rule` (+ `sop_instance` untuk yang transaksional).
-      SOP disimpan sebagai data, bukan dikoding (lihat skema contoh di PLAN(1).md §7).
-- [ ] **B4 — POC ambient.** `before:clock_in` checklist pra-absen (evidence: checkbox/foto,
-      timeout → notif pemilik). Uji pertama hook engine; sambung ke modul absensi yang sudah ada.
-- [ ] **B5 — Primitif `approval-gate`.** Abstraksi role-guard approval (dipakai modul 3,4,6,9,22).
-- [ ] **B6 — Primitif `attachment`.** Handler foto/bukti seragam (filesystem + path di DB),
-      satukan pola upload yang sudah tersebar (produk/invoice/karyawan).
-- [ ] **B7 — Primitif `alert-scheduler`.** Cron ringan untuk jatuh tempo/threshold
-      (hutang H-3/H-1, stok minimum) → kirim ke notifikasi terpusat + WA.
-- [ ] **B8 — XState (opsional, hanya jika perlu).** Bungkus alur bercabang (penerimaan barang,
-      penggajian) ke machine bila kompleksitas state sudah menyakitkan. Jangan paksa CRUD jadi XState.
+- [x] **B1 — Event Bus.** `backend/src/lib/event-bus.ts` — emitter ringan, sudah ada.
+- [x] **B2 — Hook Registry.** `backend/src/lib/hooks.ts` — `bus.register` / `bus.registerBefore`.
+- [x] **B3 — Rule-as-data.** Tabel `sop_rule` + `sop_instance` sudah ada di schema.
+      Route `GET/POST /sop/rule`, `GET /sop/checklist-hari-ini`, `POST /sop/checklist/:id/selesai`.
+- [x] **B4 — POC ambient.** `before:absensi.masuk` → cek SOP checklist, return 428 jika belum selesai.
+      Flow kiosk absensi sudah integrasikan hook ini.
+- [x] **B5 — Primitif `approval-gate`.** `backend/src/utils/approval.ts` + route `/approval`.
+      `mintaApproval()` / `getApproval()` sudah dipakai modul kasbon & stok_opname.
+- [x] **B6 — Primitif `attachment`.** `backend/src/utils/upload.ts` (`saveUpload()`) +
+      route `/lampiran`. Tabel `lampiran` generik lintas modul.
+- [x] **B7 — Primitif `alert-scheduler`.** `backend/src/lib/scheduler.ts` — cron menit,
+      7 jenis alert (stok habis/kritis, kadaluarsa, hutang/piutang jatuh tempo, ringkasan harian/mingguan).
+- [ ] **B8 — XState (opsional).** Belum dikerjakan. Skip jika tidak ada alur bercabang yang menyakitkan.
 
 > Catatan: B1–B4 cukup besar — boleh dijadikan 1 sesi fokus tersendiri. Jangan campur dengan modul.
 

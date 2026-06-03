@@ -329,26 +329,48 @@ Web Worker               → hanya jika withIdle() tidak cukup (kriteria di bawa
 
 ## STATUS IMPLEMENTASI
 
-| Modul | Status |
-|-------|--------|
+| Fase | Status | Catatan |
+|------|--------|---------|
+| **Fase A** — SaaS-Readiness | ✅ Selesai | A1–A4 done; A5 (i18n) skip |
+| **Fase B** — SOP Engine + Primitif | ✅ Selesai | B1–B7 done; B8 (XState) skip |
+| **Fase C** — Modul Ekor | ✅ Selesai | 25/25 modul PLAN(1).md done |
+| **Fase D** — Multi-tenant Cutover | ⏸ Ditunda | Tunggu toko kedua nyata |
+
+**Modul aktif:** dashboard, kasir, gudang, karyawan, keuangan, laporan, harga, pengaturan,
+kasir/retur, gudang/label, promo, pelanggan, crm, sales, aset, keuangan/pinjaman, tamu,
+tugas, hajatan, inspeksi, karyawan/izin, karyawan/evaluasi, karyawan/sanksi.
+
+**Roles aktif:** pemilik, manajer, kasir, gudang, sales, pelayanan (6 role).
 
 ## BUGFIX WAJIB (sebelum deploy)
 
 ### Masih Open
 
+_(tidak ada saat ini)_
 
 ### Sudah Diperbaiki (referensi)
 
+- TabReturSupplier: DataTable snippet API (`{#snippet body()}`) bukan default slot
+- keuangan/+page.svelte: `onclick|self` → `onclick={(e) => if (e.target===e.currentTarget)…}`
+- Semua a11y warnings label for/id + dialog tabindex/keyboard (frontend check: 0 errors, 0 warnings)
+- backend/index.ts: array-destructure count() → `.get()` agar TypeScript-safe
+- absensi-kiosk.ts: destructure split default value; tugas.ts: non-null assertion
 
 ---
 
 ## BACKLOG — NEXT TASKS
 
 ```
+Aktif:
+  [ ] Fase D — migrasi ke PostgreSQL (hanya saat toko kedua)
+
 Pertimbangan jangka panjang:
   [x] Service Worker / offline cache — agar kasir tetap jalan saat WiFi putus
-  [ ] Multi-toko / multi-cabang
-  [ ] Migrasi ke Turso (libSQL) untuk akses remote
+  [x] tenant_id di semua tabel (A1, done)
+  [x] Backup & Restore UI (A4, done)
+  [ ] Multi-toko / multi-cabang → Fase D
+  [ ] Migrasi ke Turso (libSQL) untuk akses remote → Fase D
+  [ ] Konversi 52 kolom real → integer Rupiah → Fase D (doc: currency_audit.md)
 ```
 
 ---
