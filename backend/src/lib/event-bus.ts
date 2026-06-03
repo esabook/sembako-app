@@ -20,6 +20,8 @@ export type SopEventMap = {
   }
   'barang_masuk': { barang_masuk_id: number; supplier_id: number }
   'stok.kritis': { barang_id: number; nama: string; stok: number; minimum: number }
+  'approval.disetujui': { approval_id: number; referensi_tipe: string; referensi_id: number; diproses_oleh: number }
+  'approval.ditolak': { approval_id: number; referensi_tipe: string; referensi_id: number; diproses_oleh: number }
 }
 
 export type BeforeResult =

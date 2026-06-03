@@ -754,6 +754,32 @@ export const sop_rule = sqliteTable('sop_rule', {
   index('idx_sop_rule_event').on(t.event_name),
 ])
 
+// ═══════════════════════════════════════════════════════════════════════════
+// APPROVAL GATE (Fase B5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Primitif approval lintas modul — kasbon, pengeluaran, purchase order, dst.
+// Module yang butuh approval: insert satu baris ke sini via mintaApproval().
+// Manajer/pemilik setujui/tolak via POST /approval/:id/setujui|tolak.
+export const approval = sqliteTable('approval', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  referensi_tipe: text('referensi_tipe').notNull(), // 'kasbon' | 'purchase_order' | dst
+  referensi_id: integer('referensi_id').notNull(),
+  status: text('status', {
+    enum: ['menunggu', 'disetujui', 'ditolak'],
+  }).notNull().default('menunggu'),
+  diminta_oleh: integer('diminta_oleh').notNull().references(() => karyawan.id),
+  diproses_oleh: integer('diproses_oleh').references(() => karyawan.id),
+  catatan_pengaju: text('catatan_pengaju'),
+  catatan_proses: text('catatan_proses'),
+  dibuat_at: text('dibuat_at').notNull().default(sql`(datetime('now','localtime'))`),
+  diproses_at: text('diproses_at'),
+  ...tenantField,
+}, (t) => [
+  index('idx_approval_ref').on(t.referensi_tipe, t.referensi_id),
+  index('idx_approval_status').on(t.status),
+])
+
 // Jejak eksekusi tiap rule per transaksi/karyawan
 export const sop_instance = sqliteTable('sop_instance', {
   id: integer('id').primaryKey({ autoIncrement: true }),
