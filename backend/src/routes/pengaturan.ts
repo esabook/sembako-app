@@ -116,6 +116,8 @@ const DEFAULTS: Record<string, string> = {
   struk_header: '',
   struk_footer: 'Terima kasih sudah berbelanja!',
   struk_ukuran: '80',
+  struk_copy: '1',
+  auto_cetak: 'false',
   wa_nomor: '',
   tema_default: 'dark',
   harga_default: 'eceran',

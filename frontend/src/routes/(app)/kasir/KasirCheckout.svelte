@@ -4,7 +4,7 @@
 	import ModalWindow from '$lib/components/ModalWindow.svelte';
 	import StrukPreview from '$lib/components/ui/StrukPreview.svelte';
 	import { api } from '$lib/utils/api.js';
-	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
+	import { buildStrukHtmlCopies, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
 	import { rupiah, METODE, METODE_LABEL } from './kasir.logic';
 	import {
 		keranjang,
@@ -42,13 +42,17 @@
 		alamatToko = '',
 		strHeader = '',
 		strFooter = 'Terima kasih sudah berbelanja!',
-		strUkuran = '80'
+		strUkuran = '80',
+		strCopy = '1',
+		autoCetak = false,
 	}: {
 		namaToko?: string;
 		alamatToko?: string;
 		strHeader?: string;
 		strFooter?: string;
 		strUkuran?: string;
+		strCopy?: string;
+		autoCetak?: boolean;
 	} = $props();
 
 	// ── State lokal ────────────────────────────────────────────────────────────
@@ -251,10 +255,20 @@
 	}
 
 	function cetakStruk() {
-		cetakStrukPopup(renderStrukHtml(liveStrukData), () =>
+		const copies = Math.max(1, parseInt(strCopy) || 1)
+		cetakStrukPopup(buildStrukHtmlCopies(liveStrukData, copies), () =>
 			alert('Popup diblokir browser — izinkan popup untuk halaman ini')
 		);
 	}
+
+	// Auto-cetak: trigger saat snap pertama kali muncul (setelah prosesBayar selesai)
+	let prevSnap: typeof $snap = null
+	$effect(() => {
+		if ($snap && !prevSnap && autoCetak) {
+			cetakStruk()
+		}
+		prevSnap = $snap
+	})
 
 	onMount(() => {
 		void api.get<{ id: number; nama: string; tipe: string }[]>('/keuangan/kas-bank').then((res) => {

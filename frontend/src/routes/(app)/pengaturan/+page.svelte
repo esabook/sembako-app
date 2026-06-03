@@ -23,6 +23,8 @@
 		struk_header: string
 		struk_footer: string
 		struk_ukuran: string
+		struk_copy: string
+		auto_cetak: string
 		wa_nomor: string
 		tema_default: string
 		harga_default: string
@@ -39,6 +41,8 @@
 		struk_header: '',
 		struk_footer: '',
 		struk_ukuran: '80',
+		struk_copy: '1',
+		auto_cetak: 'false',
 		wa_nomor: '',
 		tema_default: 'dark',
 		harga_default: 'eceran',
@@ -235,7 +239,7 @@
 			<div class="space-y-1">
 				<span class="text-xs" style="color:var(--text-dim)">Ukuran Kertas</span>
 				<div class="flex gap-3">
-					{#each [['58', '58mm'], ['80', '80mm']] as [val, label] (val)}
+					{#each ([['58', '58mm'], ['80', '80mm']] as [string,string][]) as [val, label] (val)}
 						<label class="flex items-center gap-2 cursor-pointer">
 							<input
 								type="radio"
@@ -247,6 +251,47 @@
 						</label>
 					{/each}
 				</div>
+			</div>
+
+			<div class="space-y-1">
+				<span class="text-xs" style="color:var(--text-dim)">Jumlah Salinan (Copy)</span>
+				<div class="flex gap-3">
+					{#each ([['1', '1 copy'], ['2', '2 copy']] as [string,string][]) as [val, label] (val)}
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="radio"
+								bind:group={form.struk_copy}
+								value={val}
+								class="accent-green-500"
+							/>
+							<span class="text-sm" style="color:var(--text)">{label}</span>
+						</label>
+					{/each}
+				</div>
+			</div>
+
+			<div class="flex items-center justify-between rounded border p-3" style="border-color:var(--border);background:var(--surface2)">
+				<div>
+					<div class="text-sm font-medium" style="color:var(--text)">Auto-cetak setelah transaksi</div>
+					<div class="text-xs mt-0.5" style="color:var(--text-dim)">Struk langsung tercetak tanpa harus klik tombol Cetak Struk</div>
+				</div>
+				<button
+					onclick={() => { form.auto_cetak = form.auto_cetak === 'true' ? 'false' : 'true' }}
+					class="relative flex-shrink-0 w-10 h-5 rounded-full transition-colors"
+					style="background:{form.auto_cetak === 'true' ? 'var(--accent)' : 'var(--border)'}"
+					aria-label="Toggle auto-cetak"
+					role="switch"
+					aria-checked={form.auto_cetak === 'true'}
+				>
+					<span class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+						style="transform:translateX({form.auto_cetak === 'true' ? '1.25rem' : '0.125rem'})"></span>
+				</button>
+			</div>
+
+			<div>
+				<a href="/pengaturan/struk" class="text-xs underline" style="color:var(--accent)">
+					Preview & test cetak struk →
+				</a>
 			</div>
 		</section>
 

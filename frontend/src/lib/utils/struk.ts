@@ -136,6 +136,27 @@ ${d.footer ? `<hr>${footerLines}` : ''}
 
 // ── Print popup ────────────────────────────────────────────────────────────
 
+export function buildStrukHtmlCopies(d: StrukData, copies: number): string {
+	const single = renderStrukHtml(d)
+	if (copies <= 1) return single
+	// Strip outer html/head/body so we can stitch multiple copies inside 1 document
+	const bodyContent = single.replace(/^[\s\S]*?<body>/, '').replace(/<\/body>[\s\S]*$/, '')
+	const lebar        = d.ukuran === '58' ? '58mm' : '80mm'
+	const baseFontSize = d.ukuran === '58' ? '8.5pt' : '9.5pt'
+	const sections = Array.from({ length: copies }, (_, i) =>
+		i === 0 ? bodyContent : `<div style="page-break-before:always"></div>${bodyContent}`
+	).join('')
+	return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Struk</title>
+<style>
+@page{size:${lebar} auto;margin:4mm 5mm}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Courier New',Courier,monospace;font-size:${baseFontSize};color:#000;width:100%}
+hr{border:none;border-top:1px dashed #000;margin:4px 0}
+.row{display:flex;justify-content:space-between}
+</style></head><body>${sections}</body></html>`
+}
+
 export function cetakStrukPopup(html: string, onBlokir: () => void): void {
 	const w = window.open('', '_blank', 'width=420,height=700,menubar=no,toolbar=no')
 	if (!w) {
