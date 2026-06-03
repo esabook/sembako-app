@@ -571,6 +571,45 @@ export const retur_penjualan_tukar = sqliteTable('retur_penjualan_tukar', {
   subtotal: real('subtotal').notNull(),
 })
 
+// ═══════════════════════════════════════════════════════════════════════════
+// RETUR SUPPLIER (Fase C6)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Kebalikan dari barang_masuk: barang dikembalikan ke supplier.
+// Stok dikurangi (mutasi keluar). Hutang dikurangi (kurang_hutang)
+// atau kas masuk dari supplier (tunai).
+export const retur_supplier = sqliteTable('retur_supplier', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  no_retur: text('no_retur').notNull().unique(),
+  barang_masuk_id: integer('barang_masuk_id').notNull().references(() => barang_masuk.id),
+  supplier_id: integer('supplier_id').notNull().references(() => supplier.id),
+  tanggal: text('tanggal').notNull(),
+  dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  total_retur: real('total_retur').notNull().default(0),
+  alasan: text('alasan'),
+  // kurang_hutang = kurangi sisa hutang, tunai = terima uang balik
+  metode_refund: text('metode_refund', {
+    enum: ['kurang_hutang', 'tunai'],
+  }).notNull().default('kurang_hutang'),
+  hutang_id: integer('hutang_id').references(() => hutang_supplier.id),
+  kas_bank_id: integer('kas_bank_id').references(() => kas_bank.id),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_retur_sup_bm').on(t.barang_masuk_id),
+  index('idx_retur_sup_supplier').on(t.supplier_id),
+])
+
+export const retur_supplier_detail = sqliteTable('retur_supplier_detail', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  retur_id: integer('retur_id').notNull().references(() => retur_supplier.id),
+  barang_id: integer('barang_id').notNull().references(() => barang.id),
+  jumlah_retur: real('jumlah_retur').notNull(),
+  harga_beli: real('harga_beli').notNull(), // snapshot harga dari penerimaan asal
+  subtotal: real('subtotal').notNull(),
+})
+
 // ─── Notifikasi Terpusat ──────────────────────────────────────────────────────
 
 export const notifikasi_config = sqliteTable('notifikasi_config', {
