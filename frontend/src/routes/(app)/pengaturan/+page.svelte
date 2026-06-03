@@ -105,6 +105,43 @@
 		}
 		saving = false
 	}
+
+	// ── Backup & Restore ────────────────────────────────────────────────────────
+	let restoring = $state(false)
+	let restoreFile = $state<File | null>(null)
+	let restoreConfirm = $state(false)
+
+	function pilihFileRestore(e: Event) {
+		const f = (e.target as HTMLInputElement).files?.[0]
+		if (!f) return
+		if (!f.name.endsWith('.db')) {
+			toast.error('Pilih file .db hasil backup Stokasir')
+			return
+		}
+		restoreFile = f
+		restoreConfirm = false
+	}
+
+	async function jalankanRestore() {
+		if (!restoreFile) return
+		restoring = true
+		const fd = new FormData()
+		fd.append('file', restoreFile)
+		const res = await fetch('/api/pengaturan/restore-db', {
+			method: 'POST',
+			body: fd,
+			credentials: 'include',
+		})
+		const json = await res.json()
+		if (json.success) {
+			toast.sukses('Restore berhasil. Halaman akan dimuat ulang...')
+			setTimeout(() => window.location.reload(), 3000)
+		} else {
+			toast.error(json.error ?? 'Restore gagal')
+		}
+		restoring = false
+		restoreConfirm = false
+	}
 </script>
 
 <div class="space-y-6">
@@ -385,21 +422,77 @@
 			{/if}
 		</section>
 
-		<!-- ── Backup Database ──────────────────────────────────────── -->
-		<section class="rounded border p-4 space-y-3" style="background:var(--surface);border-color:var(--border)">
-			<h2 class="text-sm font-bold uppercase tracking-widest" style="color:var(--text-dim)">Backup Database</h2>
-			<p class="text-xs" style="color:var(--text-dim)">Download salinan database SQLite. Simpan di tempat aman sebagai cadangan.</p>
-			<div class="flex items-center gap-3">
+		<!-- ── Backup & Restore Database ───────────────────────────── -->
+		<section class="rounded border p-4 space-y-4" style="background:var(--surface);border-color:var(--border)">
+			<h2 class="text-sm font-bold uppercase tracking-widest" style="color:var(--text-dim)">Backup & Restore Database</h2>
+
+			<!-- Export -->
+			<div class="space-y-1">
+				<p class="text-xs font-semibold" style="color:var(--text)">Export / Download Backup</p>
+				<p class="text-xs" style="color:var(--text-dim)">Download salinan penuh database SQLite. Simpan di tempat aman sebagai cadangan sebelum update besar.</p>
 				<a
 					href="/api/pengaturan/backup-db"
 					download
-					class="inline-flex items-center gap-2 rounded border px-4 py-2 text-sm font-medium"
+					class="inline-flex items-center gap-2 rounded border px-4 py-2 text-sm font-medium mt-1"
 					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 				>
 					↓ Download Backup (.db)
 				</a>
 			</div>
-			<p class="text-xs" style="color:var(--text-dim)">Untuk restore: ganti file <code class="font-mono">data.db</code> di server lalu restart aplikasi.</p>
+
+			<hr style="border-color:var(--border)" />
+
+			<!-- Restore -->
+			<div class="space-y-2">
+				<p class="text-xs font-semibold" style="color:var(--text)">Restore dari Backup</p>
+				<p class="text-xs" style="color:var(--text-dim)">
+					Upload file <code class="font-mono">.db</code> hasil backup. <strong style="color:var(--danger)">Semua data saat ini akan diganti.</strong> Lakukan hanya jika yakin.
+				</p>
+
+				<input
+					type="file"
+					accept=".db"
+					onchange={pilihFileRestore}
+					class="text-xs"
+					style="color:var(--text-dim)"
+				/>
+
+				{#if restoreFile && !restoreConfirm}
+					<div class="flex items-center gap-3 rounded border px-3 py-2" style="border-color:var(--warn);background:rgba(255,193,7,.08)">
+						<span class="text-xs" style="color:var(--warn)">File: <strong>{restoreFile.name}</strong> ({(restoreFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+						<button
+							onclick={() => restoreConfirm = true}
+							class="rounded px-3 py-1 text-xs font-bold"
+							style="background:var(--danger);color:#fff;border:none;cursor:pointer"
+						>Yakin? Restore Sekarang</button>
+						<button
+							onclick={() => { restoreFile = null; restoreConfirm = false }}
+							class="text-xs"
+							style="background:none;border:none;color:var(--text-dim);cursor:pointer"
+						>Batal</button>
+					</div>
+				{/if}
+
+				{#if restoreConfirm}
+					<div class="rounded border px-3 py-2 space-y-2" style="border-color:var(--danger);background:rgba(255,82,82,.08)">
+						<p class="text-xs font-bold" style="color:var(--danger)">⚠ Konfirmasi Restore</p>
+						<p class="text-xs" style="color:var(--text-dim)">Data saat ini akan hilang dan diganti dengan isi file backup. Server akan restart otomatis.</p>
+						<div class="flex gap-2">
+							<button
+								onclick={jalankanRestore}
+								disabled={restoring}
+								class="rounded px-3 py-1 text-xs font-bold"
+								style="background:var(--danger);color:#fff;border:none;cursor:pointer;opacity:{restoring ? 0.6 : 1}"
+							>{restoring ? 'Memproses...' : 'Restore & Restart Server'}</button>
+							<button
+								onclick={() => { restoreConfirm = false; restoreFile = null }}
+								class="text-xs"
+								style="background:none;border:none;color:var(--text-dim);cursor:pointer"
+							>Batal</button>
+						</div>
+					</div>
+				{/if}
+			</div>
 		</section>
 
 		<!-- ── Tombol Simpan ─────────────────────────────────────────── -->
