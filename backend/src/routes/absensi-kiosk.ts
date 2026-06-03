@@ -13,8 +13,8 @@ function getWaktuJakarta(): { tanggal: string; jam: string } {
 }
 
 function diffMenit(jamA: string, jamB: string): number {
-  const [ha, ma] = jamA.split(':').map(Number)
-  const [hb, mb] = jamB.split(':').map(Number)
+  const [ha = 0, ma = 0] = jamA.split(':').map(Number)
+  const [hb = 0, mb = 0] = jamB.split(':').map(Number)
   return (hb * 60 + mb) - (ha * 60 + ma)
 }
 

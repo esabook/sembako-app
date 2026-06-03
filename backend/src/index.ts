@@ -162,8 +162,8 @@ initHooks()
 initScheduler()
 
 // Auto-seed: buat admin default hanya jika belum ada karyawan sama sekali (db segar)
-const [{ total }] = db.select({ total: count() }).from(karyawan).all()
-if (total === 0) {
+const seedCheck = db.select({ total: count() }).from(karyawan).get()
+if ((seedCheck?.total ?? 0) === 0) {
   const hash = await Bun.password.hash('admin123')
   db.insert(karyawan).values({
     kode_karyawan: 'KRY-001',

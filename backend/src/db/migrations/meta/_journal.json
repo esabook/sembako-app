@@ -232,6 +232,13 @@
       "when": 1780471253783,
       "tag": "0033_rapid_layla_miller",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1780506471975,
+      "tag": "0034_smooth_sebastian_shaw",
+      "breakpoints": true
     }
   ]
 }

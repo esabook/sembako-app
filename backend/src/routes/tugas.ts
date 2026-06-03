@@ -149,8 +149,8 @@ tugasRouter.get('/ringkasan', requirePermission('*'), async (c) => {
   for (const r of rows) {
     if (r.tanggal < dari || r.tanggal > sampai) continue
     if (!byDate[r.tanggal]) byDate[r.tanggal] = { total: 0, selesai: 0 }
-    byDate[r.tanggal].total++
-    if (r.selesai) byDate[r.tanggal].selesai++
+    byDate[r.tanggal]!.total++
+    if (r.selesai) byDate[r.tanggal]!.selesai++
   }
 
   return c.json({ success: true, data: byDate })
