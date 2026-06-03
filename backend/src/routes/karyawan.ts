@@ -5,9 +5,7 @@ import { db } from '../db/index.ts'
 import { karyawan, shift_kasir, penjualan, absensi } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
-import { Jimp, JimpMime } from 'jimp'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { saveUpload } from '../utils/upload.ts'
 
 export const karyawanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -383,29 +381,14 @@ karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) =
   const formData = await c.req.formData()
   const file = formData.get('foto') as File | null
   if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
-  if (!file.type.startsWith('image/')) throw new HTTPException(400, { message: 'File harus berupa gambar' })
 
-  const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../../uploads')
-  const karyawanDir = join(uploadDir, 'karyawan')
-  mkdirSync(karyawanDir, { recursive: true })
-
-  const filename = `${id}_${Date.now()}.jpg`
-  const buf = Buffer.from(await file.arrayBuffer())
-
-  let fotoPath: string
-  try {
-    const imgMed = await Jimp.fromBuffer(buf)
-    imgMed.cover({ w: 300, h: 300 })
-    writeFileSync(join(karyawanDir, `med_${filename}`), await imgMed.getBuffer(JimpMime.jpeg, { quality: 85 }))
-
-    const imgThumb = await Jimp.fromBuffer(buf)
-    imgThumb.cover({ w: 60, h: 60 })
-    writeFileSync(join(karyawanDir, `thumb_${filename}`), await imgThumb.getBuffer(JimpMime.jpeg, { quality: 80 }))
-
-    fotoPath = `karyawan/med_${filename}`
-  } catch {
-    throw new HTTPException(422, { message: 'Gagal memproses gambar. Pastikan file gambar valid.' })
-  }
+  const { path: fotoPath } = await saveUpload(file, {
+    subdir: 'karyawan',
+    prefix: id,
+    mode: { type: 'cover', w: 300, h: 300 },
+    quality: 85,
+    thumbnail: { w: 60, h: 60, quality: 80 },
+  })
 
   db.update(karyawan)
     .set({ foto_path: fotoPath, updated_at: sql`(datetime('now','localtime'))` })

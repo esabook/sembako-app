@@ -406,6 +406,56 @@ Rule dibuat via `POST /sop/rule` dengan `config_json: [{ id, label, wajib }]`.
 
 ---
 
+## ATTACHMENT / LAMPIRAN (Fase B6)
+
+File: `backend/src/utils/upload.ts` (helper), `backend/src/routes/lampiran.ts` (endpoint).
+Gunakan Sharp untuk resize — bukan Jimp (`jimp` ada di package.json tapi tidak terinstall, pakai `sharp`).
+
+### saveUpload() — helper upload gambar
+
+```typescript
+import { saveUpload } from '../utils/upload.ts'
+
+// Contoh: gambar produk dengan thumbnail
+const { path, thumb_path } = await saveUpload(file, {
+  subdir: 'produk',        // subfolder di uploads/
+  prefix: id,              // prefix filename
+  mode: { type: 'contain', w: 300, h: 300 },  // atau 'cover' | 'passthrough'
+  quality: 85,
+  thumbnail: { w: 60, h: 60, quality: 80 },   // opsional
+})
+
+// Contoh: invoice resolusi tinggi tanpa resize
+const { path } = await saveUpload(file, {
+  subdir: 'invoice',
+  prefix: id,
+  mode: { type: 'passthrough' },
+  quality: 90,
+})
+```
+
+Mode:
+- `contain` — muat dalam kotak, tidak crop (produk/cover buku)
+- `cover` — isi penuh kotak, crop tengah (foto profil)
+- `passthrough` — tidak resize, hanya konversi JPEG (dokumen/invoice)
+
+### Tabel lampiran — generik lintas modul
+
+```
+POST /lampiran                              — upload (multipart: referensi_tipe, referensi_id, file)
+GET  /lampiran?referensi_tipe=X&referensi_id=Y — list
+DELETE /lampiran/:id                        — hapus file + record
+```
+
+Query param `?thumb=1` di POST untuk generate thumbnail 120×120.
+Mendukung gambar (image/*) dan PDF (application/pdf).
+
+Modul yang sudah punya kolom foto sendiri (barang/karyawan/barang_masuk) tetap pakai kolom itu
+tapi sudah refaktor ke `saveUpload()` — bukan duplikasi kode lagi.
+Modul baru → simpan ke tabel `lampiran` via `POST /lampiran`.
+
+---
+
 ## APPROVAL GATE (Fase B5)
 
 Primitif approval lintas modul. Modul apapun bisa pakai tanpa duplikasi logika status.

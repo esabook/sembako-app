@@ -755,6 +755,30 @@ export const sop_rule = sqliteTable('sop_rule', {
 ])
 
 // ═══════════════════════════════════════════════════════════════════════════
+// LAMPIRAN / ATTACHMENT (Fase B6)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Tabel generik untuk menyimpan file terlampir ke dokumen apapun.
+// Modul baru cukup POST /lampiran dengan referensi_tipe + referensi_id.
+// Modul lama (barang/karyawan/barang_masuk) tetap simpan path di kolom sendiri
+// tapi pakai saveUpload() dari utils/upload.ts agar logika tidak duplikat.
+export const lampiran = sqliteTable('lampiran', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  referensi_tipe: text('referensi_tipe').notNull(), // 'kasbon' | 'sop_instance' | dst
+  referensi_id: integer('referensi_id').notNull(),
+  tipe: text('tipe', { enum: ['gambar', 'pdf', 'dokumen'] }).notNull().default('gambar'),
+  path: text('path').notNull(),        // relatif dari uploads/
+  thumb_path: text('thumb_path'),      // opsional, thumbnail untuk gambar
+  nama_asli: text('nama_asli'),        // nama file asli dari user
+  ukuran: integer('ukuran'),           // bytes
+  uploaded_by: integer('uploaded_by').notNull().references(() => karyawan.id),
+  dibuat_at: text('dibuat_at').notNull().default(sql`(datetime('now','localtime'))`),
+  ...tenantField,
+}, (t) => [
+  index('idx_lampiran_ref').on(t.referensi_tipe, t.referensi_id),
+])
+
+// ═══════════════════════════════════════════════════════════════════════════
 // APPROVAL GATE (Fase B5)
 // ═══════════════════════════════════════════════════════════════════════════
 
