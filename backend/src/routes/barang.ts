@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, like, and, or, sql } from 'drizzle-orm'
+import { eq, like, and, or, sql, max } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db } from '../db/index.ts'
 import { barang, kategori, satuan } from '../db/schema.ts'
@@ -7,6 +7,7 @@ import { catatLog } from '../utils/log.ts'
 import type { JWTPayload } from './auth.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { saveUpload } from '../utils/upload.ts'
+import { getAuditBy } from '../utils/audit.ts'
 
 export const barangRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -287,4 +288,178 @@ barangRouter.post('/:id/foto', requirePermission('stok.edit'), async (c) => {
     .run()
 
   return c.json({ success: true, data: { foto_path: fotoPath } })
+})
+
+// ── Import CSV ────────────────────────────────────────────────────────────
+// Terima array row yang sudah diparsing & dipetakan di frontend.
+// Backend bertanggung jawab: resolve kategori/satuan, generate kode, upsert.
+
+type ImportRow = {
+  nama_barang: string
+  kode_barang?: string
+  kategori_nama?: string
+  satuan_nama?: string
+  harga_beli?: number
+  harga_jual_eceran?: number
+  harga_jual_grosir?: number
+  stok_minimum?: number
+  stok_sekarang?: number
+  lokasi_rak?: string
+}
+
+type ImportSettings = {
+  duplikat: 'skip' | 'update' | 'generate'
+  kategori_auto: boolean
+  satuan_auto: boolean
+  kategori_default_id?: number
+  satuan_default_id?: number
+}
+
+barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const body = await c.req.json<{ rows: ImportRow[]; settings: ImportSettings }>()
+
+  if (!Array.isArray(body.rows) || body.rows.length === 0) {
+    throw new HTTPException(400, { message: 'Tidak ada baris untuk diimport' })
+  }
+
+  type FailedRow = { index: number; nama: string; alasan: string }
+  const berhasil: number[] = []
+  const dilewati: number[] = []
+  const gagal: FailedRow[] = []
+  const kategoriDibuat: string[] = []
+  const satuanDibuat: string[] = []
+
+  // Cache lookup agar tidak query berulang per baris
+  const katCache = new Map<string, number>()
+  const satCache = new Map<string, number>()
+
+  // Seed cache dengan data yang sudah ada
+  for (const k of db.select({ id: kategori.id, nama: kategori.nama }).from(kategori).all()) {
+    katCache.set(k.nama.toLowerCase(), k.id)
+  }
+  for (const s of db.select({ id: satuan.id, nama: satuan.nama }).from(satuan).all()) {
+    satCache.set(s.nama.toLowerCase(), s.id)
+  }
+
+  // Ambil counter kode otomatis terakhir
+  const lastKode = db.select({ kode: barang.kode_barang }).from(barang)
+    .where(like(barang.kode_barang, 'BRG-%')).all()
+    .map(r => parseInt(r.kode.replace('BRG-', '')) || 0)
+  let kodeCounter = lastKode.length > 0 ? Math.max(...lastKode) : 0
+
+  function nextKode(): string {
+    kodeCounter++
+    return `BRG-${String(kodeCounter).padStart(4, '0')}`
+  }
+
+  db.transaction(() => {
+    for (let i = 0; i < body.rows.length; i++) {
+      const row = body.rows[i]!
+      const nama = row.nama_barang?.trim()
+      if (!nama) {
+        gagal.push({ index: i + 1, nama: '', alasan: 'nama_barang kosong' })
+        continue
+      }
+
+      // Resolve kategori
+      let kategoriId: number | undefined
+      if (row.kategori_nama?.trim()) {
+        const key = row.kategori_nama.trim().toLowerCase()
+        if (katCache.has(key)) {
+          kategoriId = katCache.get(key)
+        } else if (body.settings.kategori_auto) {
+          const newKat = db.insert(kategori).values({ nama: row.kategori_nama.trim() }).returning().get()
+          katCache.set(key, newKat.id)
+          kategoriDibuat.push(row.kategori_nama.trim())
+          kategoriId = newKat.id
+        } else {
+          kategoriId = body.settings.kategori_default_id
+        }
+      }
+
+      // Resolve satuan
+      let satuanId: number | undefined
+      if (row.satuan_nama?.trim()) {
+        const key = row.satuan_nama.trim().toLowerCase()
+        if (satCache.has(key)) {
+          satuanId = satCache.get(key)
+        } else if (body.settings.satuan_auto) {
+          const newSat = db.insert(satuan).values({ nama: row.satuan_nama.trim(), singkatan: row.satuan_nama.trim().slice(0, 10) }).returning().get()
+          satCache.set(key, newSat.id)
+          satuanDibuat.push(row.satuan_nama.trim())
+          satuanId = newSat.id
+        } else {
+          satuanId = body.settings.satuan_default_id
+        }
+      }
+
+      // Resolve kode
+      let kode = row.kode_barang?.trim()
+      if (!kode) kode = nextKode()
+
+      // Cek duplikat
+      const existing = db.select({ id: barang.id, kode_barang: barang.kode_barang })
+        .from(barang).where(eq(barang.kode_barang, kode)).get()
+
+      if (existing) {
+        if (body.settings.duplikat === 'skip') {
+          dilewati.push(i + 1)
+          continue
+        } else if (body.settings.duplikat === 'generate') {
+          kode = nextKode()
+        } else {
+          // update
+          db.update(barang).set({
+            nama_barang: nama,
+            kategori_id: kategoriId,
+            satuan_dasar_id: satuanId,
+            harga_beli_terakhir: row.harga_beli ?? 0,
+            harga_beli_rata: row.harga_beli ?? 0,
+            harga_jual_eceran: row.harga_jual_eceran ?? 0,
+            harga_jual_grosir: row.harga_jual_grosir ?? 0,
+            stok_minimum: row.stok_minimum ?? 0,
+            stok_sekarang: row.stok_sekarang ?? 0,
+            lokasi_rak: row.lokasi_rak || null,
+            ...{ updated_by: user.id },
+            updated_at: sql`(datetime('now','localtime'))`,
+          }).where(eq(barang.id, existing.id)).run()
+          berhasil.push(existing.id)
+          continue
+        }
+      }
+
+      try {
+        const inserted = db.insert(barang).values({
+          kode_barang: kode,
+          nama_barang: nama,
+          kategori_id: kategoriId,
+          satuan_dasar_id: satuanId,
+          harga_beli_terakhir: row.harga_beli ?? 0,
+          harga_beli_rata: row.harga_beli ?? 0,
+          harga_jual_eceran: row.harga_jual_eceran ?? 0,
+          harga_jual_grosir: row.harga_jual_grosir ?? 0,
+          stok_minimum: row.stok_minimum ?? 0,
+          stok_sekarang: row.stok_sekarang ?? 0,
+          lokasi_rak: row.lokasi_rak || null,
+          ...getAuditBy(c),
+        }).returning({ id: barang.id }).get()
+        berhasil.push(inserted.id)
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        gagal.push({ index: i + 1, nama, alasan: msg.includes('UNIQUE') ? 'Kode sudah ada' : 'Gagal simpan' })
+      }
+    }
+  })
+
+  return c.json({
+    success: true,
+    data: {
+      berhasil: berhasil.length,
+      dilewati: dilewati.length,
+      gagal,
+      kategori_dibuat: [...new Set(kategoriDibuat)],
+      satuan_dibuat: [...new Set(satuanDibuat)],
+    },
+  })
 })
