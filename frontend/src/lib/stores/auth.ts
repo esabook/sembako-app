@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store'
 
-export type Role = 'pemilik' | 'manajer' | 'kasir' | 'gudang'
+export type Role = 'pemilik' | 'manajer' | 'kasir' | 'gudang' | 'sales' | 'pelayanan'
 
 export type User = {
   id: number

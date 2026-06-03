@@ -901,6 +901,42 @@ export const approval = sqliteTable('approval', {
   index('idx_approval_status').on(t.status),
 ])
 
+// ─── C4: Inventaris Aset Tetap ───────────────────────────────────────────────
+export const aset_tetap = sqliteTable('aset_tetap', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama: text('nama').notNull(),
+  kategori: text('kategori').notNull().default('Lainnya'),
+  nilai_beli: integer('nilai_beli').notNull().default(0),
+  nilai_sekarang: integer('nilai_sekarang').notNull().default(0),
+  tanggal_beli: text('tanggal_beli'),
+  kondisi: text('kondisi', {
+    enum: ['baik', 'rusak_ringan', 'rusak_berat', 'dijual', 'dibuang'],
+  }).notNull().default('baik'),
+  lokasi: text('lokasi'),
+  catatan: text('catatan'),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C4: Tagihan Utilitas (Listrik, Air, Internet, dll) ──────────────────────
+export const tagihan_utilitas = sqliteTable('tagihan_utilitas', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  jenis: text('jenis', {
+    enum: ['listrik', 'air', 'internet', 'lainnya'],
+  }).notNull().default('listrik'),
+  periode_bulan: text('periode_bulan').notNull(),
+  jumlah: integer('jumlah').notNull().default(0),
+  tanggal_bayar: text('tanggal_bayar'),
+  meter_awal: integer('meter_awal'),
+  meter_akhir: integer('meter_akhir'),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
 // Jejak eksekusi tiap rule per transaksi/karyawan
 export const sop_instance = sqliteTable('sop_instance', {
   id: integer('id').primaryKey({ autoIncrement: true }),

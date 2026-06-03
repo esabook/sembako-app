@@ -5,6 +5,8 @@ export const ROLE_COLOR: Record<string, string> = {
   manajer: 'var(--info)',
   kasir: 'var(--warn)',
   gudang: 'var(--text-dim)',
+  sales: '#a855f7',
+  pelayanan: '#ec4899',
 }
 
 export const STATUS_COLOR: Record<string, string> = {

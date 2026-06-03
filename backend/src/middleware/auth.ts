@@ -8,7 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production'
 )
 
-export type Role = 'pemilik' | 'manajer' | 'kasir' | 'gudang'
+export type Role = 'pemilik' | 'manajer' | 'kasir' | 'gudang' | 'sales' | 'pelayanan'
 export type Permission = string
 
 const ROLE_PERMISSIONS: Record<Role, string[]> = {
@@ -26,6 +26,22 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'harga_beli.edit',
     'pembelian.buat',
     'pembelian.lihat',
+    'absensi.diri',
+  ],
+  sales: [
+    'stok.lihat',
+    'harga_jual.lihat',
+    'pelanggan.lihat',
+    'pelanggan.edit',
+    'penjualan.lihat',
+    'penjualan.buat',
+    'absensi.diri',
+  ],
+  pelayanan: [
+    'stok.lihat',
+    'harga_jual.lihat',
+    'pelanggan.lihat',
+    'penjualan.lihat',
     'absensi.diri',
   ],
   manajer: [
