@@ -389,11 +389,13 @@ bus.registerBefore('absensi.masuk', async ({ karyawan_id }) => {
 ### Event yang sudah ada
 
 ```
-'absensi.masuk'   → before: cek SOP checklist; after: (slot kosong)
-'absensi.pulang'  → (slot kosong)
-'checkout'        → after: cek stok minimum → notifikasi_log
-'barang_masuk'    → (slot kosong)
-'stok.kritis'     → (slot kosong, emitted manual jika perlu)
+'absensi.masuk'      → before: cek SOP checklist; after: (slot kosong)
+'absensi.pulang'     → (slot kosong)
+'checkout'           → after: cek stok minimum → notifikasi_log
+'barang_masuk'       → (slot kosong)
+'stok.kritis'        → (slot kosong, emitted manual jika perlu)
+'approval.disetujui' → after: (slot kosong — hook di sini untuk notif/aksi lanjutan)
+'approval.ditolak'   → after: (slot kosong — hook di sini untuk notif/aksi lanjutan)
 ```
 
 ### SOP Checklist (B4 POC)
@@ -401,6 +403,51 @@ bus.registerBefore('absensi.masuk', async ({ karyawan_id }) => {
 Kiosk `/absensi-kiosk/masuk` → 428 jika ada `sop_rule` checklist aktif belum selesai.
 Flow: `GET /sop/checklist-hari-ini` → tampilkan item → `POST /sop/checklist/:id/selesai` → retry masuk.
 Rule dibuat via `POST /sop/rule` dengan `config_json: [{ id, label, wajib }]`.
+
+---
+
+## APPROVAL GATE (Fase B5)
+
+Primitif approval lintas modul. Modul apapun bisa pakai tanpa duplikasi logika status.
+
+File: `backend/src/utils/approval.ts` (helper), `backend/src/routes/approval.ts` (endpoint).
+
+### Cara pakai di route
+
+```typescript
+import { mintaApproval, getApproval } from '../utils/approval.ts'
+
+// Saat user mengajukan (insert record modul, lalu daftarkan ke approval):
+const ap = mintaApproval({
+  referensi_tipe: 'kasbon',   // string bebas, biasanya nama tabel
+  referensi_id: row.id,
+  diminta_oleh: user.id,
+  catatan_pengaju: body.catatan,  // opsional
+})
+
+// Cek status approval yang sudah ada:
+const current = getApproval('kasbon', id)
+// current?.status → 'menunggu' | 'disetujui' | 'ditolak' | null
+```
+
+### Endpoint approval
+
+```
+GET  /approval                  → list (query: referensi_tipe, status, limit)
+POST /approval/:id/setujui      → setujui (body: { catatan? }) — pemilik/manajer only
+POST /approval/:id/tolak        → tolak   (body: { catatan? }) — pemilik/manajer only
+```
+
+Setelah setujui/tolak, bus emit `approval.disetujui` / `approval.ditolak` — hook di `hooks.ts` untuk aksi lanjutan (cairkan kasbon, notif, dsb).
+
+### Status flow
+
+```
+menunggu → disetujui  (via POST /approval/:id/setujui)
+menunggu → ditolak    (via POST /approval/:id/tolak)
+```
+
+Modul kasbon dan stok_opname punya kolom approval sendiri (historis). Modul baru sebaiknya pakai primitif ini.
 
 ---
 
@@ -415,6 +462,7 @@ Rule dibuat via `POST /sop/rule` dengan `config_json: [{ id, label, wajib }]`.
    $effect(() => { if ($user && !['pemilik','manajer'].includes($user.role)) goto('/kasir') })
 6. Tabel baru → spread ...tenantField + ...auditFields + ...timestamps (lihat §ATURAN DATABASE)
 7. Aksi penting di route → emit event ke bus (sebelum/sesudah sesuai kebutuhan)
+8. Modul baru yang butuh approval → pakai mintaApproval() dari utils/approval.ts (bukan buat kolom sendiri)
 ```
 
 ---
