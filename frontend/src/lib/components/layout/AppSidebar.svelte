@@ -96,6 +96,18 @@
 			icon: 'M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z'
 		},
 		{
+			href: '/sales',
+			label: 'Sales & Kunjungan',
+			roles: ['pemilik', 'manajer', 'sales'],
+			icon: 'M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.06 15.94 0 13.36 0c-1.46 0-2.47.52-3.48 1.55L9 3 7.12 1.55C6.1.52 5.09 0 3.64 0 1.06 0-1 2.06-1 4.64c0 .48.11.92.18 1.36H-1v2h22V6zm-2 12c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V10h12v8zm-9-2h2v-4h-2v4zm4 0h2v-4h-2v4z M3 6h18v2H3V6z M20 6H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-5 14H9v-2l-2-2v-3l2-2h6l2 2v3l-2 2v2z'
+		},
+		{
+			href: '/crm',
+			label: 'CRM',
+			roles: ['pemilik', 'manajer', 'kasir', 'pelayanan'],
+			icon: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12zM7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z'
+		},
+		{
 			href: '/gudang',
 			label: 'Gudang',
 			roles: ['pemilik', 'manajer', 'gudang'],

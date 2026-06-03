@@ -901,6 +901,88 @@ export const approval = sqliteTable('approval', {
   index('idx_approval_status').on(t.status),
 ])
 
+// ─── C2: Kunjungan Sales ke Warung ───────────────────────────────────────────
+export const kunjungan_sales = sqliteTable('kunjungan_sales', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  nama_warung: text('nama_warung').notNull(),
+  alamat: text('alamat'),
+  petugas_id: integer('petugas_id').references(() => karyawan.id),
+  tanggal: text('tanggal').notNull(),
+  tujuan: text('tujuan', {
+    enum: ['prospek', 'follow_up', 'pengiriman', 'lainnya'],
+  }).notNull().default('prospek'),
+  hasil: text('hasil'),
+  catatan: text('catatan'),
+  status_tindak_lanjut: text('status_tindak_lanjut', {
+    enum: ['open', 'selesai', 'pending'],
+  }).notNull().default('open'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C2: Agenda Supplier ──────────────────────────────────────────────────────
+export const agenda_supplier = sqliteTable('agenda_supplier', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  supplier_id: integer('supplier_id').references(() => supplier.id),
+  nama_supplier: text('nama_supplier').notNull(),
+  tipe: text('tipe', {
+    enum: ['kunjungan', 'negosiasi', 'pengiriman', 'lainnya'],
+  }).notNull().default('kunjungan'),
+  tanggal: text('tanggal').notNull(),
+  jam: text('jam'),
+  lokasi: text('lokasi'),
+  petugas_id: integer('petugas_id').references(() => karyawan.id),
+  hasil: text('hasil'),
+  catatan: text('catatan'),
+  status: text('status', {
+    enum: ['dijadwalkan', 'selesai', 'dibatalkan'],
+  }).notNull().default('dijadwalkan'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C3: Permintaan Pelanggan ─────────────────────────────────────────────────
+export const permintaan_pelanggan = sqliteTable('permintaan_pelanggan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  nama_pelanggan: text('nama_pelanggan'),
+  nama_barang: text('nama_barang').notNull(),
+  barang_id: integer('barang_id').references(() => barang.id),
+  qty_minta: integer('qty_minta'),
+  catatan: text('catatan'),
+  status: text('status', {
+    enum: ['menunggu', 'tersedia', 'tidak_tersedia'],
+  }).notNull().default('menunggu'),
+  tanggal: text('tanggal').notNull(),
+  ditangani_oleh: integer('ditangani_oleh').references(() => karyawan.id),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C3: Komplain Pelanggan ───────────────────────────────────────────────────
+export const komplain_pelanggan = sqliteTable('komplain_pelanggan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  nama_pelanggan: text('nama_pelanggan'),
+  kategori: text('kategori', {
+    enum: ['kualitas_barang', 'pelayanan', 'harga', 'pengiriman', 'lainnya'],
+  }).notNull().default('lainnya'),
+  deskripsi: text('deskripsi').notNull(),
+  tanggal: text('tanggal').notNull(),
+  status: text('status', {
+    enum: ['masuk', 'diproses', 'selesai', 'ditolak'],
+  }).notNull().default('masuk'),
+  resolusi: text('resolusi'),
+  ditangani_oleh: integer('ditangani_oleh').references(() => karyawan.id),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
 // ─── C5: Pinjaman & Investasi ─────────────────────────────────────────────────
 export const pinjaman_investasi = sqliteTable('pinjaman_investasi', {
   id: integer('id').primaryKey({ autoIncrement: true }),

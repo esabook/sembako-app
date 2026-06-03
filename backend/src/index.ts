@@ -50,6 +50,8 @@ import { asetRouter } from './routes/aset.ts'
 import { utilitasRouter } from './routes/utilitas.ts'
 import { pinjamanInvestasiRouter } from './routes/pinjaman-investasi.ts'
 import { tamuRouter } from './routes/tamu.ts'
+import { salesRouter } from './routes/sales.ts'
+import { crmRouter } from './routes/crm.ts'
 import { initHooks } from './lib/hooks.ts'
 import { initScheduler } from './lib/scheduler.ts'
 import type { JWTPayload } from './routes/auth.ts'
@@ -139,6 +141,8 @@ app.route('/aset', asetRouter)
 app.route('/utilitas', utilitasRouter)
 app.route('/pinjaman-investasi', pinjamanInvestasiRouter)
 app.route('/tamu', tamuRouter)
+app.route('/sales', salesRouter)
+app.route('/crm', crmRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 // MIGRATIONS_DIR bisa di-set via env untuk distribusi (default: src/db/migrations untuk dev)
