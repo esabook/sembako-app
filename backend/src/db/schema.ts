@@ -48,7 +48,9 @@ export const karyawan = sqliteTable('karyawan', {
   pin_absensi: text('pin_absensi'),
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   ...timestamps,
-})
+}, (t) => [
+  index('idx_karyawan_active').on(t.is_active),
+])
 
 export const log_aktivitas = sqliteTable('log_aktivitas', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -122,10 +124,11 @@ export const barang = sqliteTable('barang', {
   ...tenantField,
   ...auditFields,
   ...timestamps,
-}, () => [
+}, (t) => [
   check('chk_barang_harga_jual_eceran', sql`harga_jual_eceran >= 0`),
   check('chk_barang_harga_jual_grosir', sql`harga_jual_grosir >= 0`),
   check('chk_barang_stok', sql`stok_sekarang >= 0`),
+  index('idx_barang_active').on(t.is_active),
 ])
 
 export const supplier = sqliteTable('supplier', {
@@ -250,7 +253,9 @@ export const barang_masuk_detail = sqliteTable('barang_masuk_detail', {
   harga_beli: real('harga_beli').notNull(),
   tgl_kadaluarsa: text('tgl_kadaluarsa'),
   ...tenantField,
-})
+}, (t) => [
+  index('idx_bmd_kadaluarsa').on(t.tgl_kadaluarsa),
+])
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODUL PENJUALAN
@@ -476,7 +481,9 @@ export const penggajian = sqliteTable('penggajian', {
   status: text('status', { enum: ['draft', 'approved', 'dibayar'] }).notNull().default('draft'),
   ...tenantField,
   ...timestamps,
-})
+}, (t) => [
+  index('idx_penggajian_karyawan_bulan').on(t.karyawan_id, t.periode_bulan),
+])
 
 export const kasbon = sqliteTable('kasbon', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -497,6 +504,7 @@ export const kasbon = sqliteTable('kasbon', {
   check('chk_kasbon_jumlah_pos', sql`${t.jumlah} > 0`),
   check('chk_kasbon_sisa_pos', sql`${t.sisa_kasbon} >= 0`),
   check('chk_kasbon_cicilan_pos', sql`${t.cicilan_per_bulan} >= 0`),
+  index('idx_kasbon_karyawan_status').on(t.karyawan_id, t.status),
 ])
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -719,7 +727,9 @@ export const notifikasi_log = sqliteTable('notifikasi_log', {
   waktu: text('waktu').notNull().default(sql`(datetime('now','localtime'))`),
   referensi_tipe: text('referensi_tipe'),
   referensi_id: integer('referensi_id'),
-})
+}, (t) => [
+  index('idx_notif_log_ref').on(t.referensi_tipe, t.referensi_id, t.waktu),
+])
 
 // ─── Budget & Target ──────────────────────────────────────────────────────────
 
