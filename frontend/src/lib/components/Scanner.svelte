@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 
 	let { onDetect, onClose }: { onDetect: (kode: string) => void; onClose?: () => void } = $props();
 
@@ -84,12 +84,14 @@
 		stop();
 	}
 
-	onMount(start);
-	onDestroy(() => {
-		scanning = false;
-		if (animFrameId !== null) { cancelAnimationFrame(animFrameId); animFrameId = null; }
-		stream?.getTracks().forEach((t) => t.stop());
-		stream = null;
+	onMount(() => {
+		start();
+		return () => {
+			scanning = false;
+			if (animFrameId !== null) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+			stream?.getTracks().forEach((t) => t.stop());
+			stream = null;
+		};
 	});
 </script>
 

@@ -1003,8 +1003,10 @@
               </td>
             </tr>
           {/each}
-          {#if !izinRows.length}
-            <tr><td colspan="7" class="py-6 text-center text-sm" style="color:var(--text-dim)">{izinLoading ? 'Memuat...' : 'Belum ada pengajuan'}</td></tr>
+          {#if izinLoading}
+            <tr><td colspan="7" class="py-6 text-center"><Spinner /></td></tr>
+          {:else if !izinRows.length}
+            <tr><td colspan="7" class="py-6 text-center text-sm" style="color:var(--text-dim)">Belum ada pengajuan</td></tr>
           {/if}
         </tbody>
       </table>

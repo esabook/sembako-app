@@ -3,6 +3,7 @@
   import { toast } from '$lib/stores/ui.store.js'
   import { rupiah } from './kasir.logic.js'
   import ModalWindow from '$lib/components/ModalWindow.svelte'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   type ShiftAktif = {
     id: number; tanggal: string; jam_buka: string; kas_awal: number;
@@ -71,8 +72,8 @@
   </p>
 
   {#if loadingRekap}
-    <div class="flex items-center justify-center py-8" style="color:var(--text-dim)">
-      <span class="text-sm">Memuat rekap...</span>
+    <div class="flex justify-center py-8">
+      <Spinner />
     </div>
   {:else if rekapShift}
     <div class="flex flex-col gap-3">

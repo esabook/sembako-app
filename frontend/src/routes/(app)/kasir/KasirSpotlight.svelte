@@ -13,6 +13,7 @@
 		dummyJumlah
 	} from './kasir.store';
 	import { rupiah } from './kasir.logic';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let inputEl: HTMLInputElement | undefined = $state();
 
@@ -96,7 +97,7 @@
 				style="color:var(--text)"
 			/>
 			{#if $cariLoading}
-				<span class="shrink-0 text-xs" style="color:var(--text-dim)">mencari...</span>
+				<Spinner size={14} />
 			{/if}
 		</div>
 	</div>
