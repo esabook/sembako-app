@@ -73,7 +73,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
-	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 
 	export type Column = {
 		key: string;
@@ -481,11 +481,15 @@
 				<!-- FIX 3: class dt-tbody-wrap/nowrap mengaktifkan CSS :global di atas -->
 				<tbody class={wrapMode ? 'dt-tbody-wrap' : 'dt-tbody-nowrap'}>
 					{#if loading}
-						<tr>
-							<td colspan={visibleColumns.length} class="px-3 py-10 text-center">
-								<Spinner />
-							</td>
-						</tr>
+						{#each { length: 5 } as _, i (i)}
+							<tr style="border-bottom:1px solid var(--border)">
+								{#each visibleColumns as col (col.key)}
+									<td class="px-3 py-2.5">
+										<Skeleton h="0.75rem" w="{60 + (i * 13 + col.key.length * 7) % 35}%" />
+									</td>
+								{/each}
+							</tr>
+						{/each}
 					{:else if rowCount === 0}
 						<tr>
 							<td
