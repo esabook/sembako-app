@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SlideOver from '$lib/components/SlideOver.svelte'
+	import Spinner from '$lib/components/ui/Spinner.svelte'
 	import type { ReturDetail } from './retur.types.js'
 
 	let {
@@ -32,7 +33,7 @@
 <SlideOver bind:open title="Detail Retur">
 	{#snippet children()}
 		{#if loading}
-			<p class="py-8 text-center text-sm" style="color:var(--text-dim)">Memuat...</p>
+			<div class="flex justify-center py-6"><Spinner /></div>
 		{:else if data}
 			<div class="space-y-3 text-xs">
 				<div class="grid grid-cols-2 gap-x-4 gap-y-1 rounded border p-3"

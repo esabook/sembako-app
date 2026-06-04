@@ -207,7 +207,7 @@
       bind:pageSize={store.pageSizeKaryawan}
       totalRows={store.filteredKaryawan.length}
       rowCount={store.pagedKaryawan.length}
-      emptyText={store.loadingKaryawan ? 'Memuat...' : 'Tidak ada data'}
+      emptyText="Tidak ada data"
       maxRows={12}
     >
       {#snippet toolbarEnd()}
@@ -351,7 +351,7 @@
         bind:sortKey={store.sortKeyAbsensi}
         bind:sortDir={store.sortDirAbsensi}
         rowCount={store.sortedAbsensi.length}
-        emptyText={store.loadingAbsensi ? 'Memuat...' : 'Belum ada data absensi bulan ini'}
+        emptyText="Belum ada data absensi bulan ini"
         maxRows={14}
       >
         {#snippet body(hidden)}
@@ -405,7 +405,7 @@
         bind:sortKey={store.sortKeyRekap}
         bind:sortDir={store.sortDirRekap}
         rowCount={store.sortedRekap.length}
-        emptyText={store.loadingAbsensi ? 'Memuat...' : 'Belum ada data'}
+        emptyText="Belum ada data"
         maxRows={14}
       >
         {#snippet body(hidden)}
@@ -465,7 +465,7 @@
       bind:sortKey={store.sortKeyGaji}
       bind:sortDir={store.sortDirGaji}
       rowCount={store.sortedGaji.length}
-      emptyText={store.loadingGaji ? 'Memuat...' : 'Belum ada data — klik "Generate Gaji" untuk membuat slip gaji dari absensi'}
+      emptyText='Belum ada data — klik "Generate Gaji" untuk membuat slip gaji dari absensi'
       maxRows={12}
     >
       {#snippet body(hidden)}
@@ -557,7 +557,7 @@
       bind:sortKey={store.sortKeyKasbon}
       bind:sortDir={store.sortDirKasbon}
       rowCount={store.sortedKasbon.length}
-      emptyText={store.loadingKasbon ? 'Memuat...' : 'Tidak ada kasbon'}
+      emptyText="Tidak ada kasbon"
       maxRows={12}
     >
       {#snippet body(hidden)}

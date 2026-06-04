@@ -536,7 +536,7 @@
       bind:pageSize={pageSizeHutang}
       totalRows={hutangFiltered.length}
       rowCount={pagedHutang.length}
-      emptyText={loading ? 'Memuat...' : 'Tidak ada data hutang.'}
+      emptyText="Tidak ada data hutang."
       maxRows={12}
     >
       {#snippet body(hidden)}
@@ -602,7 +602,7 @@
       bind:pageSize={pageSizePiutang}
       totalRows={piutangFiltered.length}
       rowCount={pagedPiutang.length}
-      emptyText={loading ? 'Memuat...' : 'Tidak ada data piutang.'}
+      emptyText="Tidak ada data piutang."
       maxRows={12}
     >
       {#snippet body(hidden)}
@@ -701,7 +701,7 @@
       bind:pageSize={pageSizeJurnal}
       totalRows={jurnalList.length}
       rowCount={pagedJurnal.length}
-      emptyText={loading ? 'Memuat...' : 'Tidak ada jurnal untuk periode ini.'}
+      emptyText="Tidak ada jurnal untuk periode ini."
       maxRows={14}
     >
       {#snippet body(hidden)}

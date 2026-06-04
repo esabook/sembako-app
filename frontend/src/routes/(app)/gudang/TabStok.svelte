@@ -7,6 +7,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabStokGuide from './TabStokGuide.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type StokItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; lokasi_rak: string | null; nama_kategori: string | null; singkatan_satuan: string | null; };
 	type MutasiItem = {
@@ -135,7 +136,7 @@
 		bind:pageSize={pageSizeStok}
 		totalRows={filteredStok.length}
 		rowCount={pagedStok.length}
-		emptyText={loading ? 'Memuat...' : 'Tidak ada data'}
+		emptyText="Tidak ada data"
 		maxRows={14}
 	>
 		{#snippet body(hidden)}
@@ -204,7 +205,7 @@
 		<!-- Tabel -->
 		<div class="overflow-x-auto max-h-96 overflow-y-auto rounded border" style="border-color:var(--border)">
 			{#if mutasiLoading}
-				<p class="text-xs text-center py-6" style="color:var(--text-dim)">Memuat...</p>
+				<div class="flex justify-center py-6"><Spinner /></div>
 			{:else if mutasiList.length === 0}
 				<p class="text-xs text-center py-6" style="color:var(--text-dim)">Tidak ada data mutasi</p>
 			{:else}

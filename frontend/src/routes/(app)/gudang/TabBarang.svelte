@@ -223,7 +223,7 @@
 		bind:pageSize={pageSizeBarang}
 		totalRows={sortedBarang.length}
 		rowCount={pagedBarang.length}
-		emptyText={loading ? 'Memuat...' : 'Tidak ada data'}
+		emptyText="Tidak ada data"
 		maxRows={12}
 	>
 		{#snippet body(hidden)}

@@ -222,7 +222,7 @@
 		bind:pageSize
 		totalRows={rows.length}
 		rowCount={paged.length}
-		emptyText={loading ? 'Memuat...' : 'Belum ada retur supplier'}
+		emptyText="Belum ada retur supplier"
 		maxRows={12}
 	>
 		{#snippet body()}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api } from '$lib/utils/api.js'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   let { pelangganId, namaPelanggan }: { pelangganId: number; namaPelanggan: string } = $props()
 
@@ -162,7 +163,7 @@
   {/if}
 
   {#if loading}
-    <p class="text-sm py-4" style="color:var(--text-dim)">Memuat...</p>
+    <div class="flex justify-center py-6"><Spinner /></div>
   {:else if rows.length === 0}
     <p class="text-sm py-4" style="color:var(--text-dim)">
       {summary?.total_transaksi === 0 ? `${namaPelanggan} belum pernah bertransaksi.` : 'Tidak ada transaksi di periode ini.'}
