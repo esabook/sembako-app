@@ -6,6 +6,7 @@
   import { page } from '$app/state'
   import { user } from '$lib/stores/auth.js'
   import SlideOver from '$lib/components/SlideOver.svelte'
+  import Skeleton from '$lib/components/ui/Skeleton.svelte'
   import { api } from '$lib/utils/api.js'
 
   $effect(() => {
@@ -231,7 +232,23 @@
     </div>
 
     {#if asetLoading}
-      <p class="text-sm py-4" style="color:var(--text-dim)">Memuat...</p>
+      <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
+        <table class="min-w-full text-sm" style="border-collapse:collapse">
+          <tbody>
+            {#each { length: 5 } as _, i (i)}
+              <tr class="border-t" style="border-color:var(--border)">
+                <td class="px-3 py-2.5"><Skeleton h="0.75rem" w="{55 + (i * 13) % 30}%" /></td>
+                <td class="px-3 py-2.5 hidden sm:table-cell"><Skeleton h="0.75rem" w="{40 + (i * 9) % 25}%" /></td>
+                <td class="px-3 py-2.5 hidden sm:table-cell"><Skeleton h="0.75rem" w="{35 + (i * 7) % 20}%" /></td>
+                <td class="px-3 py-2.5"><Skeleton h="0.75rem" w="{45 + (i * 11) % 25}%" /></td>
+                <td class="px-3 py-2.5 hidden sm:table-cell"><Skeleton h="0.75rem" w="{30 + (i * 17) % 20}%" /></td>
+                <td class="px-3 py-2.5"><Skeleton h="0.75rem" w="4rem" /></td>
+                <td class="px-3 py-2.5"><Skeleton h="0.75rem" w="3rem" /></td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     {:else if asetRows.length === 0}
       <p class="text-sm py-4" style="color:var(--text-dim)">Belum ada aset tercatat.</p>
     {:else}
@@ -307,7 +324,21 @@
     {/if}
 
     {#if utLoading}
-      <p class="text-sm py-4" style="color:var(--text-dim)">Memuat...</p>
+      <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
+        <table class="min-w-full text-sm" style="border-collapse:collapse">
+          <tbody>
+            {#each { length: 4 } as _, i (i)}
+              <tr class="border-t" style="border-color:var(--border)">
+                <td class="px-3 py-2.5"><Skeleton h="0.75rem" w="{50 + (i * 13) % 30}%" /></td>
+                <td class="px-3 py-2.5"><Skeleton h="0.75rem" w="{40 + (i * 9) % 25}%" /></td>
+                <td class="px-3 py-2.5"><Skeleton h="0.75rem" w="{45 + (i * 7) % 20}%" /></td>
+                <td class="px-3 py-2.5 hidden sm:table-cell"><Skeleton h="0.75rem" w="{35 + (i * 11) % 20}%" /></td>
+                <td class="px-3 py-2.5 hidden sm:table-cell"><Skeleton h="0.75rem" w="{30 + (i * 17) % 15}%" /></td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     {:else if utRows.length === 0}
       <p class="text-sm py-4" style="color:var(--text-dim)">Belum ada tagihan tercatat.</p>
     {:else}

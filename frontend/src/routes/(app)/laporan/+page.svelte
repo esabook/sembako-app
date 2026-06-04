@@ -7,6 +7,7 @@
   import { api } from '$lib/utils/api'
   import { user } from '$lib/stores/auth.js'
   import TabBar from '$lib/components/ui/TabBar.svelte'
+  import Skeleton from '$lib/components/ui/Skeleton.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -973,7 +974,15 @@
 {/if}
 
 {#if loading}
-  <p style="padding:1.25rem; color:var(--text-dim); font-size:.85rem">Memuat laporan...</p>
+  <div style="padding:1.25rem; display:flex; flex-direction:column; gap:.75rem">
+    {#each { length: 6 } as _, i (i)}
+      <div style="display:flex; gap:1rem; align-items:center">
+        <Skeleton w="{30 + (i * 17) % 30}%" h="0.8rem" />
+        <Skeleton w="{20 + (i * 11) % 20}%" h="0.8rem" />
+        <Skeleton w="{15 + (i * 7) % 15}%" h="0.8rem" />
+      </div>
+    {/each}
+  </div>
 
 <!-- ═══════════════════════════════════════ LABA RUGI ════ -->
 {:else if tab === 'laba-rugi' && labaRugi}

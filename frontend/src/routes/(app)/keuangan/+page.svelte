@@ -7,6 +7,7 @@
   import { api } from '$lib/utils/api'
   import { user } from '$lib/stores/auth.js'
   import DataTable from '$lib/components/DataTable.svelte'
+  import Skeleton from '$lib/components/ui/Skeleton.svelte'
   import type { Column } from '$lib/components/DataTable.svelte'
   import { createBudgetStore } from './budget/budget.store.svelte.js'
   import {
@@ -739,7 +740,18 @@
   <!-- ═══════════════════════════════════════ TAB KAS/BANK ═ -->
   {#if tab === 'kasbank'}
     {#if loading}
-      <p style="color:var(--text-dim); font-size:.85rem">Memuat...</p>
+      <div style="display:grid; gap:.75rem">
+        {#each { length: 3 } as _, i (i)}
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.9rem 1rem; display:flex; flex-direction:column; gap:.5rem">
+            <div style="display:flex; justify-content:space-between">
+              <Skeleton w="40%" h="0.875rem" />
+              <Skeleton w="15%" h="0.875rem" br="rounded-full" />
+            </div>
+            <Skeleton w="55%" h="1.25rem" />
+            <Skeleton w="30%" h="0.7rem" />
+          </div>
+        {/each}
+      </div>
     {:else if kasBankSaldo.length === 0}
       <p style="color:var(--text-dim); font-size:.85rem">Belum ada akun kas/bank.</p>
     {:else}
