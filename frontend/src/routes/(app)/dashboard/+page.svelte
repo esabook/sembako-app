@@ -6,6 +6,7 @@
   import { page } from '$app/state'
   import { user } from '$lib/stores/auth.js'
   import TabBar from '$lib/components/ui/TabBar.svelte'
+  import Skeleton from '$lib/components/ui/Skeleton.svelte'
   import { createDashboardStore } from './dashboard.store.svelte'
   import DashboardOverview from './DashboardOverview.svelte'
   import DashboardSalesSummary from './DashboardSalesSummary.svelte'
@@ -25,7 +26,31 @@
 </script>
 
 {#if store.loading}
-  <div class="flex items-center justify-center h-40 text-sm" style="color:var(--text-dim)">Memuat dashboard...</div>
+  <div class="flex flex-col gap-5">
+    <div class="flex items-center justify-between">
+      <div class="space-y-2">
+        <Skeleton w="7rem" h="1.25rem" />
+        <Skeleton w="18rem" h="0.75rem" />
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <Skeleton w="5.5rem" h="2rem" br="rounded-full" />
+      <Skeleton w="7.5rem" h="2rem" br="rounded-full" />
+    </div>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {#each { length: 4 } as _, i (i)}
+        <div class="rounded border p-3 space-y-2" style="background:var(--surface);border-color:var(--border)">
+          <Skeleton w="55%" h="0.7rem" />
+          <Skeleton w="75%" h="1.4rem" />
+          <Skeleton w="45%" h="0.65rem" />
+        </div>
+      {/each}
+    </div>
+    <div class="rounded border p-4 space-y-3" style="background:var(--surface);border-color:var(--border)">
+      <Skeleton w="35%" h="0.875rem" />
+      <Skeleton w="100%" h="7rem" />
+    </div>
+  </div>
 {:else if store.data}
   <div class="flex flex-col gap-5">
 
