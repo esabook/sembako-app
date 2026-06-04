@@ -1,3 +1,5 @@
+<svelte:head><title>Aset — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'

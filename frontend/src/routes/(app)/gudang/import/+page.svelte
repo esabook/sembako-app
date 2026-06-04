@@ -1,3 +1,5 @@
+<svelte:head><title>Import Barang — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { api } from '$lib/utils/api.js'

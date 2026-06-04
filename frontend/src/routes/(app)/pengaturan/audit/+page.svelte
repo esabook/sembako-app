@@ -1,3 +1,5 @@
+<svelte:head><title>Audit Log — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';

@@ -1,3 +1,5 @@
+<svelte:head><title>Karyawan — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'

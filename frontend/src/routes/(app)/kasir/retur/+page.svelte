@@ -1,3 +1,5 @@
+<svelte:head><title>Retur Penjualan — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { SvelteMap } from 'svelte/reactivity'

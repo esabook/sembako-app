@@ -1,3 +1,5 @@
+<svelte:head><title>Tugas — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api } from '$lib/utils/api.js'

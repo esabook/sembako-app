@@ -1,3 +1,5 @@
+<svelte:head><title>Budget & Target — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { createBudgetStore } from './budget.store.svelte.js'

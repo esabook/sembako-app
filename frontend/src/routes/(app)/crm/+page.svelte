@@ -1,3 +1,5 @@
+<svelte:head><title>CRM — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
