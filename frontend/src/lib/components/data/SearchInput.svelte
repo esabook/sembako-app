@@ -25,6 +25,8 @@
 
 	let timer: ReturnType<typeof setTimeout> | null = null;
 
+	$effect(() => () => { if (timer) clearTimeout(timer) });
+
 	function handleInput(e: Event) {
 		value = (e.target as HTMLInputElement).value;
 		if (timer) clearTimeout(timer);

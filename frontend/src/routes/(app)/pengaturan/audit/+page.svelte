@@ -5,6 +5,7 @@
 	import { user } from '$lib/stores/auth.js';
 	import { toast } from '$lib/stores/ui.store.js';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
+	import { debounce } from '$lib/utils/async.js';
 
 	type LogRow = {
 		id: number;
@@ -137,16 +138,12 @@
 		{ key: 'ip_address', label: 'IP', sortable: false, priority: 3 },
 	]
 
-	let debounceTimer: ReturnType<typeof setTimeout>;
-	function onFilterChange() {
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => muat(1), 400);
-	}
+	const onFilterChange = debounce(() => muat(1), 400);
 
 	onMount(() => {
 		muatMeta();
 		muat(1);
-		return () => clearTimeout(debounceTimer);
+		return () => onFilterChange.cancel();
 	});
 </script>
 

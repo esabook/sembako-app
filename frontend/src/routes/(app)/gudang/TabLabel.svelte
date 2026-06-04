@@ -4,6 +4,7 @@
 	import { api } from '$lib/utils/api.js';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
+	import { debounce } from '$lib/utils/async.js';
 
 	const kolBarang: Column[] = [
 		{ key: 'pilih',            label: '',       width: 24,  sortable: false, hideable: false },
@@ -173,15 +174,11 @@
 		win.document.close();
 	}
 
-	let debounceTimer: ReturnType<typeof setTimeout>;
-	function onQueryInput() {
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(muatBarang, 150);
-	}
+	const onQueryInput = debounce(muatBarang, 150);
 
 	onMount(() => {
 		muatBarang();
-		return () => clearTimeout(debounceTimer);
+		return () => onQueryInput.cancel();
 	});
 
 	const antrianItems = $derived([...antrian.values()]);
