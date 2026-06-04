@@ -7,8 +7,8 @@
   pesan      ''                 teks penjelasan di bawah judul (opsional, pre-wrap)
   labelKiri  'Batal'            label tombol kiri
   labelKanan 'OK'               label tombol kanan
-  warnaKiri  undefined          warna teks tombol kiri  (default: #007AFF)
-  warnaKanan undefined          warna teks tombol kanan (default: #007AFF)
+  warnaKiri  undefined          warna teks tombol kiri  (default: var(--accent))
+  warnaKanan undefined          warna teks tombol kanan (default: var(--accent))
   onkiri     undefined          callback tombol kiri  — dipanggil lalu open=false
   onkanan    undefined          callback tombol kanan — dipanggil lalu open=false
 
@@ -63,8 +63,8 @@
     pesan?: string
     labelKiri?: string
     labelKanan?: string
-    warnaKiri?: string  // warna teks tombol kiri  (default: #007AFF)
-    warnaKanan?: string // warna teks tombol kanan (default: #007AFF)
+    warnaKiri?: string  // warna teks tombol kiri  (default: var(--accent))
+    warnaKanan?: string // warna teks tombol kanan (default: var(--accent))
     cancelable?: boolean  // bisa ditutup dengan klik backdrop atau Escape (default: true)
     onkiri?: () => void
     onkanan?: () => void
@@ -148,7 +148,7 @@
           onclick={klikKiri}
           class="ios-btn text-sm py-3"
           class:ios-focused={!fokusKanan}
-          style="color:{warnaKiri ?? '#007AFF'}"
+          style="color:{warnaKiri ?? 'var(--accent)'}"
         >{labelKiri}</button>
         <div class="ios-vline"></div>
         <button
@@ -156,7 +156,7 @@
           onclick={klikKanan}
           class="ios-btn text-sm py-3"
           class:ios-focused={fokusKanan}
-          style="color:{warnaKanan ?? '#007AFF'}"
+          style="color:{warnaKanan ?? 'var(--accent)'}"
         >{labelKanan}</button>
       </div>
     </div>
