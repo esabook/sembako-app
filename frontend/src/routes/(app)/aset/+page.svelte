@@ -7,6 +7,7 @@
   import { user } from '$lib/stores/auth.js'
   import SlideOver from '$lib/components/SlideOver.svelte'
   import Skeleton from '$lib/components/ui/Skeleton.svelte'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import { api } from '$lib/utils/api.js'
 
   $effect(() => {
@@ -110,9 +111,21 @@
     asetFormOpen = false; muatAset()
   }
 
-  async function hapusAset(id: number, nama: string) {
-    if (!confirm(`Nonaktifkan aset "${nama}"?`)) return
-    await api.delete(`/aset/${id}`)
+  let konfirmAsetId = $state<number | null>(null)
+  let konfirmAsetNama = $state('')
+  let konfirmAsetBuka = $state(false)
+
+  function hapusAset(id: number, nama: string) {
+    konfirmAsetId = id
+    konfirmAsetNama = nama
+    konfirmAsetBuka = true
+  }
+
+  async function doHapusAset() {
+    if (!konfirmAsetId) return
+    await api.delete(`/aset/${konfirmAsetId}`)
+    konfirmAsetId = null
+    konfirmAsetNama = ''
     muatAset()
   }
 
@@ -186,9 +199,18 @@
     utFormOpen = false; muatUtilitas()
   }
 
-  async function hapusUt(id: number) {
-    if (!confirm('Hapus tagihan ini?')) return
-    await api.delete(`/utilitas/${id}`)
+  let konfirmUtId = $state<number | null>(null)
+  let konfirmUtBuka = $state(false)
+
+  function hapusUt(id: number) {
+    konfirmUtId = id
+    konfirmUtBuka = true
+  }
+
+  async function doHapusUt() {
+    if (!konfirmUtId) return
+    await api.delete(`/utilitas/${konfirmUtId}`)
+    konfirmUtId = null
     muatUtilitas()
   }
 
@@ -529,3 +551,23 @@
   </form>
   {/snippet}
 </SlideOver>
+
+<ConfirmDialog
+  bind:open={konfirmAsetBuka}
+  judul="Nonaktifkan aset?"
+  pesan={`Aset "${konfirmAsetNama}" akan dinonaktifkan.`}
+  labelKanan="Nonaktifkan"
+  warnaKanan="var(--danger)"
+  onkiri={() => { konfirmAsetId = null; konfirmAsetNama = '' }}
+  onkanan={doHapusAset}
+/>
+
+<ConfirmDialog
+  bind:open={konfirmUtBuka}
+  judul="Hapus tagihan?"
+  pesan="Tagihan ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmUtId = null}
+  onkanan={doHapusUt}
+/>

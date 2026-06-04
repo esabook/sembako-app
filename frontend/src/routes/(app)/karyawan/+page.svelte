@@ -16,6 +16,7 @@
   } from './karyawan.logic.js'
   import type { IzinRow, EvaluasiRow, SanksiInsentifRow } from './karyawan.types.js'
   import { api } from '$lib/utils/api.js'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
 
   $effect(() => {
@@ -127,9 +128,18 @@
     evalFormOpen = false; muatEval()
   }
 
-  async function hapusEval(id: number) {
-    if (!confirm('Hapus evaluasi ini?')) return
-    await api.delete(`/evaluasi/${id}`)
+  let konfirmEvalId = $state<number | null>(null)
+  let konfirmEvalBuka = $state(false)
+
+  function hapusEval(id: number) {
+    konfirmEvalId = id
+    konfirmEvalBuka = true
+  }
+
+  async function doHapusEval() {
+    if (!konfirmEvalId) return
+    await api.delete(`/evaluasi/${konfirmEvalId}`)
+    konfirmEvalId = null
     muatEval()
   }
 
@@ -174,9 +184,18 @@
     siFormOpen = false; muatSI()
   }
 
-  async function hapusSI(id: number) {
-    if (!confirm('Hapus data ini?')) return
-    await api.delete(`/sanksi-insentif/${id}`)
+  let konfirmSIId = $state<number | null>(null)
+  let konfirmSIBuka = $state(false)
+
+  function hapusSI(id: number) {
+    konfirmSIId = id
+    konfirmSIBuka = true
+  }
+
+  async function doHapusSI() {
+    if (!konfirmSIId) return
+    await api.delete(`/sanksi-insentif/${konfirmSIId}`)
+    konfirmSIId = null
     muatSI()
   }
 
@@ -1649,3 +1668,23 @@
   </form>
   {/snippet}
 </SlideOver>
+
+<ConfirmDialog
+  bind:open={konfirmEvalBuka}
+  judul="Hapus evaluasi?"
+  pesan="Data evaluasi ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmEvalId = null}
+  onkanan={doHapusEval}
+/>
+
+<ConfirmDialog
+  bind:open={konfirmSIBuka}
+  judul="Hapus sanksi/insentif?"
+  pesan="Data ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmSIId = null}
+  onkanan={doHapusSI}
+/>

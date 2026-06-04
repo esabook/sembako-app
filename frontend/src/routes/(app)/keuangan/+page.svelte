@@ -8,6 +8,7 @@
   import { user } from '$lib/stores/auth.js'
   import DataTable from '$lib/components/DataTable.svelte'
   import Skeleton from '$lib/components/ui/Skeleton.svelte'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import type { Column } from '$lib/components/DataTable.svelte'
   import { createBudgetStore } from './budget/budget.store.svelte.js'
   import {
@@ -296,9 +297,18 @@
     if (kb.success) kasBankList = kb.data!
   }
 
-  async function nonaktifkanKasBank(id: number) {
-    if (!confirm('Nonaktifkan akun ini?')) return
-    await api.delete(`/keuangan/kas-bank/${id}`)
+  let konfirmKasBankId = $state<number | null>(null)
+  let konfirmKasBankBuka = $state(false)
+
+  function nonaktifkanKasBank(id: number) {
+    konfirmKasBankId = id
+    konfirmKasBankBuka = true
+  }
+
+  async function doNonaktifkanKasBank() {
+    if (!konfirmKasBankId) return
+    await api.delete(`/keuangan/kas-bank/${konfirmKasBankId}`)
+    konfirmKasBankId = null
     await muatKasBankSaldo()
     const kb = await api.get<KasBank[]>('/keuangan/kas-bank')
     if (kb.success) kasBankList = kb.data!
@@ -460,10 +470,19 @@
     if (json.success) { piCicilOpen = false; cicilJumlah = ''; muatPinjaman() }
   }
 
-  async function hapusPi(id: number) {
-    if (!confirm('Hapus data ini?')) return
-    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi/${id}`,
+  let konfirmPiId = $state<number | null>(null)
+  let konfirmPiBuka = $state(false)
+
+  function hapusPi(id: number) {
+    konfirmPiId = id
+    konfirmPiBuka = true
+  }
+
+  async function doHapusPi() {
+    if (!konfirmPiId) return
+    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi/${konfirmPiId}`,
       { method: 'DELETE', credentials: 'include' })
+    konfirmPiId = null
     muatPinjaman()
   }
 
@@ -1450,3 +1469,23 @@
     {/if}
   </div>
 {/snippet}
+
+<ConfirmDialog
+  bind:open={konfirmKasBankBuka}
+  judul="Nonaktifkan akun?"
+  pesan="Akun kas/bank ini akan dinonaktifkan. Riwayat transaksi tetap tersimpan."
+  labelKanan="Nonaktifkan"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmKasBankId = null}
+  onkanan={doNonaktifkanKasBank}
+/>
+
+<ConfirmDialog
+  bind:open={konfirmPiBuka}
+  judul="Hapus data pinjaman/investasi?"
+  pesan="Data ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmPiId = null}
+  onkanan={doHapusPi}
+/>
