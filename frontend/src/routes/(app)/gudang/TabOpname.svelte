@@ -6,6 +6,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabOpnameGuide from './TabOpnameGuide.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	type OpnameRow = { id: number; no_opname: string; tanggal_mulai: string; tanggal_selesai: string | null; status: string };
 	type OpnameDetail = OpnameRow & {
@@ -90,8 +91,14 @@
 		if (r.success) opnameAktif = r.data;
 	}
 
+	type KonfirmMode = 'buat' | 'approve' | 'batal'
+	let konfirmMode = $state<KonfirmMode | null>(null)
+	let konfirmBuka = $state(false)
+
+	function bukaKonfirm(mode: KonfirmMode) { konfirmMode = mode; konfirmBuka = true }
+	function tutupKonfirm() { konfirmMode = null; konfirmBuka = false }
+
 	async function buatOpname() {
-		if (!confirm('Buat stok opname baru? Semua stok sistem akan di-snapshot sekarang.')) return;
 		opnameSaving = true;
 		const r = await api.post('/stok-opname', {});
 		opnameSaving = false;
@@ -115,7 +122,6 @@
 
 	async function approveOpname() {
 		if (!opnameAktif) return;
-		if (!confirm('Approve opname? Stok sistem akan diperbarui sesuai stok fisik.')) return;
 		opnameSaving = true;
 		const r = await api.post(`/stok-opname/${opnameAktif.id}/approve`, {});
 		opnameSaving = false;
@@ -125,7 +131,6 @@
 
 	async function batalOpname() {
 		if (!opnameAktif) return;
-		if (!confirm('Batalkan opname ini?')) return;
 		await api.delete(`/stok-opname/${opnameAktif.id}`);
 		opnameAktif = null; await muatOpname();
 	}
@@ -147,7 +152,7 @@
 			<p class="text-sm" style="color:var(--text-dim)">
 				{opnameList.filter(o => o.status === 'approved').length} opname selesai
 			</p>
-			<button onclick={buatOpname} disabled={opnameSaving}
+			<button onclick={() => bukaKonfirm('buat')} disabled={opnameSaving}
 				class="px-3 py-1 rounded text-sm font-bold"
 				style="background:var(--accent);color:var(--bg);opacity:{opnameSaving ? .6 : 1}">
 				{opnameSaving ? 'Membuat...' : '+ Buat Opname Baru'}
@@ -203,7 +208,7 @@
 			</div>
 			<div class="flex flex-col items-end gap-1">
 				{#if opnameAktif.sudah_dihitung === opnameAktif.items.length && opnameAktif.items.length > 0}
-					<button onclick={approveOpname} disabled={opnameSaving}
+					<button onclick={() => bukaKonfirm('approve')} disabled={opnameSaving}
 						class="px-3 py-1 rounded text-xs font-bold"
 						style="background:var(--accent);color:var(--bg);opacity:{opnameSaving ? .6 : 1}">
 						{opnameSaving ? '...' : 'Approve & Perbarui Stok'}
@@ -211,7 +216,7 @@
 				{:else}
 					<div class="text-xs" style="color:var(--text-dim)">Isi semua item untuk Approve</div>
 				{/if}
-				<button onclick={batalOpname} class="px-2 py-1 rounded text-xs border" style="border-color:var(--danger);color:var(--danger)">
+				<button onclick={() => bukaKonfirm('batal')} class="px-2 py-1 rounded text-xs border" style="border-color:var(--danger);color:var(--danger)">
 					Batalkan Opname
 				</button>
 			</div>
@@ -292,3 +297,22 @@
 </div>
 
 <TabOpnameGuide />
+
+<ConfirmDialog
+  bind:open={konfirmBuka}
+  judul={konfirmMode === 'buat' ? 'Buat Stok Opname?' : konfirmMode === 'approve' ? 'Approve Opname?' : 'Batalkan Opname?'}
+  pesan={konfirmMode === 'buat'
+    ? 'Semua stok sistem akan di-snapshot sekarang.'
+    : konfirmMode === 'approve'
+    ? 'Stok sistem akan diperbarui sesuai stok fisik yang sudah dihitung.'
+    : 'Opname yang sedang berjalan akan dibatalkan.'}
+  labelKanan={konfirmMode === 'buat' ? 'Buat' : konfirmMode === 'approve' ? 'Approve' : 'Batalkan'}
+  warnaKanan={konfirmMode === 'batal' ? 'var(--danger)' : 'var(--accent)'}
+  onkiri={tutupKonfirm}
+  onkanan={() => {
+    const m = konfirmMode; tutupKonfirm()
+    if (m === 'buat') buatOpname()
+    else if (m === 'approve') approveOpname()
+    else if (m === 'batal') batalOpname()
+  }}
+/>

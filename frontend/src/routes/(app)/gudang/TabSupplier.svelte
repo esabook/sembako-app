@@ -4,6 +4,7 @@
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	type Supplier = { id: number; kode_supplier: string; nama_supplier: string; kontak: string | null; alamat: string | null; terms_bayar: number; limit_hutang: number; is_active: boolean; };
 
@@ -57,7 +58,15 @@
 		modalSupplier = false; muatSupplier();
 	}
 
-	async function hapusSupplier(id: number) { if (!confirm('Nonaktifkan?')) return; await api.delete(`/supplier/${id}`); muatSupplier(); }
+	let konfirmSupplierId = $state<number | null>(null)
+	let konfirmSupplierBuka = $state(false)
+
+	async function doHapusSupplier() {
+		if (!konfirmSupplierId) return
+		await api.delete(`/supplier/${konfirmSupplierId}`)
+		konfirmSupplierId = null
+		muatSupplier()
+	}
 
 	onMount(muatSupplier);
 </script>
@@ -96,7 +105,7 @@
 				{#if !hidden.has('aksi')}
 					<td class="px-3 py-2 text-right">
 						<button onclick={() => bukaFormSupplier(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-						<button onclick={() => hapusSupplier(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+						<button onclick={() => { konfirmSupplierId = item.id; konfirmSupplierBuka = true }} class="text-xs" style="color:var(--danger)">Nonaktif</button>
 					</td>
 				{/if}
 			</tr>
@@ -123,3 +132,13 @@
 	</form>
 	{/snippet}
 </SlideOver>
+
+<ConfirmDialog
+	bind:open={konfirmSupplierBuka}
+	judul="Nonaktifkan supplier?"
+	pesan="Supplier tidak akan muncul di daftar pembelian. Bisa diaktifkan kembali."
+	labelKanan="Nonaktifkan"
+	warnaKanan="var(--danger)"
+	onkiri={() => konfirmSupplierId = null}
+	onkanan={doHapusSupplier}
+/>

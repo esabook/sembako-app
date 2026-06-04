@@ -4,6 +4,7 @@
   import SlideOver from '$lib/components/SlideOver.svelte'
   import DataTable, { type Column } from '$lib/components/DataTable.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
 
   let { onbukariwayat }: { onbukariwayat?: (id: number, nama: string) => void } = $props()
 
@@ -150,9 +151,22 @@
     muat()
   }
 
-  async function toggleAktifPlg(p: Pelanggan) {
-    if (!confirm(`${p.is_active ? 'Nonaktifkan' : 'Aktifkan'} pelanggan "${p.nama}"?`)) return
-    await api.put(`/pelanggan/${p.id}`, { is_active: !p.is_active })
+  let konfirmTogglePlg = $state<Pelanggan | null>(null)
+  let konfirmToggleBuka = $state(false)
+  let konfirmUnassignPlg = $state<Pelanggan | null>(null)
+  let konfirmUnassignBuka = $state(false)
+
+  async function doToggleAktifPlg() {
+    if (!konfirmTogglePlg) return
+    await api.put(`/pelanggan/${konfirmTogglePlg.id}`, { is_active: !konfirmTogglePlg.is_active })
+    konfirmTogglePlg = null
+    muat()
+  }
+
+  async function doUnassignKartu() {
+    if (!konfirmUnassignPlg) return
+    await api.delete(`/pelanggan/${konfirmUnassignPlg.id}/assign-kartu`)
+    konfirmUnassignPlg = null
     muat()
   }
 
@@ -191,11 +205,6 @@
     muat()
   }
 
-  async function unassignKartu(p: Pelanggan) {
-    if (!confirm(`Lepas kartu anggota dari "${p.nama}"? Kartu akan kembali tersedia.`)) return
-    await api.delete(`/pelanggan/${p.id}/assign-kartu`)
-    muat()
-  }
 
   function rupiah(n: number) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n)
@@ -313,7 +322,7 @@
             >Riwayat</button>
             {#if p.no_kartu}
               <button
-                onclick={() => unassignKartu(p)}
+                onclick={() => { konfirmUnassignPlg = p; konfirmUnassignBuka = true }}
                 class="rounded border px-2 py-1 text-xs transition-colors"
                 style="border-color:var(--border);color:var(--danger)"
               >Lepas Kartu</button>
@@ -325,7 +334,7 @@
               >+ Kartu</button>
             {/if}
             <button
-              onclick={() => toggleAktifPlg(p)}
+              onclick={() => { konfirmTogglePlg = p; konfirmToggleBuka = true }}
               class="ml-auto rounded border px-2 py-1 text-xs transition-colors"
               style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}"
             >{p.is_active ? 'Nonaktif' : 'Aktifkan'}</button>
@@ -388,11 +397,11 @@
                   <button onclick={() => bukaEditPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
                   <button onclick={() => onbukariwayat?.(p.id, p.nama)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--info)">Riwayat</button>
                   {#if p.no_kartu}
-                    <button onclick={() => unassignKartu(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Lepas Kartu</button>
+                    <button onclick={() => { konfirmUnassignPlg = p; konfirmUnassignBuka = true }} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Lepas Kartu</button>
                   {:else}
                     <button onclick={() => bukaAssignKartu(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--accent)">+ Kartu</button>
                   {/if}
-                  <button onclick={() => toggleAktifPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}">
+                  <button onclick={() => { konfirmTogglePlg = p; konfirmToggleBuka = true }} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}">
                     {p.is_active ? 'Nonaktif' : 'Aktifkan'}
                   </button>
                 </div>
@@ -551,3 +560,25 @@
     </div>
   </div>
 </SlideOver>
+
+<ConfirmDialog
+  bind:open={konfirmToggleBuka}
+  judul={konfirmTogglePlg?.is_active ? 'Nonaktifkan pelanggan?' : 'Aktifkan pelanggan?'}
+  pesan={konfirmTogglePlg?.is_active
+    ? `"${konfirmTogglePlg?.nama}" tidak akan bisa transaksi. Bisa diaktifkan kembali.`
+    : `"${konfirmTogglePlg?.nama}" akan aktif kembali.`}
+  labelKanan={konfirmTogglePlg?.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+  warnaKanan={konfirmTogglePlg?.is_active ? 'var(--danger)' : 'var(--accent)'}
+  onkiri={() => konfirmTogglePlg = null}
+  onkanan={doToggleAktifPlg}
+/>
+
+<ConfirmDialog
+  bind:open={konfirmUnassignBuka}
+  judul="Lepas kartu anggota?"
+  pesan={`Kartu "${konfirmUnassignPlg?.no_kartu}" akan dilepas dari "${konfirmUnassignPlg?.nama}". Poin dan tier tetap tersimpan di kartu.`}
+  labelKanan="Lepas Kartu"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmUnassignPlg = null}
+  onkanan={doUnassignKartu}
+/>
