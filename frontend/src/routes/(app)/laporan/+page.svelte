@@ -1,3 +1,5 @@
+<svelte:head><title>Laporan — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { untrack } from 'svelte'
   import { goto } from '$app/navigation'
