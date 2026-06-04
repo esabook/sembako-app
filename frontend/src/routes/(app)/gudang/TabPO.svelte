@@ -169,7 +169,7 @@
 		bind:pageSize={pageSizePO}
 		totalRows={poList.length}
 		rowCount={pagedPO.length}
-		emptyText={loading ? 'Memuat...' : 'Belum ada PO'}
+		emptyText="Belum ada PO"
 		maxRows={12}
 	>
 		{#snippet body(hidden)}

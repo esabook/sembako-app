@@ -86,14 +86,26 @@
 		{
 			href: '/kasir',
 			label: 'Kasir',
-			roles: ['pemilik', 'manajer', 'kasir', 'gudang'],
+			roles: ['pemilik', 'manajer', 'kasir', 'gudang', 'sales', 'pelayanan'],
 			icon: 'M7 4V2H5v2H3a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-2V2h-2v2H7zm-3 5h16v9H4V9zm2 2v2h2v-2H6zm4 0v2h2v-2h-2zm4 0v2h2v-2h-2zm-8 4v2h2v-2H6zm4 0v2h2v-2h-2z'
 		},
 		{
 			href: '/pelanggan',
 			label: 'Pelanggan',
-			roles: ['pemilik', 'manajer', 'kasir'],
+			roles: ['pemilik', 'manajer', 'kasir', 'sales', 'pelayanan'],
 			icon: 'M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z'
+		},
+		{
+			href: '/sales',
+			label: 'Sales & Kunjungan',
+			roles: ['pemilik', 'manajer', 'sales'],
+			icon: 'M20 6h-2.18c.07-.44.18-.88.18-1.36C18 2.06 15.94 0 13.36 0c-1.46 0-2.47.52-3.48 1.55L9 3 7.12 1.55C6.1.52 5.09 0 3.64 0 1.06 0-1 2.06-1 4.64c0 .48.11.92.18 1.36H-1v2h22V6zm-2 12c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V10h12v8zm-9-2h2v-4h-2v4zm4 0h2v-4h-2v4z M3 6h18v2H3V6z M20 6H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-5 14H9v-2l-2-2v-3l2-2h6l2 2v3l-2 2v2z'
+		},
+		{
+			href: '/crm',
+			label: 'CRM',
+			roles: ['pemilik', 'manajer', 'kasir', 'pelayanan'],
+			icon: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12zM7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z'
 		},
 		{
 			href: '/gudang',
@@ -106,6 +118,36 @@
 			label: 'Karyawan',
 			roles: ['pemilik', 'manajer'],
 			icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z'
+		},
+		{
+			href: '/aset',
+			label: 'Aset & Utilitas',
+			roles: ['pemilik', 'manajer'],
+			icon: 'M12 3L2 12h3v8h6v-5h2v5h6v-8h3L12 3zm0 2.7l5 4.5V18h-2v-5H9v5H7v-7.8l5-4.5z'
+		},
+		{
+			href: '/tugas',
+			label: 'Tugas Harian',
+			roles: ['pemilik', 'manajer', 'kasir', 'gudang', 'sales', 'pelayanan'],
+			icon: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z'
+		},
+		{
+			href: '/hajatan',
+			label: 'Acara & Hajatan',
+			roles: ['pemilik', 'manajer', 'kasir'],
+			icon: 'M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z'
+		},
+		{
+			href: '/inspeksi',
+			label: 'Inspeksi Toko',
+			roles: ['pemilik', 'manajer'],
+			icon: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z'
+		},
+		{
+			href: '/tamu',
+			label: 'Tamu Birokrasi',
+			roles: ['pemilik', 'manajer'],
+			icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z'
 		},
 		{
 			href: '/keuangan',

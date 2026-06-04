@@ -1,3 +1,5 @@
+<svelte:head><title>Audit Log — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -5,6 +7,8 @@
 	import { user } from '$lib/stores/auth.js';
 	import { toast } from '$lib/stores/ui.store.js';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
+	import { debounce } from '$lib/utils/async.js';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type LogRow = {
 		id: number;
@@ -137,16 +141,12 @@
 		{ key: 'ip_address', label: 'IP', sortable: false, priority: 3 },
 	]
 
-	let debounceTimer: ReturnType<typeof setTimeout>;
-	function onFilterChange() {
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => muat(1), 400);
-	}
+	const onFilterChange = debounce(() => muat(1), 400);
 
 	onMount(() => {
 		muatMeta();
 		muat(1);
-		return () => clearTimeout(debounceTimer);
+		return () => onFilterChange.cancel();
 	});
 </script>
 
@@ -268,7 +268,7 @@
 		{#snippet body(hidden)}
 			{#if loading}
 				<tr>
-					<td colspan="6" class="px-3 py-8 text-center text-xs font-mono" style="color:var(--text-dim)">Memuat...</td>
+					<td colspan="6"><div class="flex justify-center py-8"><Spinner /></div></td>
 				</tr>
 			{:else}
 				{#each rows as row (row.id)}

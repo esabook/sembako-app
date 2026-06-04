@@ -245,7 +245,7 @@
                transition:color .15s, border-color .15s"
       >
         {#if isFav}
-          <span style="color:#f59e0b; font-size:1rem">★</span>
+          <span style="color:var(--warn); font-size:1rem">★</span>
         {/if}
         {t.label}
       </button>
@@ -302,7 +302,7 @@
       onmouseenter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--surface2)'}
       onmouseleave={(e) => (e.currentTarget as HTMLElement).style.background = 'none'}
     >
-      <span style="color:#f59e0b">{isFav ? '★' : '☆'}</span>
+      <span style="color:var(--warn)">{isFav ? '★' : '☆'}</span>
       {isFav ? 'Hapus favorit' : 'Tandai favorit'}
     </button>
 

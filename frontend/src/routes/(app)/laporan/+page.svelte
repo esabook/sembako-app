@@ -1,3 +1,5 @@
+<svelte:head><title>Laporan — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { untrack } from 'svelte'
   import { goto } from '$app/navigation'
@@ -5,6 +7,7 @@
   import { api } from '$lib/utils/api'
   import { user } from '$lib/stores/auth.js'
   import TabBar from '$lib/components/ui/TabBar.svelte'
+  import Skeleton from '$lib/components/ui/Skeleton.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -336,8 +339,18 @@
 
   // ── Export CSV ────────────────────────────────────────────────────────────
 
-  function downloadCsv(content: string, nama: string) {
+  function csvCell(v: string | number | null | undefined): string {
+    const s = v == null ? '' : String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }
+
+  function toCsvRow(row: (string | number | null | undefined)[]): string {
+    return row.map(csvCell).join(',')
+  }
+
+  function downloadCsv(rows: (string | number | null | undefined)[][], nama: string) {
     const bom = '﻿' // BOM agar Excel baca UTF-8 dengan benar
+    const content = rows.map(toCsvRow).join('\n')
     const blob = new Blob([bom + content], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -374,7 +387,7 @@
       ['LABA BERSIH', fmtRp(lr.laba_bersih)],
       ['Margin Bersih', `${lr.margin_bersih_persen.toFixed(1)}%`],
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `laba-rugi-${lr.periode.dari}-${lr.periode.sampai}.csv`)
+    downloadCsv(rows, `laba-rugi-${lr.periode.dari}-${lr.periode.sampai}.csv`)
   }
 
   function exportArusKasCsv() {
@@ -402,7 +415,7 @@
         k.replace(/_/g, ' '), v.masuk > 0 ? fmtRp(v.masuk) : '-', v.keluar > 0 ? fmtRp(v.keluar) : '-'
       ]),
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `arus-kas-${ak.periode.dari}-${ak.periode.sampai}.csv`)
+    downloadCsv(rows, `arus-kas-${ak.periode.dari}-${ak.periode.sampai}.csv`)
   }
 
   function exportNeracaCsv() {
@@ -432,7 +445,7 @@
       ['Liabilitas + Modal', fmtRp(n.check.liabilitas_plus_modal)],
       ['Status', n.check.balanced ? 'BALANCE' : 'TIDAK BALANCE'],
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `neraca-${n.per_tanggal}.csv`)
+    downloadCsv(rows, `neraca-${n.per_tanggal}.csv`)
   }
 
   function exportAgingCsv() {
@@ -452,7 +465,7 @@
       ...ag.hutang.map(b => [b.label, b.jumlah, fmtRp(b.total)]),
       ['TOTAL HUTANG', '', fmtRp(ag.total_hutang)],
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `aging-${ag.per_tanggal}.csv`)
+    downloadCsv(rows, `aging-${ag.per_tanggal}.csv`)
   }
 
   function exportBudgetRealisasiCsv() {
@@ -478,7 +491,7 @@
         return [NAMA[b.kategori] ?? b.kategori, fmtRp(b.nilai_budget), fmtRp(real), fmtRp(b.nilai_budget - real)]
       }),
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `budget-realisasi-${br.periode}.csv`)
+    downloadCsv(rows, `budget-realisasi-${br.periode}.csv`)
   }
 
   function exportPajakUmkmCsv() {
@@ -494,7 +507,7 @@
       [],
       ['TOTAL', fmtRp(px.total_omset), fmtRp(px.total_pajak)],
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `pajak-umkm-${px.tahun}.csv`)
+    downloadCsv(rows, `pajak-umkm-${px.tahun}.csv`)
   }
 
   function exportMarginProdukCsv() {
@@ -513,7 +526,7 @@
       ['Nama Produk', 'Kategori', 'Qty', 'Omset', 'HPP', 'Margin', 'Margin %'],
       ...mp.produk.map((p) => [p.nama_barang, p.kategori, p.qty_terjual, fmtRp(p.omset), fmtRp(p.hpp), fmtRp(p.margin), `${p.margin_pct.toFixed(1)}%`]),
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `margin-produk-${mp.periode.dari}-${mp.periode.sampai}.csv`)
+    downloadCsv(rows, `margin-produk-${mp.periode.dari}-${mp.periode.sampai}.csv`)
   }
 
   function exportPerbandinganCsv() {
@@ -533,7 +546,7 @@
       ['Laba Bersih', fmtRp(p1.laba_bersih), fmtRp(p2.laba_bersih), fmtRp(delta(p1.laba_bersih, p2.laba_bersih)), `${deltaPct(p1.laba_bersih, p2.laba_bersih).toFixed(1)}%`],
       ['Margin Bersih %', `${p1.margin_bersih_persen.toFixed(1)}%`, `${p2.margin_bersih_persen.toFixed(1)}%`, `${(p2.margin_bersih_persen - p1.margin_bersih_persen).toFixed(1)}pp`, ''],
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `perbandingan-${p1.periode.dari}-vs-${p2.periode.dari}.csv`)
+    downloadCsv(rows, `perbandingan-${p1.periode.dari}-vs-${p2.periode.dari}.csv`)
   }
 
   function exportPersediaanCsv() {
@@ -549,7 +562,7 @@
       ['Produk', 'Kategori', 'Stok', 'HPP', 'Nilai Stok'],
       ...p.produk.map((pr) => [pr.nama_barang, pr.kategori, pr.stok, fmtRp(pr.hpp), fmtRp(pr.nilai_stok)]),
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `persediaan-${p.per_tanggal}.csv`)
+    downloadCsv(rows, `persediaan-${p.per_tanggal}.csv`)
   }
 
   function exportTopPelangganCsv() {
@@ -563,7 +576,7 @@
       ['Nama', 'Tipe', 'Kontak', 'Transaksi', 'Omset', '% Omset'],
       ...tp.pelanggan.map((p) => [p.nama, p.tipe, p.kontak ?? '—', p.jumlah_transaksi, fmtRp(p.total_omset), `${p.pct_omset.toFixed(1)}%`]),
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `top-pelanggan-${tp.periode.dari}-${tp.periode.sampai}.csv`)
+    downloadCsv(rows, `top-pelanggan-${tp.periode.dari}-${tp.periode.sampai}.csv`)
   }
 
   function exportPembelianSupplierCsv() {
@@ -577,7 +590,7 @@
       ['Supplier', 'Kontak', 'Penerimaan', 'Total Pembelian', '% Total'],
       ...ps.supplier.map((s) => [s.nama_supplier, s.kontak ?? '—', s.jumlah_penerimaan, fmtRp(s.total_pembelian), `${s.pct_pembelian.toFixed(1)}%`]),
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `pembelian-supplier-${ps.periode.dari}-${ps.periode.sampai}.csv`)
+    downloadCsv(rows, `pembelian-supplier-${ps.periode.dari}-${ps.periode.sampai}.csv`)
   }
 
   function exportRekapPenggajianCsv() {
@@ -592,7 +605,29 @@
       ['Bulan', 'Karyawan', 'Gaji Pokok', 'Tunjangan', 'Potongan', 'Total Gaji'],
       ...rp.bulan.map((b, i) => [BULAN[i]!, b.jumlah_karyawan, fmtRp(b.total_gaji_pokok), fmtRp(b.total_tunjangan), fmtRp(b.total_potongan), fmtRp(b.total_gaji)]),
     ]
-    downloadCsv(rows.map((r) => r.join(',')).join('\n'), `rekap-penggajian-${rp.tahun}.csv`)
+    downloadCsv(rows, `rekap-penggajian-${rp.tahun}.csv`)
+  }
+
+  function exportAnalitikJamCsv() {
+    if (!analitikJam) return
+    const aj = analitikJam
+    const rows: (string | number)[][] = [
+      ['ANALITIK TRANSAKSI PER JAM', ''],
+      ['Periode', `${tglFmt(aj.dari)} - ${tglFmt(aj.sampai)}`],
+      ['Total Transaksi', aj.total_transaksi],
+      ['Total Omzet', fmtRp(aj.total_omzet)],
+      ['Jam Sibuk (≥70% peak)', aj.jam_sibuk.map(j => j + ':00').join(', ')],
+      [],
+      ['Jam', 'Jumlah Transaksi', 'Omzet', 'Rata-rata per Transaksi', 'Jam Sibuk'],
+      ...aj.per_jam.map(r => [
+        r.jam + ':00',
+        r.jumlah_transaksi,
+        fmtRp(r.omzet),
+        fmtRp(r.rata_per_trx),
+        aj.jam_sibuk.includes(r.jam) ? 'Ya' : '',
+      ]),
+    ]
+    downloadCsv(rows, `analitik-jam-${aj.dari}-${aj.sampai}.csv`)
   }
 
   function exportCsv() {
@@ -608,6 +643,7 @@
     else if (tab === 'top-pelanggan') exportTopPelangganCsv()
     else if (tab === 'pembelian-supplier') exportPembelianSupplierCsv()
     else if (tab === 'rekap-penggajian') exportRekapPenggajianCsv()
+    else if (tab === 'analitik-jam') exportAnalitikJamCsv()
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -938,7 +974,15 @@
 {/if}
 
 {#if loading}
-  <p style="padding:1.25rem; color:var(--text-dim); font-size:.85rem">Memuat laporan...</p>
+  <div style="padding:1.25rem; display:flex; flex-direction:column; gap:.75rem">
+    {#each { length: 6 } as _, i (i)}
+      <div style="display:flex; gap:1rem; align-items:center">
+        <Skeleton w="{30 + (i * 17) % 30}%" h="0.8rem" />
+        <Skeleton w="{20 + (i * 11) % 20}%" h="0.8rem" />
+        <Skeleton w="{15 + (i * 7) % 15}%" h="0.8rem" />
+      </div>
+    {/each}
+  </div>
 
 <!-- ═══════════════════════════════════════ LABA RUGI ════ -->
 {:else if tab === 'laba-rugi' && labaRugi}

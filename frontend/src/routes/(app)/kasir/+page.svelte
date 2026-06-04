@@ -1,3 +1,5 @@
+<svelte:head><title>Kasir — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -57,6 +59,10 @@
 	let strHeader  = $state('');
 	let strFooter  = $state('Terima kasih sudah berbelanja!');
 	let strUkuran  = $state('80');
+	let strCopy         = $state('1');
+	let autoCetak       = $state(false);
+	let printerMode     = $state('browser');
+	let printerBridgePort = $state('9999');
 
 	// Reset confirm
 	let konfirmasiReset = $state(false);
@@ -169,6 +175,10 @@
 			if (s.struk_header) strHeader  = s.struk_header;
 			if (s.struk_footer) strFooter  = s.struk_footer;
 			if (s.struk_ukuran) strUkuran  = s.struk_ukuran;
+			if (s.struk_copy)         strCopy           = s.struk_copy;
+			autoCetak                                   = s.auto_cetak === 'true';
+			if (s.printer_mode)       printerMode       = s.printer_mode;
+			if (s.printer_bridge_port) printerBridgePort = s.printer_bridge_port;
 		});
 		const cleanupDraft = initDraftSync();
 		// barcode detector harus didaftarkan SEBELUM tinykeys agar stopImmediatePropagation bekerja
@@ -349,7 +359,7 @@
 {/if}
 
 <!-- ─── Checkout Popup ────────────────────────────────────────────────────── -->
-<KasirCheckout {namaToko} {alamatToko} {strHeader} {strFooter} {strUkuran} />
+<KasirCheckout {namaToko} {alamatToko} {strHeader} {strFooter} {strUkuran} {strCopy} {autoCetak} {printerMode} {printerBridgePort} />
 
 <!-- ─── Shift Buka / Tutup ────────────────────────────────────────────────────── -->
 <ShiftBuka

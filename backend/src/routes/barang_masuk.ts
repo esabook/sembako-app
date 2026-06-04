@@ -10,9 +10,7 @@ import {
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
-import { Jimp, JimpMime } from 'jimp'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { saveUpload } from '../utils/upload.ts'
 
 export const barangMasukRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -211,24 +209,14 @@ barangMasukRouter.post('/:id/foto', requirePermission('pembelian.buat'), async (
   const formData = await c.req.formData()
   const file = formData.get('foto') as File | null
   if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
-  if (!file.type.startsWith('image/')) throw new HTTPException(400, { message: 'File harus berupa gambar' })
 
-  const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../../uploads')
-  const invoiceDir = join(uploadDir, 'invoice')
-  mkdirSync(invoiceDir, { recursive: true })
-
-  const filename = `${id}_${Date.now()}.jpg`
-  const buf = Buffer.from(await file.arrayBuffer())
-
-  let fotoPath: string
-  try {
-    // Invoice disimpan resolusi tinggi (teks faktur harus terbaca)
-    const imgInvoice = await Jimp.fromBuffer(buf)
-    writeFileSync(join(invoiceDir, filename), await imgInvoice.getBuffer(JimpMime.jpeg, { quality: 90 }))
-    fotoPath = `invoice/${filename}`
-  } catch {
-    throw new HTTPException(422, { message: 'Gagal memproses gambar. Pastikan file gambar valid.' })
-  }
+  // Invoice disimpan resolusi tinggi agar teks faktur terbaca
+  const { path: fotoPath } = await saveUpload(file, {
+    subdir: 'invoice',
+    prefix: id,
+    mode: { type: 'passthrough' },
+    quality: 90,
+  })
 
   db.update(barang_masuk)
     .set({ foto_faktur_path: fotoPath })

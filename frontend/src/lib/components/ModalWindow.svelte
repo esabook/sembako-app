@@ -40,6 +40,7 @@
 -->
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { fade, fly } from 'svelte/transition'
 
   let {
     open = $bindable(false),
@@ -68,6 +69,7 @@
 {#if open}
   <!-- Backdrop -->
   <div
+    transition:fade={{ duration: 150 }}
     class="fixed inset-0 z-50 flex justify-center {fullscreen ? 'items-center p-2' : 'items-end sm:items-center px-2 sm:px-0'}"
     style="background:rgba(0,0,0,0.5)"
     role="dialog"
@@ -79,6 +81,7 @@
     <!-- Panel -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
+      transition:fly={{ duration: 200, y: 24, opacity: 0 }}
       class="relative flex flex-col overflow-hidden border w-full
              {fullscreen
                ? 'h-full rounded-2xl'

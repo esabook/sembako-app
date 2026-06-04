@@ -17,6 +17,7 @@
   --warn: #ffb300;
   --danger: #ff5252;
   --info: #40c4ff;
+  --skeleton: #252525;
 }
 
 /* ─── Tema Light ────────────────────────────────── */
@@ -31,6 +32,7 @@
   --warn: #b37800;
   --danger: #c62828;
   --info: #0077aa;
+  --skeleton: #dcdcdc;
 }
 
 /* ─── Tema Eye Comfort ──────────────────────────── */
@@ -45,6 +47,7 @@
   --warn: #e07020;
   --danger: #cc4444;
   --info: #5aaccc;
+  --skeleton: #2e2b1e;
 }
 
 /* ─── Tema BW on White ──────────────────────────── */
@@ -59,6 +62,7 @@
   --warn: #333333;
   --danger: #000000;
   --info: #333333;
+  --skeleton: #dddddd;
 }
 
 /* ─── Tema BW on Black ──────────────────────────── */
@@ -73,6 +77,7 @@
   --warn: #cccccc;
   --danger: #ffffff;
   --info: #cccccc;
+  --skeleton: #1c1c1c;
 }
 
 /* ─── Tema Island (JetBrains-style floating panels) ── */
@@ -87,6 +92,7 @@
   --warn: #e8b84c;
   --danger: #f28b82;
   --info: #6cbfe0;
+  --skeleton: #3d3f44;
 }
 
 /* Island layout: panel mengambang dengan celah bg di antara panel */
@@ -120,6 +126,7 @@
   --warn: #ffd700;
   --danger: #ff3d00;
   --info: #2979ff;
+  --skeleton: #2d2d2d;
 }
 
 /* ─── Base ──────────────────────────────────────── */

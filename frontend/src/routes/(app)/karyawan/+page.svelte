@@ -1,3 +1,5 @@
+<svelte:head><title>Karyawan — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
@@ -12,6 +14,9 @@
     ROLE_COLOR, STATUS_COLOR, STATUS_GAJI_COLOR, STATUS_KB, DAY_LABELS,
     rp, fmtRpK, fmtMenit, hitungDurasi,
   } from './karyawan.logic.js'
+  import type { IzinRow, EvaluasiRow, SanksiInsentifRow } from './karyawan.types.js'
+  import { api } from '$lib/utils/api.js'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -29,12 +34,159 @@
   $effect(() => { if (tab === 'kasbon')     { store.filterStatusKasbon; store.muatKasbon() } })
   $effect(() => { if (tab === 'jadwal')     { store.weekStart; store.muatJadwal() } })
   $effect(() => { if (tab === 'performa')   { store.bulanPerforma; store.muatPerforma() } })
+
+  // ── C1: Izin ────────────────────────────────────────────────────────────
+  let izinRows = $state<IzinRow[]>([])
+  let izinLoading = $state(false)
+  let izinBulan = $state('')
+  let izinKaryawanId = $state('')
+  let izinFormOpen = $state(false)
+  let izinError = $state('')
+  let fIzinJenis = $state<'cuti'|'izin'|'sakit'>('izin')
+  let fIzinMulai = $state('')
+  let fIzinSelesai = $state('')
+  let fIzinAlasan = $state('')
+  let fIzinKaryawanId = $state('')
+
+  async function muatIzin() {
+    izinLoading = true
+    const q = new URLSearchParams()
+    if (izinKaryawanId) q.set('karyawan_id', izinKaryawanId)
+    if (izinBulan) { q.set('dari', izinBulan + '-01'); q.set('sampai', izinBulan + '-31') }
+    const r = await api.get<IzinRow[]>(`/izin?${q}`)
+    if (r.success) izinRows = r.data
+    izinLoading = false
+  }
+
+  async function setujuiIzin(id: number) {
+    await api.post(`/izin/${id}/setujui`, {})
+    muatIzin()
+  }
+
+  async function tolakIzin(id: number) {
+    const catatan = prompt('Alasan penolakan (opsional):') ?? ''
+    await api.post(`/izin/${id}/tolak`, { catatan })
+    muatIzin()
+  }
+
+  async function simpanIzin() {
+    izinError = ''
+    if (!fIzinMulai || !fIzinSelesai) { izinError = 'Tanggal wajib diisi'; return }
+    const body: Record<string, unknown> = {
+      jenis: fIzinJenis, tanggal_mulai: fIzinMulai, tanggal_selesai: fIzinSelesai, alasan: fIzinAlasan || undefined,
+    }
+    if ($user && ['pemilik','manajer'].includes($user.role) && fIzinKaryawanId) {
+      body.karyawan_id = Number(fIzinKaryawanId)
+    }
+    const r = await api.post('/izin', body)
+    if (!r.success) { izinError = (r as { success: false; error: string }).error; return }
+    izinFormOpen = false; muatIzin()
+  }
+
+  $effect(() => { if (tab === 'izin') { izinBulan; izinKaryawanId; muatIzin() } })
+
+  // ── C1: Evaluasi ─────────────────────────────────────────────────────────
+  let evalRows = $state<EvaluasiRow[]>([])
+  let evalKaryawanId = $state('')
+  let evalPeriode = $state('')
+  let evalFormOpen = $state(false)
+  let evalError = $state('')
+  let editEvalId = $state<number|null>(null)
+  let fEvalKaryawanId = $state('')
+  let fEvalPeriode = $state('')
+  let fEvalNilai = $state('3')
+  let fEvalCatatan = $state('')
+
+  async function muatEval() {
+    const q = new URLSearchParams()
+    if (evalKaryawanId) q.set('karyawan_id', evalKaryawanId)
+    if (evalPeriode) q.set('periode', evalPeriode)
+    const r = await api.get<EvaluasiRow[]>(`/evaluasi?${q}`)
+    if (r.success) evalRows = r.data
+  }
+
+  function bukaEvalForm(row?: EvaluasiRow) {
+    editEvalId = row?.id ?? null
+    fEvalKaryawanId = row ? String(row.karyawan_id) : ''
+    fEvalPeriode = row?.periode ?? evalPeriode
+    fEvalNilai = String(row?.nilai ?? 3)
+    fEvalCatatan = row?.catatan ?? ''
+    evalError = ''
+    evalFormOpen = true
+  }
+
+  async function simpanEval() {
+    evalError = ''
+    if (!fEvalKaryawanId) { evalError = 'Pilih karyawan'; return }
+    if (!fEvalPeriode) { evalError = 'Periode wajib'; return }
+    const body = { karyawan_id: Number(fEvalKaryawanId), periode: fEvalPeriode, nilai: Number(fEvalNilai), catatan: fEvalCatatan || undefined, tanggal: new Date().toISOString().slice(0,10) }
+    const r = editEvalId
+      ? await api.put(`/evaluasi/${editEvalId}`, body)
+      : await api.post('/evaluasi', body)
+    if (!r.success) { evalError = (r as { success: false; error: string }).error; return }
+    evalFormOpen = false; muatEval()
+  }
+
+  async function hapusEval(id: number) {
+    if (!confirm('Hapus evaluasi ini?')) return
+    await api.delete(`/evaluasi/${id}`)
+    muatEval()
+  }
+
+  $effect(() => { if (tab === 'evaluasi') { evalKaryawanId; evalPeriode; muatEval() } })
+
+  // ── C1: Sanksi & Insentif ─────────────────────────────────────────────
+  let siRows = $state<SanksiInsentifRow[]>([])
+  let siBulan = $state('')
+  let siKaryawanId = $state('')
+  let siTipe = $state('')
+  let siFormOpen = $state(false)
+  let siError = $state('')
+  let fSiKaryawanId = $state('')
+  let fSiTipe = $state<'sanksi'|'insentif'>('insentif')
+  let fSiJenis = $state('')
+  let fSiJumlah = $state('')
+  let fSiTanggal = $state('')
+  let fSiBulan = $state('')
+  let fSiKet = $state('')
+
+  async function muatSI() {
+    const q = new URLSearchParams()
+    if (siKaryawanId) q.set('karyawan_id', siKaryawanId)
+    if (siBulan) q.set('periode_bulan', siBulan)
+    if (siTipe) q.set('tipe', siTipe)
+    const r = await api.get<SanksiInsentifRow[]>(`/sanksi-insentif?${q}`)
+    if (r.success) siRows = r.data
+  }
+
+  async function simpanSI() {
+    siError = ''
+    if (!fSiKaryawanId) { siError = 'Pilih karyawan'; return }
+    if (!fSiJenis.trim()) { siError = 'Jenis wajib'; return }
+    if (!fSiJumlah || Number(fSiJumlah) <= 0) { siError = 'Jumlah harus > 0'; return }
+    if (!fSiTanggal) { siError = 'Tanggal wajib'; return }
+    if (!fSiBulan) { siError = 'Periode bulan wajib'; return }
+    const r = await api.post('/sanksi-insentif', {
+      karyawan_id: Number(fSiKaryawanId), tipe: fSiTipe, jenis: fSiJenis,
+      jumlah: Number(fSiJumlah), tanggal: fSiTanggal, periode_bulan: fSiBulan, keterangan: fSiKet || undefined,
+    })
+    if (!r.success) { siError = (r as { success: false; error: string }).error; return }
+    siFormOpen = false; muatSI()
+  }
+
+  async function hapusSI(id: number) {
+    if (!confirm('Hapus data ini?')) return
+    await api.delete(`/sanksi-insentif/${id}`)
+    muatSI()
+  }
+
+  $effect(() => { if (tab === 'sanksi') { siKaryawanId; siBulan; siTipe; muatSI() } })
 </script>
 
 <!-- ── Tab bar ──────────────────────────────────────────────────────────────── -->
 <div class="flex flex-col gap-4">
   <div class="flex gap-1 border-b overflow-x-auto" style="border-color:var(--border);scrollbar-width:none">
-    {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift'],['performa','Performa Shift']] as const) as [key, label] (key)}
+    {#each ([['data','Data Karyawan'],['absensi','Absensi'],['penggajian','Penggajian'],['kasbon','Kasbon'],['jadwal','Jadwal Shift'],['performa','Performa Shift'],['izin','Cuti & Izin'],['evaluasi','Evaluasi'],['sanksi','Sanksi & Insentif']] as const) as [key, label] (key)}
       <button
         onclick={() => goto(`?tab=${key}`, { replaceState: true, keepFocus: true, noScroll: true })}
         class="px-4 py-2 text-sm font-medium border-b-2 transition-colors shrink-0"
@@ -56,7 +208,7 @@
       bind:pageSize={store.pageSizeKaryawan}
       totalRows={store.filteredKaryawan.length}
       rowCount={store.pagedKaryawan.length}
-      emptyText={store.loadingKaryawan ? 'Memuat...' : 'Tidak ada data'}
+      emptyText="Tidak ada data"
       maxRows={12}
     >
       {#snippet toolbarEnd()}
@@ -200,7 +352,7 @@
         bind:sortKey={store.sortKeyAbsensi}
         bind:sortDir={store.sortDirAbsensi}
         rowCount={store.sortedAbsensi.length}
-        emptyText={store.loadingAbsensi ? 'Memuat...' : 'Belum ada data absensi bulan ini'}
+        emptyText="Belum ada data absensi bulan ini"
         maxRows={14}
       >
         {#snippet body(hidden)}
@@ -254,7 +406,7 @@
         bind:sortKey={store.sortKeyRekap}
         bind:sortDir={store.sortDirRekap}
         rowCount={store.sortedRekap.length}
-        emptyText={store.loadingAbsensi ? 'Memuat...' : 'Belum ada data'}
+        emptyText="Belum ada data"
         maxRows={14}
       >
         {#snippet body(hidden)}
@@ -314,7 +466,7 @@
       bind:sortKey={store.sortKeyGaji}
       bind:sortDir={store.sortDirGaji}
       rowCount={store.sortedGaji.length}
-      emptyText={store.loadingGaji ? 'Memuat...' : 'Belum ada data — klik "Generate Gaji" untuk membuat slip gaji dari absensi'}
+      emptyText='Belum ada data — klik "Generate Gaji" untuk membuat slip gaji dari absensi'
       maxRows={12}
     >
       {#snippet body(hidden)}
@@ -406,7 +558,7 @@
       bind:sortKey={store.sortKeyKasbon}
       bind:sortDir={store.sortDirKasbon}
       rowCount={store.sortedKasbon.length}
-      emptyText={store.loadingKasbon ? 'Memuat...' : 'Tidak ada kasbon'}
+      emptyText="Tidak ada kasbon"
       maxRows={12}
     >
       {#snippet body(hidden)}
@@ -503,7 +655,7 @@
     </div>
 
     {#if store.loadingJadwal}
-      <p class="text-xs py-4 text-center" style="color:var(--text-dim)">Memuat...</p>
+      <div class="flex justify-center py-6"><Spinner /></div>
     {:else}
       <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
         <table class="w-full text-xs border-collapse" style="min-width:680px">
@@ -630,7 +782,7 @@
     </div>
 
     {#if store.loadingPerforma}
-      <p class="text-sm py-4" style="color:var(--text-dim)">Memuat...</p>
+      <div class="flex justify-center py-6"><Spinner /></div>
 
     {:else if store.performaDetailId && store.performaDetail}
       {@const d = store.performaDetail}
@@ -796,6 +948,188 @@
         </table>
       </div>
     {/if}
+  {/if}
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB: CUTI & IZIN
+  ═════════════════════════════════════════════════════════════════════════ -->
+  {#if tab === 'izin'}
+    <div class="flex flex-wrap gap-2 mb-3 items-end">
+      <select bind:value={izinKaryawanId}
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        <option value="">Semua Karyawan</option>
+        {#each store.karyawanList as k (k.id)}
+          <option value={String(k.id)}>{k.nama}</option>
+        {/each}
+      </select>
+      <input type="month" bind:value={izinBulan}
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+      <button onclick={() => { izinError=''; fIzinJenis='izin'; fIzinMulai=''; fIzinSelesai=''; fIzinAlasan=''; fIzinKaryawanId=''; izinFormOpen=true }}
+        class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Ajukan</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead><tr class="text-xs" style="color:var(--text-dim)">
+          <th class="text-left py-2 pr-3">Karyawan</th>
+          <th class="text-left py-2 pr-3">Jenis</th>
+          <th class="text-left py-2 pr-3">Mulai</th>
+          <th class="text-left py-2 pr-3">Selesai</th>
+          <th class="text-left py-2 pr-3">Alasan</th>
+          <th class="text-left py-2 pr-3">Status</th>
+          <th class="py-2"></th>
+        </tr></thead>
+        <tbody>
+          {#each izinRows as row (row.id)}
+            <tr class="border-t text-sm" style="border-color:var(--border)">
+              <td class="py-2 pr-3 font-medium">{row.nama_karyawan}</td>
+              <td class="py-2 pr-3 capitalize">{row.jenis}</td>
+              <td class="py-2 pr-3">{row.tanggal_mulai}</td>
+              <td class="py-2 pr-3">{row.tanggal_selesai}</td>
+              <td class="py-2 pr-3" style="color:var(--text-dim)">{row.alasan ?? '-'}</td>
+              <td class="py-2 pr-3">
+                {#if row.status === 'menunggu'}
+                  <span class="px-2 py-0.5 rounded-full text-xs" style="background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)">Menunggu</span>
+                {:else if row.status === 'disetujui'}
+                  <span class="px-2 py-0.5 rounded-full text-xs" style="background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)">Disetujui</span>
+                {:else}
+                  <span class="px-2 py-0.5 rounded-full text-xs" style="background:color-mix(in srgb,var(--danger) 20%,transparent);color:var(--danger)">Ditolak</span>
+                {/if}
+              </td>
+              <td class="py-2 text-right">
+                {#if row.status === 'menunggu' && $user && ['pemilik','manajer'].includes($user.role)}
+                  <button onclick={() => setujuiIzin(row.id)} class="text-xs px-2 py-0.5 rounded mr-1" style="background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)">Setujui</button>
+                  <button onclick={() => tolakIzin(row.id)} class="text-xs px-2 py-0.5 rounded" style="background:color-mix(in srgb,var(--danger) 20%,transparent);color:var(--danger)">Tolak</button>
+                {/if}
+              </td>
+            </tr>
+          {/each}
+          {#if !izinRows.length}
+            <tr><td colspan="7" class="py-6 text-center text-sm" style="color:var(--text-dim)">{izinLoading ? 'Memuat...' : 'Belum ada pengajuan'}</td></tr>
+          {/if}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB: EVALUASI
+  ═════════════════════════════════════════════════════════════════════════ -->
+  {#if tab === 'evaluasi'}
+    <div class="flex flex-wrap gap-2 mb-3 items-end">
+      <select bind:value={evalKaryawanId}
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        <option value="">Semua Karyawan</option>
+        {#each store.karyawanList as k (k.id)}
+          <option value={String(k.id)}>{k.nama}</option>
+        {/each}
+      </select>
+      <input type="month" bind:value={evalPeriode} placeholder="Periode"
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+      {#if $user && ['pemilik','manajer'].includes($user.role)}
+        <button onclick={() => bukaEvalForm()}
+          class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Nilai</button>
+      {/if}
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead><tr class="text-xs" style="color:var(--text-dim)">
+          <th class="text-left py-2 pr-3">Karyawan</th>
+          <th class="text-left py-2 pr-3">Periode</th>
+          <th class="text-center py-2 pr-3">Nilai</th>
+          <th class="text-left py-2 pr-3">Catatan</th>
+          <th class="text-left py-2 pr-3">Tanggal</th>
+          <th class="py-2"></th>
+        </tr></thead>
+        <tbody>
+          {#each evalRows as row (row.id)}
+            <tr class="border-t text-sm" style="border-color:var(--border)">
+              <td class="py-2 pr-3 font-medium">{row.nama_karyawan}</td>
+              <td class="py-2 pr-3">{row.periode}</td>
+              <td class="py-2 pr-3 text-center">
+                <span class="font-bold text-base" style="color:{row.nilai >= 4 ? 'var(--accent)' : row.nilai <= 2 ? 'var(--danger)' : 'var(--warn)'}">{'★'.repeat(row.nilai)}{'☆'.repeat(5-row.nilai)}</span>
+              </td>
+              <td class="py-2 pr-3 text-xs" style="color:var(--text-dim)">{row.catatan ?? '-'}</td>
+              <td class="py-2 pr-3 text-xs">{row.tanggal}</td>
+              <td class="py-2 text-right">
+                {#if $user && ['pemilik','manajer'].includes($user.role)}
+                  <button onclick={() => bukaEvalForm(row)} class="text-xs px-2 py-0.5 rounded mr-1" style="color:var(--text-dim);border:1px solid var(--border)">Edit</button>
+                  <button onclick={() => hapusEval(row.id)} class="text-xs px-2 py-0.5 rounded" style="color:var(--danger)">Hapus</button>
+                {/if}
+              </td>
+            </tr>
+          {/each}
+          {#if !evalRows.length}
+            <tr><td colspan="6" class="py-6 text-center text-sm" style="color:var(--text-dim)">Belum ada evaluasi</td></tr>
+          {/if}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB: SANKSI & INSENTIF
+  ═════════════════════════════════════════════════════════════════════════ -->
+  {#if tab === 'sanksi'}
+    <div class="flex flex-wrap gap-2 mb-3 items-end">
+      <select bind:value={siKaryawanId}
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        <option value="">Semua Karyawan</option>
+        {#each store.karyawanList as k (k.id)}
+          <option value={String(k.id)}>{k.nama}</option>
+        {/each}
+      </select>
+      <input type="month" bind:value={siBulan}
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+      <select bind:value={siTipe}
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        <option value="">Semua Tipe</option>
+        <option value="sanksi">Sanksi</option>
+        <option value="insentif">Insentif</option>
+      </select>
+      {#if $user && ['pemilik','manajer'].includes($user.role)}
+        <button onclick={() => { siError=''; fSiKaryawanId=''; fSiTipe='insentif'; fSiJenis=''; fSiJumlah=''; fSiTanggal=''; fSiBulan=siBulan; fSiKet=''; siFormOpen=true }}
+          class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Catat</button>
+      {/if}
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead><tr class="text-xs" style="color:var(--text-dim)">
+          <th class="text-left py-2 pr-3">Karyawan</th>
+          <th class="text-left py-2 pr-3">Tipe</th>
+          <th class="text-left py-2 pr-3">Jenis</th>
+          <th class="text-right py-2 pr-3">Jumlah</th>
+          <th class="text-left py-2 pr-3">Periode</th>
+          <th class="text-left py-2 pr-3">Keterangan</th>
+          <th class="py-2"></th>
+        </tr></thead>
+        <tbody>
+          {#each siRows as row (row.id)}
+            <tr class="border-t text-sm" style="border-color:var(--border)">
+              <td class="py-2 pr-3 font-medium">{row.nama_karyawan}</td>
+              <td class="py-2 pr-3">
+                {#if row.tipe === 'insentif'}
+                  <span class="px-2 py-0.5 rounded-full text-xs" style="background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)">Insentif</span>
+                {:else}
+                  <span class="px-2 py-0.5 rounded-full text-xs" style="background:color-mix(in srgb,var(--danger) 20%,transparent);color:var(--danger)">Sanksi</span>
+                {/if}
+              </td>
+              <td class="py-2 pr-3">{row.jenis}</td>
+              <td class="py-2 pr-3 text-right font-mono">{rp(row.jumlah)}</td>
+              <td class="py-2 pr-3 text-xs">{row.periode_bulan}</td>
+              <td class="py-2 pr-3 text-xs" style="color:var(--text-dim)">{row.keterangan ?? '-'}</td>
+              <td class="py-2 text-right">
+                {#if $user && ['pemilik','manajer'].includes($user.role)}
+                  <button onclick={() => hapusSI(row.id)} class="text-xs px-2 py-0.5 rounded" style="color:var(--danger)">Hapus</button>
+                {/if}
+              </td>
+            </tr>
+          {/each}
+          {#if !siRows.length}
+            <tr><td colspan="7" class="py-6 text-center text-sm" style="color:var(--text-dim)">Belum ada data</td></tr>
+          {/if}
+        </tbody>
+      </table>
+    </div>
   {/if}
 
 </div>
@@ -1124,6 +1458,191 @@
         style="color:var(--text-dim)">Batal</button>
       <button type="submit" class="px-3 py-1 rounded text-sm font-bold"
         style="background:var(--accent);color:var(--bg)">Kirim</button>
+    </div>
+  </form>
+  {/snippet}
+</SlideOver>
+
+<!-- ── Modal: Ajukan Cuti/Izin ──────────────────────────────────────────────── -->
+<SlideOver bind:open={izinFormOpen} title="Ajukan Cuti / Izin">
+  {#snippet children()}
+  <form onsubmit={(e) => { e.preventDefault(); simpanIzin() }} class="flex flex-col gap-3 text-sm">
+    {#if $user && ['pemilik','manajer'].includes($user.role)}
+      <div class="flex flex-col gap-1">
+        <label for="fi-karyw" class="text-xs" style="color:var(--text-dim)">KARYAWAN *</label>
+        <select id="fi-karyw" bind:value={fIzinKaryawanId}
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+          <option value="">-- Saya Sendiri --</option>
+          {#each store.karyawanList as k (k.id)}
+            <option value={String(k.id)}>{k.nama}</option>
+          {/each}
+        </select>
+      </div>
+    {/if}
+    <div class="flex flex-col gap-1">
+      <span class="text-xs" style="color:var(--text-dim)">JENIS *</span>
+      <div class="flex gap-3 flex-wrap">
+        {#each ([['izin','Izin'],['cuti','Cuti'],['sakit','Sakit']] as const) as [v, lbl] (v)}
+          <label class="flex items-center gap-1.5 cursor-pointer text-sm">
+            <input type="radio" bind:group={fIzinJenis} value={v} class="accent-[var(--accent)]" />
+            {lbl}
+          </label>
+        {/each}
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="flex flex-col gap-1">
+        <label for="fi-mulai" class="text-xs" style="color:var(--text-dim)">TANGGAL MULAI *</label>
+        <input id="fi-mulai" type="date" bind:value={fIzinMulai} required
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="fi-selesai" class="text-xs" style="color:var(--text-dim)">TANGGAL SELESAI *</label>
+        <input id="fi-selesai" type="date" bind:value={fIzinSelesai} required
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fi-alasan" class="text-xs" style="color:var(--text-dim)">ALASAN</label>
+      <textarea id="fi-alasan" bind:value={fIzinAlasan} rows="3" placeholder="Opsional"
+        class="px-2 py-1 rounded border outline-none resize-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)"></textarea>
+    </div>
+    {#if izinError}
+      <p class="text-xs" style="color:var(--danger)">{izinError}</p>
+    {/if}
+    <div class="flex justify-end gap-2 mt-1">
+      <button type="button" onclick={() => izinFormOpen = false} class="px-3 py-1 rounded text-sm"
+        style="color:var(--text-dim)">Batal</button>
+      <button type="submit" class="px-3 py-1 rounded text-sm font-bold"
+        style="background:var(--accent);color:var(--bg)">Kirim</button>
+    </div>
+  </form>
+  {/snippet}
+</SlideOver>
+
+<!-- ── Modal: Form Evaluasi ──────────────────────────────────────────────────── -->
+<SlideOver bind:open={evalFormOpen} title={editEvalId ? 'Edit Evaluasi' : 'Tambah Evaluasi'}>
+  {#snippet children()}
+  <form onsubmit={(e) => { e.preventDefault(); simpanEval() }} class="flex flex-col gap-3 text-sm">
+    <div class="flex flex-col gap-1">
+      <label for="fe-karyw" class="text-xs" style="color:var(--text-dim)">KARYAWAN *</label>
+      <select id="fe-karyw" bind:value={fEvalKaryawanId} required
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+        <option value="">-- Pilih --</option>
+        {#each store.karyawanList as k (k.id)}
+          <option value={String(k.id)}>{k.nama}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fe-periode" class="text-xs" style="color:var(--text-dim)">PERIODE (YYYY-MM) *</label>
+      <input id="fe-periode" type="month" bind:value={fEvalPeriode} required
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <span class="text-xs" style="color:var(--text-dim)">NILAI *</span>
+      <div class="flex gap-1">
+        {#each [1,2,3,4,5] as n (n)}
+          <button type="button" onclick={() => fEvalNilai = String(n)}
+            class="text-2xl leading-none transition-transform hover:scale-110"
+            style="color:{Number(fEvalNilai) >= n ? 'var(--warn)' : 'var(--border)'}">
+            ★
+          </button>
+        {/each}
+        <span class="ml-2 text-sm self-center" style="color:var(--text-dim)">{fEvalNilai}/5</span>
+      </div>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fe-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
+      <textarea id="fe-catatan" bind:value={fEvalCatatan} rows="3" placeholder="Opsional"
+        class="px-2 py-1 rounded border outline-none resize-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)"></textarea>
+    </div>
+    {#if evalError}
+      <p class="text-xs" style="color:var(--danger)">{evalError}</p>
+    {/if}
+    <div class="flex justify-end gap-2 mt-1">
+      <button type="button" onclick={() => evalFormOpen = false} class="px-3 py-1 rounded text-sm"
+        style="color:var(--text-dim)">Batal</button>
+      <button type="submit" class="px-3 py-1 rounded text-sm font-bold"
+        style="background:var(--accent);color:var(--bg)">Simpan</button>
+    </div>
+  </form>
+  {/snippet}
+</SlideOver>
+
+<!-- ── Modal: Form Sanksi & Insentif ────────────────────────────────────────── -->
+<SlideOver bind:open={siFormOpen} title="Catat Sanksi / Insentif">
+  {#snippet children()}
+  <form onsubmit={(e) => { e.preventDefault(); simpanSI() }} class="flex flex-col gap-3 text-sm">
+    <div class="flex flex-col gap-1">
+      <label for="fsi-karyw" class="text-xs" style="color:var(--text-dim)">KARYAWAN *</label>
+      <select id="fsi-karyw" bind:value={fSiKaryawanId} required
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+        <option value="">-- Pilih --</option>
+        {#each store.karyawanList as k (k.id)}
+          <option value={String(k.id)}>{k.nama}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="flex flex-col gap-1">
+      <span class="text-xs" style="color:var(--text-dim)">TIPE *</span>
+      <div class="flex gap-4">
+        {#each ([['insentif','Insentif'],['sanksi','Sanksi']] as const) as [v, lbl] (v)}
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" bind:group={fSiTipe} value={v} class="accent-[var(--accent)]" />
+            <span style="color:{v === 'insentif' ? 'var(--accent)' : 'var(--danger)'}">{lbl}</span>
+          </label>
+        {/each}
+      </div>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fsi-jenis" class="text-xs" style="color:var(--text-dim)">JENIS *</label>
+      <input id="fsi-jenis" bind:value={fSiJenis} required placeholder="mis. Bonus penjualan, Keterlambatan, ..."
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="flex flex-col gap-1">
+        <label for="fsi-jml" class="text-xs" style="color:var(--text-dim)">JUMLAH (Rp) *</label>
+        <input id="fsi-jml" type="number" min="1" bind:value={fSiJumlah} required
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="fsi-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL *</label>
+        <input id="fsi-tgl" type="date" bind:value={fSiTanggal} required
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fsi-bulan" class="text-xs" style="color:var(--text-dim)">PERIODE BULAN *</label>
+      <input id="fsi-bulan" type="month" bind:value={fSiBulan} required
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    <div class="flex flex-col gap-1">
+      <label for="fsi-ket" class="text-xs" style="color:var(--text-dim)">KETERANGAN</label>
+      <input id="fsi-ket" bind:value={fSiKet} placeholder="Opsional"
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+    </div>
+    {#if siError}
+      <p class="text-xs" style="color:var(--danger)">{siError}</p>
+    {/if}
+    <div class="flex justify-end gap-2 mt-1">
+      <button type="button" onclick={() => siFormOpen = false} class="px-3 py-1 rounded text-sm"
+        style="color:var(--text-dim)">Batal</button>
+      <button type="submit" class="px-3 py-1 rounded text-sm font-bold"
+        style="background:var(--accent);color:var(--bg)">Simpan</button>
     </div>
   </form>
   {/snippet}

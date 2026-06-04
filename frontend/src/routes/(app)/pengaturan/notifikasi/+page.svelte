@@ -1,3 +1,5 @@
+<svelte:head><title>Notifikasi — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { user } from '$lib/stores/auth.js'

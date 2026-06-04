@@ -1,3 +1,5 @@
+<svelte:head><title>Keuangan — Stokasir</title></svelte:head>
+
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
@@ -5,6 +7,7 @@
   import { api } from '$lib/utils/api'
   import { user } from '$lib/stores/auth.js'
   import DataTable from '$lib/components/DataTable.svelte'
+  import Skeleton from '$lib/components/ui/Skeleton.svelte'
   import type { Column } from '$lib/components/DataTable.svelte'
   import { createBudgetStore } from './budget/budget.store.svelte.js'
   import {
@@ -19,7 +22,7 @@
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
   })
 
-  type TabKey = 'hutang' | 'piutang' | 'jurnal' | 'kasbank' | 'budget'
+  type TabKey = 'hutang' | 'piutang' | 'jurnal' | 'kasbank' | 'budget' | 'pinjaman'
   let tab = $derived<TabKey>(
     (page.url.searchParams.get('tab') as TabKey) ?? 'hutang'
   )
@@ -371,7 +374,99 @@
       budgetInit = true
       Promise.all([budgetStore.muatPeriode(periodeIni), budgetStore.muatHistori()])
     }
+    else if (tab === 'pinjaman') { piTipeFilter; piStatusFilter; muatPinjaman() }
   })
+
+  // ── Pinjaman & Investasi ───────────────────────────────────────────────────
+  type PinjamanRow = {
+    id: number; tipe: 'pinjaman'|'investasi'; nama: string
+    jumlah_pokok: number; bunga_persen: number; cicilan_per_bulan: number
+    tanggal_mulai: string; jatuh_tempo: string|null
+    sisa_pokok: number; status: 'aktif'|'lunas'|'macet'; catatan: string|null
+  }
+  let piRows = $state<PinjamanRow[]>([])
+  let piTipeFilter = $state('')
+  let piStatusFilter = $state('aktif')
+  let piFormOpen = $state(false)
+  let piCicilOpen = $state(false)
+  let piError = $state('')
+  let editPiId = $state<number|null>(null)
+  let cicilPiId = $state<number|null>(null)
+  let cicilJumlah = $state('')
+  let fPiTipe = $state<'pinjaman'|'investasi'>('pinjaman')
+  let fPiNama = $state('')
+  let fPiPokok = $state('')
+  let fPiBunga = $state('0')
+  let fPiCicilan = $state('0')
+  let fPiMulai = $state('')
+  let fPiJatuh = $state('')
+  let fPiCatatan = $state('')
+
+  function rpFmt(n: number) {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n)
+  }
+
+  async function muatPinjaman() {
+    const q = new URLSearchParams()
+    if (piTipeFilter) q.set('tipe', piTipeFilter)
+    if (piStatusFilter) q.set('status', piStatusFilter)
+    const r = await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi?${q}`, { credentials: 'include' })
+    const json = await r.json()
+    if (json.success) piRows = json.data
+  }
+
+  function bukaPiForm(row?: PinjamanRow) {
+    editPiId = row?.id ?? null
+    fPiTipe = row?.tipe ?? 'pinjaman'
+    fPiNama = row?.nama ?? ''
+    fPiPokok = row ? String(row.jumlah_pokok) : ''
+    fPiBunga = row ? String(row.bunga_persen) : '0'
+    fPiCicilan = row ? String(row.cicilan_per_bulan) : '0'
+    fPiMulai = row?.tanggal_mulai ?? ''
+    fPiJatuh = row?.jatuh_tempo ?? ''
+    fPiCatatan = row?.catatan ?? ''
+    piError = ''
+    piFormOpen = true
+  }
+
+  async function simpanPi() {
+    piError = ''
+    if (!fPiNama.trim()) { piError = 'Nama wajib'; return }
+    if (!fPiPokok || Number(fPiPokok) <= 0) { piError = 'Jumlah pokok harus > 0'; return }
+    if (!fPiMulai) { piError = 'Tanggal mulai wajib'; return }
+    const body = { tipe: fPiTipe, nama: fPiNama.trim(), jumlah_pokok: Number(fPiPokok),
+      bunga_persen: Number(fPiBunga), cicilan_per_bulan: Number(fPiCicilan),
+      tanggal_mulai: fPiMulai, jatuh_tempo: fPiJatuh || undefined, catatan: fPiCatatan || undefined }
+    const url = `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi${editPiId ? '/'+editPiId : ''}`
+    const r = await fetch(url, { method: editPiId ? 'PUT' : 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const json = await r.json()
+    if (!json.success) { piError = json.error; return }
+    piFormOpen = false; muatPinjaman()
+  }
+
+  async function cicilPi() {
+    if (!cicilPiId || !cicilJumlah || Number(cicilJumlah) <= 0) return
+    const r = await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi/${cicilPiId}/cicil`,
+      { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jumlah: Number(cicilJumlah) }) })
+    const json = await r.json()
+    if (json.success) { piCicilOpen = false; cicilJumlah = ''; muatPinjaman() }
+  }
+
+  async function hapusPi(id: number) {
+    if (!confirm('Hapus data ini?')) return
+    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi/${id}`,
+      { method: 'DELETE', credentials: 'include' })
+    muatPinjaman()
+  }
+
+  async function ubahStatusPi(id: number, status: 'aktif'|'lunas'|'macet') {
+    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi/${id}`,
+      { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }) })
+    muatPinjaman()
+  }
 </script>
 
 <!-- ───────────────────────────────────────────────── HEADER ── -->
@@ -403,7 +498,7 @@
   <!-- Tabs -->
   <div style="border-bottom:1px solid var(--border); margin-bottom:1rem">
     <div style="display:flex; gap:.5rem; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; margin-bottom:-1px">
-      {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank'],['budget','Budget & Target']] as [TabKey, string][]) as [t, label] (t)}
+      {#each ([['hutang','Hutang'],['piutang','Piutang'],['jurnal','Jurnal Kas'],['kasbank','Kas/Bank'],['budget','Budget & Target'],['pinjaman','Pinjaman & Investasi']] as [TabKey, string][]) as [t, label] (t)}
         <button
           onclick={() => goto(`?tab=${t}`, { replaceState: true, keepFocus: true, noScroll: true })}
           style="padding:.5rem 1rem; background:none; border:none; border-bottom:2px solid {tab===t ? 'var(--accent)' : 'transparent'}; color:{tab===t ? 'var(--accent)' : 'var(--text-dim)'}; font-family:inherit; font-size:.8rem; font-weight:600; cursor:pointer; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; flex-shrink:0"
@@ -441,7 +536,7 @@
       bind:pageSize={pageSizeHutang}
       totalRows={hutangFiltered.length}
       rowCount={pagedHutang.length}
-      emptyText={loading ? 'Memuat...' : 'Tidak ada data hutang.'}
+      emptyText="Tidak ada data hutang."
       maxRows={12}
     >
       {#snippet body(hidden)}
@@ -507,7 +602,7 @@
       bind:pageSize={pageSizePiutang}
       totalRows={piutangFiltered.length}
       rowCount={pagedPiutang.length}
-      emptyText={loading ? 'Memuat...' : 'Tidak ada data piutang.'}
+      emptyText="Tidak ada data piutang."
       maxRows={12}
     >
       {#snippet body(hidden)}
@@ -606,7 +701,7 @@
       bind:pageSize={pageSizeJurnal}
       totalRows={jurnalList.length}
       rowCount={pagedJurnal.length}
-      emptyText={loading ? 'Memuat...' : 'Tidak ada jurnal untuk periode ini.'}
+      emptyText="Tidak ada jurnal untuk periode ini."
       maxRows={14}
     >
       {#snippet body(hidden)}
@@ -645,7 +740,18 @@
   <!-- ═══════════════════════════════════════ TAB KAS/BANK ═ -->
   {#if tab === 'kasbank'}
     {#if loading}
-      <p style="color:var(--text-dim); font-size:.85rem">Memuat...</p>
+      <div style="display:grid; gap:.75rem">
+        {#each { length: 3 } as _, i (i)}
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:.9rem 1rem; display:flex; flex-direction:column; gap:.5rem">
+            <div style="display:flex; justify-content:space-between">
+              <Skeleton w="40%" h="0.875rem" />
+              <Skeleton w="15%" h="0.875rem" br="rounded-full" />
+            </div>
+            <Skeleton w="55%" h="1.25rem" />
+            <Skeleton w="30%" h="0.7rem" />
+          </div>
+        {/each}
+      </div>
     {:else if kasBankSaldo.length === 0}
       <p style="color:var(--text-dim); font-size:.85rem">Belum ada akun kas/bank.</p>
     {:else}
@@ -930,7 +1036,187 @@
 
     {/if}
   {/if}
+
+  <!-- ════════════ TAB: PINJAMAN & INVESTASI ════════════ -->
+  {#if tab === 'pinjaman'}
+    <div class="flex flex-wrap gap-2 items-end mb-3">
+      <select bind:value={piTipeFilter}
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        <option value="">Semua Tipe</option>
+        <option value="pinjaman">Pinjaman</option>
+        <option value="investasi">Investasi</option>
+      </select>
+      <select bind:value={piStatusFilter}
+        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        <option value="">Semua Status</option>
+        <option value="aktif">Aktif</option>
+        <option value="lunas">Lunas</option>
+        <option value="macet">Macet</option>
+      </select>
+      <button onclick={() => bukaPiForm()}
+        class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+    </div>
+
+    {#if piRows.length === 0}
+      <p class="text-sm py-4" style="color:var(--text-dim)">Belum ada data pinjaman/investasi.</p>
+    {:else}
+      <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
+        <table class="min-w-full text-sm" style="border-collapse:collapse;min-width:600px">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th class="px-3 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">Tipe</th>
+              <th class="px-3 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">Nama</th>
+              <th class="px-3 py-2 text-right text-xs font-semibold" style="color:var(--text-dim)">Pokok</th>
+              <th class="px-3 py-2 text-right text-xs font-semibold" style="color:var(--text-dim)">Sisa</th>
+              <th class="px-3 py-2 text-right text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Cicilan/bln</th>
+              <th class="px-3 py-2 text-left text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Jatuh Tempo</th>
+              <th class="px-3 py-2 text-center text-xs font-semibold" style="color:var(--text-dim)">Status</th>
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each piRows as row (row.id)}
+              {@const pct = row.jumlah_pokok > 0 ? Math.round((1 - row.sisa_pokok / row.jumlah_pokok) * 100) : 0}
+              <tr class="border-t" style="border-color:var(--border)">
+                <td class="px-3 py-2">
+                  <span class="text-xs font-bold px-1.5 py-0.5 rounded"
+                    style="background:{row.tipe==='pinjaman' ? 'color-mix(in srgb,var(--danger) 15%,transparent)' : 'color-mix(in srgb,var(--accent) 15%,transparent)'};
+                           color:{row.tipe==='pinjaman' ? 'var(--danger)' : 'var(--accent)'}">
+                    {row.tipe === 'pinjaman' ? 'Pinjaman' : 'Investasi'}
+                  </span>
+                </td>
+                <td class="px-3 py-2 font-medium">
+                  <div>{row.nama}</div>
+                  {#if row.bunga_persen > 0}
+                    <div class="text-xs" style="color:var(--text-dim)">{row.bunga_persen}% p.a.</div>
+                  {/if}
+                </td>
+                <td class="px-3 py-2 text-right font-mono text-xs">{rpFmt(row.jumlah_pokok)}</td>
+                <td class="px-3 py-2 text-right font-mono">
+                  <div class="text-sm font-bold" style="color:{row.sisa_pokok === 0 ? 'var(--accent)' : 'var(--warn)'}">{rpFmt(row.sisa_pokok)}</div>
+                  <div class="text-xs mt-0.5" style="color:var(--text-dim)">{pct}% lunas</div>
+                </td>
+                <td class="px-3 py-2 text-right text-xs hidden sm:table-cell" style="color:var(--text-dim)">
+                  {row.cicilan_per_bulan > 0 ? rpFmt(row.cicilan_per_bulan) : '—'}
+                </td>
+                <td class="px-3 py-2 text-xs hidden sm:table-cell" style="color:var(--text-dim)">{row.jatuh_tempo ?? '—'}</td>
+                <td class="px-3 py-2 text-center">
+                  <span class="text-xs font-bold"
+                    style="color:{row.status==='aktif' ? 'var(--warn)' : row.status==='lunas' ? 'var(--accent)' : 'var(--danger)'}">
+                    {row.status}
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  {#if row.status === 'aktif'}
+                    <button onclick={() => { cicilPiId=row.id; cicilJumlah=String(row.cicilan_per_bulan||''); piCicilOpen=true }}
+                      class="text-xs px-2 py-0.5 rounded mr-1" style="background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)">Cicil</button>
+                  {/if}
+                  <button onclick={() => bukaPiForm(row)} class="text-xs px-2 py-0.5 rounded mr-1"
+                    style="border:1px solid var(--border);color:var(--text-dim)">Edit</button>
+                  <button onclick={() => hapusPi(row.id)} class="text-xs px-2 py-0.5 rounded"
+                    style="color:var(--danger)">Hapus</button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  {/if}
 </div>
+
+<!-- ── Modal: Form Pinjaman/Investasi ────────────────────────────────────────── -->
+{#if piFormOpen}
+  <div role="dialog" aria-modal="true" tabindex="-1"
+    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
+    onclick={(e) => { if (e.target === e.currentTarget) piFormOpen=false }}
+    onkeydown={(e) => { if (e.key === 'Escape') piFormOpen=false }}>
+    <div class="rounded-lg p-5 w-full max-w-md flex flex-col gap-3 text-sm overflow-y-auto max-h-full"
+      style="background:var(--surface);max-height:90vh">
+      <h2 class="font-bold text-base">{editPiId ? 'Edit' : 'Tambah'} Pinjaman / Investasi</h2>
+      <div class="flex gap-4">
+        {#each ([['pinjaman','Pinjaman'],['investasi','Investasi']] as const) as [v, lbl] (v)}
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <input type="radio" bind:group={fPiTipe} value={v} class="accent-[var(--accent)]" />
+            <span style="color:{v==='pinjaman' ? 'var(--danger)' : 'var(--accent)'}">{lbl}</span>
+          </label>
+        {/each}
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="pi-nama" class="text-xs" style="color:var(--text-dim)">{fPiTipe === 'pinjaman' ? 'NAMA PEMBERI PINJAMAN' : 'NAMA PENERIMA/PROYEK'} *</label>
+        <input id="pi-nama" bind:value={fPiNama} required placeholder="mis. Bank BRI, Koperasi, ..."
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="flex flex-col gap-1">
+          <label for="pi-pokok" class="text-xs" style="color:var(--text-dim)">JUMLAH POKOK (Rp) *</label>
+          <input id="pi-pokok" type="number" min="1" bind:value={fPiPokok} required
+            class="px-2 py-1 rounded border outline-none"
+            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="pi-bunga" class="text-xs" style="color:var(--text-dim)">BUNGA (% per tahun)</label>
+          <input id="pi-bunga" type="number" min="0" step="0.1" bind:value={fPiBunga}
+            class="px-2 py-1 rounded border outline-none"
+            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="pi-cicilan" class="text-xs" style="color:var(--text-dim)">CICILAN/BULAN (Rp)</label>
+          <input id="pi-cicilan" type="number" min="0" bind:value={fPiCicilan}
+            class="px-2 py-1 rounded border outline-none"
+            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label for="pi-mulai" class="text-xs" style="color:var(--text-dim)">TANGGAL MULAI *</label>
+          <input id="pi-mulai" type="date" bind:value={fPiMulai} required
+            class="px-2 py-1 rounded border outline-none"
+            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        </div>
+        <div class="flex flex-col gap-1 col-span-2">
+          <label for="pi-jatuh" class="text-xs" style="color:var(--text-dim)">JATUH TEMPO</label>
+          <input id="pi-jatuh" type="date" bind:value={fPiJatuh}
+            class="px-2 py-1 rounded border outline-none"
+            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        </div>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label for="pi-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
+        <input id="pi-catatan" bind:value={fPiCatatan} placeholder="Opsional"
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      {#if piError}<p class="text-xs" style="color:var(--danger)">{piError}</p>{/if}
+      <div class="flex justify-end gap-2 mt-1">
+        <button onclick={() => piFormOpen=false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
+        <button onclick={simpanPi} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- ── Modal: Bayar Cicilan Pinjaman ─────────────────────────────────────────── -->
+{#if piCicilOpen}
+  <div role="dialog" aria-modal="true" tabindex="-1"
+    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
+    onclick={(e) => { if (e.target === e.currentTarget) piCicilOpen=false }}
+    onkeydown={(e) => { if (e.key === 'Escape') piCicilOpen=false }}>
+    <div class="rounded-lg p-5 w-full max-w-sm flex flex-col gap-3 text-sm"
+      style="background:var(--surface)">
+      <h2 class="font-bold text-base">Bayar Cicilan</h2>
+      <div class="flex flex-col gap-1">
+        <label for="pi-cicil-jml" class="text-xs" style="color:var(--text-dim)">JUMLAH CICILAN (Rp) *</label>
+        <input id="pi-cicil-jml" type="number" min="1" bind:value={cicilJumlah}
+          class="px-2 py-1 rounded border outline-none"
+          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      </div>
+      <div class="flex justify-end gap-2 mt-1">
+        <button onclick={() => piCicilOpen=false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
+        <button onclick={cicilPi} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Bayar</button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- ═══════════════════════════════════ MODAL BAYAR HUTANG ═══ -->
 {#if modalBayarHutang && hutangDipilih}

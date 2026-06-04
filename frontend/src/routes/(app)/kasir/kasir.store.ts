@@ -282,9 +282,11 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 	const harga = tipe === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
 	const jumlahAktual = Math.min(qty, br.stok_sekarang);
 	const diskonPromo = hitungDiskonPromo(br, harga, jumlahAktual);
+	let isUpdate = false;
 	keranjang.update((k) => {
 		const idx = k.findIndex((i) => i.barang_id === br.id && i.tipe_harga === tipe);
 		if (idx >= 0) {
+			isUpdate = true;
 			const u = [...k];
 			const newJumlah = Math.min(u[idx]!.jumlah + qty, u[idx]!.stok_sekarang);
 			u[idx] = { ...u[idx]!, jumlah: newJumlah, diskon_item: hitungDiskonPromo(br, harga, newJumlah) };
@@ -308,6 +310,7 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 			},
 		];
 	});
+	toast.info(isUpdate ? `+${qty} ${br.nama_barang}` : `✓ ${br.nama_barang}`);
 	closeSearch();
 	playKasirSound();
 	resetDummyJumlah(get(scanSessionId));

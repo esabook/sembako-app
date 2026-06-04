@@ -1,8 +1,11 @@
+<svelte:head><title>Info Server — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import QRCode from 'qrcode';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type ServerInfo = {
 		lan_ips: string[];
@@ -84,7 +87,7 @@
 		<p class="text-sm font-bold" style="color:var(--text)">Hubungkan HP ke Aplikasi Ini</p>
 
 		{#if loading}
-			<div class="h-56 flex items-center justify-center text-sm" style="color:var(--text-dim)">Memuat...</div>
+			<div class="h-56 flex items-center justify-center"><Spinner /></div>
 		{:else if !urlUntukHp()}
 			<div class="h-56 flex items-center justify-center text-sm" style="color:var(--warn)">
 				IP LAN tidak terdeteksi — pastikan terhubung ke jaringan

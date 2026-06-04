@@ -24,7 +24,7 @@
       <label for="f-role" class="text-xs" style="color:var(--text-dim)">ROLE *</label>
       <select id="f-role" bind:value={store.formKaryawan.role} class="px-2 py-1 rounded border outline-none"
         style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-        {#each ['pemilik','manajer','kasir','gudang'] as r (r)}
+        {#each ['pemilik','manajer','kasir','gudang','sales','pelayanan'] as r (r)}
           <option value={r}>{r}</option>
         {/each}
       </select>

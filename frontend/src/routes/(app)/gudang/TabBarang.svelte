@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { resizeImage } from '$lib/utils/image.js';
@@ -208,6 +209,9 @@
 			style="{tampilNonAktif ? 'background:var(--surface2);color:var(--text);border-color:var(--warn)' : 'color:var(--text-dim);border-color:var(--border)'}">
 			{tampilNonAktif ? 'Sembunyikan Non-Aktif' : 'Tampilkan Non-Aktif'}
 		</button>
+		{#if $user && ['pemilik', 'manajer', 'gudang'].includes($user.role)}
+			<button onclick={() => goto('/gudang/import')} class="px-3 py-1 rounded text-sm border" style="border-color:var(--accent);color:var(--accent)">↑ Import CSV</button>
+		{/if}
 		<button onclick={() => bukaFormBarang()} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
 	</div>
 	<DataTable
@@ -219,7 +223,7 @@
 		bind:pageSize={pageSizeBarang}
 		totalRows={sortedBarang.length}
 		rowCount={pagedBarang.length}
-		emptyText={loading ? 'Memuat...' : 'Tidak ada data'}
+		emptyText="Tidak ada data"
 		maxRows={12}
 	>
 		{#snippet body(hidden)}

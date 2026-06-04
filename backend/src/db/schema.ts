@@ -15,6 +15,21 @@ const timestamps = {
   updated_at: text('updated_at').default(sql`(datetime('now','localtime'))`),
 }
 
+// ─── A1: tenant_id — siap multi-tenant, DEFAULT 1, belum dienforce ──────────
+// Pasang sekarang di semua tabel transaksional; RLS aktif di Fase D (Postgres).
+const tenantField = {
+  tenant_id: integer('tenant_id').notNull().default(1),
+}
+
+// ─── A2: audit fields — siap tracking siapa buat/ubah ───────────────────────
+// Nullable: tabel lama tidak kehilangan data; isi otomatis di route via getAuditBy().
+// Tabel yang sudah punya dibuat_oleh/dicatat_oleh tetap dipertahankan — migrasi
+// ke pola seragam ini dilakukan bertahap saat menyentuh route terkait.
+const auditFields = {
+  created_by: integer('created_by'),
+  updated_by: integer('updated_by'),
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TABEL SISTEM
 // ═══════════════════════════════════════════════════════════════════════════
@@ -33,7 +48,9 @@ export const karyawan = sqliteTable('karyawan', {
   pin_absensi: text('pin_absensi'),
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   ...timestamps,
-})
+}, (t) => [
+  index('idx_karyawan_active').on(t.is_active),
+])
 
 export const log_aktivitas = sqliteTable('log_aktivitas', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -75,6 +92,7 @@ export const kategori = sqliteTable('kategori', {
   kode: text('kode'),
   contoh: text('contoh'),
   is_preset: integer('is_preset', { mode: 'boolean' }).notNull().default(false),
+  ...auditFields,
 })
 
 export const satuan = sqliteTable('satuan', {
@@ -83,6 +101,7 @@ export const satuan = sqliteTable('satuan', {
   singkatan: text('singkatan').notNull(),
   contoh: text('contoh'),
   is_preset: integer('is_preset', { mode: 'boolean' }).notNull().default(false),
+  ...auditFields,
 })
 
 export const barang = sqliteTable('barang', {
@@ -102,11 +121,14 @@ export const barang = sqliteTable('barang', {
   lokasi_rak: text('lokasi_rak'),
   foto_path: text('foto_path'),
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
   ...timestamps,
-}, () => [
+}, (t) => [
   check('chk_barang_harga_jual_eceran', sql`harga_jual_eceran >= 0`),
   check('chk_barang_harga_jual_grosir', sql`harga_jual_grosir >= 0`),
   check('chk_barang_stok', sql`stok_sekarang >= 0`),
+  index('idx_barang_active').on(t.is_active),
 ])
 
 export const supplier = sqliteTable('supplier', {
@@ -118,6 +140,8 @@ export const supplier = sqliteTable('supplier', {
   terms_bayar: integer('terms_bayar').notNull().default(0),
   limit_hutang: real('limit_hutang').notNull().default(0),
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
   ...timestamps,
 })
 
@@ -132,6 +156,8 @@ export const pelanggan = sqliteTable('pelanggan', {
   limit_piutang: real('limit_piutang').notNull().default(0),
   saldo_piutang: real('saldo_piutang').notNull().default(0),
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
   ...timestamps,
 })
 
@@ -143,6 +169,8 @@ export const kartu_anggota = sqliteTable('kartu_anggota', {
   poin: integer('poin').notNull().default(0),
   pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id), // null = belum di-assign
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
   ...timestamps,
 })
 
@@ -157,6 +185,8 @@ export const histori_harga_beli = sqliteTable('histori_harga_beli', {
   barang_masuk_id: integer('barang_masuk_id'),
   harga_beli: real('harga_beli').notNull(),
   tanggal_berlaku: text('tanggal_berlaku').notNull(),
+  dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  ...tenantField,
 })
 
 export const histori_harga_jual = sqliteTable('histori_harga_jual', {
@@ -167,6 +197,7 @@ export const histori_harga_jual = sqliteTable('histori_harga_jual', {
   tanggal_berlaku: text('tanggal_berlaku').notNull(),
   tanggal_berakhir: text('tanggal_berakhir'),
   diubah_oleh: integer('diubah_oleh').references(() => karyawan.id),
+  ...tenantField,
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -184,6 +215,7 @@ export const purchase_order = sqliteTable('purchase_order', {
   }).notNull().default('draft'),
   total_nilai: real('total_nilai').notNull().default(0),
   dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -195,6 +227,7 @@ export const po_detail = sqliteTable('po_detail', {
   jumlah_pesan: real('jumlah_pesan').notNull(),
   jumlah_diterima: real('jumlah_diterima').notNull().default(0),
   harga_beli_estimasi: real('harga_beli_estimasi').notNull().default(0),
+  ...tenantField,
 })
 
 export const barang_masuk = sqliteTable('barang_masuk', {
@@ -207,6 +240,7 @@ export const barang_masuk = sqliteTable('barang_masuk', {
   foto_faktur_path: text('foto_faktur_path'),
   total_nilai: real('total_nilai').notNull().default(0),
   diterima_oleh: integer('diterima_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -218,7 +252,10 @@ export const barang_masuk_detail = sqliteTable('barang_masuk_detail', {
   jumlah_terima: real('jumlah_terima').notNull(),
   harga_beli: real('harga_beli').notNull(),
   tgl_kadaluarsa: text('tgl_kadaluarsa'),
-})
+  ...tenantField,
+}, (t) => [
+  index('idx_bmd_kadaluarsa').on(t.tgl_kadaluarsa),
+])
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODUL PENJUALAN
@@ -240,6 +277,7 @@ export const penjualan = sqliteTable('penjualan', {
   bayar: real('bayar').notNull().default(0),
   kembalian: real('kembalian').notNull().default(0),
   status: text('status', { enum: ['lunas', 'hutang', 'void'] }).notNull().default('lunas'),
+  ...tenantField,
   ...timestamps,
 }, (t) => [
   index('idx_penjualan_tanggal').on(t.tanggal),
@@ -261,6 +299,7 @@ export const penjualan_detail = sqliteTable('penjualan_detail', {
   harga_jual: real('harga_jual').notNull(), // snapshot — jangan ambil dari master
   diskon_item: real('diskon_item').notNull().default(0),
   subtotal: real('subtotal').notNull(),
+  ...tenantField,
 }, (t) => [
   index('idx_penjualan_detail_trx').on(t.penjualan_id),
   check('chk_detail_jumlah_pos', sql`${t.jumlah} > 0`),
@@ -284,6 +323,7 @@ export const mutasi_stok = sqliteTable('mutasi_stok', {
   jumlah_perubahan: real('jumlah_perubahan').notNull(),
   jumlah_sesudah: real('jumlah_sesudah').notNull(),
   dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  ...tenantField,
 }, (t) => [
   index('idx_mutasi_stok_barang').on(t.barang_id),
   index('idx_mutasi_stok_tanggal').on(t.tanggal),
@@ -298,6 +338,7 @@ export const stok_opname = sqliteTable('stok_opname', {
     enum: ['draft', 'proses', 'selesai', 'approved'],
   }).notNull().default('draft'),
   diapprove_oleh: integer('diapprove_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -310,6 +351,7 @@ export const stok_opname_detail = sqliteTable('stok_opname_detail', {
   selisih: real('selisih'),
   alasan_selisih: text('alasan_selisih'),
   dihitung_oleh: integer('dihitung_oleh').references(() => karyawan.id),
+  ...tenantField,
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -322,6 +364,8 @@ export const kas_bank = sqliteTable('kas_bank', {
   tipe: text('tipe', { enum: ['kas', 'bank'] }).notNull(),
   saldo_awal: real('saldo_awal').notNull().default(0),
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
 })
 
 export const jurnal_kas = sqliteTable('jurnal_kas', {
@@ -335,6 +379,7 @@ export const jurnal_kas = sqliteTable('jurnal_kas', {
   keterangan: text('keterangan'),
   jumlah: real('jumlah').notNull(),
   dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 }, (t) => [
   index('idx_jurnal_kas_tanggal').on(t.tanggal),
@@ -350,6 +395,8 @@ export const hutang_supplier = sqliteTable('hutang_supplier', {
   total_hutang: real('total_hutang').notNull(),
   sisa_hutang: real('sisa_hutang').notNull(),
   status: text('status', { enum: ['belum', 'sebagian', 'lunas'] }).notNull().default('belum'),
+  ...tenantField,
+  ...auditFields,
   ...timestamps,
 }, (t) => [
   index('idx_hutang_status').on(t.status),
@@ -363,6 +410,7 @@ export const pembayaran_hutang = sqliteTable('pembayaran_hutang', {
   jumlah_bayar: real('jumlah_bayar').notNull(),
   kas_bank_id: integer('kas_bank_id').notNull().references(() => kas_bank.id),
   dibayar_oleh: integer('dibayar_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -375,6 +423,8 @@ export const piutang_pelanggan = sqliteTable('piutang_pelanggan', {
   total_piutang: real('total_piutang').notNull(),
   sisa_piutang: real('sisa_piutang').notNull(),
   status: text('status', { enum: ['belum', 'sebagian', 'lunas'] }).notNull().default('belum'),
+  ...tenantField,
+  ...auditFields,
   ...timestamps,
 }, (t) => [
   index('idx_piutang_status').on(t.status),
@@ -391,6 +441,7 @@ export const pembayaran_piutang = sqliteTable('pembayaran_piutang', {
   jumlah_bayar: real('jumlah_bayar').notNull(),
   kas_bank_id: integer('kas_bank_id').notNull().references(() => kas_bank.id),
   diterima_oleh: integer('diterima_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -410,6 +461,7 @@ export const absensi = sqliteTable('absensi', {
   }).notNull().default('hadir'),
   terlambat_menit: integer('terlambat_menit'),
   dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  ...tenantField,
 }, (t) => [
   index('idx_absensi_tanggal').on(t.tanggal),
   index('idx_absensi_karyawan').on(t.karyawan_id),
@@ -427,8 +479,11 @@ export const penggajian = sqliteTable('penggajian', {
   potongan_lain: real('potongan_lain').notNull().default(0),
   total_gaji: real('total_gaji').notNull(),
   status: text('status', { enum: ['draft', 'approved', 'dibayar'] }).notNull().default('draft'),
+  ...tenantField,
   ...timestamps,
-})
+}, (t) => [
+  index('idx_penggajian_karyawan_bulan').on(t.karyawan_id, t.periode_bulan),
+])
 
 export const kasbon = sqliteTable('kasbon', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -443,11 +498,71 @@ export const kasbon = sqliteTable('kasbon', {
   disetujui_oleh: integer('disetujui_oleh').references(() => karyawan.id),
   tanggal_cair: text('tanggal_cair'),
   catatan: text('catatan'),
+  ...tenantField,
   ...timestamps,
 }, (t) => [
   check('chk_kasbon_jumlah_pos', sql`${t.jumlah} > 0`),
   check('chk_kasbon_sisa_pos', sql`${t.sisa_kasbon} >= 0`),
   check('chk_kasbon_cicilan_pos', sql`${t.cicilan_per_bulan} >= 0`),
+  index('idx_kasbon_karyawan_status').on(t.karyawan_id, t.status),
+])
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HR LANJUTAN (Fase C1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Pengajuan izin/cuti/sakit — approval via primitif B5.
+// Setelah disetujui, hook akan insert baris absensi otomatis.
+export const pengajuan_izin = sqliteTable('pengajuan_izin', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  jenis: text('jenis', { enum: ['cuti', 'izin', 'sakit'] }).notNull(),
+  tanggal_mulai: text('tanggal_mulai').notNull(),
+  tanggal_selesai: text('tanggal_selesai').notNull(),
+  alasan: text('alasan'),
+  bukti_path: text('bukti_path'),         // opsional foto dokter/surat
+  status: text('status', {
+    enum: ['menunggu', 'disetujui', 'ditolak'],
+  }).notNull().default('menunggu'),
+  diproses_oleh: integer('diproses_oleh').references(() => karyawan.id),
+  catatan_proses: text('catatan_proses'),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_izin_karyawan').on(t.karyawan_id),
+  index('idx_izin_status').on(t.status),
+])
+
+// Evaluasi berkala karyawan — penilaian performa oleh manajer/pemilik.
+export const evaluasi_karyawan = sqliteTable('evaluasi_karyawan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  periode: text('periode').notNull(),        // YYYY-MM atau YYYY-Q1 dst
+  nilai: integer('nilai').notNull(),         // 1–5
+  catatan: text('catatan'),
+  dinilai_oleh: integer('dinilai_oleh').notNull().references(() => karyawan.id),
+  tanggal: text('tanggal').notNull(),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_eval_karyawan').on(t.karyawan_id),
+])
+
+// Sanksi dan insentif — berdampak ke total penggajian bulan tersebut.
+export const sanksi_insentif = sqliteTable('sanksi_insentif', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  karyawan_id: integer('karyawan_id').notNull().references(() => karyawan.id),
+  tipe: text('tipe', { enum: ['sanksi', 'insentif'] }).notNull(),
+  jenis: text('jenis').notNull(),            // 'terlambat' | 'lembur' | 'bonus' | 'potongan' | dst
+  jumlah: real('jumlah').notNull(),          // nominal rupiah, selalu positif
+  tanggal: text('tanggal').notNull(),
+  keterangan: text('keterangan'),
+  periode_bulan: text('periode_bulan').notNull(), // YYYY-MM — untuk grouping penggajian
+  dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_si_karyawan_bulan').on(t.karyawan_id, t.periode_bulan),
 ])
 
 // ─── Shift Kasir ────────────────────────────────────────────────────────────
@@ -466,6 +581,8 @@ export const shift_kasir = sqliteTable('shift_kasir', {
   total_penjualan: real('total_penjualan').notNull().default(0),
   catatan: text('catatan'),
   status: text('status', { enum: ['buka', 'tutup'] }).notNull().default('buka'),
+  ...tenantField,
+  ...auditFields,
   ...timestamps,
 })
 
@@ -480,6 +597,7 @@ export const harga_jadwal = sqliteTable('harga_jadwal', {
   berlaku_sampai: text('berlaku_sampai'),
   status: text('status', { enum: ['draft', 'aktif', 'selesai', 'batal'] }).notNull().default('draft'),
   dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -508,6 +626,7 @@ export const retur_penjualan = sqliteTable('retur_penjualan', {
   }).notNull().default('tunai'),
   kas_bank_id: integer('kas_bank_id').references(() => kas_bank.id),
   catatan: text('catatan'),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -519,6 +638,7 @@ export const retur_penjualan_detail = sqliteTable('retur_penjualan_detail', {
   jumlah_retur: real('jumlah_retur').notNull(),
   harga_jual: real('harga_jual').notNull(), // harga efektif per unit (sudah dipotong diskon proporsional)
   subtotal: real('subtotal').notNull(),
+  ...tenantField,
 })
 
 // Barang pengganti untuk retur dengan metode tukar_barang
@@ -530,6 +650,47 @@ export const retur_penjualan_tukar = sqliteTable('retur_penjualan_tukar', {
   jumlah: real('jumlah').notNull(),
   harga_jual: real('harga_jual').notNull(), // snapshot harga saat retur
   subtotal: real('subtotal').notNull(),
+  ...tenantField,
+})
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RETUR SUPPLIER (Fase C6)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Kebalikan dari barang_masuk: barang dikembalikan ke supplier.
+// Stok dikurangi (mutasi keluar). Hutang dikurangi (kurang_hutang)
+// atau kas masuk dari supplier (tunai).
+export const retur_supplier = sqliteTable('retur_supplier', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  no_retur: text('no_retur').notNull().unique(),
+  barang_masuk_id: integer('barang_masuk_id').notNull().references(() => barang_masuk.id),
+  supplier_id: integer('supplier_id').notNull().references(() => supplier.id),
+  tanggal: text('tanggal').notNull(),
+  dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  total_retur: real('total_retur').notNull().default(0),
+  alasan: text('alasan'),
+  // kurang_hutang = kurangi sisa hutang, tunai = terima uang balik
+  metode_refund: text('metode_refund', {
+    enum: ['kurang_hutang', 'tunai'],
+  }).notNull().default('kurang_hutang'),
+  hutang_id: integer('hutang_id').references(() => hutang_supplier.id),
+  kas_bank_id: integer('kas_bank_id').references(() => kas_bank.id),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_retur_sup_bm').on(t.barang_masuk_id),
+  index('idx_retur_sup_supplier').on(t.supplier_id),
+])
+
+export const retur_supplier_detail = sqliteTable('retur_supplier_detail', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  retur_id: integer('retur_id').notNull().references(() => retur_supplier.id),
+  barang_id: integer('barang_id').notNull().references(() => barang.id),
+  jumlah_retur: real('jumlah_retur').notNull(),
+  harga_beli: real('harga_beli').notNull(), // snapshot harga dari penerimaan asal
+  subtotal: real('subtotal').notNull(),
+  ...tenantField,
 })
 
 // ─── Notifikasi Terpusat ──────────────────────────────────────────────────────
@@ -552,6 +713,7 @@ export const notifikasi_config = sqliteTable('notifikasi_config', {
   penerima_wa: text('penerima_wa'),      // nomor HP tujuan
   terakhir_dikirim: text('terakhir_dikirim'),
   updated_at: text('updated_at').default(sql`(datetime('now','localtime'))`),
+  ...tenantField,
 })
 
 export const notifikasi_log = sqliteTable('notifikasi_log', {
@@ -561,10 +723,13 @@ export const notifikasi_log = sqliteTable('notifikasi_log', {
   pesan: text('pesan').notNull(),
   penerima: text('penerima'),
   status: text('status', { enum: ['terkirim', 'gagal', 'pending'] }).notNull().default('pending'),
+  ...tenantField,
   waktu: text('waktu').notNull().default(sql`(datetime('now','localtime'))`),
   referensi_tipe: text('referensi_tipe'),
   referensi_id: integer('referensi_id'),
-})
+}, (t) => [
+  index('idx_notif_log_ref').on(t.referensi_tipe, t.referensi_id, t.waktu),
+])
 
 // ─── Budget & Target ──────────────────────────────────────────────────────────
 
@@ -576,6 +741,7 @@ export const target_penjualan = sqliteTable('target_penjualan', {
   target_margin_pct: real('target_margin_pct').notNull().default(0), // persen, misal 15.0
   catatan: text('catatan'),
   dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -589,6 +755,7 @@ export const budget_operasional = sqliteTable('budget_operasional', {
   nilai_budget: real('nilai_budget').notNull().default(0),
   catatan: text('catatan'),
   dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -609,6 +776,7 @@ export const promo = sqliteTable('promo', {
   jumlah_dipakai: integer('jumlah_dipakai').notNull().default(0),
   aktif: integer('aktif', { mode: 'boolean' }).notNull().default(true),
   dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -617,6 +785,7 @@ export const promo_target = sqliteTable('promo_target', {
   promo_id: integer('promo_id').notNull().references(() => promo.id),
   target_tipe: text('target_tipe', { enum: ['barang', 'kategori'] }).notNull(),
   target_id: integer('target_id').notNull(),
+  ...tenantField,
 })
 
 // ─── Jadwal & Shift Kerja ─────────────────────────────────────────────────────
@@ -628,6 +797,8 @@ export const tipe_shift = sqliteTable('tipe_shift', {
   jam_selesai: text('jam_selesai').notNull(), // HH:MM
   warna: text('warna').notNull().default('#00e676'), // hex color for UI badge
   is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
   ...timestamps,
 })
 
@@ -638,6 +809,7 @@ export const jadwal_kerja = sqliteTable('jadwal_kerja', {
   tanggal: text('tanggal').notNull(),       // YYYY-MM-DD
   catatan: text('catatan'),
   dibuat_oleh: integer('dibuat_oleh').references(() => karyawan.id),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -651,6 +823,7 @@ export const tukar_shift = sqliteTable('tukar_shift', {
   status: text('status', { enum: ['menunggu', 'disetujui', 'ditolak'] }).notNull().default('menunggu'),
   diproses_oleh: integer('diproses_oleh').references(() => karyawan.id),
   catatan_proses: text('catatan_proses'),
+  ...tenantField,
   ...timestamps,
 })
 
@@ -690,3 +863,333 @@ export const draft_keranjang_item = sqliteTable('draft_keranjang_item', {
   harga_jual: real('harga_jual').notNull(),
   diskon_item: real('diskon_item').notNull().default(0),
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SOP ENGINE (Fase B)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Aturan SOP disimpan sebagai data — bukan dikoding di route.
+// tipe: checklist = harus diselesaikan sebelum event berlanjut (blocking)
+//       notif     = kirim notifikasi saat event terjadi (non-blocking)
+//       blokir    = tolak event tanpa syarat tambahan
+export const sop_rule = sqliteTable('sop_rule', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama: text('nama').notNull(),
+  event_name: text('event_name').notNull(), // misal: 'before:absensi.masuk'
+  tipe: text('tipe', { enum: ['checklist', 'notif', 'blokir'] }).notNull().default('checklist'),
+  deskripsi: text('deskripsi'),
+  // JSON: untuk checklist → [{ id, label, wajib }]; untuk notif → { pesan }
+  config_json: text('config_json', { mode: 'json' }),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  urutan: integer('urutan').notNull().default(0),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_sop_rule_event').on(t.event_name),
+])
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LAMPIRAN / ATTACHMENT (Fase B6)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Tabel generik untuk menyimpan file terlampir ke dokumen apapun.
+// Modul baru cukup POST /lampiran dengan referensi_tipe + referensi_id.
+// Modul lama (barang/karyawan/barang_masuk) tetap simpan path di kolom sendiri
+// tapi pakai saveUpload() dari utils/upload.ts agar logika tidak duplikat.
+export const lampiran = sqliteTable('lampiran', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  referensi_tipe: text('referensi_tipe').notNull(), // 'kasbon' | 'sop_instance' | dst
+  referensi_id: integer('referensi_id').notNull(),
+  tipe: text('tipe', { enum: ['gambar', 'pdf', 'dokumen'] }).notNull().default('gambar'),
+  path: text('path').notNull(),        // relatif dari uploads/
+  thumb_path: text('thumb_path'),      // opsional, thumbnail untuk gambar
+  nama_asli: text('nama_asli'),        // nama file asli dari user
+  ukuran: integer('ukuran'),           // bytes
+  uploaded_by: integer('uploaded_by').notNull().references(() => karyawan.id),
+  dibuat_at: text('dibuat_at').notNull().default(sql`(datetime('now','localtime'))`),
+  ...tenantField,
+}, (t) => [
+  index('idx_lampiran_ref').on(t.referensi_tipe, t.referensi_id),
+])
+
+// ═══════════════════════════════════════════════════════════════════════════
+// APPROVAL GATE (Fase B5)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Primitif approval lintas modul — kasbon, pengeluaran, purchase order, dst.
+// Module yang butuh approval: insert satu baris ke sini via mintaApproval().
+// Manajer/pemilik setujui/tolak via POST /approval/:id/setujui|tolak.
+export const approval = sqliteTable('approval', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  referensi_tipe: text('referensi_tipe').notNull(), // 'kasbon' | 'purchase_order' | dst
+  referensi_id: integer('referensi_id').notNull(),
+  status: text('status', {
+    enum: ['menunggu', 'disetujui', 'ditolak'],
+  }).notNull().default('menunggu'),
+  diminta_oleh: integer('diminta_oleh').notNull().references(() => karyawan.id),
+  diproses_oleh: integer('diproses_oleh').references(() => karyawan.id),
+  catatan_pengaju: text('catatan_pengaju'),
+  catatan_proses: text('catatan_proses'),
+  dibuat_at: text('dibuat_at').notNull().default(sql`(datetime('now','localtime'))`),
+  diproses_at: text('diproses_at'),
+  ...tenantField,
+}, (t) => [
+  index('idx_approval_ref').on(t.referensi_tipe, t.referensi_id),
+  index('idx_approval_status').on(t.status),
+])
+
+// ─── C2: Kunjungan Sales ke Warung ───────────────────────────────────────────
+export const kunjungan_sales = sqliteTable('kunjungan_sales', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  nama_warung: text('nama_warung').notNull(),
+  alamat: text('alamat'),
+  petugas_id: integer('petugas_id').references(() => karyawan.id),
+  tanggal: text('tanggal').notNull(),
+  tujuan: text('tujuan', {
+    enum: ['prospek', 'follow_up', 'pengiriman', 'lainnya'],
+  }).notNull().default('prospek'),
+  hasil: text('hasil'),
+  catatan: text('catatan'),
+  status_tindak_lanjut: text('status_tindak_lanjut', {
+    enum: ['open', 'selesai', 'pending'],
+  }).notNull().default('open'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C2: Agenda Supplier ──────────────────────────────────────────────────────
+export const agenda_supplier = sqliteTable('agenda_supplier', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  supplier_id: integer('supplier_id').references(() => supplier.id),
+  nama_supplier: text('nama_supplier').notNull(),
+  tipe: text('tipe', {
+    enum: ['kunjungan', 'negosiasi', 'pengiriman', 'lainnya'],
+  }).notNull().default('kunjungan'),
+  tanggal: text('tanggal').notNull(),
+  jam: text('jam'),
+  lokasi: text('lokasi'),
+  petugas_id: integer('petugas_id').references(() => karyawan.id),
+  hasil: text('hasil'),
+  catatan: text('catatan'),
+  status: text('status', {
+    enum: ['dijadwalkan', 'selesai', 'dibatalkan'],
+  }).notNull().default('dijadwalkan'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C3: Permintaan Pelanggan ─────────────────────────────────────────────────
+export const permintaan_pelanggan = sqliteTable('permintaan_pelanggan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  nama_pelanggan: text('nama_pelanggan'),
+  nama_barang: text('nama_barang').notNull(),
+  barang_id: integer('barang_id').references(() => barang.id),
+  qty_minta: integer('qty_minta'),
+  catatan: text('catatan'),
+  status: text('status', {
+    enum: ['menunggu', 'tersedia', 'tidak_tersedia'],
+  }).notNull().default('menunggu'),
+  tanggal: text('tanggal').notNull(),
+  ditangani_oleh: integer('ditangani_oleh').references(() => karyawan.id),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C3: Komplain Pelanggan ───────────────────────────────────────────────────
+export const komplain_pelanggan = sqliteTable('komplain_pelanggan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  nama_pelanggan: text('nama_pelanggan'),
+  kategori: text('kategori', {
+    enum: ['kualitas_barang', 'pelayanan', 'harga', 'pengiriman', 'lainnya'],
+  }).notNull().default('lainnya'),
+  deskripsi: text('deskripsi').notNull(),
+  tanggal: text('tanggal').notNull(),
+  status: text('status', {
+    enum: ['masuk', 'diproses', 'selesai', 'ditolak'],
+  }).notNull().default('masuk'),
+  resolusi: text('resolusi'),
+  ditangani_oleh: integer('ditangani_oleh').references(() => karyawan.id),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C5: Pinjaman & Investasi ─────────────────────────────────────────────────
+export const pinjaman_investasi = sqliteTable('pinjaman_investasi', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tipe: text('tipe', { enum: ['pinjaman', 'investasi'] }).notNull(),
+  nama: text('nama').notNull(),
+  jumlah_pokok: integer('jumlah_pokok').notNull(),
+  bunga_persen: real('bunga_persen').notNull().default(0),
+  cicilan_per_bulan: integer('cicilan_per_bulan').notNull().default(0),
+  tanggal_mulai: text('tanggal_mulai').notNull(),
+  jatuh_tempo: text('jatuh_tempo'),
+  sisa_pokok: integer('sisa_pokok').notNull(),
+  status: text('status', { enum: ['aktif', 'lunas', 'macet'] }).notNull().default('aktif'),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C5: Tamu Birokrasi ───────────────────────────────────────────────────────
+export const tamu_birokrasi = sqliteTable('tamu_birokrasi', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama_tamu: text('nama_tamu').notNull(),
+  instansi: text('instansi'),
+  keperluan: text('keperluan').notNull(),
+  tanggal: text('tanggal').notNull(),
+  jam_masuk: text('jam_masuk'),
+  jam_keluar: text('jam_keluar'),
+  keterangan: text('keterangan'),
+  dicatat_oleh: integer('dicatat_oleh').references(() => karyawan.id),
+  ...tenantField,
+  ...timestamps,
+})
+
+// ─── C4: Inventaris Aset Tetap ───────────────────────────────────────────────
+export const aset_tetap = sqliteTable('aset_tetap', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama: text('nama').notNull(),
+  kategori: text('kategori').notNull().default('Lainnya'),
+  nilai_beli: integer('nilai_beli').notNull().default(0),
+  nilai_sekarang: integer('nilai_sekarang').notNull().default(0),
+  tanggal_beli: text('tanggal_beli'),
+  kondisi: text('kondisi', {
+    enum: ['baik', 'rusak_ringan', 'rusak_berat', 'dijual', 'dibuang'],
+  }).notNull().default('baik'),
+  lokasi: text('lokasi'),
+  catatan: text('catatan'),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C4: Tagihan Utilitas (Listrik, Air, Internet, dll) ──────────────────────
+export const tagihan_utilitas = sqliteTable('tagihan_utilitas', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  jenis: text('jenis', {
+    enum: ['listrik', 'air', 'internet', 'lainnya'],
+  }).notNull().default('listrik'),
+  periode_bulan: text('periode_bulan').notNull(),
+  jumlah: integer('jumlah').notNull().default(0),
+  tanggal_bayar: text('tanggal_bayar'),
+  meter_awal: integer('meter_awal'),
+  meter_akhir: integer('meter_akhir'),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C5: Checklist Tugas Harian (Kebersihan, dll) ────────────────────────────
+export const checklist_item = sqliteTable('checklist_item', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama: text('nama').notNull(),
+  kategori: text('kategori').notNull().default('kebersihan'),
+  urutan: integer('urutan').notNull().default(0),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+export const checklist_log = sqliteTable('checklist_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  item_id: integer('item_id').notNull().references(() => checklist_item.id),
+  tanggal: text('tanggal').notNull(),
+  karyawan_id: integer('karyawan_id').references(() => karyawan.id),
+  selesai: integer('selesai', { mode: 'boolean' }).notNull().default(false),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  index('idx_checklist_log_tanggal').on(t.tanggal),
+  index('idx_checklist_log_item').on(t.item_id),
+])
+
+// ─── C2: Pipeline Grosir ─────────────────────────────────────────────────────
+export const pipeline_grosir = sqliteTable('pipeline_grosir', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama_pelanggan: text('nama_pelanggan').notNull(),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  nilai_estimasi: integer('nilai_estimasi').notNull().default(0),
+  tahap: text('tahap', {
+    enum: ['prospek', 'dikunjungi', 'penawaran', 'negosiasi', 'deal', 'batal'],
+  }).notNull().default('prospek'),
+  petugas_id: integer('petugas_id').references(() => karyawan.id),
+  produk_minat: text('produk_minat'),
+  catatan: text('catatan'),
+  tanggal_masuk: text('tanggal_masuk').notNull(),
+  tanggal_update: text('tanggal_update'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+}, (t) => [
+  index('idx_pipeline_tahap').on(t.tahap),
+])
+
+// ─── C5: Acara / Hajatan Besar ───────────────────────────────────────────────
+export const acara_hajatan = sqliteTable('acara_hajatan', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  nama_acara: text('nama_acara').notNull(),
+  nama_penyelenggara: text('nama_penyelenggara').notNull(),
+  pelanggan_id: integer('pelanggan_id').references(() => pelanggan.id),
+  tanggal_acara: text('tanggal_acara').notNull(),
+  alamat: text('alamat'),
+  estimasi_tamu: integer('estimasi_tamu'),
+  catatan: text('catatan'),
+  status: text('status', {
+    enum: ['persiapan', 'konfirmasi', 'selesai', 'batal'],
+  }).notNull().default('persiapan'),
+  total_order: integer('total_order').notNull().default(0),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// ─── C5: Inspeksi Toko ───────────────────────────────────────────────────────
+export const inspeksi_toko = sqliteTable('inspeksi_toko', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  tanggal: text('tanggal').notNull(),
+  jenis: text('jenis', {
+    enum: ['rutin', 'mendadak', 'bulanan', 'tahunan'],
+  }).notNull().default('rutin'),
+  petugas_id: integer('petugas_id').references(() => karyawan.id),
+  area: text('area'),
+  temuan: text('temuan'),
+  tindakan: text('tindakan'),
+  nilai: integer('nilai'),
+  status: text('status', {
+    enum: ['draft', 'selesai'],
+  }).notNull().default('draft'),
+  catatan: text('catatan'),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+})
+
+// Jejak eksekusi tiap rule per transaksi/karyawan
+export const sop_instance = sqliteTable('sop_instance', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  rule_id: integer('rule_id').notNull().references(() => sop_rule.id),
+  karyawan_id: integer('karyawan_id').references(() => karyawan.id),
+  status: text('status', {
+    enum: ['pending', 'selesai', 'timeout', 'dibatalkan'],
+  }).notNull().default('pending'),
+  payload_json: text('payload_json', { mode: 'json' }), // event payload
+  hasil_json: text('hasil_json', { mode: 'json' }),     // hasil checklist / bukti
+  dibuat_at: text('dibuat_at').notNull().default(sql`(datetime('now','localtime'))`),
+  diselesaikan_at: text('diselesaikan_at'),
+}, (t) => [
+  index('idx_sop_instance_rule').on(t.rule_id),
+  index('idx_sop_instance_karyawan').on(t.karyawan_id),
+  index('idx_sop_instance_status').on(t.status),
+])

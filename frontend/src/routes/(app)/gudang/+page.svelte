@@ -1,3 +1,5 @@
+<svelte:head><title>Gudang — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { goto } from '$app/navigation'
 	import { page } from '$app/state'
@@ -10,25 +12,27 @@
 	import TabSupplier from './TabSupplier.svelte';
 	import TabPengaturan from './TabPengaturan.svelte';
 	import TabLabel from './TabLabel.svelte';
+	import TabReturSupplier from './TabReturSupplier.svelte';
 
 	$effect(() => {
 		if ($user && !['pemilik', 'manajer', 'gudang'].includes($user.role)) goto('/kasir')
 	})
 
-	type TabId = 'stok' | 'terima' | 'po' | 'opname' | 'barang' | 'supplier' | 'label' | 'pengaturan';
+	type TabId = 'stok' | 'terima' | 'po' | 'opname' | 'barang' | 'supplier' | 'retur-supplier' | 'label' | 'pengaturan';
 	let tab = $derived<TabId>(
 		(page.url.searchParams.get('tab') as TabId) ?? 'stok'
 	);
 
 	const TABS: { id: TabId; label: string }[] = [
-		{ id: 'stok',        label: 'STOK' },
-		{ id: 'terima',      label: 'TERIMA BARANG' },
-		{ id: 'po',          label: 'PURCHASE ORDER' },
-		{ id: 'opname',      label: 'STOK OPNAME' },
-		{ id: 'barang',      label: 'MASTER BARANG' },
-		{ id: 'supplier',    label: 'SUPPLIER' },
-		{ id: 'label',       label: 'CETAK LABEL' },
-		{ id: 'pengaturan',  label: 'PENGATURAN' },
+		{ id: 'stok',            label: 'STOK' },
+		{ id: 'terima',          label: 'TERIMA BARANG' },
+		{ id: 'po',              label: 'PURCHASE ORDER' },
+		{ id: 'opname',          label: 'STOK OPNAME' },
+		{ id: 'barang',          label: 'MASTER BARANG' },
+		{ id: 'supplier',        label: 'SUPPLIER' },
+		{ id: 'retur-supplier',  label: 'RETUR SUPPLIER' },
+		{ id: 'label',           label: 'CETAK LABEL' },
+		{ id: 'pengaturan',      label: 'PENGATURAN' },
 	];
 </script>
 
@@ -48,6 +52,7 @@
 {#if tab === 'po'}        <TabPO />{/if}
 {#if tab === 'opname'}    <TabOpname />{/if}
 {#if tab === 'barang'}    <TabBarang />{/if}
-{#if tab === 'supplier'}  <TabSupplier />{/if}
-{#if tab === 'label'}     <TabLabel />{/if}
+{#if tab === 'supplier'}        <TabSupplier />{/if}
+{#if tab === 'retur-supplier'}  <TabReturSupplier />{/if}
+{#if tab === 'label'}           <TabLabel />{/if}
 {#if tab === 'pengaturan'}<TabPengaturan />{/if}

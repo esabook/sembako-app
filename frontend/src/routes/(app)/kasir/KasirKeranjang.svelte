@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition'
 	import {
 		keranjang,
 		itemAktifIdx,
@@ -129,6 +130,7 @@
 							{@const aktif = $itemAktifIdx === idx}
 							{@const visButtons = hoveredIdx === idx || (aktif && hoveredIdx === null)}
 							<tr
+								transition:slide={{ duration: 150 }}
 								class="cursor-pointer border-t transition-colors"
 								style={aktif
 									? 'background:var(--surface2);border-color:var(--border);border-left:2px solid var(--accent)'
@@ -190,7 +192,7 @@
 											if (item.jumlah <= 1) konfirmasiHapusIdx.set(idx);
 											else ubahJumlah(idx, -1);
 										}}
-										class={`absolute top-1/2 -left-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+										class={`absolute top-1/2 -left-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'sm:pointer-events-none sm:opacity-0'}`}
 										style="background:var(--surface);color:var(--text-dim)">−</button
 									>
 									<button
@@ -198,7 +200,7 @@
 											e.stopPropagation();
 											ubahJumlah(idx, 1);
 										}}
-										class={`absolute top-1/2 -right-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+										class={`absolute top-1/2 -right-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'sm:pointer-events-none sm:opacity-0'}`}
 										style="background:var(--surface);color:var(--text-dim)">+</button
 									>
 								</td>

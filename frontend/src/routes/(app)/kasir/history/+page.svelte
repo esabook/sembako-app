@@ -1,3 +1,5 @@
+<svelte:head><title>Riwayat Transaksi — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -6,6 +8,7 @@
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import ReturDetailSlideOver from '../retur/ReturDetailSlideOver.svelte';
 	import { api } from '$lib/utils/api';
+	import { withLoading } from '$lib/utils/async.js';
 	import { toast } from '$lib/stores/ui.store';
 	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
 	import { rupiah } from '../kasir.logic';
@@ -102,37 +105,32 @@
 		historiLoading = true;
 		historiDetail = null;
 		detailOpen = false;
-		try {
-			historiList = await fetchHistoriPenjualan(historiDari, historiSampai);
-		} catch {
-			toast.error('Gagal memuat riwayat transaksi');
-		} finally {
-			historiLoading = false;
-		}
+		const hasil = await withLoading(
+			() => fetchHistoriPenjualan(historiDari, historiSampai),
+			{ loadingKey: 'history-muat', modul: 'kasir', aksi: 'lihat_history', errorPesan: 'Gagal memuat riwayat transaksi', bisaRetry: true }
+		);
+		if (hasil !== null) historiList = hasil;
+		historiLoading = false;
 	}
 
 	async function pilihHistori(id: number) {
-		try {
-			historiDetail = await fetchDetailPenjualan(id);
-			detailOpen = true;
-		} catch {
-			toast.error('Gagal memuat detail transaksi');
-		}
+		const hasil = await withLoading(
+			() => fetchDetailPenjualan(id),
+			{ loadingKey: 'history-detail', modul: 'kasir', aksi: 'lihat_detail', errorPesan: 'Gagal memuat detail transaksi', bisaRetry: true }
+		);
+		if (hasil !== null) { historiDetail = hasil; detailOpen = true; }
 	}
 
 	async function bukaRetur(returId: number, e: MouseEvent) {
 		e.stopPropagation();
 		returLoading = true;
 		returOpen = true;
-		try {
-			const res = await api.get<ReturDetail>(`/retur-penjualan/${returId}`);
-			if (res.success) returDetail = res.data;
-			else toast.error('Gagal memuat detail retur');
-		} catch {
-			toast.error('Gagal memuat detail retur');
-		} finally {
-			returLoading = false;
-		}
+		const res = await withLoading(
+			() => api.get<ReturDetail>(`/retur-penjualan/${returId}`),
+			{ loadingKey: 'retur-detail', modul: 'kasir', aksi: 'lihat_retur', errorPesan: 'Gagal memuat detail retur', bisaRetry: true }
+		);
+		if (res?.success) returDetail = res.data;
+		returLoading = false;
 	}
 
 	function cetakStrukHistori(d: HistoriDetail) {

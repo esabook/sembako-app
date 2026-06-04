@@ -46,11 +46,13 @@ frontend/src/
     kasir/retur/   gudang/label/
   lib/
     components/{ui,data,form,layout}/
-    stores/        utils/{api.ts,async.ts,wa.ts}
+    stores/        utils/{api.ts,async.ts,wa.ts,audit.ts}
 
 backend/src/
   routes/   db/{schema.ts,index.ts,migrations/}
   middleware/{auth.ts,upload.ts}
+  lib/{event-bus.ts,hooks.ts}   ← SOP engine
+  utils/{log.ts,audit.ts}
 ```
 
 ---
@@ -79,9 +81,38 @@ Cek role di frontend: `import { user } from '$lib/stores/auth.js'` → `$user.ro
 5. Hutang/piutang otomatis dari transaksi — tidak ada input ganda
 6. Multi-tabel → wajib db.transaction()
 7. Laporan approve → tersimpan sebagai JSON snapshot
+8. Tabel baru WAJIB spread ...tenantField dan ...auditFields (lihat di bawah)
 ```
 
 Schema detail → `backend/src/db/schema.ts`
+
+### Helper schema wajib untuk tabel baru
+
+```typescript
+// Sudah didefinisikan di schema.ts — tinggal spread:
+// tenantField  → tenant_id INTEGER NOT NULL DEFAULT 1 (A1, siap multi-tenant)
+// auditFields  → created_by INTEGER + updated_by INTEGER (A2, nullable)
+
+export const tabel_baru = sqliteTable('tabel_baru', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  // ... kolom bisnis ...
+  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  ...tenantField,   // ← wajib
+  ...auditFields,   // ← wajib (nullable, isi via getAuditBy)
+  ...timestamps,    // ← wajib
+})
+```
+
+Isi `created_by`/`updated_by` di route — pakai helper `utils/audit.ts`:
+
+```typescript
+import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
+
+// INSERT:
+db.insert(tabel).values({ ...data, ...getAuditBy(c) })
+// UPDATE:
+db.update(tabel).set({ ...data, ...getUpdatedBy(c) })
+```
 
 ---
 
@@ -298,27 +329,229 @@ Web Worker               → hanya jika withIdle() tidak cukup (kriteria di bawa
 
 ## STATUS IMPLEMENTASI
 
-| Modul | Status |
-|-------|--------|
+| Fase | Status | Catatan |
+|------|--------|---------|
+| **Fase A** — SaaS-Readiness | ✅ Selesai | A1–A4 done; A5 (i18n) skip |
+| **Fase B** — SOP Engine + Primitif | ✅ Selesai | B1–B7 done; B8 (XState) skip |
+| **Fase C** — Modul Ekor | ✅ Selesai | 25/25 modul PLAN(1).md done |
+| **Fase D** — Multi-tenant Cutover | ⏸ Ditunda | Tunggu toko kedua nyata |
+
+**Modul aktif:** dashboard, kasir, gudang, karyawan, keuangan, laporan, harga, pengaturan,
+kasir/retur, gudang/label, promo, pelanggan, crm, sales, aset, keuangan/pinjaman, tamu,
+tugas, hajatan, inspeksi, karyawan/izin, karyawan/evaluasi, karyawan/sanksi.
+
+**Roles aktif:** pemilik, manajer, kasir, gudang, sales, pelayanan (6 role).
 
 ## BUGFIX WAJIB (sebelum deploy)
 
 ### Masih Open
 
+_(tidak ada saat ini)_
 
 ### Sudah Diperbaiki (referensi)
 
+- TabReturSupplier: DataTable snippet API (`{#snippet body()}`) bukan default slot
+- keuangan/+page.svelte: `onclick|self` → `onclick={(e) => if (e.target===e.currentTarget)…}`
+- Semua a11y warnings label for/id + dialog tabindex/keyboard (frontend check: 0 errors, 0 warnings)
+- backend/index.ts: array-destructure count() → `.get()` agar TypeScript-safe
+- absensi-kiosk.ts: destructure split default value; tugas.ts: non-null assertion
 
 ---
 
 ## BACKLOG — NEXT TASKS
 
 ```
+Aktif:
+  [ ] Fase D — migrasi ke PostgreSQL (hanya saat toko kedua)
+
 Pertimbangan jangka panjang:
   [x] Service Worker / offline cache — agar kasir tetap jalan saat WiFi putus
-  [ ] Multi-toko / multi-cabang
-  [ ] Migrasi ke Turso (libSQL) untuk akses remote
+  [x] tenant_id di semua tabel (A1, done)
+  [x] Backup & Restore UI (A4, done)
+  [ ] Multi-toko / multi-cabang → Fase D
+  [ ] Migrasi ke Turso (libSQL) untuk akses remote → Fase D
+  [ ] Konversi 52 kolom real → integer Rupiah → Fase D (doc: currency_audit.md)
 ```
+
+---
+
+## SOP ENGINE — EVENT BUS (Fase B)
+
+File: `backend/src/lib/event-bus.ts` (bus), `backend/src/lib/hooks.ts` (handler registry).
+`initHooks()` dipanggil sekali di `index.ts` saat startup.
+
+### Emit event di route
+
+```typescript
+import { bus } from '../lib/event-bus.ts'
+
+// Blocking — cek sebelum aksi (bisa ditolak hook)
+const result = await bus.emitBefore('absensi.masuk', { karyawan_id, tanggal })
+if (!result.ok) {
+  return c.json({ success: false, error: result.reason, data: result.data }, 428)
+}
+
+// Fire-and-forget — setelah aksi berhasil
+bus.emit('checkout', { penjualan_id, total, kasir_id, items })
+```
+
+### Tambah hook baru (di hooks.ts)
+
+```typescript
+// Non-blocking (after):
+bus.register('checkout', async ({ penjualan_id }) => { /* kirim notif, dll */ })
+
+// Blocking (before):
+bus.registerBefore('absensi.masuk', async ({ karyawan_id }) => {
+  if (kondisiBlokir) return { ok: false, reason: 'alasan', data: { ... } }
+  return { ok: true }
+})
+```
+
+### Event yang sudah ada
+
+```
+'absensi.masuk'      → before: cek SOP checklist; after: (slot kosong)
+'absensi.pulang'     → (slot kosong)
+'checkout'           → after: cek stok minimum → notifikasi_log
+'barang_masuk'       → (slot kosong)
+'stok.kritis'        → (slot kosong, emitted manual jika perlu)
+'approval.disetujui' → after: (slot kosong — hook di sini untuk notif/aksi lanjutan)
+'approval.ditolak'   → after: (slot kosong — hook di sini untuk notif/aksi lanjutan)
+'notifikasi.wa'      → after: emitted scheduler saat channel='wa' — pasang gateway WA di sini
+```
+
+### SOP Checklist (B4 POC)
+
+Kiosk `/absensi-kiosk/masuk` → 428 jika ada `sop_rule` checklist aktif belum selesai.
+Flow: `GET /sop/checklist-hari-ini` → tampilkan item → `POST /sop/checklist/:id/selesai` → retry masuk.
+Rule dibuat via `POST /sop/rule` dengan `config_json: [{ id, label, wajib }]`.
+
+---
+
+## ATTACHMENT / LAMPIRAN (Fase B6)
+
+File: `backend/src/utils/upload.ts` (helper), `backend/src/routes/lampiran.ts` (endpoint).
+Gunakan Sharp untuk resize — bukan Jimp (`jimp` ada di package.json tapi tidak terinstall, pakai `sharp`).
+
+### saveUpload() — helper upload gambar
+
+```typescript
+import { saveUpload } from '../utils/upload.ts'
+
+// Contoh: gambar produk dengan thumbnail
+const { path, thumb_path } = await saveUpload(file, {
+  subdir: 'produk',        // subfolder di uploads/
+  prefix: id,              // prefix filename
+  mode: { type: 'contain', w: 300, h: 300 },  // atau 'cover' | 'passthrough'
+  quality: 85,
+  thumbnail: { w: 60, h: 60, quality: 80 },   // opsional
+})
+
+// Contoh: invoice resolusi tinggi tanpa resize
+const { path } = await saveUpload(file, {
+  subdir: 'invoice',
+  prefix: id,
+  mode: { type: 'passthrough' },
+  quality: 90,
+})
+```
+
+Mode:
+- `contain` — muat dalam kotak, tidak crop (produk/cover buku)
+- `cover` — isi penuh kotak, crop tengah (foto profil)
+- `passthrough` — tidak resize, hanya konversi JPEG (dokumen/invoice)
+
+### Tabel lampiran — generik lintas modul
+
+```
+POST /lampiran                              — upload (multipart: referensi_tipe, referensi_id, file)
+GET  /lampiran?referensi_tipe=X&referensi_id=Y — list
+DELETE /lampiran/:id                        — hapus file + record
+```
+
+Query param `?thumb=1` di POST untuk generate thumbnail 120×120.
+Mendukung gambar (image/*) dan PDF (application/pdf).
+
+Modul yang sudah punya kolom foto sendiri (barang/karyawan/barang_masuk) tetap pakai kolom itu
+tapi sudah refaktor ke `saveUpload()` — bukan duplikasi kode lagi.
+Modul baru → simpan ke tabel `lampiran` via `POST /lampiran`.
+
+---
+
+## APPROVAL GATE (Fase B5)
+
+Primitif approval lintas modul. Modul apapun bisa pakai tanpa duplikasi logika status.
+
+File: `backend/src/utils/approval.ts` (helper), `backend/src/routes/approval.ts` (endpoint).
+
+### Cara pakai di route
+
+```typescript
+import { mintaApproval, getApproval } from '../utils/approval.ts'
+
+// Saat user mengajukan (insert record modul, lalu daftarkan ke approval):
+const ap = mintaApproval({
+  referensi_tipe: 'kasbon',   // string bebas, biasanya nama tabel
+  referensi_id: row.id,
+  diminta_oleh: user.id,
+  catatan_pengaju: body.catatan,  // opsional
+})
+
+// Cek status approval yang sudah ada:
+const current = getApproval('kasbon', id)
+// current?.status → 'menunggu' | 'disetujui' | 'ditolak' | null
+```
+
+### Endpoint approval
+
+```
+GET  /approval                  → list (query: referensi_tipe, status, limit)
+POST /approval/:id/setujui      → setujui (body: { catatan? }) — pemilik/manajer only
+POST /approval/:id/tolak        → tolak   (body: { catatan? }) — pemilik/manajer only
+```
+
+Setelah setujui/tolak, bus emit `approval.disetujui` / `approval.ditolak` — hook di `hooks.ts` untuk aksi lanjutan (cairkan kasbon, notif, dsb).
+
+### Status flow
+
+```
+menunggu → disetujui  (via POST /approval/:id/setujui)
+menunggu → ditolak    (via POST /approval/:id/tolak)
+```
+
+Modul kasbon dan stok_opname punya kolom approval sendiri (historis). Modul baru sebaiknya pakai primitif ini.
+
+---
+
+## ALERT SCHEDULER (Fase B7)
+
+File: `backend/src/lib/scheduler.ts`. Dipanggil sekali di startup via `initScheduler()`.
+
+Cek setiap menit. Jalankan alert jika:
+- `notifikasi_config.aktif = true`
+- `jam_kirim` cocok dengan jam Jakarta sekarang (HH:MM)
+- `hari_kirim` cocok hari minggu (1=Senin … 7=Minggu) — hanya untuk `ringkasan_mingguan`
+- `terakhir_dikirim` bukan hari ini (dedup harian)
+
+Alert yang diimplementasi:
+
+| jenis | threshold | keterangan |
+|---|---|---|
+| `stok_habis` | — | stok ≤ 0 |
+| `stok_kritis` | — | stok > 0 tapi ≤ stok_minimum |
+| `barang_kadaluarsa` | hari ke depan | dari tgl_kadaluarsa di barang_masuk_detail |
+| `hutang_jatuh_tempo` | hari ke depan | hutang_supplier status belum |
+| `piutang_macet` | hari lewat | piutang_pelanggan melewati jatuh_tempo |
+| `ringkasan_harian` | — | omzet + jumlah transaksi hari ini |
+| `ringkasan_mingguan` | — | omzet + jumlah transaksi minggu ini |
+
+Setiap alert → `notifikasi_log` (dedup per referensi per hari).
+Jika `channel = 'wa'`, juga emit `notifikasi.wa` — pasang gateway WA di `hooks.ts`:
+```typescript
+bus.register('notifikasi.wa', async ({ pesan, penerima }) => {
+  // panggil WA gateway API di sini
+})
 
 ---
 
@@ -331,6 +564,9 @@ Pertimbangan jangka panjang:
 4. Load data: onMount ATAU $effect — jangan keduanya untuk data yang sama
 5. Permission guard di setiap halaman sensitif:
    $effect(() => { if ($user && !['pemilik','manajer'].includes($user.role)) goto('/kasir') })
+6. Tabel baru → spread ...tenantField + ...auditFields + ...timestamps (lihat §ATURAN DATABASE)
+7. Aksi penting di route → emit event ke bus (sebelum/sesudah sesuai kebutuhan)
+8. Modul baru yang butuh approval → pakai mintaApproval() dari utils/approval.ts (bukan buat kolom sendiri)
 ```
 
 ---

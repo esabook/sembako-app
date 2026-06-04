@@ -2,6 +2,7 @@
   import { api } from '$lib/utils/api.js'
   import SlideOver from '$lib/components/SlideOver.svelte'
   import DataTable, { type Column } from '$lib/components/DataTable.svelte'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   type Kartu = {
     id: number; no_kartu: string
@@ -238,7 +239,7 @@
   </div>
 
   {#if kartuLoading}
-    <p class="text-sm" style="color:var(--text-dim)">Memuat...</p>
+    <div class="flex justify-center py-6"><Spinner /></div>
   {:else if kartuList.length === 0}
     <p class="text-sm" style="color:var(--text-dim)">Belum ada kartu. Klik "Generate Kartu" untuk membuat.</p>
   {:else if viewMode === 'grid'}

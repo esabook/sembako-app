@@ -32,6 +32,10 @@ import { shiftRouter } from './routes/shift.ts'
 import { pengaturanRouter } from './routes/pengaturan.ts'
 import { hargaRouter } from './routes/harga.ts'
 import { returPenjualanRouter } from './routes/retur-penjualan.ts'
+import { returSupplierRouter } from './routes/retur-supplier.ts'
+import { izinRouter } from './routes/izin.ts'
+import { evaluasiRouter } from './routes/evaluasi.ts'
+import { sanksiInsentifRouter } from './routes/sanksi-insentif.ts'
 import { notifikasiRouter } from './routes/notifikasi.ts'
 import { auditRouter } from './routes/audit.ts'
 import { budgetTargetRouter } from './routes/budget-target.ts'
@@ -39,6 +43,21 @@ import { promoRouter } from './routes/promo.ts'
 import { jadwalRouter } from './routes/jadwal.ts'
 import { draftRouter } from './routes/draft.ts'
 import { absensiKioskRouter } from './routes/absensi-kiosk.ts'
+import { sopRouter } from './routes/sop.ts'
+import { approvalRouter } from './routes/approval.ts'
+import { lampiranRouter } from './routes/lampiran.ts'
+import { asetRouter } from './routes/aset.ts'
+import { utilitasRouter } from './routes/utilitas.ts'
+import { pinjamanInvestasiRouter } from './routes/pinjaman-investasi.ts'
+import { tamuRouter } from './routes/tamu.ts'
+import { salesRouter } from './routes/sales.ts'
+import { crmRouter } from './routes/crm.ts'
+import { tugasRouter } from './routes/tugas.ts'
+import { hajatanRouter } from './routes/hajatan.ts'
+import { inspeksiRouter } from './routes/inspeksi.ts'
+import { printerRouter } from './routes/printer.ts'
+import { initHooks } from './lib/hooks.ts'
+import { initScheduler } from './lib/scheduler.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
 type Variables = { user: JWTPayload }
@@ -47,8 +66,11 @@ const app = new Hono<{ Variables: Variables }>()
 
 app.use('*', logger())
 app.use('*', compress())
+const corsOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+  .split(',').map((s) => s.trim()).filter(Boolean)
+
 app.use('*', cors({
-  origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  origin: (origin) => (corsOrigins.includes(origin ?? '') ? origin ?? corsOrigins[0] : null),
   credentials: true,
 }))
 
@@ -108,6 +130,10 @@ app.route('/shift', shiftRouter)
 app.route('/pengaturan', pengaturanRouter)
 app.route('/harga', hargaRouter)
 app.route('/retur-penjualan', returPenjualanRouter)
+app.route('/retur-supplier', returSupplierRouter)
+app.route('/izin', izinRouter)
+app.route('/evaluasi', evaluasiRouter)
+app.route('/sanksi-insentif', sanksiInsentifRouter)
 app.route('/notifikasi', notifikasiRouter)
 app.route('/audit', auditRouter)
 app.route('/budget-target', budgetTargetRouter)
@@ -115,6 +141,19 @@ app.route('/promo', promoRouter)
 app.route('/jadwal', jadwalRouter)
 app.route('/draft', draftRouter)
 app.route('/absensi-kiosk', absensiKioskRouter)
+app.route('/sop', sopRouter)
+app.route('/approval', approvalRouter)
+app.route('/lampiran', lampiranRouter)
+app.route('/aset', asetRouter)
+app.route('/utilitas', utilitasRouter)
+app.route('/pinjaman-investasi', pinjamanInvestasiRouter)
+app.route('/tamu', tamuRouter)
+app.route('/sales', salesRouter)
+app.route('/crm', crmRouter)
+app.route('/tugas', tugasRouter)
+app.route('/hajatan', hajatanRouter)
+app.route('/inspeksi', inspeksiRouter)
+app.route('/printer', printerRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 // MIGRATIONS_DIR bisa di-set via env untuk distribusi (default: src/db/migrations untuk dev)
@@ -122,9 +161,14 @@ const migrationsFolder = process.env.MIGRATIONS_DIR ?? './src/db/migrations'
 migrate(db, { migrationsFolder })
 console.log('Database migrations OK')
 
+// Daftarkan semua SOP hooks ke event bus
+initHooks()
+// Jalankan alert scheduler (cek setiap menit berdasarkan notifikasi_config)
+initScheduler()
+
 // Auto-seed: buat admin default hanya jika belum ada karyawan sama sekali (db segar)
-const [{ total }] = db.select({ total: count() }).from(karyawan).all()
-if (total === 0) {
+const seedCheck = db.select({ total: count() }).from(karyawan).get()
+if ((seedCheck?.total ?? 0) === 0) {
   const hash = await Bun.password.hash('admin123')
   db.insert(karyawan).values({
     kode_karyawan: 'KRY-001',

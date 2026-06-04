@@ -1,11 +1,11 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { networkInterfaces } from 'node:os'
-import { db } from '../db/index.ts'
+import { db, sqlite } from '../db/index.ts'
 import { toko_settings, preferensi_pengguna } from '../db/schema.ts'
-import { and } from 'drizzle-orm'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { HTTPException } from 'hono/http-exception'
 
 function getLanIps(): string[] {
   const nets = networkInterfaces()
@@ -42,20 +42,70 @@ pengaturanRouter.get('/server-info', async (c) => {
   })
 })
 
+// Auth middleware — wajib sebelum semua route yang butuh login
+// /publik dan /server-info di atas ini tidak butuh auth (by design)
+pengaturanRouter.use('*', authMiddleware)
+
+const DB_PATH = (process.env.DATABASE_URL ?? './data.db').replace(/^file:/, '')
+
 // ── GET /pengaturan/backup-db — download file SQLite ─────────────────────
+
 pengaturanRouter.get('/backup-db', requirePermission('*'), async (c) => {
-  const dbPath = process.env.DATABASE_URL ?? './data.db'
-  const file = Bun.file(dbPath)
-  const tgl = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' })
-  return new Response(file, {
+  // WAL checkpoint: flush semua write pending ke file utama sebelum copy
+  sqlite.run('PRAGMA wal_checkpoint(TRUNCATE)')
+
+  const file = Bun.file(DB_PATH)
+  if (!await file.exists()) throw new HTTPException(500, { message: 'File database tidak ditemukan' })
+
+  const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 16).replace(/[: ]/g, '-')
+  const buffer = await file.arrayBuffer()
+
+  return new Response(buffer, {
     headers: {
       'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="stokasir-backup-${tgl}.db"`,
+      'Content-Disposition': `attachment; filename="stokasir-backup-${now}.db"`,
+      'Content-Length': String(buffer.byteLength),
     },
   })
 })
 
-pengaturanRouter.use('*', authMiddleware)
+// ── POST /pengaturan/restore-db — upload & replace database ──────────────
+
+pengaturanRouter.post('/restore-db', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  if (user.role !== 'pemilik') {
+    throw new HTTPException(403, { message: 'Hanya pemilik yang bisa melakukan restore' })
+  }
+
+  const formData = await c.req.formData()
+  const file = formData.get('file') as File | null
+  if (!file) throw new HTTPException(400, { message: 'File database wajib diunggah' })
+  if (!file.name.endsWith('.db')) throw new HTTPException(400, { message: 'File harus berekstensi .db' })
+
+  const MAX_SIZE = 500 * 1024 * 1024 // 500 MB
+  if (file.size > MAX_SIZE) throw new HTTPException(400, { message: 'File terlalu besar (maks 500 MB)' })
+
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+
+  // Validasi magic bytes SQLite: "SQLite format 3\000"
+  const magic = String.fromCharCode(...bytes.slice(0, 16))
+  if (!magic.startsWith('SQLite format 3')) {
+    throw new HTTPException(400, { message: 'File bukan database SQLite yang valid' })
+  }
+
+  sqlite.run('PRAGMA wal_checkpoint(TRUNCATE)')
+  sqlite.close()
+  await Bun.write(DB_PATH, buffer)
+
+  // Beri waktu respons terkirim sebelum proses mati
+  setTimeout(() => process.exit(0), 200)
+
+  return c.json({
+    success: true,
+    data: { message: 'Database berhasil direstore. Server akan restart dalam beberapa detik.' },
+  })
+})
 
 // Nilai default untuk semua key settings
 const DEFAULTS: Record<string, string> = {
@@ -66,6 +116,10 @@ const DEFAULTS: Record<string, string> = {
   struk_header: '',
   struk_footer: 'Terima kasih sudah berbelanja!',
   struk_ukuran: '80',
+  struk_copy: '1',
+  auto_cetak: 'false',
+  printer_mode: 'browser',
+  printer_bridge_port: '9999',
   wa_nomor: '',
   tema_default: 'dark',
   harga_default: 'eceran',

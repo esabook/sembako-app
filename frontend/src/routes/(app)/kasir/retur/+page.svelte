@@ -1,3 +1,5 @@
+<svelte:head><title>Retur Penjualan — Stokasir</title></svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte'
 	import { SvelteMap } from 'svelte/reactivity'
@@ -5,6 +7,7 @@
 	import { api } from '$lib/utils/api'
 	import { user } from '$lib/stores/auth.js'
 	import Button from '$lib/components/ui/Button.svelte'
+	import Spinner from '$lib/components/ui/Spinner.svelte'
 	import SlideOver from '$lib/components/SlideOver.svelte'
 	import ReturDetailSlideOver from './ReturDetailSlideOver.svelte'
 	import type { ReturDetail } from './retur.types.js'
@@ -377,7 +380,7 @@
 	<!-- Tabel retur -->
 	<div class="rounded border" style="background:var(--surface);border-color:var(--border)">
 		{#if loading}
-			<p class="p-6 text-center text-sm" style="color:var(--text-dim)">Memuat...</p>
+			<div class="flex justify-center py-6"><Spinner /></div>
 		{:else if error}
 			<p class="p-6 text-center text-sm" style="color:var(--danger)">{error}</p>
 		{:else if returList.length === 0}

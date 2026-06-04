@@ -11,14 +11,15 @@ const API_CACHE = 'api-v1';
 // Semua static asset untuk precache
 const ASSETS = [...build, ...files];
 
-// API path yang layak di-cache (GET only, kasir-critical)
-const CACHEABLE_API = [
-	'/produk',
-	'/harga',
-	'/pengaturan/publik',
-	'/promo/aktif',
-	'/kartu-anggota',
-];
+// Mode deployment: 'offline' (LAN/Pi) | 'online' (cloud VPS)
+// Set via PUBLIC_DEPLOYMENT_MODE di .env sebelum build.
+const IS_ONLINE_MODE = (import.meta.env.PUBLIC_DEPLOYMENT_MODE as string) === 'online';
+
+// Offline: cache semua endpoint kasir-critical untuk operasi tanpa internet
+// Online: hanya cache pengaturan publik — data lebih fresh lebih penting
+const CACHEABLE_API = IS_ONLINE_MODE
+	? ['/pengaturan/publik']
+	: ['/produk', '/harga', '/pengaturan/publik', '/promo/aktif', '/kartu-anggota'];
 
 const SHARED_STYLE = `
     *{box-sizing:border-box;margin:0;padding:0}
@@ -48,7 +49,7 @@ const OFFLINE_HTML = `<!DOCTYPE html>
   <div class="card">
     <div class="icon">📡</div>
     <h1>Tidak Dapat Terhubung</h1>
-    <p>Pastikan HP terhubung ke WiFi toko dan server menyala, lalu coba lagi.</p>
+    <p>${IS_ONLINE_MODE ? 'Periksa koneksi internet dan coba lagi.' : 'Pastikan HP terhubung ke WiFi toko dan server menyala, lalu coba lagi.'}</p>
     <button onclick="location.reload()">Coba Lagi</button>
   </div>
 </body>
@@ -151,9 +152,9 @@ self.addEventListener('fetch', (event) => {
 
 // Navigation: coba network, fallback ke cached page, lalu halaman error yang tepat
 async function networkFirstNav(request: Request): Promise<Response> {
-	// Coba fetch — kalau gagal, retry 1x setelah 800ms
-	// (SW kadang gagal di request pertama saat baru aktif / resume dari background)
-	for (let attempt = 0; attempt < 2; attempt++) {
+	// Offline mode: retry 2x (network flaky di LAN); Online: 1x cukup (internet stabil)
+	const maxAttempts = IS_ONLINE_MODE ? 1 : 2;
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		try {
 			const response = await fetch(request);
 			if (response.ok) {
