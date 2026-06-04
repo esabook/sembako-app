@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
+	import { toast } from '$lib/stores/ui.store.js';
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 
@@ -186,6 +187,7 @@
 
 		if (!r.success) { error = (r as { success: false; error: string }).error; return; }
 		modalOpen = false;
+		toast.sukses(editPromo?.id ? 'Promo diperbarui' : 'Promo ditambahkan');
 		muatPromo();
 	}
 

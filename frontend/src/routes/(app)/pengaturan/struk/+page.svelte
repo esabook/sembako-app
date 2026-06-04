@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte'
 	import { api } from '$lib/utils/api.js'
 	import { user } from '$lib/stores/auth.js'
+	import { toast } from '$lib/stores/ui.store.js'
 	import Spinner from '$lib/components/ui/Spinner.svelte'
 	import StrukPreview from '$lib/components/ui/StrukPreview.svelte'
 	import { buildStrukHtmlCopies, cetakStrukPopup, cetakViaAgent, cekStatusAgent, type StrukData } from '$lib/utils/struk'
@@ -112,7 +113,10 @@
 		if (res.success) {
 			saved = true
 			setTimeout(() => { saved = false }, 2000)
+			toast.sukses('Pengaturan struk disimpan')
 			void cekAgent()
+		} else {
+			toast.error('Gagal menyimpan pengaturan struk')
 		}
 	}
 
