@@ -66,8 +66,11 @@ const app = new Hono<{ Variables: Variables }>()
 
 app.use('*', logger())
 app.use('*', compress())
+const corsOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
+  .split(',').map((s) => s.trim()).filter(Boolean)
+
 app.use('*', cors({
-  origin: process.env.FRONTEND_URL ?? 'http://localhost:5173',
+  origin: (origin) => (corsOrigins.includes(origin ?? '') ? origin ?? corsOrigins[0] : null),
   credentials: true,
 }))
 
