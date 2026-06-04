@@ -79,50 +79,69 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
     .where(eq(karyawan.is_active, true))
     .all()
 
+  // Batch-load semua data yang dibutuhkan sebelum loop — hindari N+1
+  const karyawanIds = semua_karyawan.map((k) => k.id)
+
+  const existingSet = new Set(
+    db.select({ karyawan_id: penggajian.karyawan_id })
+      .from(penggajian)
+      .where(eq(penggajian.periode_bulan, body.bulan))
+      .all()
+      .map((r) => r.karyawan_id)
+  )
+
+  const absensiRows = karyawanIds.length
+    ? db.select({ karyawan_id: absensi.karyawan_id, hadir: sql<number>`COUNT(*)` })
+        .from(absensi)
+        .where(and(
+          inArray(absensi.karyawan_id, karyawanIds),
+          eq(absensi.status, 'hadir'),
+          gte(absensi.tanggal, `${body.bulan}-01`),
+          lte(absensi.tanggal, `${body.bulan}-31`),
+        ))
+        .groupBy(absensi.karyawan_id)
+        .all()
+    : []
+  const absensiMap = new Map(absensiRows.map((r) => [r.karyawan_id, r.hadir]))
+
+  const kasbonAll = karyawanIds.length
+    ? db.select({ karyawan_id: kasbon.karyawan_id, cicilan: kasbon.cicilan_per_bulan })
+        .from(kasbon)
+        .where(and(inArray(kasbon.karyawan_id, karyawanIds), eq(kasbon.status, 'aktif')))
+        .all()
+    : []
+  const kasbonMap = new Map<number, number>()
+  for (const r of kasbonAll) {
+    kasbonMap.set(r.karyawan_id, (kasbonMap.get(r.karyawan_id) ?? 0) + r.cicilan)
+  }
+
+  const siAll = karyawanIds.length
+    ? db.select({ karyawan_id: sanksi_insentif.karyawan_id, tipe: sanksi_insentif.tipe, jumlah: sanksi_insentif.jumlah })
+        .from(sanksi_insentif)
+        .where(and(
+          inArray(sanksi_insentif.karyawan_id, karyawanIds),
+          eq(sanksi_insentif.periode_bulan, body.bulan),
+        ))
+        .all()
+    : []
+  const insentifMap = new Map<number, number>()
+  const sanksiMap = new Map<number, number>()
+  for (const r of siAll) {
+    if (r.tipe === 'insentif') insentifMap.set(r.karyawan_id, (insentifMap.get(r.karyawan_id) ?? 0) + r.jumlah)
+    else sanksiMap.set(r.karyawan_id, (sanksiMap.get(r.karyawan_id) ?? 0) + r.jumlah)
+  }
+
   const generated: (typeof penggajian.$inferSelect)[] = []
   const skipped: number[] = []
 
   for (const k of semua_karyawan) {
-    // Cek sudah ada belum
-    const sudahAda = db
-      .select({ id: penggajian.id })
-      .from(penggajian)
-      .where(and(eq(penggajian.karyawan_id, k.id), eq(penggajian.periode_bulan, body.bulan)))
-      .get()
+    if (existingSet.has(k.id)) { skipped.push(k.id); continue }
 
-    if (sudahAda) { skipped.push(k.id); continue }
+    const hariHadir = absensiMap.get(k.id) ?? 0
+    const potonganKasbon = kasbonMap.get(k.id) ?? 0
+    const totalInsentif = insentifMap.get(k.id) ?? 0
+    const totalSanksi = sanksiMap.get(k.id) ?? 0
 
-    // Hitung hari hadir dari absensi
-    const rekapRow = db
-      .select({ hadir: sql<number>`COUNT(*)` })
-      .from(absensi)
-      .where(and(
-        eq(absensi.karyawan_id, k.id),
-        eq(absensi.status, 'hadir'),
-        gte(absensi.tanggal, `${body.bulan}-01`),
-        lte(absensi.tanggal, `${body.bulan}-31`),
-      ))
-      .get()
-    const hariHadir = rekapRow?.hadir ?? 0
-
-    // Total cicilan kasbon aktif bulan ini
-    const kasbonRows = db
-      .select({ cicilan: kasbon.cicilan_per_bulan })
-      .from(kasbon)
-      .where(and(eq(kasbon.karyawan_id, k.id), eq(kasbon.status, 'aktif')))
-      .all()
-    const potonganKasbon = kasbonRows.reduce((s, r) => s + r.cicilan, 0)
-
-    // Insentif dan sanksi bulan ini
-    const siRows = db
-      .select({ tipe: sanksi_insentif.tipe, jumlah: sanksi_insentif.jumlah })
-      .from(sanksi_insentif)
-      .where(and(eq(sanksi_insentif.karyawan_id, k.id), eq(sanksi_insentif.periode_bulan, body.bulan)))
-      .all()
-    const totalInsentif = siRows.filter((r) => r.tipe === 'insentif').reduce((s, r) => s + r.jumlah, 0)
-    const totalSanksi = siRows.filter((r) => r.tipe === 'sanksi').reduce((s, r) => s + r.jumlah, 0)
-
-    // Hitung total gaji
     const gajiBase =
       k.tipe_gaji === 'harian' ? k.gaji_pokok * hariHadir : k.gaji_pokok
     const tunjangan = totalInsentif
