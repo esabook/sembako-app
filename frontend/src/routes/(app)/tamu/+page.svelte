@@ -6,6 +6,7 @@
   import { user } from '$lib/stores/auth.js'
   import SlideOver from '$lib/components/SlideOver.svelte'
   import { api } from '$lib/utils/api.js'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -89,7 +90,7 @@
   </div>
 
   {#if loading}
-    <p class="text-sm py-4" style="color:var(--text-dim)">Memuat...</p>
+    <div class="flex justify-center py-6"><Spinner /></div>
   {:else if rows.length === 0}
     <p class="text-sm py-4" style="color:var(--text-dim)">Belum ada catatan tamu{dariBulan ? ' bulan ini' : ''}.</p>
   {:else}

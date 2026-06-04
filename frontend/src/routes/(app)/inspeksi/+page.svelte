@@ -5,6 +5,7 @@
   import { api } from '$lib/utils/api.js'
   import SlideOver from '$lib/components/SlideOver.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   type Inspeksi = {
     id: number; tanggal: string; jenis: string; area: string | null
@@ -143,7 +144,7 @@
   {/if}
 
   {#if loading}
-    <p class="text-sm" style="color:var(--text-dim)">Memuat...</p>
+    <div class="flex justify-center py-6"><Spinner /></div>
   {:else if list.length === 0}
     <p class="text-sm text-center py-12" style="color:var(--text-dim)">Belum ada catatan inspeksi.</p>
   {:else}

@@ -6,6 +6,7 @@
   import SlideOver from '$lib/components/SlideOver.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import { user } from '$lib/stores/auth.js'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   type Item = { id: number; nama: string; kategori: string; urutan: number; is_active: boolean }
   type LogRow = {
@@ -129,7 +130,7 @@
     </div>
 
     {#if loading}
-      <p class="text-sm" style="color:var(--text-dim)">Memuat...</p>
+      <div class="flex justify-center py-6"><Spinner /></div>
     {:else if logRows.length === 0}
       <div class="text-center py-12" style="color:var(--text-dim)">
         <p class="text-sm">Belum ada item tugas.</p>

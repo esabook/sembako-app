@@ -16,6 +16,7 @@
   } from './karyawan.logic.js'
   import type { IzinRow, EvaluasiRow, SanksiInsentifRow } from './karyawan.types.js'
   import { api } from '$lib/utils/api.js'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -654,7 +655,7 @@
     </div>
 
     {#if store.loadingJadwal}
-      <p class="text-xs py-4 text-center" style="color:var(--text-dim)">Memuat...</p>
+      <div class="flex justify-center py-6"><Spinner /></div>
     {:else}
       <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
         <table class="w-full text-xs border-collapse" style="min-width:680px">
@@ -781,7 +782,7 @@
     </div>
 
     {#if store.loadingPerforma}
-      <p class="text-sm py-4" style="color:var(--text-dim)">Memuat...</p>
+      <div class="flex justify-center py-6"><Spinner /></div>
 
     {:else if store.performaDetailId && store.performaDetail}
       {@const d = store.performaDetail}

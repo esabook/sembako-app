@@ -3,6 +3,7 @@
   import { api } from '$lib/utils/api.js'
   import SlideOver from '$lib/components/SlideOver.svelte'
   import DataTable, { type Column } from '$lib/components/DataTable.svelte'
+  import Spinner from '$lib/components/ui/Spinner.svelte'
 
   let { onbukariwayat }: { onbukariwayat?: (id: number, nama: string) => void } = $props()
 
@@ -247,7 +248,7 @@
   </div>
 
   {#if plgLoading}
-    <p class="text-sm" style="color:var(--text-dim)">Memuat...</p>
+    <div class="flex justify-center py-6"><Spinner /></div>
   {:else if plgList.length === 0}
     <p class="text-sm" style="color:var(--text-dim)">Belum ada pelanggan.</p>
   {:else if viewMode === 'grid'}

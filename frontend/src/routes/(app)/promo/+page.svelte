@@ -6,6 +6,7 @@
 	import { toast } from '$lib/stores/ui.store.js';
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type PromoTarget = { id?: number; target_tipe: 'barang' | 'kategori'; target_id: number; nama?: string };
 	type Promo = {
@@ -232,7 +233,7 @@
 	>
 		{#snippet body(hidden)}
 			{#if loading}
-				<tr><td colspan="7" class="px-3 py-6 text-center text-xs" style="color:var(--text-dim)">Memuat...</td></tr>
+				<tr><td colspan="7"><div class="flex justify-center py-8"><Spinner /></div></td></tr>
 			{:else}
 				{#each sortedPromo as p (p.id)}
 					{@const badge = badgeTipe(p.tipe)}
