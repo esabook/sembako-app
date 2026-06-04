@@ -360,21 +360,27 @@
     loading = true
     const kb = await api.get<KasBank[]>('/keuangan/kas-bank')
     if (kb.success) kasBankList = kb.data!
-    await Promise.all([muatHutang(), muatPiutang(), muatJurnal(), muatKasBankSaldo()])
     loading = false
+    // Data tiap tab dimuat oleh $effect di bawah — tidak perlu load semua di sini
   })
 
+  // Lacak perubahan tab agar $effect tidak fire duplikat saat komponen init
+  let prevTab: string | null = null
   let budgetInit = false
   $effect(() => {
-    if (tab === 'hutang') muatHutang()
-    else if (tab === 'piutang') muatPiutang()
-    else if (tab === 'jurnal') muatJurnal()
-    else if (tab === 'kasbank') muatKasBankSaldo()
-    else if (tab === 'budget' && !budgetInit) {
+    const currentTab = tab
+    if (prevTab === currentTab) return
+    prevTab = currentTab
+
+    if (currentTab === 'hutang') muatHutang()
+    else if (currentTab === 'piutang') muatPiutang()
+    else if (currentTab === 'jurnal') muatJurnal()
+    else if (currentTab === 'kasbank') muatKasBankSaldo()
+    else if (currentTab === 'budget' && !budgetInit) {
       budgetInit = true
       Promise.all([budgetStore.muatPeriode(periodeIni), budgetStore.muatHistori()])
     }
-    else if (tab === 'pinjaman') { piTipeFilter; piStatusFilter; muatPinjaman() }
+    else if (currentTab === 'pinjaman') { piTipeFilter; piStatusFilter; muatPinjaman() }
   })
 
   // ── Pinjaman & Investasi ───────────────────────────────────────────────────

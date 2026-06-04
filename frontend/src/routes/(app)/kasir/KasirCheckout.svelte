@@ -289,6 +289,7 @@
 		void api.get<{ id: number; nama: string; tipe: string }[]>('/keuangan/kas-bank').then((res) => {
 			if (res.success) daftarKasBank = res.data;
 		});
+		return () => clearTimeout(pelangganTimer);
 	});
 </script>
 
