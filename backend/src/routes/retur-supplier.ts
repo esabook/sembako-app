@@ -250,7 +250,8 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         subtotal,
       }).run()
 
-      const br = db.select({ stok: barang.stok_sekarang }).from(barang).where(eq(barang.id, item.barang_id)).get()!
+      const br = db.select({ stok: barang.stok_sekarang }).from(barang).where(eq(barang.id, item.barang_id)).get()
+      if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
       db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
         tanggal: tgl,
