@@ -196,8 +196,9 @@ Di component scope wajib dalam `$effect` + `return () => d.cancel()` — jika ti
 ```
 var(--bg) var(--surface) var(--surface2) var(--border)
 var(--text) var(--text-dim) var(--accent) var(--warn) var(--danger) var(--info)
+var(--skeleton)   ← background placeholder untuk Skeleton component
 ```
-3 tema: `dark` / `light` / `eye` — toggle di navbar.
+7 tema: `dark` / `light` / `eye` / `bww` / `bwb` / `island` / `klasik` — toggle di navbar.
 
 ### Responsive — breakpoint Tailwind
 ```
@@ -243,6 +244,7 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 ✗ createEventDispatcher                → pakai callback props ($props)
 ✗ export let                           → pakai $props() rune
 ✗ try/catch di store action            → pakai withLoading()
+✗ onDestroy                            → pakai onMount(() => { return () => cleanup })
 ✗ onMount() + $effect() untuk load     → pilih salah satu
 ✗ hitung di template {a - b}          → pakai $derived
 ✗ localStorage/sessionStorage          → state di store, data di backend
@@ -253,7 +255,30 @@ Tabel di HP — wajib scrollable, jangan dipotong:
 ✗ $derived berat dipakai langsung     → UI freeze, pakai pola deferred di bawah
 ✗ komputasi berat sync di main thread → withIdle(), bukan setTimeout(fn,0)
 ✗ new Worker() untuk data kecil       → overhead, withIdle() cukup s/d ~10rb baris
+✗ <p>Memuat...</p> untuk loading      → pakai <Spinner /> atau <Skeleton />
+✗ warna hex hardcode di style=        → pakai var(--accent), var(--danger), dst.
+✗ emptyText DataTable pakai ternary loading → DataTable sudah punya skeleton rows saat loading=true
 ```
+
+### Loading state — komponen UI
+
+```svelte
+<!-- Spinner — loading state inline/centered, import dari: -->
+import Spinner from '$lib/components/ui/Spinner.svelte'
+
+<div class="flex justify-center py-6"><Spinner /></div>   <!-- centered -->
+<Spinner size={16} />                                     <!-- inline kecil -->
+
+<!-- Skeleton — placeholder layout sebelum data masuk -->
+import Skeleton from '$lib/components/ui/Skeleton.svelte'
+
+<Skeleton w="60%" h="0.875rem" />                         <!-- baris teks -->
+<Skeleton w="100%" h="7rem" />                            <!-- area gambar/grafik -->
+<Skeleton w="4rem" h="4rem" br="rounded-full" />          <!-- avatar -->
+```
+
+`DataTable` sudah terintegrasi skeleton rows saat `loading=true` — tidak perlu tambah apapun di template.
+Halaman dengan layout kustom (dashboard, keuangan, dsb) buat skeleton manual menggunakan komponen `Skeleton`.
 
 ### No-freeze: komputasi berat setelah state berubah
 
@@ -334,6 +359,9 @@ Web Worker               → hanya jika withIdle() tidak cukup (kriteria di bawa
 | **Fase A** — SaaS-Readiness | ✅ Selesai | A1–A4 done; A5 (i18n) skip |
 | **Fase B** — SOP Engine + Primitif | ✅ Selesai | B1–B7 done; B8 (XState) skip |
 | **Fase C** — Modul Ekor | ✅ Selesai | 25/25 modul PLAN(1).md done |
+| **Sprint 1** — Performa & DX | ✅ Selesai | N+1, null-safety, index DB, debounce, withLoading, warna |
+| **Sprint 2** — UX & Polish | ✅ Selesai | Page title, error page, animasi, toast, transisi modal |
+| **Sprint 3** — Correctness | ✅ Selesai | Skeleton loader, Spinner SVG, deployment mode env |
 | **Fase D** — Multi-tenant Cutover | ⏸ Ditunda | Tunggu toko kedua nyata |
 
 **Modul aktif:** dashboard, kasir, gudang, karyawan, keuangan, laporan, harga, pengaturan,
@@ -355,6 +383,9 @@ _(tidak ada saat ini)_
 - Semua a11y warnings label for/id + dialog tabindex/keyboard (frontend check: 0 errors, 0 warnings)
 - backend/index.ts: array-destructure count() → `.get()` agar TypeScript-safe
 - absensi-kiosk.ts: destructure split default value; tugas.ts: non-null assertion
+- penjualan.ts + retur-supplier.ts: `.get()!` → null guard + HTTPException
+- penggajian.ts: N+1 generate gaji (4N+1 → 5 total queries via inArray + Map)
+- 6 index DB baru: karyawan, barang, barang_masuk_detail, penggajian, kasbon, notifikasi_log
 
 ---
 
@@ -365,13 +396,45 @@ Aktif:
   [ ] Fase D — migrasi ke PostgreSQL (hanya saat toko kedua)
 
 Pertimbangan jangka panjang:
-  [x] Service Worker / offline cache — agar kasir tetap jalan saat WiFi putus
+  [x] Service Worker / offline cache — fully implemented dengan deployment mode env
   [x] tenant_id di semua tabel (A1, done)
   [x] Backup & Restore UI (A4, done)
   [ ] Multi-toko / multi-cabang → Fase D
   [ ] Migrasi ke Turso (libSQL) untuk akses remote → Fase D
   [ ] Konversi 52 kolom real → integer Rupiah → Fase D (doc: currency_audit.md)
 ```
+
+---
+
+## ENV VARS & DEPLOYMENT MODE
+
+Template tersedia: `backend/.env.example` dan `frontend/.env.example`.
+
+### Backend (`backend/.env`)
+```
+JWT_SECRET=         # wajib ganti di production (32+ karakter random)
+PORT=3000
+FRONTEND_URL=       # CORS origin — CSV untuk multi-origin:
+                    #   http://192.168.1.x:5173,https://kasir.domain.com
+DATABASE_URL=file:./data.db
+UPLOAD_DIR=./uploads
+```
+
+### Frontend (build-time, `frontend/.env`)
+```
+PUBLIC_DEPLOYMENT_MODE=offline   # 'offline' (LAN/Pi) | 'online' (cloud VPS)
+                                 # Mengubah: cache strategy SW, pesan offline, retry count
+PUBLIC_API_URL=                  # kosong = /api via Nginx proxy
+                                 # Isi jika tidak pakai Nginx: https://api.domain.com
+```
+**Wajib rebuild frontend** (`bun run build`) setelah ganti nilai `PUBLIC_*`.
+
+### Perbedaan mode
+| | `offline` (default) | `online` |
+|---|---|---|
+| SW cache endpoints | 5 (semua kasir-critical) | 1 (pengaturan/publik saja) |
+| Pesan offline | "WiFi toko dan server menyala" | "koneksi internet" |
+| Nav retry | 2x | 1x |
 
 ---
 

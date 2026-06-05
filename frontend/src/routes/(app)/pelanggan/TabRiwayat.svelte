@@ -217,7 +217,7 @@
               <tr style="border-top:1px solid var(--border);background:var(--surface)">
                 <td colspan="6" class="px-3 py-2">
                   {#if detailLoading[trx.id]}
-                    <p class="text-xs py-1" style="color:var(--text-dim)">Memuat item...</p>
+                    <div class="flex justify-center py-1"><Spinner size={14} /></div>
                   {:else if detailMap[trx.id]}
                     <div class="overflow-x-auto">
                       <table class="min-w-full" style="border-collapse:collapse;font-size:.78rem">

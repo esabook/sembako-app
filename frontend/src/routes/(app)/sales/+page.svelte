@@ -6,6 +6,7 @@
   import { user } from '$lib/stores/auth.js'
   import SlideOver from '$lib/components/SlideOver.svelte'
   import { api } from '$lib/utils/api.js'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer', 'sales'].includes($user.role)) goto('/kasir')
@@ -82,9 +83,18 @@
     kFormOpen = false; muatKunjungan()
   }
 
-  async function hapusK(id: number) {
-    if (!confirm('Hapus kunjungan ini?')) return
-    await api.delete(`/sales/kunjungan/${id}`)
+  let konfirmKunjunganId = $state<number | null>(null)
+  let konfirmKunjunganBuka = $state(false)
+
+  function hapusK(id: number) {
+    konfirmKunjunganId = id
+    konfirmKunjunganBuka = true
+  }
+
+  async function doHapusK() {
+    if (!konfirmKunjunganId) return
+    await api.delete(`/sales/kunjungan/${konfirmKunjunganId}`)
+    konfirmKunjunganId = null
     muatKunjungan()
   }
 
@@ -144,9 +154,18 @@
     aFormOpen = false; muatAgenda()
   }
 
-  async function hapusA(id: number) {
-    if (!confirm('Hapus agenda ini?')) return
-    await api.delete(`/sales/agenda-supplier/${id}`)
+  let konfirmAgendaId = $state<number | null>(null)
+  let konfirmAgendaBuka = $state(false)
+
+  function hapusA(id: number) {
+    konfirmAgendaId = id
+    konfirmAgendaBuka = true
+  }
+
+  async function doHapusA() {
+    if (!konfirmAgendaId) return
+    await api.delete(`/sales/agenda-supplier/${konfirmAgendaId}`)
+    konfirmAgendaId = null
     muatAgenda()
   }
 
@@ -214,9 +233,18 @@
     muatPipeline()
   }
 
-  async function hapusP(id: number) {
-    if (!confirm('Hapus pipeline ini?')) return
-    await api.delete(`/sales/pipeline/${id}`)
+  let konfirmPipelineId = $state<number | null>(null)
+  let konfirmPipelineBuka = $state(false)
+
+  function hapusP(id: number) {
+    konfirmPipelineId = id
+    konfirmPipelineBuka = true
+  }
+
+  async function doHapusP() {
+    if (!konfirmPipelineId) return
+    await api.delete(`/sales/pipeline/${konfirmPipelineId}`)
+    konfirmPipelineId = null
     muatPipeline()
   }
 
@@ -617,3 +645,33 @@
   </form>
   {/snippet}
 </SlideOver>
+
+<ConfirmDialog
+  bind:open={konfirmKunjunganBuka}
+  judul="Hapus kunjungan?"
+  pesan="Data kunjungan ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmKunjunganId = null}
+  onkanan={doHapusK}
+/>
+
+<ConfirmDialog
+  bind:open={konfirmAgendaBuka}
+  judul="Hapus agenda?"
+  pesan="Data agenda supplier ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmAgendaId = null}
+  onkanan={doHapusA}
+/>
+
+<ConfirmDialog
+  bind:open={konfirmPipelineBuka}
+  judul="Hapus pipeline?"
+  pesan="Data pipeline grosir ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmPipelineId = null}
+  onkanan={doHapusP}
+/>

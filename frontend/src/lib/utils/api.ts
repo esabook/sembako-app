@@ -5,6 +5,10 @@ const BASE_URL = import.meta.env.PUBLIC_API_URL ?? '/api'
 
 type ApiResponse<T> = { success: true; data: T } | { success: false; error: string }
 
+function handleUnauthorized() {
+  if (typeof window !== 'undefined') window.location.href = '/login'
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse<T>> {
   try {
     const res = await fetch(`${BASE_URL}${path}`, {
@@ -12,6 +16,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<ApiResponse
       credentials: 'include',
       ...init,
     })
+    if (res.status === 401) { handleUnauthorized(); return { success: false, error: 'Sesi berakhir' } }
     return res.json() as Promise<ApiResponse<T>>
   } catch {
     return { success: false, error: 'Network error' }
@@ -34,6 +39,7 @@ export const api = {
         credentials: 'include',
         body: formData,
       })
+      if (res.status === 401) { handleUnauthorized(); return { success: false, error: 'Sesi berakhir' } }
       return res.json() as Promise<ApiResponse<T>>
     } catch {
       return { success: false, error: 'Network error' }

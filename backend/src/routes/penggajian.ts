@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, sql, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, sqlite } from '../db/index.ts'
 import { penggajian, karyawan, absensi, kasbon, jurnal_kas, sanksi_insentif } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -202,8 +202,8 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
       : existing.gaji_pokok
   const total = Math.max(0, gajiBase + tunjangan - existing.potongan_kasbon - potonganLain)
 
-  const row = db.transaction((tx) => {
-    const updated = tx
+  const trxFn = sqlite.transaction(() => {
+    const updated = db
       .update(penggajian)
       .set({
         tunjangan,
@@ -216,9 +216,11 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
       .returning()
       .get()
 
+    if (!updated) throw new HTTPException(500, { message: 'Update penggajian gagal' })
+
     // Jika status dibayar: potong kasbon aktif dan catat jurnal kas
     if (body.status === 'dibayar' && existing.status !== 'dibayar') {
-      const kasbonAktif = tx
+      const kasbonAktif = db
         .select()
         .from(kasbon)
         .where(and(eq(kasbon.karyawan_id, existing.karyawan_id), eq(kasbon.status, 'aktif')))
@@ -226,7 +228,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
 
       for (const kb of kasbonAktif) {
         const sisa = Math.max(0, kb.sisa_kasbon - kb.cicilan_per_bulan)
-        tx.update(kasbon)
+        db.update(kasbon)
           .set({
             sisa_kasbon: sisa,
             status: sisa <= 0 ? 'lunas' : 'aktif',
@@ -237,7 +239,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
       }
 
       if (body.kas_bank_id) {
-        tx.insert(jurnal_kas).values({
+        db.insert(jurnal_kas).values({
           tanggal: new Date().toISOString().slice(0, 10),
           kas_bank_id: body.kas_bank_id,
           jenis: 'keluar',
@@ -245,7 +247,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
           referensi_tipe: 'penggajian',
           referensi_id: id,
           keterangan: `Gaji ${existing.periode_bulan}`,
-          jumlah: updated!.total_gaji,
+          jumlah: updated.total_gaji,
           dicatat_oleh: user.id,
         }).run()
       }
@@ -253,6 +255,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
 
     return updated
   })
+  const row = trxFn()
 
   return c.json({ success: true, data: row })
 })

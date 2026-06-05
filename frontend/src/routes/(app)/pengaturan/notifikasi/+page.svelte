@@ -370,7 +370,7 @@
 						class="rounded px-3 py-1.5 text-sm font-bold disabled:opacity-60"
 						style="background:var(--accent);color:#000"
 					>
-						{loadingWa ? 'Memuat...' : 'Cari'}
+						{#if loadingWa}<Spinner size={14} warna="currentColor" />{:else}Cari{/if}
 					</button>
 				</div>
 

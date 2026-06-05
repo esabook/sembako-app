@@ -8,6 +8,7 @@
   import { user } from '$lib/stores/auth.js'
   import DataTable from '$lib/components/DataTable.svelte'
   import Skeleton from '$lib/components/ui/Skeleton.svelte'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import type { Column } from '$lib/components/DataTable.svelte'
   import { createBudgetStore } from './budget/budget.store.svelte.js'
   import {
@@ -296,9 +297,18 @@
     if (kb.success) kasBankList = kb.data!
   }
 
-  async function nonaktifkanKasBank(id: number) {
-    if (!confirm('Nonaktifkan akun ini?')) return
-    await api.delete(`/keuangan/kas-bank/${id}`)
+  let konfirmKasBankId = $state<number | null>(null)
+  let konfirmKasBankBuka = $state(false)
+
+  function nonaktifkanKasBank(id: number) {
+    konfirmKasBankId = id
+    konfirmKasBankBuka = true
+  }
+
+  async function doNonaktifkanKasBank() {
+    if (!konfirmKasBankId) return
+    await api.delete(`/keuangan/kas-bank/${konfirmKasBankId}`)
+    konfirmKasBankId = null
     await muatKasBankSaldo()
     const kb = await api.get<KasBank[]>('/keuangan/kas-bank')
     if (kb.success) kasBankList = kb.data!
@@ -360,21 +370,27 @@
     loading = true
     const kb = await api.get<KasBank[]>('/keuangan/kas-bank')
     if (kb.success) kasBankList = kb.data!
-    await Promise.all([muatHutang(), muatPiutang(), muatJurnal(), muatKasBankSaldo()])
     loading = false
+    // Data tiap tab dimuat oleh $effect di bawah — tidak perlu load semua di sini
   })
 
+  // Lacak perubahan tab agar $effect tidak fire duplikat saat komponen init
+  let prevTab: string | null = null
   let budgetInit = false
   $effect(() => {
-    if (tab === 'hutang') muatHutang()
-    else if (tab === 'piutang') muatPiutang()
-    else if (tab === 'jurnal') muatJurnal()
-    else if (tab === 'kasbank') muatKasBankSaldo()
-    else if (tab === 'budget' && !budgetInit) {
+    const currentTab = tab
+    if (prevTab === currentTab) return
+    prevTab = currentTab
+
+    if (currentTab === 'hutang') muatHutang()
+    else if (currentTab === 'piutang') muatPiutang()
+    else if (currentTab === 'jurnal') muatJurnal()
+    else if (currentTab === 'kasbank') muatKasBankSaldo()
+    else if (currentTab === 'budget' && !budgetInit) {
       budgetInit = true
       Promise.all([budgetStore.muatPeriode(periodeIni), budgetStore.muatHistori()])
     }
-    else if (tab === 'pinjaman') { piTipeFilter; piStatusFilter; muatPinjaman() }
+    else if (currentTab === 'pinjaman') { piTipeFilter; piStatusFilter; muatPinjaman() }
   })
 
   // ── Pinjaman & Investasi ───────────────────────────────────────────────────
@@ -454,10 +470,19 @@
     if (json.success) { piCicilOpen = false; cicilJumlah = ''; muatPinjaman() }
   }
 
-  async function hapusPi(id: number) {
-    if (!confirm('Hapus data ini?')) return
-    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi/${id}`,
+  let konfirmPiId = $state<number | null>(null)
+  let konfirmPiBuka = $state(false)
+
+  function hapusPi(id: number) {
+    konfirmPiId = id
+    konfirmPiBuka = true
+  }
+
+  async function doHapusPi() {
+    if (!konfirmPiId) return
+    await fetch(`${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/pinjaman-investasi/${konfirmPiId}`,
       { method: 'DELETE', credentials: 'include' })
+    konfirmPiId = null
     muatPinjaman()
   }
 
@@ -1444,3 +1469,23 @@
     {/if}
   </div>
 {/snippet}
+
+<ConfirmDialog
+  bind:open={konfirmKasBankBuka}
+  judul="Nonaktifkan akun?"
+  pesan="Akun kas/bank ini akan dinonaktifkan. Riwayat transaksi tetap tersimpan."
+  labelKanan="Nonaktifkan"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmKasBankId = null}
+  onkanan={doNonaktifkanKasBank}
+/>
+
+<ConfirmDialog
+  bind:open={konfirmPiBuka}
+  judul="Hapus data pinjaman/investasi?"
+  pesan="Data ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmPiId = null}
+  onkanan={doHapusPi}
+/>

@@ -11,7 +11,24 @@ import { authMiddleware } from '../middleware/auth.ts'
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production'
 )
-const COOKIE_MAX_AGE = 60 * 60 * 12 // 12 jam
+const JWT_EXPIRY_HOURS = Number(process.env.JWT_EXPIRY_HOURS ?? 12)
+const COOKIE_MAX_AGE = JWT_EXPIRY_HOURS * 60 * 60
+
+// In-memory rate limiter: maks 10 percobaan login per IP per 15 menit
+const loginAttempts = new Map<string, { count: number; resetAt: number }>()
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const windowMs = 15 * 60 * 1000
+  const max = 10
+  const entry = loginAttempts.get(ip)
+  if (!entry || entry.resetAt < now) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + windowMs })
+    return true
+  }
+  if (entry.count >= max) return false
+  entry.count++
+  return true
+}
 
 export type JWTPayload = {
   sub: string
@@ -26,6 +43,11 @@ export type JWTPayload = {
 export const authRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 authRouter.post('/login', async (c) => {
+  const ip = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown'
+  if (!checkRateLimit(ip)) {
+    throw new HTTPException(429, { message: 'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.' })
+  }
+
   const body = await c.req.json<{ username: string; password: string }>()
 
   if (!body.username || !body.password) {
@@ -58,7 +80,7 @@ authRouter.post('/login', async (c) => {
   const token = await new SignJWT(payload as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('12h')
+    .setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
     .sign(JWT_SECRET)
 
   setCookie(c, 'auth_token', token, {

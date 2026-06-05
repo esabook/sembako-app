@@ -215,6 +215,10 @@ barangRouter.post('/', requirePermission('stok.edit'), async (c) => {
   if (!body.kode_barang?.trim() || !body.nama_barang?.trim()) {
     throw new HTTPException(400, { message: 'Kode dan nama barang wajib diisi' })
   }
+  if ((body.harga_beli_terakhir ?? 0) < 0 || (body.harga_jual_eceran ?? 0) < 0 ||
+      (body.harga_jual_grosir ?? 0) < 0 || (body.stok_minimum ?? 0) < 0) {
+    throw new HTTPException(400, { message: 'Harga dan stok minimum tidak boleh negatif' })
+  }
 
   const row = db.insert(barang).values({
     kode_barang: body.kode_barang.trim(),
@@ -237,6 +241,12 @@ barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
 
   const existing = db.select().from(barang).where(eq(barang.id, id)).get()
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
+  if ((body.harga_beli_terakhir !== undefined && body.harga_beli_terakhir < 0) ||
+      (body.harga_jual_eceran !== undefined && body.harga_jual_eceran < 0) ||
+      (body.harga_jual_grosir !== undefined && body.harga_jual_grosir < 0) ||
+      (body.stok_minimum !== undefined && body.stok_minimum < 0)) {
+    throw new HTTPException(400, { message: 'Harga dan stok minimum tidak boleh negatif' })
+  }
 
   const row = db
     .update(barang)
@@ -253,6 +263,11 @@ barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
   const user = c.get('user') as JWTPayload
   const existing = db.select().from(barang).where(eq(barang.id, id)).get()
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
+  if ((existing.stok_sekarang ?? 0) > 0) {
+    throw new HTTPException(400, {
+      message: `Tidak bisa nonaktifkan "${existing.nama_barang}" — masih ada ${existing.stok_sekarang} unit stok. Lakukan stok opname dulu.`,
+    })
+  }
 
   db.update(barang)
     .set({ is_active: false, updated_at: sql`(datetime('now','localtime'))` })

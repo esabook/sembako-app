@@ -9,6 +9,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabBarangGuide from './TabBarangGuide.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	type Barang = {
 		id: number;
@@ -184,10 +185,15 @@
 		muatBarang(query);
 	}
 
-	async function hapusBarang(id: number) {
-		if (!confirm('Nonaktifkan?')) return;
-		await api.delete(`/barang/${id}`);
-		muatBarang(query);
+	let konfirmHapusId = $state<number | null>(null)
+	let konfirmHapusBuka = $state(false)
+
+	async function doHapusBarang() {
+		if (!konfirmHapusId) return
+		const res = await api.delete(`/barang/${konfirmHapusId}`)
+		konfirmHapusId = null
+		if (!res.success) return
+		muatBarang(query)
 	}
 
 	onMount(() => {
@@ -264,7 +270,7 @@
 						<td class="px-3 py-2 text-right">
 							{#if item.is_active}
 								<button onclick={() => bukaFormBarang(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-								<button onclick={() => hapusBarang(item.id)} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+								<button onclick={() => { konfirmHapusId = item.id; konfirmHapusBuka = true }} class="text-xs" style="color:var(--danger)">Nonaktif</button>
 							{:else}
 								<button onclick={async () => { await api.put(`/barang/${item.id}`, { is_active: true }); muatBarang(query) }} class="text-xs" style="color:var(--accent)">Aktifkan</button>
 							{/if}
@@ -368,3 +374,13 @@
 	</form>
 	{/snippet}
 </SlideOver>
+
+<ConfirmDialog
+	bind:open={konfirmHapusBuka}
+	judul="Nonaktifkan barang?"
+	pesan="Barang tidak akan tampil di kasir. Bisa diaktifkan kembali."
+	labelKanan="Nonaktifkan"
+	warnaKanan="var(--danger)"
+	onkiri={() => konfirmHapusId = null}
+	onkanan={doHapusBarang}
+/>

@@ -83,6 +83,18 @@ UPLOAD_DIR=/mnt/data/stokasir/uploads
 PORT=3000
 NODE_ENV=production
 JWT_SECRET=ganti-dengan-string-acak-panjang
+
+# CORS origin — satu URL atau CSV untuk multi-device:
+FRONTEND_URL=http://192.168.1.x
+# FRONTEND_URL=http://192.168.1.x,http://192.168.1.y
+```
+
+Frontend env (dipakai saat `bun run build`, lihat langkah 4):
+
+```bash
+# /home/eg17/stokasir/frontend/.env
+PUBLIC_DEPLOYMENT_MODE=offline   # LAN/Pi = offline, cloud VPS = online
+PUBLIC_API_URL=                  # kosong = pakai Nginx proxy di /api
 ```
 
 ### 6. systemd service `WAJIB`

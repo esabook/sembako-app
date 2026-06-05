@@ -205,6 +205,11 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       const br = db.select({ stok: barang.stok_sekarang })
         .from(barang).where(eq(barang.id, item.barang_id)).get()
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
+      if (br.stok < item.jumlah) {
+        throw new HTTPException(400, {
+          message: `Stok tidak cukup saat proses (tersisa: ${br.stok}, dibutuhkan: ${item.jumlah})`,
+        })
+      }
 
       db.insert(mutasi_stok).values({
         barang_id: item.barang_id,

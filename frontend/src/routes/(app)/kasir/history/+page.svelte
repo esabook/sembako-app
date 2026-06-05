@@ -13,6 +13,7 @@
 	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
 	import { rupiah } from '../kasir.logic';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		fetchHistoriPenjualan,
 		fetchDetailPenjualan,
@@ -226,7 +227,7 @@
 			class="rounded px-3 py-1 text-sm font-bold disabled:opacity-60"
 			style="background:var(--accent);color:var(--bg)"
 		>
-			{historiLoading ? 'Memuat...' : 'Cari'}
+			{#if historiLoading}<Spinner size={14} warna="currentColor" />{:else}Cari{/if}
 		</button>
 	</div>
 

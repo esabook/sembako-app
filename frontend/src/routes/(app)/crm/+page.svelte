@@ -6,6 +6,7 @@
   import { user } from '$lib/stores/auth.js'
   import SlideOver from '$lib/components/SlideOver.svelte'
   import { api } from '$lib/utils/api.js'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer', 'kasir', 'pelayanan'].includes($user.role)) goto('/kasir')
@@ -68,9 +69,18 @@
     muatPermintaan()
   }
 
-  async function hapusP(id: number) {
-    if (!confirm('Hapus permintaan ini?')) return
-    await api.delete(`/crm/permintaan/${id}`)
+  let konfirmPermintaanId = $state<number | null>(null)
+  let konfirmPermintaanBuka = $state(false)
+
+  function hapusP(id: number) {
+    konfirmPermintaanId = id
+    konfirmPermintaanBuka = true
+  }
+
+  async function doHapusP() {
+    if (!konfirmPermintaanId) return
+    await api.delete(`/crm/permintaan/${konfirmPermintaanId}`)
+    konfirmPermintaanId = null
     muatPermintaan()
   }
 
@@ -122,9 +132,18 @@
     kDetailOpen = false; muatKomplain()
   }
 
-  async function hapusK(id: number) {
-    if (!confirm('Hapus komplain ini?')) return
-    await api.delete(`/crm/komplain/${id}`)
+  let konfirmKomplainId = $state<number | null>(null)
+  let konfirmKomplainBuka = $state(false)
+
+  function hapusK(id: number) {
+    konfirmKomplainId = id
+    konfirmKomplainBuka = true
+  }
+
+  async function doHapusK() {
+    if (!konfirmKomplainId) return
+    await api.delete(`/crm/komplain/${konfirmKomplainId}`)
+    konfirmKomplainId = null
     muatKomplain()
   }
 
@@ -383,3 +402,23 @@
   {/if}
   {/snippet}
 </SlideOver>
+
+<ConfirmDialog
+  bind:open={konfirmPermintaanBuka}
+  judul="Hapus permintaan?"
+  pesan="Data permintaan barang ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmPermintaanId = null}
+  onkanan={doHapusP}
+/>
+
+<ConfirmDialog
+  bind:open={konfirmKomplainBuka}
+  judul="Hapus komplain?"
+  pesan="Data komplain pelanggan ini akan dihapus permanen."
+  labelKanan="Hapus"
+  warnaKanan="var(--danger)"
+  onkiri={() => konfirmKomplainId = null}
+  onkanan={doHapusK}
+/>

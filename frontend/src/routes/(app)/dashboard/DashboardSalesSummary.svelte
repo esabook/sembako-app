@@ -12,6 +12,7 @@
 	import type { DashboardData } from './dashboard.types';
 	import { untrack } from 'svelte';
 	import { withIdle } from '$lib/utils/async';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let { data }: { data: DashboardData } = $props();
 
@@ -143,7 +144,7 @@
 		</h3>
 		<div class="flex items-center gap-2">
 			{#if loading}
-				<span class="text-xs" style="color:var(--text-dim)">Memuat…</span>
+				<Spinner size={14} />
 			{/if}
 			<div class="flex gap-1">
 				{#each [7, 30] as n (n)}

@@ -3,6 +3,7 @@
   import SlideOver from '$lib/components/SlideOver.svelte'
   import DataTable, { type Column } from '$lib/components/DataTable.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
 
   type Kartu = {
     id: number; no_kartu: string
@@ -176,15 +177,26 @@
     muat()
   }
 
-  async function unassignKartu(k: Kartu) {
-    if (!confirm(`Lepas kartu ${k.no_kartu} dari "${k.pelanggan_nama}"?`)) return
-    await api.delete(`/kartu-anggota/${k.id}/assign`)
-    muat()
+  type KonfirmKartuMode = 'unassign' | 'nonaktif'
+  let konfirmKartuTarget = $state<Kartu | null>(null)
+  let konfirmKartuMode = $state<KonfirmKartuMode | null>(null)
+  let konfirmKartuBuka = $state(false)
+
+  function bukaKonfirmKartu(k: Kartu, mode: KonfirmKartuMode) {
+    konfirmKartuTarget = k
+    konfirmKartuMode = mode
+    konfirmKartuBuka = true
   }
 
-  async function nonaktifkanKartu(k: Kartu) {
-    if (!confirm(`Nonaktifkan kartu ${k.no_kartu}? Kartu akan dilepas dari pelanggan jika ada.`)) return
-    await api.delete(`/kartu-anggota/${k.id}`)
+  async function doKonfirmKartu() {
+    if (!konfirmKartuTarget || !konfirmKartuMode) return
+    if (konfirmKartuMode === 'unassign') {
+      await api.delete(`/kartu-anggota/${konfirmKartuTarget.id}/assign`)
+    } else {
+      await api.delete(`/kartu-anggota/${konfirmKartuTarget.id}`)
+    }
+    konfirmKartuTarget = null
+    konfirmKartuMode = null
     muat()
   }
 </script>
@@ -271,7 +283,7 @@
                 <div class="font-mono" style="color:var(--text-dim)">{k.pelanggan_kode}</div>
               </div>
               <button
-                onclick={() => unassignKartu(k)}
+                onclick={() => bukaKonfirmKartu(k, 'unassign')}
                 class="shrink-0 rounded border px-2 py-1 transition-colors"
                 style="border-color:var(--border);color:var(--warn)"
               >Lepas</button>
@@ -298,7 +310,7 @@
               style="border-color:var(--border);color:var(--info)"
             >Poin</button>
             <button
-              onclick={() => nonaktifkanKartu(k)}
+              onclick={() => bukaKonfirmKartu(k, 'nonaktif')}
               class="ml-auto rounded border px-2 py-1 text-xs transition-colors"
               style="border-color:var(--border);color:var(--danger)"
             >Nonaktif</button>
@@ -349,11 +361,11 @@
                   <button onclick={() => bukaEditKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
                   <button onclick={() => bukaPoin(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--info)">Poin</button>
                   {#if k.pelanggan_nama}
-                    <button onclick={() => unassignKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--warn)">Lepas</button>
+                    <button onclick={() => bukaKonfirmKartu(k, 'unassign')} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--warn)">Lepas</button>
                   {:else}
                     <button onclick={() => bukaAssignKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--accent)">Assign</button>
                   {/if}
-                  <button onclick={() => nonaktifkanKartu(k)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Nonaktif</button>
+                  <button onclick={() => bukaKonfirmKartu(k, 'nonaktif')} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Nonaktif</button>
                 </div>
               </td>
             {/if}
@@ -528,3 +540,15 @@
     </div>
   </div>
 </SlideOver>
+
+<ConfirmDialog
+  bind:open={konfirmKartuBuka}
+  judul={konfirmKartuMode === 'unassign' ? 'Lepas kartu dari pelanggan?' : 'Nonaktifkan kartu?'}
+  pesan={konfirmKartuMode === 'unassign'
+    ? `Kartu ${konfirmKartuTarget?.no_kartu} akan dilepas dari "${konfirmKartuTarget?.pelanggan_nama}".`
+    : `Kartu ${konfirmKartuTarget?.no_kartu} akan dinonaktifkan${konfirmKartuTarget?.pelanggan_nama ? ` dan dilepas dari "${konfirmKartuTarget.pelanggan_nama}"` : ''}.`}
+  labelKanan={konfirmKartuMode === 'unassign' ? 'Lepas' : 'Nonaktifkan'}
+  warnaKanan="var(--danger)"
+  onkiri={() => { konfirmKartuTarget = null; konfirmKartuMode = null }}
+  onkanan={doKonfirmKartu}
+/>
