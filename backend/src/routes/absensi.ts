@@ -28,7 +28,7 @@ function requireAbsensiAkses() {
 absensiRouter.get('/realtime', requirePermission('absensi.semua'), async (c) => {
   const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: absensi.id,
       karyawan_id: absensi.karyawan_id,
@@ -44,7 +44,7 @@ absensiRouter.get('/realtime', requirePermission('absensi.semua'), async (c) => 
       isNull(absensi.jam_keluar),
     ))
     .orderBy(absensi.jam_masuk)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -70,7 +70,7 @@ absensiRouter.get('/', requireAbsensiAkses(), async (c) => {
     if (tglSelesai) conds.push(lte(absensi.tanggal, tglSelesai))
   }
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: absensi.id,
       karyawan_id: absensi.karyawan_id,
@@ -85,7 +85,7 @@ absensiRouter.get('/', requireAbsensiAkses(), async (c) => {
     .leftJoin(karyawan, eq(absensi.karyawan_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(absensi.tanggal), karyawan.nama)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -95,7 +95,7 @@ absensiRouter.get('/rekap', requirePermission('absensi.semua'), async (c) => {
   const bulan = c.req.query('bulan')
   if (!bulan) throw new HTTPException(400, { message: 'bulan wajib (YYYY-MM)' })
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       karyawan_id: absensi.karyawan_id,
       nama_karyawan: karyawan.nama,
@@ -109,7 +109,7 @@ absensiRouter.get('/rekap', requirePermission('absensi.semua'), async (c) => {
     .leftJoin(karyawan, eq(absensi.karyawan_id, karyawan.id))
     .where(and(gte(absensi.tanggal, `${bulan}-01`), lte(absensi.tanggal, `${bulan}-31`)))
     .groupBy(absensi.karyawan_id, karyawan.nama)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -134,14 +134,14 @@ absensiRouter.post('/', requireAbsensiAkses(), async (c) => {
     throw new HTTPException(403, { message: 'Hanya bisa mencatat absensi diri sendiri' })
   }
 
-  const existing = db
+  const existing = await query.find(db
     .select({ id: absensi.id })
     .from(absensi)
     .where(and(eq(absensi.karyawan_id, body.karyawan_id), eq(absensi.tanggal, body.tanggal)))
-    .get()
+    )
   if (existing) throw new HTTPException(409, { message: 'Absensi tanggal ini sudah ada' })
 
-  const row = db
+  const row = await query.find(db
     .insert(absensi)
     .values({
       karyawan_id: body.karyawan_id,
@@ -153,7 +153,7 @@ absensiRouter.post('/', requireAbsensiAkses(), async (c) => {
       dicatat_oleh: user.id,
     })
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -176,7 +176,7 @@ absensiRouter.put('/:id', requireAbsensiAkses(), async (c) => {
     throw new HTTPException(403, { message: 'Hanya bisa edit absensi diri sendiri' })
   }
 
-  const row = db
+  const row = await query.find(db
     .update(absensi)
     .set({
       jam_masuk: body.jam_masuk !== undefined ? body.jam_masuk : existing.jam_masuk,
@@ -186,7 +186,7 @@ absensiRouter.put('/:id', requireAbsensiAkses(), async (c) => {
     })
     .where(eq(absensi.id, id))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })

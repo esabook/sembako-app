@@ -52,7 +52,7 @@ izinRouter.get('/', async (c) => {
   if (dari) conds.push(gte(pengajuan_izin.tanggal_mulai, dari))
   if (sampai) conds.push(lte(pengajuan_izin.tanggal_mulai, sampai))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: pengajuan_izin.id,
       karyawan_id: pengajuan_izin.karyawan_id,
@@ -69,7 +69,7 @@ izinRouter.get('/', async (c) => {
     .leftJoin(karyawan, eq(pengajuan_izin.karyawan_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(pengajuan_izin.created_at))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -80,7 +80,7 @@ izinRouter.get('/:id', async (c) => {
   const user = c.get('user') as JWTPayload
   const id = Number(c.req.param('id'))
 
-  const row = db
+  const row = await query.find(db
     .select({
       id: pengajuan_izin.id,
       karyawan_id: pengajuan_izin.karyawan_id,
@@ -98,7 +98,7 @@ izinRouter.get('/:id', async (c) => {
     .from(pengajuan_izin)
     .leftJoin(karyawan, eq(pengajuan_izin.karyawan_id, karyawan.id))
     .where(eq(pengajuan_izin.id, id))
-    .get()
+    )
 
   if (!row) throw new HTTPException(404, { message: 'Pengajuan tidak ditemukan' })
 
@@ -133,14 +133,14 @@ izinRouter.post('/', async (c) => {
     throw new HTTPException(400, { message: 'tanggal_selesai tidak boleh sebelum tanggal_mulai' })
   }
 
-  const row = db.insert(pengajuan_izin).values({
+  const row = await query.ret(db.insert(pengajuan_izin).values({
     karyawan_id: targetId,
     jenis: body.jenis,
     tanggal_mulai: body.tanggal_mulai,
     tanggal_selesai: body.tanggal_selesai,
     alasan: body.alasan,
     status: 'menunggu',
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -172,19 +172,19 @@ izinRouter.post('/:id/setujui', async (c) => {
   // Insert baris absensi untuk setiap hari dalam range
   const statusAbsensi = row.jenis === 'sakit' ? 'sakit' : 'izin'
   for (const tgl of rangeTanggal(row.tanggal_mulai, row.tanggal_selesai)) {
-    const sudahAda = db
+    const sudahAda = await query.find(db
       .select({ id: absensi.id })
       .from(absensi)
       .where(and(eq(absensi.karyawan_id, row.karyawan_id), eq(absensi.tanggal, tgl)))
-      .get()
+      )
 
     if (!sudahAda) {
-      db.insert(absensi).values({
+      await query.exec(db.insert(absensi).values({
         karyawan_id: row.karyawan_id,
         tanggal: tgl,
         status: statusAbsensi,
         dicatat_oleh: user.id,
-      }).run()
+      }))
     }
   }
 
@@ -211,10 +211,10 @@ izinRouter.post('/:id/tolak', async (c) => {
   }
 
   const now = tglSekarang()
-  const updated = db.update(pengajuan_izin)
+  const updated = await query.ret(db.update(pengajuan_izin)
     .set({ status: 'ditolak', diproses_oleh: user.id, catatan_proses: catatan, updated_at: now })
     .where(eq(pengajuan_izin.id, id))
-    .returning().get()
+    .returning())
 
   return c.json({ success: true, data: updated })
 })

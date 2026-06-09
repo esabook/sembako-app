@@ -19,12 +19,12 @@ pinjamanInvestasiRouter.get('/', requirePermission('laporan.lihat'), async (c) =
   if (tipe) conds.push(eq(pinjaman_investasi.tipe, tipe))
   if (status) conds.push(eq(pinjaman_investasi.status, status))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(pinjaman_investasi)
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(pinjaman_investasi.tanggal_mulai))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -47,7 +47,7 @@ pinjamanInvestasiRouter.post('/', requirePermission('laporan.lihat'), async (c) 
   if (!body.jumlah_pokok || body.jumlah_pokok <= 0) throw new HTTPException(400, { message: 'jumlah_pokok harus > 0' })
   if (!body.tanggal_mulai) throw new HTTPException(400, { message: 'tanggal_mulai wajib' })
 
-  const row = db.insert(pinjaman_investasi).values({
+  const row = await query.ret(db.insert(pinjaman_investasi).values({
     tipe: body.tipe,
     nama: body.nama.trim(),
     jumlah_pokok: body.jumlah_pokok,
@@ -58,7 +58,7 @@ pinjamanInvestasiRouter.post('/', requirePermission('laporan.lihat'), async (c) 
     sisa_pokok: body.jumlah_pokok,
     catatan: body.catatan,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -78,7 +78,7 @@ pinjamanInvestasiRouter.put('/:id', requirePermission('laporan.lihat'), async (c
   const existing = await query.find(db.select().from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
-  const row = db.update(pinjaman_investasi).set({
+  const row = await query.ret(db.update(pinjaman_investasi).set({
     ...(body.nama !== undefined && { nama: body.nama.trim() }),
     ...(body.bunga_persen !== undefined && { bunga_persen: body.bunga_persen }),
     ...(body.cicilan_per_bulan !== undefined && { cicilan_per_bulan: body.cicilan_per_bulan }),
@@ -86,7 +86,7 @@ pinjamanInvestasiRouter.put('/:id', requirePermission('laporan.lihat'), async (c
     ...(body.status !== undefined && { status: body.status }),
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...getUpdatedBy(c),
-  }).where(eq(pinjaman_investasi.id, id)).returning().get()
+  }).where(eq(pinjaman_investasi.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })
@@ -103,11 +103,11 @@ pinjamanInvestasiRouter.post('/:id/cicil', requirePermission('laporan.lihat'), a
   if (existing.status !== 'aktif') throw new HTTPException(400, { message: 'Hanya status aktif yang bisa dicicil' })
 
   const sisa = Math.max(0, existing.sisa_pokok - body.jumlah)
-  const row = db.update(pinjaman_investasi).set({
+  const row = await query.ret(db.update(pinjaman_investasi).set({
     sisa_pokok: sisa,
     status: sisa <= 0 ? 'lunas' : 'aktif',
     ...getUpdatedBy(c),
-  }).where(eq(pinjaman_investasi.id, id)).returning().get()
+  }).where(eq(pinjaman_investasi.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })

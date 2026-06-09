@@ -23,7 +23,7 @@ crmRouter.get('/permintaan', requirePermission('pelanggan.lihat'), async (c) => 
   if (sampai) conds.push(lte(permintaan_pelanggan.tanggal, sampai))
   if (status) conds.push(eq(permintaan_pelanggan.status, status as any))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: permintaan_pelanggan.id,
       pelanggan_id: permintaan_pelanggan.pelanggan_id,
@@ -40,7 +40,7 @@ crmRouter.get('/permintaan', requirePermission('pelanggan.lihat'), async (c) => 
     .leftJoin(karyawan, eq(permintaan_pelanggan.ditangani_oleh, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(permintaan_pelanggan.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -56,7 +56,7 @@ crmRouter.post('/permintaan', requirePermission('pelanggan.lihat'), async (c) =>
   if (!body.nama_barang?.trim()) throw new HTTPException(400, { message: 'nama_barang wajib' })
   if (!body.tanggal) throw new HTTPException(400, { message: 'tanggal wajib' })
 
-  const row = db.insert(permintaan_pelanggan).values({
+  const row = await query.ret(db.insert(permintaan_pelanggan).values({
     pelanggan_id: body.pelanggan_id,
     nama_pelanggan: body.nama_pelanggan?.trim(),
     nama_barang: body.nama_barang.trim(),
@@ -66,7 +66,7 @@ crmRouter.post('/permintaan', requirePermission('pelanggan.lihat'), async (c) =>
     tanggal: body.tanggal,
     ditangani_oleh: user.id,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -78,12 +78,12 @@ crmRouter.put('/permintaan/:id', requirePermission('pelanggan.lihat'), async (c)
   const existing = await query.find(db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
-  const row = db.update(permintaan_pelanggan).set({
+  const row = await query.ret(db.update(permintaan_pelanggan).set({
     ...(body.status !== undefined && { status: body.status as any }),
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...(body.barang_id !== undefined && { barang_id: body.barang_id }),
     ...getUpdatedBy(c),
-  }).where(eq(permintaan_pelanggan.id, id)).returning().get()
+  }).where(eq(permintaan_pelanggan.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })
@@ -110,7 +110,7 @@ crmRouter.get('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
   if (status) conds.push(eq(komplain_pelanggan.status, status as any))
   if (kategori) conds.push(eq(komplain_pelanggan.kategori, kategori as any))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: komplain_pelanggan.id,
       pelanggan_id: komplain_pelanggan.pelanggan_id,
@@ -126,7 +126,7 @@ crmRouter.get('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
     .leftJoin(karyawan, eq(komplain_pelanggan.ditangani_oleh, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(komplain_pelanggan.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -143,7 +143,7 @@ crmRouter.post('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
   if (!body.deskripsi?.trim()) throw new HTTPException(400, { message: 'deskripsi wajib' })
   if (!body.tanggal) throw new HTTPException(400, { message: 'tanggal wajib' })
 
-  const row = db.insert(komplain_pelanggan).values({
+  const row = await query.ret(db.insert(komplain_pelanggan).values({
     pelanggan_id: body.pelanggan_id,
     nama_pelanggan: body.nama_pelanggan?.trim(),
     kategori: body.kategori,
@@ -151,7 +151,7 @@ crmRouter.post('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
     tanggal: body.tanggal,
     ditangani_oleh: user.id,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -163,11 +163,11 @@ crmRouter.put('/komplain/:id', requirePermission('pelanggan.lihat'), async (c) =
   const existing = await query.find(db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Komplain tidak ditemukan' })
 
-  const row = db.update(komplain_pelanggan).set({
+  const row = await query.ret(db.update(komplain_pelanggan).set({
     ...(body.status !== undefined && { status: body.status as any }),
     ...(body.resolusi !== undefined && { resolusi: body.resolusi }),
     ...getUpdatedBy(c),
-  }).where(eq(komplain_pelanggan.id, id)).returning().get()
+  }).where(eq(komplain_pelanggan.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })

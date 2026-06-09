@@ -29,14 +29,14 @@ sopRouter.post('/rule', requirePermission('*'), async (c) => {
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'nama wajib' })
   if (!body.event_name?.trim()) throw new HTTPException(400, { message: 'event_name wajib' })
 
-  const row = db.insert(sop_rule).values({
+  const row = await query.ret(db.insert(sop_rule).values({
     nama: body.nama,
     event_name: body.event_name,
     tipe: body.tipe ?? 'checklist',
     deskripsi: body.deskripsi,
     config_json: body.config_json ?? [],
     urutan: body.urutan ?? 0,
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -55,13 +55,13 @@ sopRouter.put('/rule/:id', requirePermission('*'), async (c) => {
     urutan: number
   }>>()
 
-  const row = db.update(sop_rule).set({
+  const row = await query.ret(db.update(sop_rule).set({
     nama: body.nama ?? existing.nama,
     deskripsi: body.deskripsi !== undefined ? body.deskripsi : existing.deskripsi,
     config_json: body.config_json !== undefined ? body.config_json : existing.config_json,
     is_active: body.is_active !== undefined ? body.is_active : existing.is_active,
     urutan: body.urutan ?? existing.urutan,
-  }).where(eq(sop_rule.id, id)).returning().get()
+  }).where(eq(sop_rule.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })
@@ -81,7 +81,7 @@ sopRouter.get('/checklist-hari-ini', async (c) => {
   const user = c.get('user') as JWTPayload
   const tanggal = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       instance_id: sop_instance.id,
       status: sop_instance.status,
@@ -99,7 +99,7 @@ sopRouter.get('/checklist-hari-ini', async (c) => {
         sql`date(${sop_instance.dibuat_at}) = ${tanggal}`,
       ),
     )
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -111,11 +111,11 @@ sopRouter.post('/checklist/:instance_id/selesai', async (c) => {
   const instanceId = Number(c.req.param('instance_id'))
   const body = await c.req.json<{ hasil: unknown }>()
 
-  const instance = db
+  const instance = await query.find(db
     .select()
     .from(sop_instance)
     .where(eq(sop_instance.id, instanceId))
-    .get()
+    )
 
   if (!instance) throw new HTTPException(404, { message: 'Instance tidak ditemukan' })
   if (instance.karyawan_id !== user.id) throw new HTTPException(403, { message: 'Bukan milik Anda' })
@@ -124,12 +124,12 @@ sopRouter.post('/checklist/:instance_id/selesai', async (c) => {
   }
 
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
-  const row = db
+  const row = await query.find(db
     .update(sop_instance)
     .set({ status: 'selesai', hasil_json: body.hasil, diselesaikan_at: now })
     .where(eq(sop_instance.id, instanceId))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })
@@ -144,7 +144,7 @@ sopRouter.get('/instance', requirePermission('*'), async (c) => {
   if (karyawanId) conds.push(eq(sop_instance.karyawan_id, karyawanId))
   if (tanggal) conds.push(sql`date(${sop_instance.dibuat_at}) = ${tanggal}`)
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: sop_instance.id,
       rule_nama: sop_rule.nama,
@@ -161,7 +161,7 @@ sopRouter.get('/instance', requirePermission('*'), async (c) => {
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(sop_instance.dibuat_at)
     .limit(limit)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })

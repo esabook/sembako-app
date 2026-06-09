@@ -25,7 +25,7 @@ function tglSekarang(): string {
 shiftRouter.get('/rekap-aktif', async (c) => {
   const user = c.get('user') as JWTPayload
 
-  const shift = db
+  const shift = await query.find(db
     .select()
     .from(shift_kasir)
     .where(
@@ -35,11 +35,11 @@ shiftRouter.get('/rekap-aktif', async (c) => {
         eq(shift_kasir.tanggal, tglSekarang()),
       )
     )
-    .get()
+    )
 
   if (!shift) return c.json({ success: true, data: null })
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       metode: penjualan.metode_bayar,
       jumlah_trx: sql<number>`count(*)`,
@@ -54,7 +54,7 @@ shiftRouter.get('/rekap-aktif', async (c) => {
       )
     )
     .groupBy(penjualan.metode_bayar)
-    .all()
+    )
 
   let tunai = 0, transfer = 0, qris = 0, hutang = 0
   let total_trx = 0, total_semua = 0
@@ -90,7 +90,7 @@ shiftRouter.get('/rekap-aktif', async (c) => {
 shiftRouter.get('/aktif', async (c) => {
   const user = c.get('user') as JWTPayload
 
-  const shift = db
+  const shift = await query.find(db
     .select({
       id: shift_kasir.id,
       tanggal: shift_kasir.tanggal,
@@ -108,7 +108,7 @@ shiftRouter.get('/aktif', async (c) => {
         eq(shift_kasir.tanggal, tglSekarang()),
       )
     )
-    .get()
+    )
 
   return c.json({ success: true, data: shift ?? null })
 })
@@ -127,7 +127,7 @@ shiftRouter.get('/', async (c) => {
   if (dari) conditions.push(gte(shift_kasir.tanggal, dari))
   if (sampai) conditions.push(lte(shift_kasir.tanggal, sampai))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: shift_kasir.id,
       nama_kasir: karyawan.nama,
@@ -148,7 +148,7 @@ shiftRouter.get('/', async (c) => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(shift_kasir.tanggal))
     .limit(100)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -163,7 +163,7 @@ shiftRouter.post('/buka', async (c) => {
     throw new HTTPException(400, { message: 'Kas awal tidak valid' })
 
   // Cek sudah ada shift buka hari ini
-  const existing = db
+  const existing = await query.find(db
     .select({ id: shift_kasir.id })
     .from(shift_kasir)
     .where(
@@ -173,18 +173,18 @@ shiftRouter.post('/buka', async (c) => {
         eq(shift_kasir.tanggal, tglSekarang()),
       )
     )
-    .get()
+    )
 
   if (existing) throw new HTTPException(400, { message: 'Shift hari ini sudah dibuka' })
 
-  const row = db.insert(shift_kasir).values({
+  const row = await query.ret(db.insert(shift_kasir).values({
     karyawan_id: user.id,
     tanggal: tglSekarang(),
     jam_buka: jamSekarang(),
     kas_awal: body.kas_awal,
     catatan: body.catatan,
     status: 'buka',
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -198,7 +198,7 @@ shiftRouter.post('/tutup', async (c) => {
   if (body.kas_fisik == null || body.kas_fisik < 0)
     throw new HTTPException(400, { message: 'Kas fisik tidak valid' })
 
-  const shift = db
+  const shift = await query.find(db
     .select()
     .from(shift_kasir)
     .where(
@@ -208,12 +208,12 @@ shiftRouter.post('/tutup', async (c) => {
         eq(shift_kasir.tanggal, tglSekarang()),
       )
     )
-    .get()
+    )
 
   if (!shift) throw new HTTPException(404, { message: 'Tidak ada shift yang sedang buka hari ini' })
 
   // Hitung rekap penjualan tunai shift ini
-  const rekapRows = db
+  const rekapRows = await query.find(db
     .select({
       jumlah_trx: sql<number>`count(*)`,
       total: sql<number>`COALESCE(sum(total), 0)`,
@@ -227,12 +227,12 @@ shiftRouter.post('/tutup', async (c) => {
         gte(penjualan.tanggal, `${shift.tanggal} ${shift.jam_buka}`),
       )
     )
-    .get()
+    )
 
   const kasSistem = shift.kas_awal + (rekapRows?.tunai ?? 0)
   const selisih = body.kas_fisik - kasSistem
 
-  const row = db
+  const row = await query.find(db
     .update(shift_kasir)
     .set({
       jam_tutup: jamSekarang(),
@@ -247,7 +247,7 @@ shiftRouter.post('/tutup', async (c) => {
     })
     .where(eq(shift_kasir.id, shift.id))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })

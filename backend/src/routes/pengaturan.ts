@@ -22,7 +22,8 @@ export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 // ── GET /pengaturan/publik — tanpa auth, untuk login page ─────────────────
 pengaturanRouter.get('/publik', async (c) => {
-  const row = await query.findAll(db.select().from(toko_settings)).find((r) => r.key === 'nama_toko')
+  const rows = await query.findAll(db.select().from(toko_settings))
+  const row = rows.find((r) => r.key === 'nama_toko')
   return c.json({ success: true, data: { nama_toko: row?.value ?? 'Stokasir' } })
 })
 
@@ -131,12 +132,12 @@ const DEFAULTS: Record<string, string> = {
 pengaturanRouter.get('/preferensi/:modul', async (c) => {
   const user = c.get('user')
   const modul = c.req.param('modul')
-  const row = db.select().from(preferensi_pengguna)
+  const row = await query.find(db.select().from(preferensi_pengguna)
     .where(and(
       eq(preferensi_pengguna.karyawan_id, Number(user.sub)),
       eq(preferensi_pengguna.modul, modul),
     ))
-    .get()
+  )
   const nilai = row ? (() => { try { return JSON.parse(row.nilai_json) } catch { return null } }) : null
   return c.json({ success: true, data: nilai })
 })
@@ -150,12 +151,12 @@ pengaturanRouter.put('/preferensi/:modul', async (c) => {
   const nilai_json = JSON.stringify(body)
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' })
 
-  const existing = db.select({ id: preferensi_pengguna.id }).from(preferensi_pengguna)
+  const existing = await query.find(db.select({ id: preferensi_pengguna.id }).from(preferensi_pengguna)
     .where(and(
       eq(preferensi_pengguna.karyawan_id, Number(user.sub)),
       eq(preferensi_pengguna.modul, modul),
     ))
-    .get()
+  )
 
   if (existing) {
     await query.exec(db.update(preferensi_pengguna)
@@ -200,13 +201,13 @@ pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
   const existing = await query.find(db.select().from(toko_settings).where(eq(toko_settings.key, key)))
 
   if (existing) {
-    db.update(toko_settings)
+    await query.exec(db.update(toko_settings)
       .set({
         value: body.value,
         updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
       })
       .where(eq(toko_settings.key, key))
-      .run()
+    )
   } else {
     await query.exec(db.insert(toko_settings).values({ key, value: body.value }))
   }
@@ -225,13 +226,13 @@ pengaturanRouter.post('/bulk', requirePermission('*'), async (c) => {
 
     const existing = await query.find(db.select().from(toko_settings).where(eq(toko_settings.key, key)))
     if (existing) {
-      db.update(toko_settings)
+      await query.exec(db.update(toko_settings)
         .set({
           value,
           updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
         })
         .where(eq(toko_settings.key, key))
-        .run()
+      )
     } else {
       await query.exec(db.insert(toko_settings).values({ key, value }))
     }

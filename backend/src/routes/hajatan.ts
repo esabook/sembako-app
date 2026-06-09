@@ -21,12 +21,12 @@ hajatanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
   if (sampai) conds.push(lte(acara_hajatan.tanggal_acara, sampai))
   if (status) conds.push(eq(acara_hajatan.status, status as any))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(acara_hajatan)
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(acara_hajatan.tanggal_acara))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -42,7 +42,7 @@ hajatanRouter.post('/', requirePermission('penjualan.lihat'), async (c) => {
   if (!body.nama_penyelenggara?.trim()) throw new HTTPException(400, { message: 'nama_penyelenggara wajib' })
   if (!body.tanggal_acara) throw new HTTPException(400, { message: 'tanggal_acara wajib' })
 
-  const row = db.insert(acara_hajatan).values({
+  const row = await query.ret(db.insert(acara_hajatan).values({
     nama_acara: body.nama_acara.trim(),
     nama_penyelenggara: body.nama_penyelenggara.trim(),
     pelanggan_id: body.pelanggan_id,
@@ -51,7 +51,7 @@ hajatanRouter.post('/', requirePermission('penjualan.lihat'), async (c) => {
     estimasi_tamu: body.estimasi_tamu,
     catatan: body.catatan,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -67,7 +67,7 @@ hajatanRouter.put('/:id', requirePermission('penjualan.lihat'), async (c) => {
   const existing = await query.find(db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(eq(acara_hajatan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Acara tidak ditemukan' })
 
-  const row = db.update(acara_hajatan).set({
+  const row = await query.ret(db.update(acara_hajatan).set({
     ...(body.nama_acara !== undefined && { nama_acara: body.nama_acara }),
     ...(body.nama_penyelenggara !== undefined && { nama_penyelenggara: body.nama_penyelenggara }),
     ...(body.tanggal_acara !== undefined && { tanggal_acara: body.tanggal_acara }),
@@ -77,7 +77,7 @@ hajatanRouter.put('/:id', requirePermission('penjualan.lihat'), async (c) => {
     ...(body.status !== undefined && { status: body.status as any }),
     ...(body.total_order !== undefined && { total_order: body.total_order }),
     ...getUpdatedBy(c),
-  }).where(eq(acara_hajatan.id, id)).returning().get()
+  }).where(eq(acara_hajatan.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })

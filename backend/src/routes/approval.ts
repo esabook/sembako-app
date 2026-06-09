@@ -27,7 +27,7 @@ approvalRouter.get('/', requirePermission('*'), async (c) => {
   if (referensiTipe) conds.push(eq(approval.referensi_tipe, referensiTipe))
   if (status) conds.push(eq(approval.status, status))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: approval.id,
       referensi_tipe: approval.referensi_tipe,
@@ -44,7 +44,7 @@ approvalRouter.get('/', requirePermission('*'), async (c) => {
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(approval.dibuat_at))
     .limit(limit)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -71,12 +71,12 @@ approvalRouter.post('/:id/setujui', requirePermission('*'), async (c) => {
   }
 
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
-  const updated = db
+  const updated = await query.find(db
     .update(approval)
     .set({ status: 'disetujui', diproses_oleh: user.id, catatan_proses: catatan, diproses_at: now })
     .where(eq(approval.id, id))
     .returning()
-    .get()
+    )
 
   bus.emit('approval.disetujui', {
     approval_id: id,
@@ -110,12 +110,12 @@ approvalRouter.post('/:id/tolak', requirePermission('*'), async (c) => {
   }
 
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
-  const updated = db
+  const updated = await query.find(db
     .update(approval)
     .set({ status: 'ditolak', diproses_oleh: user.id, catatan_proses: catatan, diproses_at: now })
     .where(eq(approval.id, id))
     .returning()
-    .get()
+    )
 
   bus.emit('approval.ditolak', {
     approval_id: id,

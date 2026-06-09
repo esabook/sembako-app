@@ -14,7 +14,7 @@ pelangganRouter.get('/', async (c) => {
   const q    = c.req.query('q')
   const aktif = c.req.query('aktif') !== '0'
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       ...getTableColumns(pelanggan),
       kartu_id:       kartu_anggota.id,
@@ -40,14 +40,14 @@ pelangganRouter.get('/', async (c) => {
         like(kartu_anggota.no_kartu, `%${q}%`),
       ) : undefined,
     ))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
 
 pelangganRouter.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  const row = db
+  const row = await query.find(db
     .select({
       ...getTableColumns(pelanggan),
       kartu_id:      kartu_anggota.id,
@@ -62,7 +62,7 @@ pelangganRouter.get('/:id', async (c) => {
       and(eq(kartu_anggota.pelanggan_id, pelanggan.id), eq(kartu_anggota.is_active, true))
     )
     .where(eq(pelanggan.id, id))
-    .get()
+    )
   if (!row) throw new HTTPException(404, { message: 'Pelanggan tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
@@ -82,7 +82,7 @@ pelangganRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     throw new HTTPException(400, { message: 'Kode dan nama pelanggan wajib diisi' })
   }
 
-  const row = db.insert(pelanggan).values({
+  const row = await query.ret(db.insert(pelanggan).values({
     kode_pelanggan: body.kode_pelanggan.trim(),
     nama: body.nama.trim(),
     gender: body.gender ?? null,
@@ -90,7 +90,7 @@ pelangganRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     kontak: body.kontak,
     alamat: body.alamat,
     limit_piutang: body.limit_piutang ?? 0,
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -102,12 +102,12 @@ pelangganRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
   const existing = await query.find(db.select().from(pelanggan).where(eq(pelanggan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Pelanggan tidak ditemukan' })
 
-  const row = db
+  const row = await query.find(db
     .update(pelanggan)
     .set({ ...body, updated_at: isoNow() })
     .where(eq(pelanggan.id, id))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })
@@ -143,12 +143,12 @@ pelangganRouter.post('/:id/assign-kartu', requirePermission('penjualan.buat'), a
   )
   if (kartuLain) throw new HTTPException(400, { message: 'Pelanggan sudah memiliki kartu anggota aktif' })
 
-  const row = db
+  const row = await query.find(db
     .update(kartu_anggota)
     .set({ pelanggan_id, updated_at: isoNow() })
     .where(eq(kartu_anggota.id, body.kartu_id))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })
@@ -169,7 +169,7 @@ pelangganRouter.get('/:id/riwayat', requirePermission('penjualan.lihat'), async 
   if (dari) conds.push(gte(penjualan.tanggal, dari) as any)
   if (sampai) conds.push(lte(penjualan.tanggal, sampai + ' 23:59:59') as any)
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: penjualan.id,
       no_transaksi: penjualan.no_transaksi,
@@ -185,15 +185,15 @@ pelangganRouter.get('/:id/riwayat', requirePermission('penjualan.lihat'), async 
     .orderBy(desc(penjualan.tanggal))
     .limit(limit)
     .offset(offset)
-    .all()
+    )
 
-  const totalRow = db
+  const totalRow = await query.find(db
     .select({ count: sql<number>`COUNT(*)` })
     .from(penjualan)
     .where(and(...conds))
-    .get()
+    )
 
-  const summary = db
+  const summary = await query.find(db
     .select({
       total_transaksi: sql<number>`COUNT(*)`,
       total_belanja: sql<number>`COALESCE(SUM(${penjualan.total}), 0)`,
@@ -205,7 +205,7 @@ pelangganRouter.get('/:id/riwayat', requirePermission('penjualan.lihat'), async 
       eq(penjualan.pelanggan_id, id),
       ne(penjualan.status, 'void'),
     ))
-    .get()
+    )
 
   return c.json({ success: true, data: { rows, total: totalRow?.count ?? 0, summary } })
 })
@@ -215,7 +215,7 @@ pelangganRouter.get('/:id/riwayat', requirePermission('penjualan.lihat'), async 
 pelangganRouter.get('/:id/riwayat/:trx_id/detail', requirePermission('penjualan.lihat'), async (c) => {
   const trxId = Number(c.req.param('trx_id'))
 
-  const items = db
+  const items = await query.findAll(db
     .select({
       id: penjualan_detail.id,
       nama_barang: barang.nama_barang,
@@ -227,7 +227,7 @@ pelangganRouter.get('/:id/riwayat/:trx_id/detail', requirePermission('penjualan.
     .from(penjualan_detail)
     .leftJoin(barang, eq(penjualan_detail.barang_id, barang.id))
     .where(eq(penjualan_detail.penjualan_id, trxId))
-    .all()
+    )
 
   return c.json({ success: true, data: items })
 })

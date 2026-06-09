@@ -34,7 +34,7 @@ returSupplierRouter.get('/', requirePermission('pembelian.lihat'), async (c) => 
   const sampai = c.req.query('sampai')
   const supplierId = c.req.query('supplier_id')
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: retur_supplier.id,
       no_retur: retur_supplier.no_retur,
@@ -58,7 +58,7 @@ returSupplierRouter.get('/', requirePermission('pembelian.lihat'), async (c) => 
       ),
     )
     .orderBy(desc(retur_supplier.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -68,7 +68,7 @@ returSupplierRouter.get('/', requirePermission('pembelian.lihat'), async (c) => 
 returSupplierRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
 
-  const header = db
+  const header = await query.find(db
     .select({
       id: retur_supplier.id,
       no_retur: retur_supplier.no_retur,
@@ -87,11 +87,11 @@ returSupplierRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
     .leftJoin(barang_masuk, eq(retur_supplier.barang_masuk_id, barang_masuk.id))
     .leftJoin(supplier, eq(retur_supplier.supplier_id, supplier.id))
     .where(eq(retur_supplier.id, id))
-    .get()
+    )
 
   if (!header) throw new HTTPException(404, { message: 'Retur tidak ditemukan' })
 
-  const items = db
+  const items = await query.findAll(db
     .select({
       id: retur_supplier_detail.id,
       barang_id: retur_supplier_detail.barang_id,
@@ -104,7 +104,7 @@ returSupplierRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
     .from(retur_supplier_detail)
     .leftJoin(barang, eq(retur_supplier_detail.barang_id, barang.id))
     .where(eq(retur_supplier_detail.retur_id, id))
-    .all()
+    )
 
   return c.json({ success: true, data: { ...header, items } })
 })
@@ -115,7 +115,7 @@ returSupplierRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
 returSupplierRouter.get('/sisa/:barang_masuk_id', requirePermission('pembelian.lihat'), async (c) => {
   const bmId = Number(c.req.param('barang_masuk_id'))
 
-  const diterima = db
+  const diterima = await query.findAll(db
     .select({
       barang_id: barang_masuk_detail.barang_id,
       nama_barang: barang.nama_barang,
@@ -126,10 +126,10 @@ returSupplierRouter.get('/sisa/:barang_masuk_id', requirePermission('pembelian.l
     .from(barang_masuk_detail)
     .leftJoin(barang, eq(barang_masuk_detail.barang_id, barang.id))
     .where(eq(barang_masuk_detail.penerimaan_id, bmId))
-    .all()
+    )
 
   // Jumlah yang sudah diretur sebelumnya dari dokumen ini
-  const sudahRetur = db
+  const sudahRetur = await query.findAll(db
     .select({
       barang_id: retur_supplier_detail.barang_id,
       jumlah_retur: retur_supplier_detail.jumlah_retur,
@@ -137,7 +137,7 @@ returSupplierRouter.get('/sisa/:barang_masuk_id', requirePermission('pembelian.l
     .from(retur_supplier_detail)
     .innerJoin(retur_supplier, eq(retur_supplier_detail.retur_id, retur_supplier.id))
     .where(eq(retur_supplier.barang_masuk_id, bmId))
-    .all()
+    )
 
   const sudahByBarang: Record<number, number> = {}
   for (const r of sudahRetur) {
@@ -189,18 +189,18 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
   for (const item of body.items) {
     if (item.jumlah_retur <= 0) throw new HTTPException(400, { message: 'Jumlah retur harus > 0' })
 
-    const diterima = db
+    const diterima = await query.find(db
       .select({ jumlah_terima: barang_masuk_detail.jumlah_terima })
       .from(barang_masuk_detail)
       .where(and(
         eq(barang_masuk_detail.penerimaan_id, body.barang_masuk_id),
         eq(barang_masuk_detail.barang_id, item.barang_id),
       ))
-      .get()
+      )
 
     if (!diterima) throw new HTTPException(400, { message: `Barang ${item.barang_id} tidak ada di penerimaan ini` })
 
-    const sudahRetur = db
+    const sudahRetur = await query.findAll(db
       .select({ total: retur_supplier_detail.jumlah_retur })
       .from(retur_supplier_detail)
       .innerJoin(retur_supplier, eq(retur_supplier_detail.retur_id, retur_supplier.id))
@@ -208,7 +208,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         eq(retur_supplier.barang_masuk_id, body.barang_masuk_id),
         eq(retur_supplier_detail.barang_id, item.barang_id),
       ))
-      .all()
+      )
       .reduce((s, r) => s + r.total, 0)
 
     const sisa = diterima.jumlah_terima - sudahRetur
@@ -225,7 +225,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
 
   const fn = await withTransaction(async (tx) => {
     // 1. Header retur
-    const ret = db.insert(retur_supplier).values({
+    const ret = await query.ret(db.insert(retur_supplier).values({
       no_retur: noRet,
       barang_masuk_id: body.barang_masuk_id,
       supplier_id: bm.supplier_id,
@@ -237,22 +237,22 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
       hutang_id: body.hutang_id,
       kas_bank_id: body.kas_bank_id,
       catatan: body.catatan,
-    }).returning().get()
+    }).returning())
 
     // 2. Detail + mutasi stok keluar
     for (const item of body.items) {
       const subtotal = item.harga_beli * item.jumlah_retur
-      db.insert(retur_supplier_detail).values({
+      await query.exec(db.insert(retur_supplier_detail).values({
         retur_id: ret.id,
         barang_id: item.barang_id,
         jumlah_retur: item.jumlah_retur,
         harga_beli: item.harga_beli,
         subtotal,
-      }).run()
+      }))
 
       const br = await query.find(db.select({ stok: barang.stok_sekarang }).from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
-      db.insert(mutasi_stok).values({
+      await query.exec(db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
         tanggal: tgl,
         jenis: 'keluar',
@@ -262,7 +262,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         jumlah_perubahan: -item.jumlah_retur,
         jumlah_sesudah: br.stok - item.jumlah_retur,
         dicatat_oleh: user.id,
-      }).run()
+      }))
 
       await query.exec(db.update(barang)
         .set({ stok_sekarang: br.stok - item.jumlah_retur })
@@ -285,7 +285,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
 
     // 4. Jurnal kas masuk jika metode tunai
     if (body.metode_refund === 'tunai' && body.kas_bank_id) {
-      db.insert(jurnal_kas).values({
+      await query.exec(db.insert(jurnal_kas).values({
         tanggal: tgl,
         kas_bank_id: body.kas_bank_id,
         jenis: 'masuk',
@@ -295,7 +295,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         keterangan: `Retur supplier ${noRet}`,
         jumlah: total,
         dicatat_oleh: user.id,
-      }).run()
+      }))
     }
 
     return ret

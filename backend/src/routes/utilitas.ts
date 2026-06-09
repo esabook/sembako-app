@@ -19,12 +19,12 @@ utilitasRouter.get('/', requirePermission('laporan.lihat'), async (c) => {
   if (jenis) conds.push(eq(tagihan_utilitas.jenis, jenis as any))
   if (periode) conds.push(eq(tagihan_utilitas.periode_bulan, periode))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(tagihan_utilitas)
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(tagihan_utilitas.periode_bulan))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -47,7 +47,7 @@ utilitasRouter.post('/', requirePermission('laporan.lihat'), async (c) => {
   }
   if (!body.jumlah || body.jumlah <= 0) throw new HTTPException(400, { message: 'jumlah harus > 0' })
 
-  const row = db.insert(tagihan_utilitas).values({
+  const row = await query.ret(db.insert(tagihan_utilitas).values({
     jenis: body.jenis,
     periode_bulan: body.periode_bulan,
     jumlah: body.jumlah,
@@ -56,7 +56,7 @@ utilitasRouter.post('/', requirePermission('laporan.lihat'), async (c) => {
     meter_akhir: body.meter_akhir,
     catatan: body.catatan,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -77,7 +77,7 @@ utilitasRouter.put('/:id', requirePermission('laporan.lihat'), async (c) => {
   const existing = await query.find(db.select({ id: tagihan_utilitas.id }).from(tagihan_utilitas).where(eq(tagihan_utilitas.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Tagihan tidak ditemukan' })
 
-  const row = db.update(tagihan_utilitas).set({
+  const row = await query.ret(db.update(tagihan_utilitas).set({
     ...(body.jenis !== undefined && { jenis: body.jenis as any }),
     ...(body.periode_bulan !== undefined && { periode_bulan: body.periode_bulan }),
     ...(body.jumlah !== undefined && { jumlah: body.jumlah }),
@@ -86,7 +86,7 @@ utilitasRouter.put('/:id', requirePermission('laporan.lihat'), async (c) => {
     ...(body.meter_akhir !== undefined && { meter_akhir: body.meter_akhir }),
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...getUpdatedBy(c),
-  }).where(eq(tagihan_utilitas.id, id)).returning().get()
+  }).where(eq(tagihan_utilitas.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })
