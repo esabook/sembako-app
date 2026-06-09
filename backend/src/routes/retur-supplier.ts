@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   retur_supplier, retur_supplier_detail,
   barang_masuk, barang_masuk_detail,
@@ -182,7 +182,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
   if (!body.barang_masuk_id) throw new HTTPException(400, { message: 'barang_masuk_id wajib' })
   if (!body.items?.length) throw new HTTPException(400, { message: 'Minimal satu item' })
 
-  const bm = db.select().from(barang_masuk).where(eq(barang_masuk.id, body.barang_masuk_id)).get()
+  const bm = await query.find(db.select().from(barang_masuk).where(eq(barang_masuk.id, body.barang_masuk_id)))
   if (!bm) throw new HTTPException(404, { message: 'Dokumen penerimaan tidak ditemukan' })
 
   // Validasi qty sisa per barang
@@ -223,7 +223,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
   const tgl = tglSekarang()
   const noRet = noRetur()
 
-  const fn = sqlite.transaction(() => {
+  const fn = await withTransaction(async (tx) => {
     // 1. Header retur
     const ret = db.insert(retur_supplier).values({
       no_retur: noRet,
@@ -250,7 +250,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         subtotal,
       }).run()
 
-      const br = db.select({ stok: barang.stok_sekarang }).from(barang).where(eq(barang.id, item.barang_id)).get()
+      const br = await query.find(db.select({ stok: barang.stok_sekarang }).from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
       db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
@@ -264,22 +264,22 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         dicatat_oleh: user.id,
       }).run()
 
-      db.update(barang)
+      await query.exec(db.update(barang)
         .set({ stok_sekarang: br.stok - item.jumlah_retur })
         .where(eq(barang.id, item.barang_id))
-        .run()
+      )
     }
 
     // 3. Kurangi hutang supplier
     if (body.metode_refund === 'kurang_hutang' && body.hutang_id) {
-      const hutang = db.select().from(hutang_supplier).where(eq(hutang_supplier.id, body.hutang_id)).get()
+      const hutang = await query.find(db.select().from(hutang_supplier).where(eq(hutang_supplier.id, body.hutang_id)))
       if (hutang && hutang.status !== 'lunas') {
         const sisaBaru = Math.max(0, hutang.sisa_hutang - total)
         const statusBaru = sisaBaru === 0 ? 'lunas' : sisaBaru < hutang.total_hutang ? 'sebagian' : 'belum'
-        db.update(hutang_supplier)
+        await query.exec(db.update(hutang_supplier)
           .set({ sisa_hutang: sisaBaru, status: statusBaru })
           .where(eq(hutang_supplier.id, body.hutang_id))
-          .run()
+        )
       }
     }
 

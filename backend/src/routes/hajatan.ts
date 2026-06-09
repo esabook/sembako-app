@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { acara_hajatan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
@@ -64,7 +64,7 @@ hajatanRouter.put('/:id', requirePermission('penjualan.lihat'), async (c) => {
     status: string; total_order: number
   }>>()
 
-  const existing = db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(eq(acara_hajatan.id, id)).get()
+  const existing = await query.find(db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(eq(acara_hajatan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Acara tidak ditemukan' })
 
   const row = db.update(acara_hajatan).set({
@@ -84,8 +84,8 @@ hajatanRouter.put('/:id', requirePermission('penjualan.lihat'), async (c) => {
 
 hajatanRouter.delete('/:id', requirePermission('penjualan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(eq(acara_hajatan.id, id)).get()
+  const existing = await query.find(db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(eq(acara_hajatan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Acara tidak ditemukan' })
-  db.delete(acara_hajatan).where(eq(acara_hajatan.id, id)).run()
+  await query.exec(db.delete(acara_hajatan).where(eq(acara_hajatan.id, id)))
   return c.json({ success: true, data: null })
 })

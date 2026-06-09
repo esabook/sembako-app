@@ -8,7 +8,7 @@ import { eq, and } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { unlinkSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { lampiran } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -117,7 +117,7 @@ lampiranRouter.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const user = c.get('user') as JWTPayload
 
-  const row = db.select().from(lampiran).where(eq(lampiran.id, id)).get()
+  const row = await query.find(db.select().from(lampiran).where(eq(lampiran.id, id)))
   if (!row) throw new HTTPException(404, { message: 'Lampiran tidak ditemukan' })
 
   // Pemilik file atau manajer/pemilik toko boleh hapus
@@ -135,7 +135,7 @@ lampiranRouter.delete('/:id', async (c) => {
     if (existsSync(thumbPath)) unlinkSync(thumbPath)
   }
 
-  db.delete(lampiran).where(eq(lampiran.id, id)).run()
+  await query.exec(db.delete(lampiran).where(eq(lampiran.id, id)))
 
   return c.json({ success: true, data: null })
 })

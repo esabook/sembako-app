@@ -3,22 +3,22 @@
 // B (cloud VPS):     frontend panggil localhost:PORT langsung (tidak lewat sini)
 import { Hono } from 'hono'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { toko_settings } from '../db/schema.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const printerRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 printerRouter.use('*', authMiddleware)
 
-function getBridgePort(): number {
-  const row = db.select().from(toko_settings).all()
-    .find(r => r.key === 'printer_bridge_port')
+async function getBridgePort(): Promise<number> {
+  const rows = await query.findAll(db.select().from(toko_settings))
+  const row = rows.find(r => r.key === 'printer_bridge_port')
   return Number(row?.value ?? '9999')
 }
 
 // GET /printer/status — cek apakah Go agent aktif (untuk skenario A)
 printerRouter.get('/status', requirePermission('stok.lihat'), async (c) => {
-  const port = getBridgePort()
+  const port = await getBridgePort()
   try {
     const res = await fetch(`http://127.0.0.1:${port}/health`, {
       signal: AbortSignal.timeout(2000),
@@ -33,7 +33,7 @@ printerRouter.get('/status', requirePermission('stok.lihat'), async (c) => {
 
 // POST /printer/cetak — proxy print request ke Go agent (skenario A)
 printerRouter.post('/cetak', requirePermission('stok.lihat'), async (c) => {
-  const port = getBridgePort()
+  const port = await getBridgePort()
   const body = await c.req.text()
   try {
     const res = await fetch(`http://127.0.0.1:${port}/cetak`, {
@@ -54,7 +54,7 @@ printerRouter.post('/cetak', requirePermission('stok.lihat'), async (c) => {
 
 // POST /printer/test — proxy test print ke Go agent
 printerRouter.post('/test', requirePermission('*'), async (c) => {
-  const port = getBridgePort()
+  const port = await getBridgePort()
   try {
     const res = await fetch(`http://127.0.0.1:${port}/test`, {
       method: 'POST',

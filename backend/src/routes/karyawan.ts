@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, like, and, gte, lte, ne, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { karyawan, shift_kasir, penjualan, absensi } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -205,10 +205,10 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
     ))
     .get()
 
-  const absensiData = db.select()
+  const absensiData = await query.findAll(db.select()
     .from(absensi)
     .where(and(eq(absensi.karyawan_id, id), gte(absensi.tanggal, dari), lte(absensi.tanggal, sampai)))
-    .all()
+  )
 
   const totalTrx = perShift.reduce((s, r) => s + r.jumlah_transaksi, 0)
   const totalPenjualan = perShift.reduce((s, r) => s + r.total_penjualan, 0)
@@ -334,12 +334,12 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
     pin_absensi?: string
   }>()
 
-  const existing = db.select().from(karyawan).where(eq(karyawan.id, id)).get()
+  const existing = await query.find(db.select().from(karyawan).where(eq(karyawan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   const updates: Partial<typeof karyawan.$inferInsert> = {
     ...body,
-    updated_at: sql`(datetime('now','localtime'))` as unknown as string,
+    updated_at: isoNow() as unknown as string,
   }
 
   if (body.password) {
@@ -375,7 +375,7 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
 
 karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(karyawan).where(eq(karyawan.id, id)).get()
+  const existing = await query.find(db.select().from(karyawan).where(eq(karyawan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   const formData = await c.req.formData()
@@ -390,10 +390,10 @@ karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) =
     thumbnail: { w: 60, h: 60, quality: 80 },
   })
 
-  db.update(karyawan)
-    .set({ foto_path: fotoPath, updated_at: sql`(datetime('now','localtime'))` })
+  await query.exec(db.update(karyawan)
+    .set({ foto_path: fotoPath, updated_at: isoNow() })
     .where(eq(karyawan.id, id))
-    .run()
+  )
 
   return c.json({ success: true, data: { foto_path: fotoPath } })
 })
@@ -404,13 +404,13 @@ karyawanRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
 
   if (user.id === id) throw new HTTPException(400, { message: 'Tidak bisa menonaktifkan diri sendiri' })
 
-  const existing = db.select().from(karyawan).where(eq(karyawan.id, id)).get()
+  const existing = await query.find(db.select().from(karyawan).where(eq(karyawan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
-  db.update(karyawan)
-    .set({ is_active: false, updated_at: sql`(datetime('now','localtime'))` })
+  await query.exec(db.update(karyawan)
+    .set({ is_active: false, updated_at: isoNow() })
     .where(eq(karyawan.id, id))
-    .run()
+  )
 
   return c.json({ success: true, data: null })
 })

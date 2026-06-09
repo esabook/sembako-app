@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { target_penjualan, budget_operasional, jurnal_kas, penjualan, penjualan_detail, barang } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -27,9 +27,9 @@ budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'),
     periodeList.push(p)
   }
 
-  const targets = db.select().from(target_penjualan)
+  const targets = await query.findAll(db.select().from(target_penjualan)
     .where(sql`periode_bulan IN (${sql.join(periodeList.map(p => sql`${p}`), sql`, `)})`)
-    .all()
+  )
 
   const realisasiRows = db.select({
     periode: sql<string>`strftime('%Y-%m', tanggal)`,
@@ -70,9 +70,9 @@ budgetTargetRouter.get('/:periode', requirePermission('laporan.lihat'), async (c
     .where(eq(target_penjualan.periode_bulan, periode))
     .get() ?? null
 
-  const budgets = db.select().from(budget_operasional)
+  const budgets = await query.findAll(db.select().from(budget_operasional)
     .where(eq(budget_operasional.periode_bulan, periode))
-    .all()
+  )
 
   return c.json({ success: true, data: { target, budgets } })
 })
@@ -94,9 +94,9 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
     throw new HTTPException(400, { message: 'periode_bulan wajib diisi (format YYYY-MM)' })
   }
 
-  const existing = db.select().from(target_penjualan)
+  const existing = await query.find(db.select().from(target_penjualan)
     .where(eq(target_penjualan.periode_bulan, body.periode_bulan))
-    .get()
+  )
 
   if (existing) {
     const updated = db.update(target_penjualan)
@@ -314,13 +314,13 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
     throw new HTTPException(400, { message: 'Periode sumber dan tujuan tidak boleh sama' })
   }
 
-  const sumberTarget = db.select().from(target_penjualan)
+  const sumberTarget = await query.find(db.select().from(target_penjualan)
     .where(eq(target_penjualan.periode_bulan, body.dari))
-    .get()
+  )
 
-  const sumberBudgets = db.select().from(budget_operasional)
+  const sumberBudgets = await query.findAll(db.select().from(budget_operasional)
     .where(eq(budget_operasional.periode_bulan, body.dari))
-    .all()
+  )
 
   if (!sumberTarget && sumberBudgets.length === 0) {
     throw new HTTPException(404, { message: `Tidak ada data di periode ${body.dari}` })
@@ -329,9 +329,9 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
   // Upsert target
   let targetBaru = null
   if (sumberTarget) {
-    const existingTarget = db.select().from(target_penjualan)
+    const existingTarget = await query.find(db.select().from(target_penjualan)
       .where(eq(target_penjualan.periode_bulan, body.ke))
-      .get()
+    )
 
     if (existingTarget) {
       targetBaru = db.update(target_penjualan)
@@ -366,11 +366,11 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
       .get()
 
     if (existing) {
-      const updated = db.update(budget_operasional)
+      const updated = await query.ret(db.update(budget_operasional)
         .set({ nilai_budget: src.nilai_budget, updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }) })
         .where(eq(budget_operasional.id, existing.id))
         .returning()
-        .get()
+      )
       budgetBaru.push(updated)
     } else {
       const created = db.insert(budget_operasional).values({

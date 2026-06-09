@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { pinjaman_investasi } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
@@ -75,7 +75,7 @@ pinjamanInvestasiRouter.put('/:id', requirePermission('laporan.lihat'), async (c
     catatan?: string
   }>()
 
-  const existing = db.select().from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)).get()
+  const existing = await query.find(db.select().from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
   const row = db.update(pinjaman_investasi).set({
@@ -98,7 +98,7 @@ pinjamanInvestasiRouter.post('/:id/cicil', requirePermission('laporan.lihat'), a
 
   if (!body.jumlah || body.jumlah <= 0) throw new HTTPException(400, { message: 'jumlah harus > 0' })
 
-  const existing = db.select().from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)).get()
+  const existing = await query.find(db.select().from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
   if (existing.status !== 'aktif') throw new HTTPException(400, { message: 'Hanya status aktif yang bisa dicicil' })
 
@@ -115,8 +115,8 @@ pinjamanInvestasiRouter.post('/:id/cicil', requirePermission('laporan.lihat'), a
 // DELETE /:id — hapus (hanya jika lunas/macet)
 pinjamanInvestasiRouter.delete('/:id', requirePermission('laporan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: pinjaman_investasi.id }).from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)).get()
+  const existing = await query.find(db.select({ id: pinjaman_investasi.id }).from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
-  db.delete(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)).run()
+  await query.exec(db.delete(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
   return c.json({ success: true, data: null })
 })

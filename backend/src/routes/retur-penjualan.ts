@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   retur_penjualan, retur_penjualan_detail, retur_penjualan_tukar,
   penjualan, penjualan_detail,
@@ -208,7 +208,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
   }
 
   // Validasi penjualan asal
-  const trxAsal = db.select().from(penjualan).where(eq(penjualan.id, body.penjualan_id)).get()
+  const trxAsal = await query.find(db.select().from(penjualan).where(eq(penjualan.id, body.penjualan_id)))
   if (!trxAsal) throw new HTTPException(404, { message: 'Transaksi penjualan tidak ditemukan' })
   if (trxAsal.status === 'void') throw new HTTPException(400, { message: 'Transaksi sudah di-void, tidak bisa diretur' })
 
@@ -217,9 +217,9 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
   }
 
   // Ambil semua detail penjualan asal
-  const detailAsal = db.select().from(penjualan_detail)
+  const detailAsal = await query.findAll(db.select().from(penjualan_detail)
     .where(eq(penjualan_detail.penjualan_id, body.penjualan_id))
-    .all()
+  )
 
   const detailMap = new Map(detailAsal.map(d => [d.barang_id, d]))
 
@@ -269,7 +269,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
     for (const ti of body.tukar_items) {
       if (ti.jumlah <= 0) throw new HTTPException(400, { message: 'Jumlah barang pengganti harus lebih dari 0' })
       if (ti.harga_jual < 0) throw new HTTPException(400, { message: 'Harga barang pengganti tidak valid' })
-      const br = db.select({ id: barang.id }).from(barang).where(eq(barang.id, ti.barang_id)).get()
+      const br = await query.find(db.select({ id: barang.id }).from(barang).where(eq(barang.id, ti.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang pengganti ID ${ti.barang_id} tidak ditemukan` })
       tukarItemsValidated.push({ ...ti, subtotal: ti.harga_jual * ti.jumlah })
     }
@@ -278,7 +278,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
   const tgl = tglSekarang()
   const noRet = noRetur()
 
-  const trxFn = sqlite.transaction(() => {
+  const result = await withTransaction(async (tx) => {
     // 1. Insert retur header
     const retur = db.insert(retur_penjualan).values({
       no_retur: noRet,
@@ -319,10 +319,10 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
         dicatat_oleh: user.id,
       }).run()
 
-      db.update(barang)
+      await query.exec(db.update(barang)
         .set({ stok_sekarang: br.stok + item.jumlah_retur })
         .where(eq(barang.id, item.barang_id))
-        .run()
+      )
     }
 
     // 3. Refund tunai → jurnal kas keluar
@@ -342,26 +342,26 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
 
     // 4. Kurang piutang → kurangi sisa_piutang
     if (body.metode_refund === 'kurang_piutang') {
-      const piutang = db.select().from(piutang_pelanggan)
+      const piutang = await query.find(db.select().from(piutang_pelanggan)
         .where(eq(piutang_pelanggan.penjualan_id, body.penjualan_id))
-        .get()
+      )
 
       if (piutang) {
         const sisaBaru = Math.max(0, piutang.sisa_piutang - totalRetur)
         const statusBaru = sisaBaru === 0 ? 'lunas' : 'sebagian'
-        db.update(piutang_pelanggan)
+        await query.exec(db.update(piutang_pelanggan)
           .set({ sisa_piutang: sisaBaru, status: statusBaru })
           .where(eq(piutang_pelanggan.id, piutang.id))
-          .run()
+        )
 
         if (trxAsal.pelanggan_id) {
           const plg = db.select({ saldo: pelanggan.saldo_piutang })
             .from(pelanggan).where(eq(pelanggan.id, trxAsal.pelanggan_id)).get()
           if (plg) {
-            db.update(pelanggan)
+            await query.exec(db.update(pelanggan)
               .set({ saldo_piutang: Math.max(0, plg.saldo - totalRetur) })
               .where(eq(pelanggan.id, trxAsal.pelanggan_id!))
-              .run()
+            )
           }
         }
       }
@@ -395,16 +395,15 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
           dicatat_oleh: user.id,
         }).run()
 
-        db.update(barang)
+        await query.exec(db.update(barang)
           .set({ stok_sekarang: Math.max(0, brTukar.stok - ti.jumlah) })
           .where(eq(barang.id, ti.barang_id))
-          .run()
+        )
       }
     }
 
     return retur
   })
 
-  const result = trxFn()
   return c.json({ success: true, data: result }, 201)
 })

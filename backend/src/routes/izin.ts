@@ -8,7 +8,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { pengajuan_izin, absensi, karyawan } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -157,17 +157,17 @@ izinRouter.post('/:id/setujui', async (c) => {
   let catatan: string | undefined
   try { catatan = (await c.req.json<{ catatan?: string }>()).catatan } catch { /* opsional */ }
 
-  const row = db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)).get()
+  const row = await query.find(db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)))
   if (!row) throw new HTTPException(404, { message: 'Pengajuan tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Pengajuan sudah ${row.status}` })
   }
 
   const now = tglSekarang()
-  db.update(pengajuan_izin)
+  await query.exec(db.update(pengajuan_izin)
     .set({ status: 'disetujui', diproses_oleh: user.id, catatan_proses: catatan, updated_at: now })
     .where(eq(pengajuan_izin.id, id))
-    .run()
+  )
 
   // Insert baris absensi untuk setiap hari dalam range
   const statusAbsensi = row.jenis === 'sakit' ? 'sakit' : 'izin'
@@ -188,7 +188,7 @@ izinRouter.post('/:id/setujui', async (c) => {
     }
   }
 
-  const updated = db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)).get()
+  const updated = await query.find(db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)))
   return c.json({ success: true, data: updated })
 })
 
@@ -204,7 +204,7 @@ izinRouter.post('/:id/tolak', async (c) => {
   let catatan: string | undefined
   try { catatan = (await c.req.json<{ catatan?: string }>()).catatan } catch { /* opsional */ }
 
-  const row = db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)).get()
+  const row = await query.find(db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)))
   if (!row) throw new HTTPException(404, { message: 'Pengajuan tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Pengajuan sudah ${row.status}` })

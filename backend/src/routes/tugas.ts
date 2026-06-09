@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { checklist_item, checklist_log, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
@@ -42,7 +42,7 @@ tugasRouter.post('/item', requirePermission('*'), async (c) => {
 tugasRouter.put('/item/:id', requirePermission('*'), async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{ nama: string; kategori: string; urutan: number; is_active: boolean }>>()
-  const existing = db.select({ id: checklist_item.id }).from(checklist_item).where(eq(checklist_item.id, id)).get()
+  const existing = await query.find(db.select({ id: checklist_item.id }).from(checklist_item).where(eq(checklist_item.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Item tidak ditemukan' })
 
   const row = db.update(checklist_item).set({
@@ -58,9 +58,9 @@ tugasRouter.put('/item/:id', requirePermission('*'), async (c) => {
 
 tugasRouter.delete('/item/:id', requirePermission('*'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: checklist_item.id }).from(checklist_item).where(eq(checklist_item.id, id)).get()
+  const existing = await query.find(db.select({ id: checklist_item.id }).from(checklist_item).where(eq(checklist_item.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Item tidak ditemukan' })
-  db.update(checklist_item).set({ is_active: false }).where(eq(checklist_item.id, id)).run()
+  await query.exec(db.update(checklist_item).set({ is_active: false }).where(eq(checklist_item.id, id)))
   return c.json({ success: true, data: null })
 })
 
@@ -101,10 +101,10 @@ tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) 
   if (!body.item_id) throw new HTTPException(400, { message: 'item_id wajib' })
   const tanggal = body.tanggal ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const existing = db.select({ id: checklist_log.id })
+  const existing = await query.find(db.select({ id: checklist_log.id })
     .from(checklist_log)
     .where(and(eq(checklist_log.item_id, body.item_id), eq(checklist_log.tanggal, tanggal)))
-    .get()
+  )
 
   let row
   if (existing) {

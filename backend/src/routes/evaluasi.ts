@@ -7,7 +7,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { evaluasi_karyawan, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -92,7 +92,7 @@ evaluasiRouter.put('/:id', requirePermission('*'), async (c) => {
   }
 
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)).get()
+  const existing = await query.find(db.select().from(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Evaluasi tidak ditemukan' })
 
   const body = await c.req.json<Partial<{ nilai: number; catatan: string; periode: string }>>()
@@ -119,9 +119,9 @@ evaluasiRouter.delete('/:id', requirePermission('*'), async (c) => {
   }
 
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: evaluasi_karyawan.id }).from(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)).get()
+  const existing = await query.find(db.select({ id: evaluasi_karyawan.id }).from(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Evaluasi tidak ditemukan' })
 
-  db.delete(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)).run()
+  await query.exec(db.delete(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)))
   return c.json({ success: true, data: null })
 })

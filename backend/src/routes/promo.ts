@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, or, isNull, gte, lte, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { promo, promo_target, barang, kategori } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -17,8 +17,8 @@ function tglHariIni(): string {
 // ── GET /promo — list semua promo dengan target ────────────────────────────
 
 promoRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
-  const rows = db.select().from(promo).orderBy(promo.created_at).all()
-  const targets = db.select().from(promo_target).all()
+  const rows = await query.findAll(db.select().from(promo).orderBy(promo.created_at))
+  const targets = await query.findAll(db.select().from(promo_target))
 
   const data = rows.map((p) => ({
     ...p,
@@ -60,10 +60,10 @@ promoRouter.get('/aktif', requirePermission('penjualan.lihat'), async (c) => {
 
 promoRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const p = db.select().from(promo).where(eq(promo.id, id)).get()
+  const p = await query.find(db.select().from(promo).where(eq(promo.id, id)))
   if (!p) throw new HTTPException(404, { message: 'Promo tidak ditemukan' })
 
-  const targets = db.select().from(promo_target).where(eq(promo_target.promo_id, id)).all()
+  const targets = await query.findAll(db.select().from(promo_target).where(eq(promo_target.promo_id, id)))
   return c.json({ success: true, data: { ...p, targets } })
 })
 
@@ -91,7 +91,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   if (!body.nilai || body.nilai <= 0) throw new HTTPException(400, { message: 'Nilai diskon harus > 0' })
   if (body.tipe_nilai === 'persen' && body.nilai > 100) throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
-  const hasil = db.transaction(() => {
+  const hasil = await withTransaction(async (tx) => {
     const p = db.insert(promo).values({
       nama: body.nama,
       deskripsi: body.deskripsi,
@@ -108,7 +108,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
     if (body.targets?.length) {
       for (const t of body.targets) {
-        db.insert(promo_target).values({ promo_id: p.id, target_tipe: t.target_tipe, target_id: t.target_id }).run()
+        await query.exec(db.insert(promo_target).values({ promo_id: p.id, target_tipe: t.target_tipe, target_id: t.target_id }))
       }
     }
 
@@ -122,7 +122,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
 promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(promo).where(eq(promo.id, id)).get()
+  const existing = await query.find(db.select().from(promo).where(eq(promo.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Promo tidak ditemukan' })
 
   const body = await c.req.json<{
@@ -143,7 +143,7 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
   if (body.tipe_nilai === 'persen' && body.nilai !== undefined && body.nilai > 100)
     throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
-  db.transaction(() => {
+  await withTransaction(async (tx) => {
     db.update(promo)
       .set({
         nama: body.nama ?? existing.nama,
@@ -157,15 +157,15 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
         berlaku_sampai: body.berlaku_sampai !== undefined ? body.berlaku_sampai : existing.berlaku_sampai,
         max_penggunaan: body.max_penggunaan !== undefined ? body.max_penggunaan : existing.max_penggunaan,
         aktif: body.aktif !== undefined ? body.aktif : existing.aktif,
-        updated_at: sql`(datetime('now','localtime'))`,
+        updated_at: isoNow(),
       })
       .where(eq(promo.id, id))
       .run()
 
     if (body.targets !== undefined) {
-      db.delete(promo_target).where(eq(promo_target.promo_id, id)).run()
+      await query.exec(db.delete(promo_target).where(eq(promo_target.promo_id, id)))
       for (const t of body.targets) {
-        db.insert(promo_target).values({ promo_id: id, target_tipe: t.target_tipe, target_id: t.target_id }).run()
+        await query.exec(db.insert(promo_target).values({ promo_id: id, target_tipe: t.target_tipe, target_id: t.target_id }))
       }
     }
   })
@@ -177,6 +177,6 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
 
 promoRouter.delete('/:id', requirePermission('penjualan.buat'), async (c) => {
   const id = Number(c.req.param('id'))
-  db.update(promo).set({ aktif: false, updated_at: sql`(datetime('now','localtime'))` }).where(eq(promo.id, id)).run()
+  await query.exec(db.update(promo).set({ aktif: false, updated_at: isoNow() }).where(eq(promo.id, id)))
   return c.json({ success: true, data: null })
 })

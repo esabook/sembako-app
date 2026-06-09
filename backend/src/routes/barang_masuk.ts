@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   barang_masuk, barang_masuk_detail,
   barang, mutasi_stok,
@@ -54,7 +54,7 @@ barangMasukRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
 
 barangMasukRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const bm = db.select().from(barang_masuk).where(eq(barang_masuk.id, id)).get()
+  const bm = await query.find(db.select().from(barang_masuk).where(eq(barang_masuk.id, id)))
   if (!bm) throw new HTTPException(404, { message: 'Penerimaan tidak ditemukan' })
 
   const items = db
@@ -100,7 +100,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
   if (!body.supplier_id) throw new HTTPException(400, { message: 'Supplier wajib dipilih' })
   if (!body.items?.length) throw new HTTPException(400, { message: 'Item barang kosong' })
 
-  const sup = db.select().from(supplier).where(eq(supplier.id, body.supplier_id)).get()
+  const sup = await query.find(db.select().from(supplier).where(eq(supplier.id, body.supplier_id)))
   if (!sup) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
 
   const tgl = body.tanggal_terima ?? tglSekarang()
@@ -113,7 +113,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
   const termsHari = body.terms_bayar ?? sup.terms_bayar
 
-  const result = sqlite.transaction(() => {
+  const result = await withTransaction(async (tx) => {
     // 1. Buat barang_masuk header
     const bm = db.insert(barang_masuk).values({
       no_penerimaan: noTrx,
@@ -127,7 +127,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
     // 2. Detail + mutasi stok
     for (const item of body.items) {
-      const br = db.select().from(barang).where(eq(barang.id, item.barang_id)).get()
+      const br = await query.find(db.select().from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
       db.insert(barang_masuk_detail).values({
@@ -194,7 +194,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
     }).run()
 
     return bm
-  })()
+  })
 
   return c.json({ success: true, data: result }, 201)
 })
@@ -203,7 +203,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
 barangMasukRouter.post('/:id/foto', requirePermission('pembelian.buat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(barang_masuk).where(eq(barang_masuk.id, id)).get()
+  const existing = await query.find(db.select().from(barang_masuk).where(eq(barang_masuk.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Penerimaan tidak ditemukan' })
 
   const formData = await c.req.formData()
@@ -218,10 +218,10 @@ barangMasukRouter.post('/:id/foto', requirePermission('pembelian.buat'), async (
     quality: 90,
   })
 
-  db.update(barang_masuk)
+  await query.exec(db.update(barang_masuk)
     .set({ foto_faktur_path: fotoPath })
     .where(eq(barang_masuk.id, id))
-    .run()
+  )
 
   return c.json({ success: true, data: { foto_faktur_path: fotoPath } })
 })

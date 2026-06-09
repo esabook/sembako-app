@@ -1,7 +1,7 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, desc, ne, lte, gte, and } from 'drizzle-orm'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { notifikasi_config, notifikasi_log, barang, hutang_supplier, piutang_pelanggan, pelanggan, penjualan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
@@ -26,7 +26,7 @@ const JENIS_DEFAULT = [
 // ── GET /notifikasi/config ─────────────────────────────────────────────────
 
 notifikasiRouter.get('/config', async (c) => {
-  const rows = db.select().from(notifikasi_config).all()
+  const rows = await query.findAll(db.select().from(notifikasi_config))
   const byJenis = Object.fromEntries(rows.map(r => [r.jenis, r]))
 
   const result = JENIS_DEFAULT.map(def => ({
@@ -60,20 +60,20 @@ notifikasiRouter.put('/config/:jenis', requirePermission('*'), async (c) => {
   }>()
 
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' })
-  const existing = db.select().from(notifikasi_config).where(eq(notifikasi_config.jenis, jenis as any)).get()
+  const existing = await query.find(db.select().from(notifikasi_config).where(eq(notifikasi_config.jenis, jenis as any)))
 
   if (existing) {
-    db.update(notifikasi_config)
+    await query.exec(db.update(notifikasi_config)
       .set({ ...body, updated_at: now })
       .where(eq(notifikasi_config.jenis, jenis as any))
-      .run()
+    )
   } else {
-    db.insert(notifikasi_config)
+    await query.exec(db.insert(notifikasi_config)
       .values({ jenis: jenis as any, updated_at: now, ...body })
-      .run()
+    )
   }
 
-  const updated = db.select().from(notifikasi_config).where(eq(notifikasi_config.jenis, jenis as any)).get()
+  const updated = await query.find(db.select().from(notifikasi_config).where(eq(notifikasi_config.jenis, jenis as any)))
   return c.json({ success: true, data: updated })
 })
 
@@ -81,7 +81,7 @@ notifikasiRouter.put('/config/:jenis', requirePermission('*'), async (c) => {
 
 notifikasiRouter.get('/log', async (c) => {
   const limit = Number(c.req.query('limit') ?? 50)
-  const rows = db.select().from(notifikasi_log).orderBy(desc(notifikasi_log.waktu)).limit(limit).all()
+  const rows = await query.findAll(db.select().from(notifikasi_log).orderBy(desc(notifikasi_log.waktu)).limit(limit))
   return c.json({ success: true, data: rows })
 })
 
@@ -116,7 +116,7 @@ notifikasiRouter.post('/log', requirePermission('*'), async (c) => {
 // Cek kondisi terkini dan hasilkan daftar notif yang perlu dikirim
 
 notifikasiRouter.get('/check', async (c) => {
-  const configs = db.select().from(notifikasi_config).where(eq(notifikasi_config.aktif, true)).all()
+  const configs = await query.findAll(db.select().from(notifikasi_config).where(eq(notifikasi_config.aktif, true)))
   const alerts: { jenis: string; pesan: string; referensi_tipe: string; referensi_id: number }[] = []
 
   for (const cfg of configs) {

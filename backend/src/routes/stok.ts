@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc, and, gte, lte, ne, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { barang, mutasi_stok, kategori, satuan, karyawan, penjualan, penjualan_detail } from '../db/schema.ts'
 import { catatLog } from '../utils/log.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
@@ -133,14 +133,14 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
   if (body.stok_baru < 0) throw new HTTPException(400, { message: 'Stok tidak boleh negatif' })
   if (!body.alasan?.trim()) throw new HTTPException(400, { message: 'Alasan koreksi wajib diisi' })
 
-  const br = db.select().from(barang).where(eq(barang.id, body.barang_id)).get()
+  const br = await query.find(db.select().from(barang).where(eq(barang.id, body.barang_id)))
   if (!br) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
 
   const selisih = body.stok_baru - br.stok_sekarang
 
   const tgl = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
 
-  sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     db.insert(mutasi_stok).values({
       barang_id: body.barang_id,
       tanggal: tgl,
@@ -153,11 +153,11 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
       dicatat_oleh: user.id,
     }).run()
 
-    db.update(barang)
+    await query.exec(db.update(barang)
       .set({ stok_sekarang: body.stok_baru })
       .where(eq(barang.id, body.barang_id))
-      .run()
-  })()
+    )
+  })
 
   catatLog(user.id, 'koreksi_stok', 'stok', body.barang_id, {
     nama_barang: br.nama_barang,

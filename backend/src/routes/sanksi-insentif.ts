@@ -6,7 +6,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { sanksi_insentif, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -99,9 +99,9 @@ sanksiInsentifRouter.delete('/:id', requirePermission('gaji.edit'), async (c) =>
   }
 
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: sanksi_insentif.id }).from(sanksi_insentif).where(eq(sanksi_insentif.id, id)).get()
+  const existing = await query.find(db.select({ id: sanksi_insentif.id }).from(sanksi_insentif).where(eq(sanksi_insentif.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
-  db.delete(sanksi_insentif).where(eq(sanksi_insentif.id, id)).run()
+  await query.exec(db.delete(sanksi_insentif).where(eq(sanksi_insentif.id, id)))
   return c.json({ success: true, data: null })
 })

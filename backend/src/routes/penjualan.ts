@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { catatLog } from '../utils/log.ts'
 import {
   penjualan, penjualan_detail,
@@ -151,7 +151,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     if (item.harga_jual < 0) {
       throw new HTTPException(400, { message: 'Harga jual tidak boleh negatif' })
     }
-    const br = db.select().from(barang).where(eq(barang.id, item.barang_id)).get()
+    const br = await query.find(db.select().from(barang).where(eq(barang.id, item.barang_id)))
     if (!br || !br.is_active) {
       throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
     }
@@ -173,7 +173,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   const noTrx = noTransaksi()
 
   // Semua operasi dalam 1 transaksi SQLite
-  const trxFn = sqlite.transaction(() => {
+  const result = await withTransaction(async (tx) => {
     // 1. Buat penjualan
     const trx = db.insert(penjualan).values({
       no_transaksi: noTrx,
@@ -223,20 +223,20 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         dicatat_oleh: user.id,
       }).run()
 
-      db.update(barang)
+      await query.exec(db.update(barang)
         .set({ stok_sekarang: br.stok - item.jumlah })
         .where(eq(barang.id, item.barang_id))
-        .run()
+      )
     }
 
     // 3. Jurnal kas (hanya jika bukan hutang)
     if (body.metode_bayar !== 'hutang') {
       let kasTujuan = body.kas_bank_id
-        ? db.select().from(kas_bank).where(eq(kas_bank.id, body.kas_bank_id)).get()
+        ? await query.find(db.select().from(kas_bank).where(eq(kas_bank.id, body.kas_bank_id)))
         : null
       // Fallback ke kas tunai pertama jika tidak ada kas_bank_id atau tidak ditemukan
       if (!kasTujuan) {
-        kasTujuan = db.select().from(kas_bank).where(eq(kas_bank.tipe, 'kas')).get()
+        kasTujuan = await query.find(db.select().from(kas_bank).where(eq(kas_bank.tipe, 'kas')))
       }
       if (kasTujuan) {
         db.insert(jurnal_kas).values({
@@ -272,17 +272,16 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       }).run()
 
       if (plg) {
-        db.update(pelanggan)
+        await query.exec(db.update(pelanggan)
           .set({ saldo_piutang: plg.saldo_piutang + total })
           .where(eq(pelanggan.id, body.pelanggan_id))
-          .run()
+        )
       }
     }
 
     return trx
   })
 
-  const result = trxFn()
 
   bus.emit('checkout', {
     penjualan_id: result.id,
@@ -300,7 +299,7 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
   const id = Number(c.req.param('id'))
   const user = c.get('user') as JWTPayload
 
-  const trx = db.select().from(penjualan).where(eq(penjualan.id, id)).get()
+  const trx = await query.find(db.select().from(penjualan).where(eq(penjualan.id, id)))
   if (!trx) throw new HTTPException(404, { message: 'Transaksi tidak ditemukan' })
   if (trx.status === 'void') throw new HTTPException(400, { message: 'Transaksi sudah di-void' })
 
@@ -309,7 +308,7 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
 
   const tgl = tglSekarang()
 
-  const voidFn = sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     // Kembalikan stok
     for (const item of items) {
       const br = db.select({ stok: barang.stok_sekarang })
@@ -328,16 +327,15 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
         dicatat_oleh: user.id,
       }).run()
 
-      db.update(barang)
+      await query.exec(db.update(barang)
         .set({ stok_sekarang: br.stok + item.jumlah })
         .where(eq(barang.id, item.barang_id))
-        .run()
+      )
     }
 
-    db.update(penjualan).set({ status: 'void' }).where(eq(penjualan.id, id)).run()
+    await query.exec(db.update(penjualan).set({ status: 'void' }).where(eq(penjualan.id, id)))
   })
 
-  voidFn()
   catatLog(user.id, 'void', 'penjualan', id, {
     no_transaksi: trx.no_transaksi,
     total: trx.total,

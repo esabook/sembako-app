@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc, sql, and, gte, ne } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   purchase_order, po_detail,
   barang, supplier, satuan,
@@ -48,7 +48,7 @@ purchaseOrderRouter.get('/', requirePermission('pembelian.lihat'), async (c) => 
 
 purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const po = db.select().from(purchase_order).where(eq(purchase_order.id, id)).get()
+  const po = await query.find(db.select().from(purchase_order).where(eq(purchase_order.id, id)))
   if (!po) throw new HTTPException(404, { message: 'PO tidak ditemukan' })
 
   const items = db
@@ -70,7 +70,7 @@ purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
     .where(eq(po_detail.po_id, id))
     .all()
 
-  const sup = db.select().from(supplier).where(eq(supplier.id, po.supplier_id)).get()
+  const sup = await query.find(db.select().from(supplier).where(eq(supplier.id, po.supplier_id)))
 
   return c.json({ success: true, data: { ...po, supplier: sup, items } })
 })
@@ -175,13 +175,13 @@ purchaseOrderRouter.put('/:id/status', requirePermission('pembelian.buat'), asyn
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ status: 'draft' | 'dikirim' | 'sebagian' | 'lunas' | 'batal' }>()
 
-  const po = db.select().from(purchase_order).where(eq(purchase_order.id, id)).get()
+  const po = await query.find(db.select().from(purchase_order).where(eq(purchase_order.id, id)))
   if (!po) throw new HTTPException(404, { message: 'PO tidak ditemukan' })
 
-  db.update(purchase_order)
-    .set({ status: body.status, updated_at: sql`(datetime('now','localtime'))` })
+  await query.exec(db.update(purchase_order)
+    .set({ status: body.status, updated_at: isoNow() })
     .where(eq(purchase_order.id, id))
-    .run()
+  )
 
   return c.json({ success: true, data: { status: body.status } })
 })

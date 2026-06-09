@@ -6,7 +6,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { approval } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -64,7 +64,7 @@ approvalRouter.post('/:id/setujui', requirePermission('*'), async (c) => {
     catatan = body.catatan
   } catch { /* body opsional */ }
 
-  const row = db.select().from(approval).where(eq(approval.id, id)).get()
+  const row = await query.find(db.select().from(approval).where(eq(approval.id, id)))
   if (!row) throw new HTTPException(404, { message: 'Approval tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Approval sudah ${row.status}` })
@@ -103,7 +103,7 @@ approvalRouter.post('/:id/tolak', requirePermission('*'), async (c) => {
     catatan = body.catatan
   } catch { /* body opsional */ }
 
-  const row = db.select().from(approval).where(eq(approval.id, id)).get()
+  const row = await query.find(db.select().from(approval).where(eq(approval.id, id)))
   if (!row) throw new HTTPException(404, { message: 'Approval tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Approval sudah ${row.status}` })

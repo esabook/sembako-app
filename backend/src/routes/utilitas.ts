@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { tagihan_utilitas } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
@@ -74,7 +74,7 @@ utilitasRouter.put('/:id', requirePermission('laporan.lihat'), async (c) => {
     catatan?: string
   }>()
 
-  const existing = db.select({ id: tagihan_utilitas.id }).from(tagihan_utilitas).where(eq(tagihan_utilitas.id, id)).get()
+  const existing = await query.find(db.select({ id: tagihan_utilitas.id }).from(tagihan_utilitas).where(eq(tagihan_utilitas.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Tagihan tidak ditemukan' })
 
   const row = db.update(tagihan_utilitas).set({
@@ -94,9 +94,9 @@ utilitasRouter.put('/:id', requirePermission('laporan.lihat'), async (c) => {
 // DELETE /:id — hapus tagihan
 utilitasRouter.delete('/:id', requirePermission('laporan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: tagihan_utilitas.id }).from(tagihan_utilitas).where(eq(tagihan_utilitas.id, id)).get()
+  const existing = await query.find(db.select({ id: tagihan_utilitas.id }).from(tagihan_utilitas).where(eq(tagihan_utilitas.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Tagihan tidak ditemukan' })
 
-  db.delete(tagihan_utilitas).where(eq(tagihan_utilitas.id, id)).run()
+  await query.exec(db.delete(tagihan_utilitas).where(eq(tagihan_utilitas.id, id)))
   return c.json({ success: true, data: null })
 })

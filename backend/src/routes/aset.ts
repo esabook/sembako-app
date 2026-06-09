@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { aset_tetap } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
@@ -76,7 +76,7 @@ asetRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
     is_active?: boolean
   }>()
 
-  const existing = db.select({ id: aset_tetap.id }).from(aset_tetap).where(eq(aset_tetap.id, id)).get()
+  const existing = await query.find(db.select({ id: aset_tetap.id }).from(aset_tetap).where(eq(aset_tetap.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Aset tidak ditemukan' })
 
   const row = db.update(aset_tetap).set({
@@ -98,9 +98,9 @@ asetRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
 // DELETE /:id — soft delete
 asetRouter.delete('/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: aset_tetap.id }).from(aset_tetap).where(eq(aset_tetap.id, id)).get()
+  const existing = await query.find(db.select({ id: aset_tetap.id }).from(aset_tetap).where(eq(aset_tetap.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Aset tidak ditemukan' })
 
-  db.update(aset_tetap).set({ is_active: false, ...getUpdatedBy(c) }).where(eq(aset_tetap.id, id)).run()
+  await query.exec(db.update(aset_tetap).set({ is_active: false, ...getUpdatedBy(c) }).where(eq(aset_tetap.id, id)))
   return c.json({ success: true, data: null })
 })

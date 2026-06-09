@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   stok_opname, stok_opname_detail,
   barang, mutasi_stok, kategori, satuan,
@@ -40,7 +40,7 @@ stokOpnameRouter.get('/', requirePermission('stok.lihat'), async (c) => {
 
 stokOpnameRouter.get('/:id', requirePermission('stok.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const op = db.select().from(stok_opname).where(eq(stok_opname.id, id)).get()
+  const op = await query.find(db.select().from(stok_opname).where(eq(stok_opname.id, id)))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
 
   const items = db
@@ -80,7 +80,7 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
     .from(stok_opname)
     .where(eq(stok_opname.status, 'draft'))
     .get()
-    ?? db.select().from(stok_opname).where(eq(stok_opname.status, 'proses')).get()
+    ?? await query.find(db.select().from(stok_opname).where(eq(stok_opname.status, 'proses')))
 
   if (aktif) {
     throw new HTTPException(400, {
@@ -90,7 +90,7 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
 
   const tgl = tglSekarang()
 
-  const opname = sqlite.transaction(() => {
+  const opname = await withTransaction(async (tx) => {
     const op = db.insert(stok_opname).values({
       no_opname: noOpname(),
       tanggal_mulai: tgl,
@@ -115,7 +115,7 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
     }
 
     return op
-  })()
+  })
 
   return c.json({ success: true, data: opname }, 201)
 })
@@ -160,7 +160,7 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
   const user = c.get('user') as JWTPayload
   const id = Number(c.req.param('id'))
 
-  const op = db.select().from(stok_opname).where(eq(stok_opname.id, id)).get()
+  const op = await query.find(db.select().from(stok_opname).where(eq(stok_opname.id, id)))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
   if (op.status === 'approved') throw new HTTPException(400, { message: 'Opname sudah diapprove' })
 
@@ -176,11 +176,11 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
 
   const tgl = tglSekarang()
 
-  sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     for (const item of items) {
       if (item.selisih === null || item.selisih === 0) continue
 
-      const br = db.select().from(barang).where(eq(barang.id, item.barang_id)).get()
+      const br = await query.find(db.select().from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) continue
 
       db.insert(mutasi_stok).values({
@@ -195,10 +195,10 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
         dicatat_oleh: user.id,
       }).run()
 
-      db.update(barang)
+      await query.exec(db.update(barang)
         .set({ stok_sekarang: item.stok_fisik! })
         .where(eq(barang.id, item.barang_id))
-        .run()
+      )
     }
 
     db.update(stok_opname)
@@ -206,11 +206,11 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
         status: 'approved',
         tanggal_selesai: tgl,
         diapprove_oleh: user.id,
-        updated_at: sql`(datetime('now','localtime'))`,
+        updated_at: isoNow(),
       })
       .where(eq(stok_opname.id, id))
       .run()
-  })()
+  })
 
   const totalSelisih = items.filter((i) => i.selisih !== 0).length
   return c.json({ success: true, data: { total_penyesuaian: totalSelisih } })
@@ -220,14 +220,14 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
 
 stokOpnameRouter.delete('/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const op = db.select().from(stok_opname).where(eq(stok_opname.id, id)).get()
+  const op = await query.find(db.select().from(stok_opname).where(eq(stok_opname.id, id)))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
   if (op.status === 'approved') throw new HTTPException(400, { message: 'Opname approved tidak bisa dibatalkan' })
 
-  sqlite.transaction(() => {
-    db.delete(stok_opname_detail).where(eq(stok_opname_detail.opname_id, id)).run()
-    db.delete(stok_opname).where(eq(stok_opname.id, id)).run()
-  })()
+  await withTransaction(async (tx) => {
+    await query.exec(db.delete(stok_opname_detail).where(eq(stok_opname_detail.opname_id, id)))
+    await query.exec(db.delete(stok_opname).where(eq(stok_opname.id, id)))
+  })
 
   return c.json({ success: true, data: null })
 })
