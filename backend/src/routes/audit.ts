@@ -27,7 +27,7 @@ auditRouter.get('/', async (c) => {
 
   const where = conditions.length > 0 ? and(...conditions) : undefined
 
-  const rows = db.select({
+  const rows = await query.findAll(db.select({
     id:            log_aktivitas.id,
     aksi:          log_aktivitas.aksi,
     modul:         log_aktivitas.modul,
@@ -44,12 +44,12 @@ auditRouter.get('/', async (c) => {
     .orderBy(desc(log_aktivitas.id))
     .limit(perPage)
     .offset(offset)
-    .all()
+    )
 
-  const total = (db.select({ n: sql<number>`count(*)` })
+  const total = (await query.find(db.select({ n: sql<number>`count(*)` })
     .from(log_aktivitas)
     .where(where)
-    .get())?.n ?? 0
+  ))?.n ?? 0
 
   return c.json({
     success: true,
@@ -69,7 +69,7 @@ auditRouter.get('/export', async (c) => {
   if (q.sampai)      conditions.push(lte(log_aktivitas.waktu, q.sampai + ' 23:59:59'))
   const where = conditions.length > 0 ? and(...conditions) : undefined
 
-  const rows = db.select({
+  const rows = await query.findAll(db.select({
     id:            log_aktivitas.id,
     waktu:         log_aktivitas.waktu,
     aksi:          log_aktivitas.aksi,
@@ -85,7 +85,7 @@ auditRouter.get('/export', async (c) => {
     .where(where)
     .orderBy(desc(log_aktivitas.id))
     .limit(5000)
-    .all()
+    )
 
   const header = 'ID,Waktu,Aksi,Modul,Referensi ID,Karyawan,Role,Detail,IP\n'
   const csvEsc = (s: unknown) => `"${String(s ?? '').replace(/"/g, '""')}"`

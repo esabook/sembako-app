@@ -38,7 +38,7 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
   }
 
   // Penjualan bersih (tidak termasuk void)
-  const penjualanRows = db
+  const penjualanRows = await query.findAll(db
     .select({ total: penjualan.total, diskon_total: penjualan.diskon_total })
     .from(penjualan)
     .where(
@@ -48,14 +48,14 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
         lte(penjualan.tanggal, sampai + ' 23:59:59')
       )
     )
-    .all()
+    )
 
   const totalPenjualan = penjualanRows.reduce((s, r) => s + r.total, 0)
   const totalDiskon = penjualanRows.reduce((s, r) => s + r.diskon_total, 0)
   const jumlahTransaksi = penjualanRows.length
 
   // HPP — Weighted Average Cost (WAC): pakai harga_beli_rata, fallback ke harga_beli_terakhir
-  const hppRows = db
+  const hppRows = await query.find(db
     .select({
       hpp: sql<number>`sum(${penjualan_detail.jumlah} * CASE WHEN ${barang.harga_beli_rata} > 0 THEN ${barang.harga_beli_rata} ELSE ${barang.harga_beli_terakhir} END)`,
     })
@@ -69,13 +69,13 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
         lte(penjualan.tanggal, sampai + ' 23:59:59')
       )
     )
-    .get()
+    )
 
   const totalHpp = hppRows?.hpp ?? 0
   const labaKotor = totalPenjualan - totalHpp
 
   // Biaya operasional (jurnal keluar, kecuali pembayaran hutang)
-  const biayaRows = db
+  const biayaRows = await query.findAll(db
     .select({ kategori: jurnal_kas.kategori, jumlah: jurnal_kas.jumlah })
     .from(jurnal_kas)
     .where(
@@ -86,7 +86,7 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
         lte(jurnal_kas.tanggal, sampai)
       )
     )
-    .all()
+    )
 
   const biayaPerKategori: Record<string, number> = {}
   let totalBiaya = 0
@@ -135,27 +135,27 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
   const akunList = await query.findAll(db.select().from(kas_bank).where(eq(kas_bank.is_active, true)))
 
   // Saldo awal per akun: GROUP BY — tidak load seluruh tabel
-  const sebelumPerAkun = db.select({
+  const sebelumPerAkun = await query.findAll(db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
-  }).from(jurnal_kas).where(sql`${jurnal_kas.tanggal} < ${dari}`).groupBy(jurnal_kas.kas_bank_id).all()
+  }).from(jurnal_kas).where(sql`${jurnal_kas.tanggal} < ${dari}`).groupBy(jurnal_kas.kas_bank_id))
   const sebelumMap = new Map(sebelumPerAkun.map((r) => [r.kas_bank_id, r]))
 
   // Mutasi periode per akun: GROUP BY
-  const mutasiPerAkun = db.select({
+  const mutasiPerAkun = await query.findAll(db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
-  }).from(jurnal_kas).where(and(gte(jurnal_kas.tanggal, dari), lte(jurnal_kas.tanggal, sampai))).groupBy(jurnal_kas.kas_bank_id).all()
+  }).from(jurnal_kas).where(and(gte(jurnal_kas.tanggal, dari), lte(jurnal_kas.tanggal, sampai))).groupBy(jurnal_kas.kas_bank_id))
   const mutasiMap = new Map(mutasiPerAkun.map((r) => [r.kas_bank_id, r]))
 
   // Ringkasan per kategori: GROUP BY
-  const kategoriRows = db.select({
+  const kategoriRows = await query.findAll(db.select({
     kategori: jurnal_kas.kategori,
     jenis: jurnal_kas.jenis,
     jumlah: sql<number>`COALESCE(SUM(${jurnal_kas.jumlah}),0)`,
-  }).from(jurnal_kas).where(and(gte(jurnal_kas.tanggal, dari), lte(jurnal_kas.tanggal, sampai))).groupBy(jurnal_kas.kategori, jurnal_kas.jenis).all()
+  }).from(jurnal_kas).where(and(gte(jurnal_kas.tanggal, dari), lte(jurnal_kas.tanggal, sampai))).groupBy(jurnal_kas.kategori, jurnal_kas.jenis))
   const kategoriMap: Record<string, { masuk: number; keluar: number }> = {}
   for (const r of kategoriRows) {
     const entry = kategoriMap[r.kategori] ?? { masuk: 0, keluar: 0 }
@@ -202,13 +202,13 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   // 1. Kas & Bank — filter jurnal sampai per_tanggal
   const akunList = await query.findAll(db.select().from(kas_bank).where(eq(kas_bank.is_active, true)))
 
-  const jurnalPerAkun = db.select({
+  const jurnalPerAkun = await query.findAll(db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
   }).from(jurnal_kas)
     .where(lte(jurnal_kas.tanggal, batasTgl))
-    .groupBy(jurnal_kas.kas_bank_id).all()
+    .groupBy(jurnal_kas.kas_bank_id))
   const jurnalAkunMap = new Map(jurnalPerAkun.map((r) => [r.kas_bank_id, r]))
 
   const kasBank = akunList.map((akun) => {
@@ -219,37 +219,37 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   const totalKasBank = kasBank.reduce((s, a) => s + a.saldo, 0)
 
   // 2. Piutang — dibuat sebelum per_tanggal dan belum lunas
-  const piutangRows = db
+  const piutangRows = await query.findAll(db
     .select({ sisa: piutang_pelanggan.sisa_piutang })
     .from(piutang_pelanggan)
     .where(and(
       ne(piutang_pelanggan.status, 'lunas'),
       lte(piutang_pelanggan.created_at, batasTgl),
     ))
-    .all()
+    )
   const totalPiutang = piutangRows.reduce((s, r) => s + r.sisa, 0)
 
   // 3. Nilai stok — gunakan WAC (harga_beli_rata), fallback ke harga_beli_terakhir
-  const nilaiStokRow = db
+  const nilaiStokRow = await query.find(db
     .select({
       total: sql<number>`sum(${barang.stok_sekarang} * CASE WHEN ${barang.harga_beli_rata} > 0 THEN ${barang.harga_beli_rata} ELSE ${barang.harga_beli_terakhir} END)`,
     })
     .from(barang)
     .where(eq(barang.is_active, true))
-    .get()
+    )
   const totalNilaiStok = nilaiStokRow?.total ?? 0
 
   const totalAset = totalKasBank + totalPiutang + totalNilaiStok
 
   // LIABILITAS — hutang dibuat sebelum per_tanggal dan belum lunas
-  const hutangRows = db
+  const hutangRows = await query.findAll(db
     .select({ sisa: hutang_supplier.sisa_hutang })
     .from(hutang_supplier)
     .where(and(
       ne(hutang_supplier.status, 'lunas'),
       lte(hutang_supplier.created_at, batasTgl),
     ))
-    .all()
+    )
   const totalHutang = hutangRows.reduce((s, r) => s + r.sisa, 0)
 
   // MODAL (residual)
@@ -315,7 +315,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
   type AgingBucket = { label: string; jumlah: number; total: number; items: AgingItem[] }
 
   // Piutang pelanggan
-  const piutangRows = db
+  const piutangRows = await query.findAll(db
     .select({
       id: piutang_pelanggan.id,
       sisa_piutang: piutang_pelanggan.sisa_piutang,
@@ -325,7 +325,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
     .from(piutang_pelanggan)
     .leftJoin(pelanggan, eq(piutang_pelanggan.pelanggan_id, pelanggan.id))
     .where(ne(piutang_pelanggan.status, 'lunas'))
-    .all()
+    )
 
   const piutangBuckets: Record<string, AgingBucket> = {}
   for (const key of BUCKET_ORDER) {
@@ -347,7 +347,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
   }
 
   // Hutang supplier
-  const hutangRows = db
+  const hutangRows = await query.findAll(db
     .select({
       id: hutang_supplier.id,
       sisa_hutang: hutang_supplier.sisa_hutang,
@@ -357,7 +357,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
     .from(hutang_supplier)
     .leftJoin(supplier, eq(hutang_supplier.supplier_id, supplier.id))
     .where(ne(hutang_supplier.status, 'lunas'))
-    .all()
+    )
 
   const hutangBuckets: Record<string, AgingBucket> = {}
   for (const key of BUCKET_ORDER) {
@@ -394,7 +394,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
 
 laporanRouter.post('/init-harga-rata', requirePermission('*'), async (c) => {
   // Ambil semua histori penerimaan barang diurutkan dari terlama
-  const histori = db
+  const histori = await query.findAll(db
     .select({
       barang_id: barang_masuk_detail.barang_id,
       jumlah: barang_masuk_detail.jumlah_terima,
@@ -402,7 +402,7 @@ laporanRouter.post('/init-harga-rata', requirePermission('*'), async (c) => {
     })
     .from(barang_masuk_detail)
     .orderBy(barang_masuk_detail.id)
-    .all()
+    )
 
   // Hitung WAC per barang secara kronologis
   const wacMap = new Map<number, { rata: number; stok: number }>()
@@ -436,7 +436,7 @@ laporanRouter.post('/init-harga-rata', requirePermission('*'), async (c) => {
 laporanRouter.get('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
   // Transaksi non-hutang, non-void, kembalian=0, tapi bayar < total
   // → diskon member/promo tidak tercatat karena bug lama
-  const affected = db
+  const affected = await query.findAll(db
     .select({
       id: penjualan.id,
       no_transaksi: penjualan.no_transaksi,
@@ -458,7 +458,7 @@ laporanRouter.get('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
       )
     )
     .orderBy(penjualan.tanggal)
-    .all()
+    )
 
   const totalSelisih = affected.reduce((s, r) => s + r.selisih, 0)
 
@@ -481,7 +481,7 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       barang_id: barang.id,
       nama_barang: barang.nama_barang,
@@ -504,7 +504,7 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
     )
     .groupBy(barang.id)
     .orderBy(sql`omset DESC`)
-    .all()
+    )
 
   const produk = rows.map((r) => {
     const margin = r.omset - r.hpp
@@ -543,7 +543,7 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
     return c.json({ success: false, error: 'Format tahun tidak valid. Gunakan YYYY' }, 400)
   }
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       periode: sql<string>`strftime('%Y-%m', tanggal)`,
       omset: sql<number>`COALESCE(SUM(total), 0)`,
@@ -558,7 +558,7 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
     )
     .groupBy(sql`strftime('%Y-%m', tanggal)`)
     .orderBy(sql`strftime('%Y-%m', tanggal)`)
-    .all()
+    )
 
   // Pastikan semua 12 bulan muncul (bulan tanpa penjualan = 0)
   const bulanMap = new Map<string, { omset: number; jumlah_transaksi: number }>()
@@ -590,7 +590,7 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
 // ── GET /laporan/persediaan — nilai stok saat ini per produk ─────────────────
 
 laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) => {
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       barang_id: barang.id,
       nama_barang: barang.nama_barang,
@@ -603,7 +603,7 @@ laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) =
     .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
     .where(eq(barang.is_active, true))
     .orderBy(sql`nilai_stok DESC`)
-    .all()
+    )
 
   const produk = rows.map((r) => {
     const hpp = r.harga_beli_rata > 0 ? r.harga_beli_rata : r.harga_beli_terakhir
@@ -643,7 +643,7 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
   }
   const limit = Math.min(Number(c.req.query('limit') ?? 20), 100)
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       pelanggan_id: pelanggan.id,
       nama: pelanggan.nama,
@@ -665,7 +665,7 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
     .groupBy(pelanggan.id)
     .orderBy(sql`total_omset DESC`)
     .limit(limit)
-    .all()
+    )
 
   const total_omset_semua = rows.reduce((s, r) => s + r.total_omset, 0)
 
@@ -692,7 +692,7 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       supplier_id: supplier.id,
       nama_supplier: supplier.nama_supplier,
@@ -710,7 +710,7 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
     )
     .groupBy(supplier.id)
     .orderBy(sql`total_pembelian DESC`)
-    .all()
+    )
 
   const total_semua = rows.reduce((s, r) => s + r.total_pembelian, 0)
 
@@ -738,7 +738,7 @@ laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async
     return c.json({ success: false, error: 'Format tahun tidak valid. Gunakan YYYY' }, 400)
   }
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       periode_bulan: penggajian.periode_bulan,
       jumlah_karyawan: sql<number>`COUNT(DISTINCT ${penggajian.karyawan_id})`,
@@ -757,7 +757,7 @@ laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async
     )
     .groupBy(penggajian.periode_bulan)
     .orderBy(penggajian.periode_bulan)
-    .all()
+    )
 
   // Pastikan semua 12 bulan muncul
   const bulanMap = new Map(rows.map((r) => [r.periode_bulan, r]))
@@ -797,7 +797,7 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
   const dari = c.req.query('dari') ?? tigaPuluhHariLalu
   const sampai = c.req.query('sampai') ?? hariIni
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       jam: sql<string>`strftime('%H', ${penjualan.tanggal})`,
       jumlah_transaksi: sql<number>`COUNT(*)`,
@@ -812,7 +812,7 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
     ))
     .groupBy(sql`strftime('%H', ${penjualan.tanggal})`)
     .orderBy(sql`strftime('%H', ${penjualan.tanggal})`)
-    .all()
+    )
 
   const byJam = new Map(rows.map(r => [r.jam, r]))
   const per_jam = Array.from({ length: 24 }, (_, i) => {
@@ -833,7 +833,7 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
 })
 
 laporanRouter.post('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
-  const affected = db
+  const affected = await query.findAll(db
     .select({
       id: penjualan.id,
       total: penjualan.total,
@@ -849,19 +849,19 @@ laporanRouter.post('/rekonsiliasi-diskon', requirePermission('*'), async (c) => 
         sql`${penjualan.kembalian} = 0`,
       )
     )
-    .all()
+    )
 
   let fixed = 0
   await withTransaction(async (tx) => {
     for (const trx of affected) {
       const diskonBaru = trx.total - trx.bayar   // selisih = diskon yang hilang
-      db.update(penjualan)
+      await query.exec(db.update(penjualan)
         .set({
           diskon_total: diskonBaru,
           total: trx.bayar,                       // total = bayar (yang benar)
         })
         .where(eq(penjualan.id, trx.id))
-        .run()
+        )
       fixed++
     }
   })

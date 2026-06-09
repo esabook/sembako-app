@@ -27,7 +27,7 @@ sanksiInsentifRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
   if (bulan) conds.push(eq(sanksi_insentif.periode_bulan, bulan))
   if (tipe) conds.push(eq(sanksi_insentif.tipe, tipe))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: sanksi_insentif.id,
       karyawan_id: sanksi_insentif.karyawan_id,
@@ -44,7 +44,7 @@ sanksiInsentifRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
     .leftJoin(karyawan, eq(sanksi_insentif.karyawan_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(sanksi_insentif.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -76,7 +76,7 @@ sanksiInsentifRouter.post('/', requirePermission('gaji.edit'), async (c) => {
     throw new HTTPException(400, { message: 'periode_bulan wajib format YYYY-MM' })
   }
 
-  const row = db.insert(sanksi_insentif).values({
+  const row = await query.ret(db.insert(sanksi_insentif).values({
     karyawan_id: body.karyawan_id,
     tipe: body.tipe,
     jenis: body.jenis,
@@ -85,7 +85,7 @@ sanksiInsentifRouter.post('/', requirePermission('gaji.edit'), async (c) => {
     periode_bulan: body.periode_bulan,
     keterangan: body.keterangan,
     dicatat_oleh: user.id,
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })

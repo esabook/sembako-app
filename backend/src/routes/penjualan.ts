@@ -37,7 +37,7 @@ penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
   const sampai = c.req.query('sampai')
   const kasirId = c.req.query('kasir_id')
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: penjualan.id,
       no_transaksi: penjualan.no_transaksi,
@@ -58,7 +58,7 @@ penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
       )
     )
     .orderBy(desc(penjualan.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -67,7 +67,7 @@ penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
 
 penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const trx = db
+  const trx = await query.find(db
     .select({
       id: penjualan.id,
       no_transaksi: penjualan.no_transaksi,
@@ -90,10 +90,10 @@ penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
     .leftJoin(pelanggan, eq(penjualan.pelanggan_id, pelanggan.id))
     .leftJoin(karyawan, eq(penjualan.kasir_id, karyawan.id))
     .where(eq(penjualan.id, id))
-    .get()
+    )
   if (!trx) throw new HTTPException(404, { message: 'Transaksi tidak ditemukan' })
 
-  const items = db
+  const items = await query.findAll(db
     .select({
       id: penjualan_detail.id,
       barang_id: penjualan_detail.barang_id,
@@ -108,7 +108,7 @@ penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
     .from(penjualan_detail)
     .leftJoin(barang, eq(penjualan_detail.barang_id, barang.id))
     .where(eq(penjualan_detail.penjualan_id, id))
-    .all()
+    )
 
   return c.json({ success: true, data: { ...trx, items } })
 })
@@ -175,7 +175,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   // Semua operasi dalam 1 transaksi SQLite
   const result = await withTransaction(async (tx) => {
     // 1. Buat penjualan
-    const trx = db.insert(penjualan).values({
+    const trx = await query.ret(db.insert(penjualan).values({
       no_transaksi: noTrx,
       pelanggan_id: body.pelanggan_id,
       tanggal: tgl,
@@ -188,11 +188,11 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       bayar: body.bayar,
       kembalian,
       status,
-    }).returning().get()
+    }).returning())
 
     // 2. Detail + mutasi stok
     for (const item of itemsValidated) {
-      db.insert(penjualan_detail).values({
+      await query.exec(db.insert(penjualan_detail).values({
         penjualan_id: trx.id,
         barang_id: item.barang_id,
         satuan_id: item.satuan_id,
@@ -200,10 +200,10 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         harga_jual: item.harga_jual,
         diskon_item: item.diskon_item ?? 0,
         subtotal: item.subtotal,
-      }).run()
+      }))
 
-      const br = db.select({ stok: barang.stok_sekarang })
-        .from(barang).where(eq(barang.id, item.barang_id)).get()
+      const br = await query.find(db.select({ stok: barang.stok_sekarang })
+        .from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
       if (br.stok < item.jumlah) {
         throw new HTTPException(400, {
@@ -211,7 +211,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         })
       }
 
-      db.insert(mutasi_stok).values({
+      await query.exec(db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
         tanggal: tgl,
         jenis: 'keluar',
@@ -221,7 +221,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         jumlah_perubahan: -item.jumlah,
         jumlah_sesudah: br.stok - item.jumlah,
         dicatat_oleh: user.id,
-      }).run()
+      }))
 
       await query.exec(db.update(barang)
         .set({ stok_sekarang: br.stok - item.jumlah })
@@ -239,7 +239,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         kasTujuan = await query.find(db.select().from(kas_bank).where(eq(kas_bank.tipe, 'kas')))
       }
       if (kasTujuan) {
-        db.insert(jurnal_kas).values({
+        await query.exec(db.insert(jurnal_kas).values({
           tanggal: tgl,
           kas_bank_id: kasTujuan.id,
           jenis: 'masuk',
@@ -249,27 +249,27 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
           keterangan: `Penjualan ${noTrx}`,
           jumlah: total,
           dicatat_oleh: user.id,
-        }).run()
+        }))
       }
     }
 
     // 4. Piutang (jika hutang)
     if (body.metode_bayar === 'hutang' && body.pelanggan_id) {
-      const plg = db.select().from(pelanggan)
-        .where(eq(pelanggan.id, body.pelanggan_id)).get()
+      const plg = await query.find(db.select().from(pelanggan)
+        .where(eq(pelanggan.id, body.pelanggan_id)))
 
       if (plg && plg.limit_piutang > 0 && plg.saldo_piutang + total > plg.limit_piutang) {
         throw new HTTPException(422, { message: `Limit piutang ${plg.nama} terlampaui` })
       }
 
-      db.insert(piutang_pelanggan).values({
+      await query.exec(db.insert(piutang_pelanggan).values({
         pelanggan_id: body.pelanggan_id,
         penjualan_id: trx.id,
         tanggal_piutang: tgl,
         total_piutang: total,
         sisa_piutang: total,
         status: 'belum',
-      }).run()
+      }))
 
       if (plg) {
         await query.exec(db.update(pelanggan)
@@ -303,19 +303,19 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
   if (!trx) throw new HTTPException(404, { message: 'Transaksi tidak ditemukan' })
   if (trx.status === 'void') throw new HTTPException(400, { message: 'Transaksi sudah di-void' })
 
-  const items = db.select().from(penjualan_detail)
-    .where(eq(penjualan_detail.penjualan_id, id)).all()
+  const items = await query.findAll(db.select().from(penjualan_detail)
+    .where(eq(penjualan_detail.penjualan_id, id)))
 
   const tgl = tglSekarang()
 
   await withTransaction(async (tx) => {
     // Kembalikan stok
     for (const item of items) {
-      const br = db.select({ stok: barang.stok_sekarang })
-        .from(barang).where(eq(barang.id, item.barang_id)).get()
+      const br = await query.find(db.select({ stok: barang.stok_sekarang })
+        .from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
-      db.insert(mutasi_stok).values({
+      await query.exec(db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
         tanggal: tgl,
         jenis: 'masuk',
@@ -325,7 +325,7 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
         jumlah_perubahan: item.jumlah,
         jumlah_sesudah: br.stok + item.jumlah,
         dicatat_oleh: user.id,
-      }).run()
+      }))
 
       await query.exec(db.update(barang)
         .set({ stok_sekarang: br.stok + item.jumlah })

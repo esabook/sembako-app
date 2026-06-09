@@ -28,7 +28,7 @@ lampiranRouter.get('/', async (c) => {
     throw new HTTPException(400, { message: 'referensi_tipe dan referensi_id wajib' })
   }
 
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(lampiran)
     .where(
@@ -37,7 +37,7 @@ lampiranRouter.get('/', async (c) => {
         eq(lampiran.referensi_id, Number(referensiId)),
       ),
     )
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -93,7 +93,7 @@ lampiranRouter.post('/', async (c) => {
     path = `${subdir}/${filename}`
   }
 
-  const row = db
+  const row = await query.find(db
     .insert(lampiran)
     .values({
       referensi_tipe: referensiTipe,
@@ -106,7 +106,7 @@ lampiranRouter.post('/', async (c) => {
       uploaded_by: user.id,
     })
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row }, 201)
 })

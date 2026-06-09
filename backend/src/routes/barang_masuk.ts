@@ -30,7 +30,7 @@ function tglSekarang(): string {
 // ── GET /barang-masuk ─────────────────────────────────────────────────────
 
 barangMasukRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: barang_masuk.id,
       no_penerimaan: barang_masuk.no_penerimaan,
@@ -45,7 +45,7 @@ barangMasukRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
     .leftJoin(supplier, eq(barang_masuk.supplier_id, supplier.id))
     .orderBy(desc(barang_masuk.tanggal_terima))
     .limit(100)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -57,7 +57,7 @@ barangMasukRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) =>
   const bm = await query.find(db.select().from(barang_masuk).where(eq(barang_masuk.id, id)))
   if (!bm) throw new HTTPException(404, { message: 'Penerimaan tidak ditemukan' })
 
-  const items = db
+  const items = await query.findAll(db
     .select({
       id: barang_masuk_detail.id,
       barang_id: barang_masuk_detail.barang_id,
@@ -71,7 +71,7 @@ barangMasukRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) =>
     .from(barang_masuk_detail)
     .leftJoin(barang, eq(barang_masuk_detail.barang_id, barang.id))
     .where(eq(barang_masuk_detail.penerimaan_id, id))
-    .all()
+    )
 
   return c.json({ success: true, data: { ...bm, items } })
 })
@@ -115,7 +115,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
   const result = await withTransaction(async (tx) => {
     // 1. Buat barang_masuk header
-    const bm = db.insert(barang_masuk).values({
+    const bm = await query.ret(db.insert(barang_masuk).values({
       no_penerimaan: noTrx,
       po_id: body.po_id,
       supplier_id: body.supplier_id,
@@ -123,23 +123,23 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
       no_faktur_supplier: body.no_faktur_supplier,
       total_nilai: totalNilai,
       diterima_oleh: user.id,
-    }).returning().get()
+    }).returning())
 
     // 2. Detail + mutasi stok
     for (const item of body.items) {
       const br = await query.find(db.select().from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
-      db.insert(barang_masuk_detail).values({
+      await query.exec(db.insert(barang_masuk_detail).values({
         penerimaan_id: bm.id,
         barang_id: item.barang_id,
         satuan_id: item.satuan_id,
         jumlah_terima: item.jumlah_terima,
         harga_beli: item.harga_beli,
         tgl_kadaluarsa: item.tgl_kadaluarsa,
-      }).run()
+      }))
 
-      db.insert(mutasi_stok).values({
+      await query.exec(db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
         tanggal: tgl,
         jenis: 'masuk',
@@ -149,7 +149,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
         jumlah_perubahan: item.jumlah_terima,
         jumlah_sesudah: br.stok_sekarang + item.jumlah_terima,
         dicatat_oleh: user.id,
-      }).run()
+      }))
 
       // WAC: (stok_lama × rata_lama + jumlah_masuk × harga_baru) / (stok_lama + jumlah_masuk)
       const stokLama = br.stok_sekarang
@@ -159,22 +159,22 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
         ? (stokLama * rataLama + item.jumlah_terima * item.harga_beli) / stokBaru
         : item.harga_beli
 
-      db.update(barang)
+      await query.exec(db.update(barang)
         .set({
           stok_sekarang: stokBaru,
           harga_beli_terakhir: item.harga_beli,
           harga_beli_rata: Math.round(hargaBeliBaru),
         })
         .where(eq(barang.id, item.barang_id))
-        .run()
+        )
 
-      db.insert(histori_harga_beli).values({
+      await query.exec(db.insert(histori_harga_beli).values({
         barang_id: item.barang_id,
         supplier_id: body.supplier_id,
         barang_masuk_id: bm.id,
         harga_beli: item.harga_beli,
         tanggal_berlaku: tgl.slice(0, 10),
-      }).run()
+      }))
     }
 
     // 3. Buat hutang supplier
@@ -183,7 +183,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
           .toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
       : null
 
-    db.insert(hutang_supplier).values({
+    await query.exec(db.insert(hutang_supplier).values({
       supplier_id: body.supplier_id,
       barang_masuk_id: bm.id,
       tanggal_hutang: tgl.slice(0, 10),
@@ -191,7 +191,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
       total_hutang: totalNilai,
       sisa_hutang: totalNilai,
       status: 'belum',
-    }).run()
+    }))
 
     return bm
   })

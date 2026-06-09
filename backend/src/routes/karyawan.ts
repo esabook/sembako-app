@@ -15,7 +15,7 @@ karyawanRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
   const q = c.req.query('q')
   const aktif = c.req.query('aktif') !== '0'
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: karyawan.id,
       kode_karyawan: karyawan.kode_karyawan,
@@ -36,7 +36,7 @@ karyawanRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
         q ? like(karyawan.nama, `%${q}%`) : undefined,
       )
     )
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -50,13 +50,13 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
   const dari = `${bulan}-01`
   const sampai = `${bulan}-31`
 
-  const kasirList = db
+  const kasirList = await query.findAll(db
     .select({ id: karyawan.id, nama: karyawan.nama })
     .from(karyawan)
     .where(and(eq(karyawan.is_active, true), eq(karyawan.role, 'kasir')))
-    .all()
+    )
 
-  const shiftRows = db
+  const shiftRows = await query.findAll(db
     .select({
       karyawan_id: shift_kasir.karyawan_id,
       total_shift: sql<number>`COUNT(*)`,
@@ -72,9 +72,9 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
     .from(shift_kasir)
     .where(and(gte(shift_kasir.tanggal, dari), lte(shift_kasir.tanggal, sampai)))
     .groupBy(shift_kasir.karyawan_id)
-    .all()
+    )
 
-  const voidRows = db
+  const voidRows = await query.findAll(db
     .select({
       kasir_id: penjualan.kasir_id,
       total_void: sql<number>`COUNT(*)`,
@@ -86,9 +86,9 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
       lte(penjualan.tanggal, sampai + ' 23:59:59'),
     ))
     .groupBy(penjualan.kasir_id)
-    .all()
+    )
 
-  const absensiRows = db
+  const absensiRows = await query.findAll(db
     .select({
       karyawan_id: absensi.karyawan_id,
       hadir: sql<number>`SUM(CASE WHEN ${absensi.status} = 'hadir' THEN 1 ELSE 0 END)`,
@@ -97,7 +97,7 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
     .from(absensi)
     .where(and(gte(absensi.tanggal, dari), lte(absensi.tanggal, sampai)))
     .groupBy(absensi.karyawan_id)
-    .all()
+    )
 
   const shiftMap = new Map(shiftRows.map(r => [r.karyawan_id, r]))
   const voidMap = new Map(voidRows.map(r => [r.kasir_id, r.total_void]))
@@ -152,11 +152,11 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
   const dari = `${bulan}-01`
   const sampai = `${bulan}-31`
 
-  const k = db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
-    .from(karyawan).where(eq(karyawan.id, id)).get()
+  const k = await query.find(db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
+    .from(karyawan).where(eq(karyawan.id, id)))
   if (!k) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
-  const shifts = db
+  const shifts = await query.findAll(db
     .select()
     .from(shift_kasir)
     .where(and(
@@ -165,7 +165,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
       lte(shift_kasir.tanggal, sampai),
     ))
     .orderBy(shift_kasir.tanggal)
-    .all()
+    )
 
   const perShift = shifts.map(s => {
     let durasi_menit = 0
@@ -195,7 +195,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
     }
   })
 
-  const voidRow = db.select({ total: sql<number>`COUNT(*)` })
+  const voidRow = await query.find(db.select({ total: sql<number>`COUNT(*)` })
     .from(penjualan)
     .where(and(
       eq(penjualan.kasir_id, id),
@@ -203,7 +203,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
       gte(penjualan.tanggal, dari),
       lte(penjualan.tanggal, sampai + ' 23:59:59'),
     ))
-    .get()
+    )
 
   const absensiData = await query.findAll(db.select()
     .from(absensi)
@@ -247,7 +247,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
 
 karyawanRouter.get('/:id', requirePermission('karyawan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const row = db
+  const row = await query.find(db
     .select({
       id: karyawan.id,
       kode_karyawan: karyawan.kode_karyawan,
@@ -262,7 +262,7 @@ karyawanRouter.get('/:id', requirePermission('karyawan.lihat'), async (c) => {
     })
     .from(karyawan)
     .where(eq(karyawan.id, id))
-    .get()
+    )
 
   if (!row) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
   return c.json({ success: true, data: row })
@@ -290,7 +290,7 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
 
   let row
   try {
-    row = db.insert(karyawan).values({
+    row = await query.find(db.insert(karyawan).values({
       kode_karyawan: body.kode_karyawan.trim(),
       nama: body.nama.trim(),
       role: body.role,
@@ -306,7 +306,7 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
       nama: karyawan.nama,
       role: karyawan.role,
       username: karyawan.username,
-    }).get()
+    }))
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes('UNIQUE constraint failed: karyawan.kode_karyawan')) {
@@ -352,13 +352,13 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
 
   let row
   try {
-    row = db.update(karyawan).set(updates).where(eq(karyawan.id, id)).returning({
+    row = await query.find(db.update(karyawan).set(updates).where(eq(karyawan.id, id)).returning({
       id: karyawan.id,
       kode_karyawan: karyawan.kode_karyawan,
       nama: karyawan.nama,
       role: karyawan.role,
       username: karyawan.username,
-    }).get()
+    }))
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     if (msg.includes('UNIQUE constraint failed: karyawan.kode_karyawan')) {

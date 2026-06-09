@@ -17,15 +17,15 @@ draftRouter.use('*', authMiddleware)
 draftRouter.get('/keranjang', async (c) => {
   const kasirId = c.get('user').id
 
-  const draft = db
+  const draft = await query.find(db
     .select()
     .from(draft_keranjang)
     .where(eq(draft_keranjang.kasir_id, kasirId))
-    .get()
+    )
 
   if (!draft) return c.json({ success: true, data: null })
 
-  const items = db
+  const items = await query.findAll(db
     .select({
       barang_id: draft_keranjang_item.barang_id,
       tipe_harga: draft_keranjang_item.tipe_harga,
@@ -42,7 +42,7 @@ draftRouter.get('/keranjang', async (c) => {
     .leftJoin(barang, eq(draft_keranjang_item.barang_id, barang.id))
     .leftJoin(satuan, eq(draft_keranjang_item.satuan_id, satuan.id))
     .where(eq(draft_keranjang_item.draft_id, draft.id))
-    .all()
+    )
 
   return c.json({
     success: true,
@@ -73,26 +73,26 @@ draftRouter.put('/keranjang', async (c) => {
 
   await withTransaction(async (tx) => {
     // Upsert draft header
-    const existing = db
+    const existing = await query.find(db
       .select({ id: draft_keranjang.id })
       .from(draft_keranjang)
       .where(eq(draft_keranjang.kasir_id, kasirId))
-      .get()
+      )
 
     let draftId: number
 
     if (existing) {
-      db.update(draft_keranjang)
+      await query.exec(db.update(draft_keranjang)
         .set({
           tipe: body.tipe,
           pelanggan_id: body.pelanggan_id ?? null,
           updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19),
         })
         .where(eq(draft_keranjang.kasir_id, kasirId))
-        .run()
+        )
       draftId = existing.id
     } else {
-      const ins = db
+      const ins = await query.find(db
         .insert(draft_keranjang)
         .values({
           kasir_id: kasirId,
@@ -100,7 +100,7 @@ draftRouter.put('/keranjang', async (c) => {
           pelanggan_id: body.pelanggan_id ?? null,
         })
         .returning({ id: draft_keranjang.id })
-        .get()
+        )
       draftId = ins.id
     }
 
@@ -110,7 +110,7 @@ draftRouter.put('/keranjang', async (c) => {
     )
 
     if (body.items.length > 0) {
-      db.insert(draft_keranjang_item)
+      await query.exec(db.insert(draft_keranjang_item)
         .values(
           body.items.map((i) => ({
             draft_id: draftId,
@@ -122,7 +122,7 @@ draftRouter.put('/keranjang', async (c) => {
             diskon_item: i.diskon_item,
           }))
         )
-        .run()
+        )
     }
   })
 
@@ -134,11 +134,11 @@ draftRouter.put('/keranjang', async (c) => {
 draftRouter.delete('/keranjang', async (c) => {
   const kasirId = c.get('user').id
 
-  const draft = db
+  const draft = await query.find(db
     .select({ id: draft_keranjang.id })
     .from(draft_keranjang)
     .where(eq(draft_keranjang.kasir_id, kasirId))
-    .get()
+    )
 
   if (draft) {
     await withTransaction(async (tx) => {

@@ -14,7 +14,7 @@ supplierRouter.get('/', async (c) => {
   const q = c.req.query('q')
   const aktif = c.req.query('aktif') !== '0'
 
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(supplier)
     .where(
@@ -23,7 +23,7 @@ supplierRouter.get('/', async (c) => {
         q ? like(supplier.nama_supplier, `%${q}%`) : undefined,
       )
     )
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -49,14 +49,14 @@ supplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
     throw new HTTPException(400, { message: 'Kode dan nama supplier wajib diisi' })
   }
 
-  const row = db.insert(supplier).values({
+  const row = await query.ret(db.insert(supplier).values({
     kode_supplier: body.kode_supplier.trim(),
     nama_supplier: body.nama_supplier.trim(),
     kontak: body.kontak,
     alamat: body.alamat,
     terms_bayar: body.terms_bayar ?? 0,
     limit_hutang: body.limit_hutang ?? 0,
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -68,12 +68,12 @@ supplierRouter.put('/:id', requirePermission('pembelian.buat'), async (c) => {
   const existing = await query.find(db.select().from(supplier).where(eq(supplier.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
 
-  const row = db
+  const row = await query.find(db
     .update(supplier)
     .set({ ...body, updated_at: isoNow() })
     .where(eq(supplier.id, id))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })

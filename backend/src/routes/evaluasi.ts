@@ -26,7 +26,7 @@ evaluasiRouter.get('/', requirePermission('*'), async (c) => {
   if (karyawanId) conds.push(eq(evaluasi_karyawan.karyawan_id, karyawanId))
   if (periode) conds.push(eq(evaluasi_karyawan.periode, periode))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: evaluasi_karyawan.id,
       karyawan_id: evaluasi_karyawan.karyawan_id,
@@ -42,7 +42,7 @@ evaluasiRouter.get('/', requirePermission('*'), async (c) => {
     .leftJoin(karyawan, eq(evaluasi_karyawan.karyawan_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(evaluasi_karyawan.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -71,14 +71,14 @@ evaluasiRouter.post('/', requirePermission('*'), async (c) => {
 
   const tgl = body.tanggal ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const row = db.insert(evaluasi_karyawan).values({
+  const row = await query.ret(db.insert(evaluasi_karyawan).values({
     karyawan_id: body.karyawan_id,
     periode: body.periode,
     nilai: body.nilai,
     catatan: body.catatan,
     dinilai_oleh: user.id,
     tanggal: tgl,
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -101,11 +101,11 @@ evaluasiRouter.put('/:id', requirePermission('*'), async (c) => {
     throw new HTTPException(400, { message: 'nilai harus antara 1–5' })
   }
 
-  const updated = db.update(evaluasi_karyawan).set({
+  const updated = await query.ret(db.update(evaluasi_karyawan).set({
     nilai: body.nilai ?? existing.nilai,
     catatan: body.catatan !== undefined ? body.catatan : existing.catatan,
     periode: body.periode ?? existing.periode,
-  }).where(eq(evaluasi_karyawan.id, id)).returning().get()
+  }).where(eq(evaluasi_karyawan.id, id)).returning())
 
   return c.json({ success: true, data: updated })
 })

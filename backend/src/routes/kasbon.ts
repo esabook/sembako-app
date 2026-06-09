@@ -23,7 +23,7 @@ kasbonRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
   if (karyawanId) conds.push(eq(kasbon.karyawan_id, karyawanId))
   if (status) conds.push(eq(kasbon.status, status as never))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: kasbon.id,
       karyawan_id: kasbon.karyawan_id,
@@ -49,7 +49,7 @@ kasbonRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
         WHEN 'lunas'     THEN 4 END`,
       sql`${kasbon.tanggal_pinjam} DESC`
     )
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -76,18 +76,18 @@ kasbonRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
   if (!karyw) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   // Cek apakah ada kasbon aktif/pengajuan/disetujui yang belum lunas
-  const kasbonAktif = db.select({ id: kasbon.id, sisa: kasbon.sisa_kasbon }).from(kasbon)
+  const kasbonAktif = await query.findAll(db.select({ id: kasbon.id, sisa: kasbon.sisa_kasbon }).from(kasbon)
     .where(and(
       eq(kasbon.karyawan_id, body.karyawan_id),
       sql`${kasbon.status} IN ('pengajuan','disetujui','aktif')`
-    )).all()
+    )))
 
   const totalSisa = kasbonAktif.reduce((s, r) => s + r.sisa, 0)
   const MAX_KASBON = 5_000_000
   if (totalSisa + body.jumlah > MAX_KASBON)
     throw new HTTPException(400, { message: `Total kasbon melebihi batas maksimal Rp ${MAX_KASBON.toLocaleString('id-ID')}` })
 
-  const row = db.insert(kasbon).values({
+  const row = await query.ret(db.insert(kasbon).values({
     karyawan_id: body.karyawan_id,
     tanggal_pinjam: body.tanggal_pinjam,
     jumlah: body.jumlah,
@@ -95,7 +95,7 @@ kasbonRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
     sisa_kasbon: body.jumlah,
     status: 'pengajuan',
     catatan: body.catatan,
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -110,11 +110,11 @@ kasbonRouter.put('/:id/setujui', requirePermission('karyawan.edit'), async (c) =
   if (existing.status !== 'pengajuan')
     throw new HTTPException(400, { message: `Kasbon status '${existing.status}', bukan pengajuan` })
 
-  db.update(kasbon).set({
+  await query.exec(db.update(kasbon).set({
     status: 'disetujui',
     disetujui_oleh: user.id,
     updated_at: isoNow(),
-  }).where(eq(kasbon.id, id)).run()
+  }).where(eq(kasbon.id, id)))
 
   return c.json({ success: true, data: null })
 })
@@ -129,11 +129,11 @@ kasbonRouter.put('/:id/tolak', requirePermission('karyawan.edit'), async (c) => 
   if (!['pengajuan', 'disetujui'].includes(existing.status))
     throw new HTTPException(400, { message: 'Hanya bisa tolak kasbon yang belum cair' })
 
-  db.update(kasbon).set({
+  await query.exec(db.update(kasbon).set({
     status: 'ditolak',
     catatan: body.catatan ?? existing.catatan,
     updated_at: isoNow(),
-  }).where(eq(kasbon.id, id)).run()
+  }).where(eq(kasbon.id, id)))
 
   return c.json({ success: true, data: null })
 })
@@ -147,11 +147,11 @@ kasbonRouter.put('/:id/cair', requirePermission('karyawan.edit'), async (c) => {
   if (existing.status !== 'disetujui')
     throw new HTTPException(400, { message: 'Kasbon harus berstatus disetujui sebelum dicairkan' })
 
-  db.update(kasbon).set({
+  await query.exec(db.update(kasbon).set({
     status: 'aktif',
     tanggal_cair: tglHariIni(),
     updated_at: isoNow(),
-  }).where(eq(kasbon.id, id)).run()
+  }).where(eq(kasbon.id, id)))
 
   return c.json({ success: true, data: null })
 })
@@ -171,11 +171,11 @@ kasbonRouter.put('/:id/cicil', requirePermission('karyawan.edit'), async (c) => 
     throw new HTTPException(400, { message: 'Hanya kasbon berstatus aktif yang bisa dicicil' })
 
   const sisa = Math.max(0, existing.sisa_kasbon - body.jumlah_cicil)
-  const row = db.update(kasbon).set({
+  const row = await query.ret(db.update(kasbon).set({
     sisa_kasbon: sisa,
     status: sisa <= 0 ? 'lunas' : 'aktif',
     updated_at: isoNow(),
-  }).where(eq(kasbon.id, id)).returning().get()
+  }).where(eq(kasbon.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })

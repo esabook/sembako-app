@@ -14,12 +14,12 @@ tugasRouter.use('*', authMiddleware)
 // ── Template Checklist Item ───────────────────────────────────────────────────
 
 tugasRouter.get('/item', requirePermission('pelanggan.lihat'), async (c) => {
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(checklist_item)
     .where(eq(checklist_item.is_active, true))
     .orderBy(checklist_item.kategori, checklist_item.urutan)
-    .all()
+    )
   return c.json({ success: true, data: rows })
 })
 
@@ -29,12 +29,12 @@ tugasRouter.post('/item', requirePermission('*'), async (c) => {
   }>()
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'nama wajib' })
 
-  const row = db.insert(checklist_item).values({
+  const row = await query.ret(db.insert(checklist_item).values({
     nama: body.nama.trim(),
     kategori: body.kategori?.trim() ?? 'kebersihan',
     urutan: body.urutan ?? 0,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -45,13 +45,13 @@ tugasRouter.put('/item/:id', requirePermission('*'), async (c) => {
   const existing = await query.find(db.select({ id: checklist_item.id }).from(checklist_item).where(eq(checklist_item.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Item tidak ditemukan' })
 
-  const row = db.update(checklist_item).set({
+  const row = await query.ret(db.update(checklist_item).set({
     ...(body.nama !== undefined && { nama: body.nama }),
     ...(body.kategori !== undefined && { kategori: body.kategori }),
     ...(body.urutan !== undefined && { urutan: body.urutan }),
     ...(body.is_active !== undefined && { is_active: body.is_active }),
     ...getUpdatedBy(c),
-  }).where(eq(checklist_item.id, id)).returning().get()
+  }).where(eq(checklist_item.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })
@@ -69,7 +69,7 @@ tugasRouter.delete('/item/:id', requirePermission('*'), async (c) => {
 tugasRouter.get('/log', requirePermission('pelanggan.lihat'), async (c) => {
   const tanggal = c.req.query('tanggal') ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       log_id: checklist_log.id,
       item_id: checklist_item.id,
@@ -89,7 +89,7 @@ tugasRouter.get('/log', requirePermission('pelanggan.lihat'), async (c) => {
     .leftJoin(karyawan, eq(checklist_log.karyawan_id, karyawan.id))
     .where(eq(checklist_item.is_active, true))
     .orderBy(checklist_item.kategori, checklist_item.urutan)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -108,19 +108,19 @@ tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) 
 
   let row
   if (existing) {
-    row = db.update(checklist_log).set({
+    row = await query.ret(db.update(checklist_log).set({
       selesai: body.selesai,
       catatan: body.catatan,
       karyawan_id: user.id,
-    }).where(eq(checklist_log.id, existing.id)).returning().get()
+    }).where(eq(checklist_log.id, existing.id)).returning())
   } else {
-    row = db.insert(checklist_log).values({
+    row = await query.ret(db.insert(checklist_log).values({
       item_id: body.item_id,
       tanggal,
       karyawan_id: user.id,
       selesai: body.selesai,
       catatan: body.catatan,
-    }).returning().get()
+    }).returning())
   }
 
   return c.json({ success: true, data: row })
@@ -132,7 +132,7 @@ tugasRouter.get('/ringkasan', requirePermission('*'), async (c) => {
 
   if (!dari || !sampai) throw new HTTPException(400, { message: 'dari dan sampai wajib' })
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       tanggal: checklist_log.tanggal,
       total_item: checklist_item.id,
@@ -143,7 +143,7 @@ tugasRouter.get('/ringkasan', requirePermission('*'), async (c) => {
     .where(and(
       eq(checklist_item.is_active, true),
     ))
-    .all()
+    )
 
   const byDate: Record<string, { total: number; selesai: number }> = {}
   for (const r of rows) {

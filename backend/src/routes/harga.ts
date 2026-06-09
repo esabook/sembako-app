@@ -27,7 +27,7 @@ hargaRouter.get('/', requirePermission('harga_jual.lihat'), async (c) => {
   const q = c.req.query('q')
   const kategori_id = c.req.query('kategori_id')
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -51,7 +51,7 @@ hargaRouter.get('/', requirePermission('harga_jual.lihat'), async (c) => {
         kategori_id ? eq(barang.kategori_id, Number(kategori_id)) : undefined,
       )
     )
-    .all()
+    )
 
   const data = rows.map((r) => {
     const harga_beli = r.harga_beli_terakhir
@@ -73,7 +73,7 @@ hargaRouter.get('/', requirePermission('harga_jual.lihat'), async (c) => {
 hargaRouter.get('/:id/histori', requirePermission('harga_jual.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
 
-  const histori = db
+  const histori = await query.findAll(db
     .select({
       id: histori_harga_jual.id,
       harga_eceran: histori_harga_jual.harga_eceran,
@@ -87,7 +87,7 @@ hargaRouter.get('/:id/histori', requirePermission('harga_jual.lihat'), async (c)
     .where(eq(histori_harga_jual.barang_id, id))
     .orderBy(desc(histori_harga_jual.tanggal_berlaku))
     .limit(20)
-    .all()
+    )
 
   return c.json({ success: true, data: histori })
 })
@@ -109,7 +109,7 @@ hargaRouter.put('/:id', requirePermission('harga_jual.edit'), async (c) => {
   const tgl = tglSekarang()
 
   // Tutup histori terakhir yang masih aktif
-  db.update(histori_harga_jual)
+  await query.exec(db.update(histori_harga_jual)
     .set({ tanggal_berakhir: tgl })
     .where(
       and(
@@ -117,26 +117,26 @@ hargaRouter.put('/:id', requirePermission('harga_jual.edit'), async (c) => {
         sql`tanggal_berakhir IS NULL`,
       )
     )
-    .run()
+    )
 
   // Update master
-  db.update(barang)
+  await query.exec(db.update(barang)
     .set({
       harga_jual_eceran: body.harga_jual_eceran,
       harga_jual_grosir: body.harga_jual_grosir,
       updated_at: isoNow(),
     })
     .where(eq(barang.id, id))
-    .run()
+    )
 
   // Catat histori baru
-  db.insert(histori_harga_jual).values({
+  await query.exec(db.insert(histori_harga_jual).values({
     barang_id: id,
     harga_eceran: body.harga_jual_eceran,
     harga_grosir: body.harga_jual_grosir,
     tanggal_berlaku: tgl,
     diubah_oleh: payload.id,
-  }).run()
+  }))
 
   return c.json({ success: true, data: { id, ...body } })
 })
@@ -156,7 +156,7 @@ hargaRouter.post('/simulasi', requirePermission('harga_jual.lihat'), async (c) =
     return c.json({ success: false, error: 'Pilih minimal 1 barang' }, 400)
   }
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: barang.id,
       nama_barang: barang.nama_barang,
@@ -167,7 +167,7 @@ hargaRouter.post('/simulasi', requirePermission('harga_jual.lihat'), async (c) =
     })
     .from(barang)
     .where(and(eq(barang.is_active, true)))
-    .all()
+    )
     .filter((r) => body.barang_ids.includes(r.id))
 
   const preview = rows.map((r) => {
@@ -243,23 +243,23 @@ hargaRouter.post('/massal', requirePermission('harga_jual.edit'), async (c) => {
     )
 
     // Update master
-    db.update(barang)
+    await query.exec(db.update(barang)
       .set({
         harga_jual_eceran: eceran_baru,
         harga_jual_grosir: grosir_baru,
         updated_at: isoNow(),
       })
       .where(eq(barang.id, id))
-      .run()
+      )
 
     // Catat histori baru
-    db.insert(histori_harga_jual).values({
+    await query.exec(db.insert(histori_harga_jual).values({
       barang_id: id,
       harga_eceran: eceran_baru,
       harga_grosir: grosir_baru,
       tanggal_berlaku: tgl,
       diubah_oleh: payload.id,
-    }).run()
+    }))
 
     updated++
   }

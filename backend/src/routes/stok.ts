@@ -14,7 +14,7 @@ stokRouter.use('*', authMiddleware)
 // ── GET /stok — list semua barang + status stok ───────────────────────────
 
 stokRouter.get('/', requirePermission('stok.lihat'), async (c) => {
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -30,7 +30,7 @@ stokRouter.get('/', requirePermission('stok.lihat'), async (c) => {
     .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
     .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
     .where(eq(barang.is_active, true))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -44,7 +44,7 @@ stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) =>
   const tujuhHariLalu = new Date(Date.now() - 7 * 86400000)
     .toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const velRows = db
+  const velRows = await query.findAll(db
     .select({
       barang_id: penjualan_detail.barang_id,
       total_qty: sql<number>`SUM(${penjualan_detail.jumlah})`,
@@ -56,11 +56,11 @@ stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) =>
       gte(penjualan.tanggal, tujuhHariLalu),
     ))
     .groupBy(penjualan_detail.barang_id)
-    .all()
+    )
 
   const velMap = new Map(velRows.map(r => [r.barang_id, r.total_qty / 7]))
 
-  const barangList = db
+  const barangList = await query.findAll(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -72,7 +72,7 @@ stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) =>
     .from(barang)
     .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
     .where(eq(barang.is_active, true))
-    .all()
+    )
 
   const hasil = barangList
     .map(b => {
@@ -98,7 +98,7 @@ stokRouter.get('/:id/mutasi', requirePermission('stok.lihat'), async (c) => {
   if (dari) conditions.push(gte(mutasi_stok.tanggal, dari))
   if (sampai) conditions.push(lte(mutasi_stok.tanggal, sampai + ' 23:59:59'))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: mutasi_stok.id,
       tanggal: mutasi_stok.tanggal,
@@ -115,7 +115,7 @@ stokRouter.get('/:id/mutasi', requirePermission('stok.lihat'), async (c) => {
     .where(and(...conditions))
     .orderBy(desc(mutasi_stok.tanggal))
     .limit(limit)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -141,7 +141,7 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
   const tgl = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
 
   await withTransaction(async (tx) => {
-    db.insert(mutasi_stok).values({
+    await query.exec(db.insert(mutasi_stok).values({
       barang_id: body.barang_id,
       tanggal: tgl,
       jenis: 'koreksi',
@@ -151,7 +151,7 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
       jumlah_perubahan: selisih,
       jumlah_sesudah: body.stok_baru,
       dicatat_oleh: user.id,
-    }).run()
+    }))
 
     await query.exec(db.update(barang)
       .set({ stok_sekarang: body.stok_baru })
@@ -173,7 +173,7 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
 
 stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
   // Ambil jumlah_sesudah dari mutasi terakhir tiap barang
-  const mutasiTerakhir = db
+  const mutasiTerakhir = await query.findAll(db
     .select({
       barang_id: mutasi_stok.barang_id,
       jumlah_sesudah: mutasi_stok.jumlah_sesudah,
@@ -186,11 +186,11 @@ stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
       WHERE m2.barang_id = ${mutasi_stok.barang_id}
       ORDER BY m2.id DESC LIMIT 1
     )`)
-    .all()
+    )
 
   const mutasiMap = new Map(mutasiTerakhir.map((m) => [m.barang_id, m]))
 
-  const semuaBarang = db
+  const semuaBarang = await query.findAll(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -199,7 +199,7 @@ stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
     })
     .from(barang)
     .where(eq(barang.is_active, true))
-    .all()
+    )
 
   const drift = []
   const tanpaMutasi = []

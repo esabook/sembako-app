@@ -21,12 +21,12 @@ asetRouter.get('/', requirePermission('stok.lihat'), async (c) => {
   if (kondisi) conds.push(eq(aset_tetap.kondisi, kondisi as any))
   if (kategori) conds.push(eq(aset_tetap.kategori, kategori))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(aset_tetap)
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(aset_tetap.created_at))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -46,7 +46,7 @@ asetRouter.post('/', requirePermission('stok.edit'), async (c) => {
 
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'nama wajib' })
 
-  const row = db.insert(aset_tetap).values({
+  const row = await query.ret(db.insert(aset_tetap).values({
     nama: body.nama.trim(),
     kategori: body.kategori ?? 'Lainnya',
     nilai_beli: body.nilai_beli ?? 0,
@@ -56,7 +56,7 @@ asetRouter.post('/', requirePermission('stok.edit'), async (c) => {
     lokasi: body.lokasi,
     catatan: body.catatan,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -79,7 +79,7 @@ asetRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
   const existing = await query.find(db.select({ id: aset_tetap.id }).from(aset_tetap).where(eq(aset_tetap.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Aset tidak ditemukan' })
 
-  const row = db.update(aset_tetap).set({
+  const row = await query.ret(db.update(aset_tetap).set({
     ...(body.nama !== undefined && { nama: body.nama.trim() }),
     ...(body.kategori !== undefined && { kategori: body.kategori }),
     ...(body.nilai_beli !== undefined && { nilai_beli: body.nilai_beli }),
@@ -90,7 +90,7 @@ asetRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...(body.is_active !== undefined && { is_active: body.is_active }),
     ...getUpdatedBy(c),
-  }).where(eq(aset_tetap.id, id)).returning().get()
+  }).where(eq(aset_tetap.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })

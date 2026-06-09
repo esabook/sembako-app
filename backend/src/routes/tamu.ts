@@ -18,12 +18,12 @@ tamuRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
   if (dari) conds.push(gte(tamu_birokrasi.tanggal, dari))
   if (sampai) conds.push(lte(tamu_birokrasi.tanggal, sampai))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(tamu_birokrasi)
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(tamu_birokrasi.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -45,7 +45,7 @@ tamuRouter.post('/', requirePermission('karyawan.lihat'), async (c) => {
   if (!body.keperluan?.trim()) throw new HTTPException(400, { message: 'keperluan wajib' })
   if (!body.tanggal) throw new HTTPException(400, { message: 'tanggal wajib' })
 
-  const row = db.insert(tamu_birokrasi).values({
+  const row = await query.ret(db.insert(tamu_birokrasi).values({
     nama_tamu: body.nama_tamu.trim(),
     instansi: body.instansi?.trim(),
     keperluan: body.keperluan.trim(),
@@ -54,7 +54,7 @@ tamuRouter.post('/', requirePermission('karyawan.lihat'), async (c) => {
     jam_keluar: body.jam_keluar,
     keterangan: body.keterangan,
     dicatat_oleh: user.id,
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })

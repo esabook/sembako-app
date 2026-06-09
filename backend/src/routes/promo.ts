@@ -33,19 +33,19 @@ promoRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
 promoRouter.get('/aktif', requirePermission('penjualan.lihat'), async (c) => {
   const hari = tglHariIni()
 
-  const rows = db.select().from(promo).where(
+  const rows = await query.findAll(db.select().from(promo).where(
     and(
       eq(promo.aktif, true),
       or(isNull(promo.berlaku_mulai), lte(promo.berlaku_mulai, hari)),
       or(isNull(promo.berlaku_sampai), gte(promo.berlaku_sampai, hari)),
       or(isNull(promo.max_penggunaan), sql`${promo.jumlah_dipakai} < ${promo.max_penggunaan}`),
     )
-  ).all()
+  ))
 
   const targets = rows.length > 0
-    ? db.select().from(promo_target).where(
+    ? await query.findAll(db.select().from(promo_target).where(
         sql`${promo_target.promo_id} IN (${sql.join(rows.map((r) => sql`${r.id}`), sql`, `)})`
-      ).all()
+      ))
     : []
 
   const data = rows.map((p) => ({
@@ -92,7 +92,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   if (body.tipe_nilai === 'persen' && body.nilai > 100) throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
   const hasil = await withTransaction(async (tx) => {
-    const p = db.insert(promo).values({
+    const p = await query.ret(db.insert(promo).values({
       nama: body.nama,
       deskripsi: body.deskripsi,
       tipe: body.tipe,
@@ -104,7 +104,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       berlaku_sampai: body.berlaku_sampai,
       max_penggunaan: body.max_penggunaan,
       dibuat_oleh: user.id,
-    }).returning().get()
+    }).returning())
 
     if (body.targets?.length) {
       for (const t of body.targets) {
@@ -144,7 +144,7 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
     throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
   await withTransaction(async (tx) => {
-    db.update(promo)
+    await query.exec(db.update(promo)
       .set({
         nama: body.nama ?? existing.nama,
         deskripsi: body.deskripsi !== undefined ? body.deskripsi : existing.deskripsi,
@@ -160,7 +160,7 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
         updated_at: isoNow(),
       })
       .where(eq(promo.id, id))
-      .run()
+      )
 
     if (body.targets !== undefined) {
       await query.exec(db.delete(promo_target).where(eq(promo_target.promo_id, id)))

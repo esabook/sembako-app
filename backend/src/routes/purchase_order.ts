@@ -24,7 +24,7 @@ function noPO(): string {
 // ── GET /purchase-order ───────────────────────────────────────────────────
 
 purchaseOrderRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: purchase_order.id,
       no_po: purchase_order.no_po,
@@ -39,7 +39,7 @@ purchaseOrderRouter.get('/', requirePermission('pembelian.lihat'), async (c) => 
     .leftJoin(supplier, eq(purchase_order.supplier_id, supplier.id))
     .orderBy(desc(purchase_order.tanggal_po))
     .limit(100)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -51,7 +51,7 @@ purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
   const po = await query.find(db.select().from(purchase_order).where(eq(purchase_order.id, id)))
   if (!po) throw new HTTPException(404, { message: 'PO tidak ditemukan' })
 
-  const items = db
+  const items = await query.findAll(db
     .select({
       id: po_detail.id,
       barang_id: po_detail.barang_id,
@@ -68,7 +68,7 @@ purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
     .leftJoin(barang, eq(po_detail.barang_id, barang.id))
     .leftJoin(satuan, eq(po_detail.satuan_id, satuan.id))
     .where(eq(po_detail.po_id, id))
-    .all()
+    )
 
   const sup = await query.find(db.select().from(supplier).where(eq(supplier.id, po.supplier_id)))
 
@@ -79,7 +79,7 @@ purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
 
 purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), async (c) => {
   // Barang stok di bawah minimum
-  const kritisRows = db
+  const kritisRows = await query.findAll(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -91,14 +91,14 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
     })
     .from(barang)
     .where(eq(barang.is_active, true))
-    .all()
+    )
     .filter((b) => b.stok_sekarang <= b.stok_minimum)
 
   // Rata penjualan 7 hari — hitung dari penjualan_detail
   const tgl7HariLalu = new Date(Date.now() - 7 * 86400000)
     .toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const penjualanRecent = db
+  const penjualanRecent = await query.findAll(db
     .select({
       barang_id: penjualan_detail.barang_id,
       total_jumlah: sql<number>`sum(${penjualan_detail.jumlah})`,
@@ -110,7 +110,7 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
       ne(penjualan.status, 'void'),
     ))
     .groupBy(penjualan_detail.barang_id)
-    .all()
+    )
 
   const rataMap = new Map(penjualanRecent.map((r) => [r.barang_id, r.total_jumlah / 7]))
 
@@ -145,7 +145,7 @@ purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
 
   const tgl = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const po = db.insert(purchase_order).values({
+  const po = await query.ret(db.insert(purchase_order).values({
     no_po: noPO(),
     supplier_id: body.supplier_id,
     tanggal_po: tgl,
@@ -153,17 +153,17 @@ purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
     status: 'draft',
     total_nilai: totalNilai,
     dibuat_oleh: user.id,
-  }).returning().get()
+  }).returning())
 
   for (const item of body.items) {
-    db.insert(po_detail).values({
+    await query.exec(db.insert(po_detail).values({
       po_id: po.id,
       barang_id: item.barang_id,
       satuan_id: item.satuan_id,
       jumlah_pesan: item.jumlah_pesan,
       jumlah_diterima: 0,
       harga_beli_estimasi: item.harga_beli_estimasi ?? 0,
-    }).run()
+    }))
   }
 
   return c.json({ success: true, data: po }, 201)

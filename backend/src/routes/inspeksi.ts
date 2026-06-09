@@ -23,7 +23,7 @@ inspeksiRouter.get('/', requirePermission('*'), async (c) => {
   if (jenis) conds.push(eq(inspeksi_toko.jenis, jenis as any))
   if (status) conds.push(eq(inspeksi_toko.status, status as any))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: inspeksi_toko.id,
       tanggal: inspeksi_toko.tanggal,
@@ -40,7 +40,7 @@ inspeksiRouter.get('/', requirePermission('*'), async (c) => {
     .leftJoin(karyawan, eq(inspeksi_toko.petugas_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(inspeksi_toko.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -59,7 +59,7 @@ inspeksiRouter.post('/', requirePermission('*'), async (c) => {
     throw new HTTPException(400, { message: 'nilai harus antara 1–100' })
   }
 
-  const row = db.insert(inspeksi_toko).values({
+  const row = await query.ret(db.insert(inspeksi_toko).values({
     tanggal: body.tanggal,
     jenis: body.jenis ?? 'rutin',
     petugas_id: user.id,
@@ -69,7 +69,7 @@ inspeksiRouter.post('/', requirePermission('*'), async (c) => {
     nilai: body.nilai,
     catatan: body.catatan,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -85,7 +85,7 @@ inspeksiRouter.put('/:id', requirePermission('*'), async (c) => {
   const existing = await query.find(db.select({ id: inspeksi_toko.id }).from(inspeksi_toko).where(eq(inspeksi_toko.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Inspeksi tidak ditemukan' })
 
-  const row = db.update(inspeksi_toko).set({
+  const row = await query.ret(db.update(inspeksi_toko).set({
     ...(body.tanggal !== undefined && { tanggal: body.tanggal }),
     ...(body.jenis !== undefined && { jenis: body.jenis as any }),
     ...(body.area !== undefined && { area: body.area }),
@@ -95,7 +95,7 @@ inspeksiRouter.put('/:id', requirePermission('*'), async (c) => {
     ...(body.status !== undefined && { status: body.status as any }),
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...getUpdatedBy(c),
-  }).where(eq(inspeksi_toko.id, id)).returning().get()
+  }).where(eq(inspeksi_toko.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })

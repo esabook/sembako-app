@@ -54,11 +54,11 @@ authRouter.post('/login', async (c) => {
     throw new HTTPException(400, { message: 'Username dan password wajib diisi' })
   }
 
-  const user = db
+  const user = await query.find(db
     .select()
     .from(karyawan)
     .where(eq(karyawan.username, body.username))
-    .get()
+    )
 
   if (!user || !user.is_active) {
     throw new HTTPException(401, { message: 'Username atau password salah' })

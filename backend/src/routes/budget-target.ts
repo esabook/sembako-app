@@ -31,7 +31,7 @@ budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'),
     .where(sql`periode_bulan IN (${sql.join(periodeList.map(p => sql`${p}`), sql`, `)})`)
   )
 
-  const realisasiRows = db.select({
+  const realisasiRows = await query.findAll(db.select({
     periode: sql<string>`strftime('%Y-%m', tanggal)`,
     omzet: sql<number>`COALESCE(SUM(total), 0)`,
     transaksi: sql<number>`COUNT(*)`,
@@ -42,7 +42,7 @@ budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'),
       eq(penjualan.status, 'lunas'),
     ))
     .groupBy(sql`strftime('%Y-%m', tanggal)`)
-    .all()
+    )
 
   const realisasiMap = Object.fromEntries(
     realisasiRows.map(r => [r.periode, { omzet: r.omzet, transaksi: r.transaksi }])
@@ -66,9 +66,9 @@ budgetTargetRouter.get('/:periode', requirePermission('laporan.lihat'), async (c
     throw new HTTPException(400, { message: 'Format periode tidak valid. Gunakan YYYY-MM' })
   }
 
-  const target = db.select().from(target_penjualan)
+  const target = await query.find(db.select().from(target_penjualan)
     .where(eq(target_penjualan.periode_bulan, periode))
-    .get() ?? null
+  ) ?? null
 
   const budgets = await query.findAll(db.select().from(budget_operasional)
     .where(eq(budget_operasional.periode_bulan, periode))
@@ -99,7 +99,7 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
   )
 
   if (existing) {
-    const updated = db.update(target_penjualan)
+    const updated = await query.find(db.update(target_penjualan)
       .set({
         target_omzet: body.target_omzet ?? existing.target_omzet,
         target_transaksi: body.target_transaksi ?? existing.target_transaksi,
@@ -109,18 +109,18 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
       })
       .where(eq(target_penjualan.id, existing.id))
       .returning()
-      .get()
+      )
     return c.json({ success: true, data: updated })
   }
 
-  const created = db.insert(target_penjualan).values({
+  const created = await query.ret(db.insert(target_penjualan).values({
     periode_bulan: body.periode_bulan,
     target_omzet: body.target_omzet ?? 0,
     target_transaksi: body.target_transaksi ?? 0,
     target_margin_pct: body.target_margin_pct ?? 0,
     catatan: body.catatan,
     dibuat_oleh: Number(user.sub),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: created }, 201)
 })
@@ -147,15 +147,15 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
     throw new HTTPException(400, { message: 'nilai_budget harus angka >= 0' })
   }
 
-  const existing = db.select().from(budget_operasional)
+  const existing = await query.find(db.select().from(budget_operasional)
     .where(and(
       eq(budget_operasional.periode_bulan, body.periode_bulan),
       eq(budget_operasional.kategori, body.kategori),
     ))
-    .get()
+    )
 
   if (existing) {
-    const updated = db.update(budget_operasional)
+    const updated = await query.find(db.update(budget_operasional)
       .set({
         nilai_budget: body.nilai_budget,
         catatan: body.catatan ?? existing.catatan,
@@ -163,17 +163,17 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
       })
       .where(eq(budget_operasional.id, existing.id))
       .returning()
-      .get()
+      )
     return c.json({ success: true, data: updated })
   }
 
-  const created = db.insert(budget_operasional).values({
+  const created = await query.ret(db.insert(budget_operasional).values({
     periode_bulan: body.periode_bulan,
     kategori: body.kategori,
     nilai_budget: body.nilai_budget,
     catatan: body.catatan,
     dibuat_oleh: Number(user.sub),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: created }, 201)
 })
@@ -188,7 +188,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
   }
 
   // Realisasi omzet dari penjualan lunas
-  const omzetRow = db.select({
+  const omzetRow = await query.find(db.select({
     total: sql<number>`COALESCE(SUM(total), 0)`,
     jumlah_transaksi: sql<number>`COUNT(*)`,
   })
@@ -197,10 +197,10 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
       sql`strftime('%Y-%m', tanggal) = ${periode}`,
       eq(penjualan.status, 'lunas'),
     ))
-    .get()
+    )
 
   // Realisasi HPP: estimasi dari harga_beli_terakhir × jumlah terjual
-  const hppRow = db.select({
+  const hppRow = await query.find(db.select({
     hpp: sql<number>`COALESCE(SUM(${penjualan_detail.jumlah} * ${barang.harga_beli_terakhir}), 0)`,
   })
     .from(penjualan_detail)
@@ -210,7 +210,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
       sql`strftime('%Y-%m', ${penjualan.tanggal}) = ${periode}`,
       eq(penjualan.status, 'lunas'),
     ))
-    .get()
+    )
 
   const omzet = omzetRow?.total ?? 0
   const hpp = hppRow?.hpp ?? 0
@@ -218,7 +218,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
   const marginPct = omzet > 0 ? (labaKotor / omzet) * 100 : 0
 
   // Realisasi pengeluaran per kategori dari jurnal_kas
-  const pengeluaranRows = db.select({
+  const pengeluaranRows = await query.findAll(db.select({
     kategori: jurnal_kas.kategori,
     total: sql<number>`COALESCE(SUM(jumlah), 0)`,
   })
@@ -228,7 +228,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
       eq(jurnal_kas.jenis, 'keluar'),
     ))
     .groupBy(jurnal_kas.kategori)
-    .all()
+    )
 
   // Map ke objek kategori → total untuk memudahkan frontend
   const pengeluaran: Record<string, number> = {}
@@ -273,7 +273,7 @@ budgetTargetRouter.get('/:periode/proyeksi', requirePermission('laporan.lihat'),
     ? Number(hariIni.slice(8, 10))
     : hariDalamBulan // periode lampau → anggap sudah selesai
 
-  const omzetRow = db.select({
+  const omzetRow = await query.find(db.select({
     total: sql<number>`COALESCE(SUM(total), 0)`,
   })
     .from(penjualan)
@@ -281,7 +281,7 @@ budgetTargetRouter.get('/:periode/proyeksi', requirePermission('laporan.lihat'),
       sql`strftime('%Y-%m', tanggal) = ${periode}`,
       eq(penjualan.status, 'lunas'),
     ))
-    .get()
+    )
 
   const omzetSaatIni = omzetRow?.total ?? 0
   const proyeksi = hariSekarang > 0
@@ -334,7 +334,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
     )
 
     if (existingTarget) {
-      targetBaru = db.update(target_penjualan)
+      targetBaru = await query.find(db.update(target_penjualan)
         .set({
           target_omzet: sumberTarget.target_omzet,
           target_transaksi: sumberTarget.target_transaksi,
@@ -343,27 +343,27 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
         })
         .where(eq(target_penjualan.id, existingTarget.id))
         .returning()
-        .get()
+        )
     } else {
-      targetBaru = db.insert(target_penjualan).values({
+      targetBaru = await query.ret(db.insert(target_penjualan).values({
         periode_bulan: body.ke,
         target_omzet: sumberTarget.target_omzet,
         target_transaksi: sumberTarget.target_transaksi,
         target_margin_pct: sumberTarget.target_margin_pct,
         dibuat_oleh: Number(user.sub),
-      }).returning().get()
+      }).returning())
     }
   }
 
   // Upsert budgets
   const budgetBaru = []
   for (const src of sumberBudgets) {
-    const existing = db.select().from(budget_operasional)
+    const existing = await query.find(db.select().from(budget_operasional)
       .where(and(
         eq(budget_operasional.periode_bulan, body.ke),
         eq(budget_operasional.kategori, src.kategori),
       ))
-      .get()
+      )
 
     if (existing) {
       const updated = await query.ret(db.update(budget_operasional)
@@ -373,12 +373,12 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
       )
       budgetBaru.push(updated)
     } else {
-      const created = db.insert(budget_operasional).values({
+      const created = await query.ret(db.insert(budget_operasional).values({
         periode_bulan: body.ke,
         kategori: src.kategori,
         nilai_budget: src.nilai_budget,
         dibuat_oleh: Number(user.sub),
-      }).returning().get()
+      }).returning())
       budgetBaru.push(created)
     }
   }

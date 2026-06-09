@@ -16,7 +16,7 @@ kartuAnggotaRouter.get('/', async (c) => {
   const status = c.req.query('status') // 'assigned' | 'available'
   const aktif  = c.req.query('aktif') !== '0'
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       ...getTableColumns(kartu_anggota),
       pelanggan_nama: pelanggan.nama,
@@ -30,7 +30,7 @@ kartuAnggotaRouter.get('/', async (c) => {
       status === 'available' ? sql`${kartu_anggota.pelanggan_id} IS NULL`     : undefined,
       q ? like(kartu_anggota.no_kartu, `%${q}%`) : undefined,
     ))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -72,7 +72,7 @@ kartuAnggotaRouter.post('/generate', requirePermission('penjualan.buat'), async 
 
 kartuAnggotaRouter.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  const row = db
+  const row = await query.find(db
     .select({
       ...getTableColumns(kartu_anggota),
       pelanggan_nama: pelanggan.nama,
@@ -81,7 +81,7 @@ kartuAnggotaRouter.get('/:id', async (c) => {
     .from(kartu_anggota)
     .leftJoin(pelanggan, eq(kartu_anggota.pelanggan_id, pelanggan.id))
     .where(eq(kartu_anggota.id, id))
-    .get()
+    )
   if (!row) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
@@ -94,12 +94,12 @@ kartuAnggotaRouter.put('/:id', requirePermission('penjualan.buat'), async (c) =>
   const existing = await query.find(db.select().from(kartu_anggota).where(eq(kartu_anggota.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
-  const row = db
+  const row = await query.find(db
     .update(kartu_anggota)
     .set({ ...body, updated_at: isoNow() })
     .where(eq(kartu_anggota.id, id))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })
@@ -113,12 +113,12 @@ kartuAnggotaRouter.patch('/:id/poin', requirePermission('penjualan.buat'), async
   if (!existing) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   const poin_baru = Math.max(0, existing.poin + body.delta)
-  const row = db
+  const row = await query.find(db
     .update(kartu_anggota)
     .set({ poin: poin_baru, updated_at: isoNow() })
     .where(eq(kartu_anggota.id, id))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })
@@ -142,12 +142,12 @@ kartuAnggotaRouter.post('/:id/assign', requirePermission('penjualan.buat'), asyn
   )
   if (kartuLain) throw new HTTPException(400, { message: 'Pelanggan sudah memiliki kartu anggota aktif' })
 
-  const row = db
+  const row = await query.find(db
     .update(kartu_anggota)
     .set({ pelanggan_id: body.pelanggan_id, updated_at: isoNow() })
     .where(eq(kartu_anggota.id, id))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })

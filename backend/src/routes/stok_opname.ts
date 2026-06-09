@@ -27,11 +27,11 @@ function tglSekarang(): string {
 // ── GET /stok-opname ──────────────────────────────────────────────────────
 
 stokOpnameRouter.get('/', requirePermission('stok.lihat'), async (c) => {
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(stok_opname)
     .orderBy(desc(stok_opname.tanggal_mulai))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -43,7 +43,7 @@ stokOpnameRouter.get('/:id', requirePermission('stok.lihat'), async (c) => {
   const op = await query.find(db.select().from(stok_opname).where(eq(stok_opname.id, id)))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
 
-  const items = db
+  const items = await query.findAll(db
     .select({
       id: stok_opname_detail.id,
       barang_id: stok_opname_detail.barang_id,
@@ -63,7 +63,7 @@ stokOpnameRouter.get('/:id', requirePermission('stok.lihat'), async (c) => {
     .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
     .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
     .where(eq(stok_opname_detail.opname_id, id))
-    .all()
+    )
 
   const sudahDihitung = items.filter((i) => i.stok_fisik !== null).length
   const progress = items.length > 0 ? Math.round((sudahDihitung / items.length) * 100) : 0
@@ -75,11 +75,11 @@ stokOpnameRouter.get('/:id', requirePermission('stok.lihat'), async (c) => {
 
 stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
   // Cek tidak ada opname aktif (draft/proses)
-  const aktif = db
+  const aktif = await query.find(db
     .select()
     .from(stok_opname)
     .where(eq(stok_opname.status, 'draft'))
-    .get()
+    )
     ?? await query.find(db.select().from(stok_opname).where(eq(stok_opname.status, 'proses')))
 
   if (aktif) {
@@ -91,27 +91,27 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
   const tgl = tglSekarang()
 
   const opname = await withTransaction(async (tx) => {
-    const op = db.insert(stok_opname).values({
+    const op = await query.ret(db.insert(stok_opname).values({
       no_opname: noOpname(),
       tanggal_mulai: tgl,
       status: 'proses',
-    }).returning().get()
+    }).returning())
 
     // Snapshot semua barang aktif
-    const semuaBarang = db
+    const semuaBarang = await query.findAll(db
       .select({ id: barang.id, stok_sekarang: barang.stok_sekarang })
       .from(barang)
       .where(eq(barang.is_active, true))
-      .all()
+      )
 
     for (const br of semuaBarang) {
-      db.insert(stok_opname_detail).values({
+      await query.exec(db.insert(stok_opname_detail).values({
         opname_id: op.id,
         barang_id: br.id,
         stok_sistem: br.stok_sekarang,
         stok_fisik: null,
         selisih: null,
-      }).run()
+      }))
     }
 
     return op
@@ -131,17 +131,17 @@ stokOpnameRouter.put('/:id/item/:itemId', requirePermission('stok.edit'), async 
   if (body.stok_fisik === undefined || body.stok_fisik < 0)
     throw new HTTPException(400, { message: 'Stok fisik tidak valid' })
 
-  const item = db
+  const item = await query.find(db
     .select()
     .from(stok_opname_detail)
     .where(eq(stok_opname_detail.id, itemId))
-    .get()
+    )
   if (!item || item.opname_id !== opId)
     throw new HTTPException(404, { message: 'Item tidak ditemukan' })
 
   const selisih = body.stok_fisik - item.stok_sistem
 
-  db.update(stok_opname_detail)
+  await query.exec(db.update(stok_opname_detail)
     .set({
       stok_fisik: body.stok_fisik,
       selisih,
@@ -149,7 +149,7 @@ stokOpnameRouter.put('/:id/item/:itemId', requirePermission('stok.edit'), async 
       dihitung_oleh: user.id,
     })
     .where(eq(stok_opname_detail.id, itemId))
-    .run()
+    )
 
   return c.json({ success: true, data: { selisih } })
 })
@@ -164,11 +164,11 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
   if (op.status === 'approved') throw new HTTPException(400, { message: 'Opname sudah diapprove' })
 
-  const items = db
+  const items = await query.findAll(db
     .select()
     .from(stok_opname_detail)
     .where(eq(stok_opname_detail.opname_id, id))
-    .all()
+    )
 
   const belumDihitung = items.filter((i) => i.stok_fisik === null).length
   if (belumDihitung > 0)
@@ -183,7 +183,7 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
       const br = await query.find(db.select().from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) continue
 
-      db.insert(mutasi_stok).values({
+      await query.exec(db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
         tanggal: tgl,
         jenis: 'opname',
@@ -193,7 +193,7 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
         jumlah_perubahan: item.selisih!,
         jumlah_sesudah: item.stok_fisik!,
         dicatat_oleh: user.id,
-      }).run()
+      }))
 
       await query.exec(db.update(barang)
         .set({ stok_sekarang: item.stok_fisik! })
@@ -201,7 +201,7 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
       )
     }
 
-    db.update(stok_opname)
+    await query.exec(db.update(stok_opname)
       .set({
         status: 'approved',
         tanggal_selesai: tgl,
@@ -209,7 +209,7 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
         updated_at: isoNow(),
       })
       .where(eq(stok_opname.id, id))
-      .run()
+      )
   })
 
   const totalSelisih = items.filter((i) => i.selisih !== 0).length

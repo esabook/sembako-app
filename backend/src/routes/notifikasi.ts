@@ -99,7 +99,7 @@ notifikasiRouter.post('/log', requirePermission('*'), async (c) => {
     referensi_id?: number
   }>()
 
-  const row = db.insert(notifikasi_log).values({
+  const row = await query.ret(db.insert(notifikasi_log).values({
     jenis: body.jenis,
     channel: body.channel,
     pesan: body.pesan,
@@ -107,7 +107,7 @@ notifikasiRouter.post('/log', requirePermission('*'), async (c) => {
     status: body.status,
     referensi_tipe: body.referensi_tipe ?? null,
     referensi_id: body.referensi_id ?? null,
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row })
 })
@@ -123,11 +123,11 @@ notifikasiRouter.get('/check', async (c) => {
     if (cfg.jenis === 'stok_habis') {
       const items = db.query.barang?.findMany?.({ where: (b: any, { eq: eq2 }: any) => eq2(b.is_active, 1) }) ?? []
       // Gunakan raw query karena relational query belum di-setup
-      const stmt = db.select({
+      const stmt = await query.findAll(db.select({
         id: barang.id,
         nama_barang: barang.nama_barang,
         stok_sekarang: barang.stok_sekarang,
-      }).from(barang).where(eq(barang.is_active, true)).all()
+      }).from(barang).where(eq(barang.is_active, true)))
 
       for (const item of stmt) {
         if ((item.stok_sekarang ?? 0) <= 0) {
@@ -142,12 +142,12 @@ notifikasiRouter.get('/check', async (c) => {
     }
 
     if (cfg.jenis === 'stok_kritis') {
-      const stmt = db.select({
+      const stmt = await query.findAll(db.select({
         id: barang.id,
         nama_barang: barang.nama_barang,
         stok_sekarang: barang.stok_sekarang,
         stok_minimum: barang.stok_minimum,
-      }).from(barang).where(eq(barang.is_active, true)).all()
+      }).from(barang).where(eq(barang.is_active, true)))
 
       for (const item of stmt) {
         const min = item.stok_minimum ?? 0
@@ -169,11 +169,11 @@ notifikasiRouter.get('/check', async (c) => {
       batas.setDate(batas.getDate() + threshold)
       const batasStr = batas.toISOString().slice(0, 10)
 
-      const rows = db.select({
+      const rows = await query.findAll(db.select({
         id: hutang_supplier.id,
         sisa_hutang: hutang_supplier.sisa_hutang,
         tanggal_jatuh_tempo: hutang_supplier.tanggal_jatuh_tempo,
-      }).from(hutang_supplier).where(eq(hutang_supplier.status, 'belum')).all()
+      }).from(hutang_supplier).where(eq(hutang_supplier.status, 'belum')))
 
       for (const row of rows) {
         if (row.tanggal_jatuh_tempo && row.tanggal_jatuh_tempo <= batasStr) {
@@ -193,11 +193,11 @@ notifikasiRouter.get('/check', async (c) => {
       batas.setDate(batas.getDate() - threshold)
       const batasStr = batas.toISOString().slice(0, 10)
 
-      const rows = db.select({
+      const rows = await query.findAll(db.select({
         id: piutang_pelanggan.id,
         sisa_piutang: piutang_pelanggan.sisa_piutang,
         tanggal_jatuh_tempo: piutang_pelanggan.tanggal_jatuh_tempo,
-      }).from(piutang_pelanggan).where(eq(piutang_pelanggan.status, 'belum')).all()
+      }).from(piutang_pelanggan).where(eq(piutang_pelanggan.status, 'belum')))
 
       for (const row of rows) {
         if (row.tanggal_jatuh_tempo && row.tanggal_jatuh_tempo < batasStr) {
@@ -224,7 +224,7 @@ notifikasiRouter.get('/piutang-reminder', requirePermission('penjualan.lihat'), 
   batas.setDate(batas.getDate() + hari)
   const batasStr = batas.toISOString().slice(0, 10)
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: piutang_pelanggan.id,
       no_transaksi: penjualan.no_transaksi,
@@ -242,7 +242,7 @@ notifikasiRouter.get('/piutang-reminder', requirePermission('penjualan.lihat'), 
       lte(piutang_pelanggan.tanggal_jatuh_tempo, batasStr),
     ))
     .orderBy(piutang_pelanggan.tanggal_jatuh_tempo)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })

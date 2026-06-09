@@ -23,7 +23,7 @@ salesRouter.get('/kunjungan', requirePermission('pelanggan.lihat'), async (c) =>
   if (sampai) conds.push(lte(kunjungan_sales.tanggal, sampai))
   if (status) conds.push(eq(kunjungan_sales.status_tindak_lanjut, status as any))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: kunjungan_sales.id,
       pelanggan_id: kunjungan_sales.pelanggan_id,
@@ -42,7 +42,7 @@ salesRouter.get('/kunjungan', requirePermission('pelanggan.lihat'), async (c) =>
     .leftJoin(karyawan, eq(kunjungan_sales.petugas_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(kunjungan_sales.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -60,7 +60,7 @@ salesRouter.post('/kunjungan', requirePermission('pelanggan.lihat'), async (c) =
   if (!body.nama_warung?.trim()) throw new HTTPException(400, { message: 'nama_warung wajib' })
   if (!body.tanggal) throw new HTTPException(400, { message: 'tanggal wajib' })
 
-  const row = db.insert(kunjungan_sales).values({
+  const row = await query.ret(db.insert(kunjungan_sales).values({
     nama_warung: body.nama_warung.trim(),
     alamat: body.alamat,
     pelanggan_id: body.pelanggan_id,
@@ -71,7 +71,7 @@ salesRouter.post('/kunjungan', requirePermission('pelanggan.lihat'), async (c) =
     catatan: body.catatan,
     status_tindak_lanjut: body.status_tindak_lanjut ?? 'open',
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -86,7 +86,7 @@ salesRouter.put('/kunjungan/:id', requirePermission('pelanggan.lihat'), async (c
   const existing = await query.find(db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(eq(kunjungan_sales.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
-  const row = db.update(kunjungan_sales).set({
+  const row = await query.ret(db.update(kunjungan_sales).set({
     ...(body.nama_warung !== undefined && { nama_warung: body.nama_warung }),
     ...(body.alamat !== undefined && { alamat: body.alamat }),
     ...(body.tujuan !== undefined && { tujuan: body.tujuan as any }),
@@ -94,7 +94,7 @@ salesRouter.put('/kunjungan/:id', requirePermission('pelanggan.lihat'), async (c
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...(body.status_tindak_lanjut !== undefined && { status_tindak_lanjut: body.status_tindak_lanjut as any }),
     ...getUpdatedBy(c),
-  }).where(eq(kunjungan_sales.id, id)).returning().get()
+  }).where(eq(kunjungan_sales.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })
@@ -119,7 +119,7 @@ salesRouter.get('/agenda-supplier', requirePermission('pembelian.lihat'), async 
   if (sampai) conds.push(lte(agenda_supplier.tanggal, sampai))
   if (status) conds.push(eq(agenda_supplier.status, status as any))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: agenda_supplier.id,
       supplier_id: agenda_supplier.supplier_id,
@@ -138,7 +138,7 @@ salesRouter.get('/agenda-supplier', requirePermission('pembelian.lihat'), async 
     .leftJoin(karyawan, eq(agenda_supplier.petugas_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(agenda_supplier.tanggal))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -155,7 +155,7 @@ salesRouter.post('/agenda-supplier', requirePermission('pembelian.lihat'), async
   if (!body.nama_supplier?.trim()) throw new HTTPException(400, { message: 'nama_supplier wajib' })
   if (!body.tanggal) throw new HTTPException(400, { message: 'tanggal wajib' })
 
-  const row = db.insert(agenda_supplier).values({
+  const row = await query.ret(db.insert(agenda_supplier).values({
     supplier_id: body.supplier_id,
     nama_supplier: body.nama_supplier.trim(),
     tipe: body.tipe ?? 'kunjungan',
@@ -165,7 +165,7 @@ salesRouter.post('/agenda-supplier', requirePermission('pembelian.lihat'), async
     petugas_id: body.petugas_id ?? user.id,
     catatan: body.catatan,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -180,7 +180,7 @@ salesRouter.put('/agenda-supplier/:id', requirePermission('pembelian.lihat'), as
   const existing = await query.find(db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(eq(agenda_supplier.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Agenda tidak ditemukan' })
 
-  const row = db.update(agenda_supplier).set({
+  const row = await query.ret(db.update(agenda_supplier).set({
     ...(body.tipe !== undefined && { tipe: body.tipe as any }),
     ...(body.tanggal !== undefined && { tanggal: body.tanggal }),
     ...(body.jam !== undefined && { jam: body.jam }),
@@ -189,7 +189,7 @@ salesRouter.put('/agenda-supplier/:id', requirePermission('pembelian.lihat'), as
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...(body.status !== undefined && { status: body.status as any }),
     ...getUpdatedBy(c),
-  }).where(eq(agenda_supplier.id, id)).returning().get()
+  }).where(eq(agenda_supplier.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })
@@ -210,7 +210,7 @@ salesRouter.get('/pipeline', requirePermission('pelanggan.lihat'), async (c) => 
   const conds = []
   if (tahap) conds.push(eq(pipeline_grosir.tahap, tahap as any))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: pipeline_grosir.id,
       nama_pelanggan: pipeline_grosir.nama_pelanggan,
@@ -227,7 +227,7 @@ salesRouter.get('/pipeline', requirePermission('pelanggan.lihat'), async (c) => 
     .leftJoin(karyawan, eq(pipeline_grosir.petugas_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(pipeline_grosir.tahap, desc(pipeline_grosir.tanggal_masuk))
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -244,7 +244,7 @@ salesRouter.post('/pipeline', requirePermission('pelanggan.lihat'), async (c) =>
   if (!body.nama_pelanggan?.trim()) throw new HTTPException(400, { message: 'nama_pelanggan wajib' })
   if (!body.tanggal_masuk) throw new HTTPException(400, { message: 'tanggal_masuk wajib' })
 
-  const row = db.insert(pipeline_grosir).values({
+  const row = await query.ret(db.insert(pipeline_grosir).values({
     nama_pelanggan: body.nama_pelanggan.trim(),
     pelanggan_id: body.pelanggan_id,
     nilai_estimasi: body.nilai_estimasi ?? 0,
@@ -255,7 +255,7 @@ salesRouter.post('/pipeline', requirePermission('pelanggan.lihat'), async (c) =>
     tanggal_masuk: body.tanggal_masuk,
     tanggal_update: body.tanggal_masuk,
     ...getAuditBy(c),
-  }).returning().get()
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
@@ -271,7 +271,7 @@ salesRouter.put('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c)
   if (!existing) throw new HTTPException(404, { message: 'Pipeline tidak ditemukan' })
 
   const tanggal_update = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
-  const row = db.update(pipeline_grosir).set({
+  const row = await query.ret(db.update(pipeline_grosir).set({
     ...(body.nama_pelanggan !== undefined && { nama_pelanggan: body.nama_pelanggan }),
     ...(body.nilai_estimasi !== undefined && { nilai_estimasi: body.nilai_estimasi }),
     ...(body.tahap !== undefined && { tahap: body.tahap as any }),
@@ -279,7 +279,7 @@ salesRouter.put('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c)
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     tanggal_update,
     ...getUpdatedBy(c),
-  }).where(eq(pipeline_grosir.id, id)).returning().get()
+  }).where(eq(pipeline_grosir.id, id)).returning())
 
   return c.json({ success: true, data: row })
 })
