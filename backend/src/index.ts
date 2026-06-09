@@ -1,5 +1,5 @@
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
-import { db } from './db/index.ts'
+import { db, dialect, query } from './db/index.ts'
 import { karyawan, kas_bank } from './db/schema.ts'
 import { count } from 'drizzle-orm'
 import { Hono } from 'hono'
@@ -156,9 +156,10 @@ app.route('/inspeksi', inspeksiRouter)
 app.route('/printer', printerRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
-// MIGRATIONS_DIR bisa di-set via env untuk distribusi (default: src/db/migrations untuk dev)
-const migrationsFolder = process.env.MIGRATIONS_DIR ?? './src/db/migrations'
-migrate(db, { migrationsFolder })
+if (dialect === 'sqlite') {
+  const migrationsFolder = process.env.MIGRATIONS_DIR ?? './src/db/migrations/sqlite'
+  migrate(db as any, { migrationsFolder })
+}
 console.log('Database migrations OK')
 
 // Daftarkan semua SOP hooks ke event bus
@@ -167,21 +168,21 @@ initHooks()
 initScheduler()
 
 // Auto-seed: buat admin default hanya jika belum ada karyawan sama sekali (db segar)
-const seedCheck = db.select({ total: count() }).from(karyawan).get()
+const seedCheck = await query.find<{ total: number }>(db.select({ total: count() }).from(karyawan))
 if ((seedCheck?.total ?? 0) === 0) {
   const hash = await Bun.password.hash('admin123')
-  db.insert(karyawan).values({
+  await query.exec(db.insert(karyawan).values({
     kode_karyawan: 'KRY-001',
     nama: 'Pemilik',
     role: 'pemilik',
     username: 'admin',
     password_hash: hash,
     tipe_gaji: 'bulanan',
-  }).run()
-  db.insert(kas_bank).values([
+  }))
+  await query.exec(db.insert(kas_bank).values([
     { nama: 'Kas Toko', tipe: 'kas', saldo_awal: 0 },
     { nama: 'Bank BRI', tipe: 'bank', saldo_awal: 0 },
-  ]).run()
+  ]))
   console.log('Seed awal OK — login: admin / admin123')
 }
 
