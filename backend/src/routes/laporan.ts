@@ -2,7 +2,6 @@ import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, and, gte, lte, ne, sql } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   penjualan, penjualan_detail,
   jurnal_kas, kas_bank,
@@ -503,7 +502,6 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
       )
     )
     .groupBy(barang.id)
-    .orderBy(sql`omset DESC`)
     )
 
   const produk = rows.map((r) => {
@@ -520,7 +518,7 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
       margin: Math.round(margin),
       margin_pct: Math.round(margin_pct * 100) / 100,
     }
-  })
+  }).sort((a, b) => b.omset - a.omset)
 
   const total_omset = produk.reduce((s, p) => s + p.omset, 0)
   const total_hpp = produk.reduce((s, p) => s + p.hpp, 0)
@@ -602,7 +600,6 @@ laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) =
     .from(barang)
     .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
     .where(eq(barang.is_active, true))
-    .orderBy(sql`nilai_stok DESC`)
     )
 
   const produk = rows.map((r) => {
