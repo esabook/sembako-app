@@ -1,7 +1,7 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { sql, eq, and, gte, lte, lt, desc, asc, notExists } from 'drizzle-orm'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   penjualan, penjualan_detail, barang,
   hutang_supplier, piutang_pelanggan, pelanggan, supplier,
@@ -148,11 +148,11 @@ dashboardRouter.get('/', async (c) => {
     .where(and(
       eq(karyawan.is_active, true),
       notExists(
-        db.select({ _: absensi.id }).from(absensi)
+        await query.findAll(db.select({ _: absensi.id }).from(absensi)
           .where(and(eq(absensi.karyawan_id, karyawan.id), eq(absensi.tanggal, today)))
       )
     ))
-    .all()
+        )
 
   // ── Ringkasan piutang & hutang total ───────────────────────────────────────
   const totalPiutang = db.select({

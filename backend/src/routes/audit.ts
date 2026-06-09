@@ -1,7 +1,7 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { log_aktivitas, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
@@ -108,10 +108,10 @@ auditRouter.get('/export', async (c) => {
 // untuk dropdown filter
 
 auditRouter.get('/karyawan-list', async (c) => {
-  const rows = db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
+  const rows = await query.findAll(db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
     .from(karyawan)
     .orderBy(karyawan.nama)
-    .all()
+  )
   return c.json({ success: true, data: rows })
 })
 
@@ -119,9 +119,9 @@ auditRouter.get('/karyawan-list', async (c) => {
 // distinct modul yang sudah ada di log
 
 auditRouter.get('/modul-list', async (c) => {
-  const rows = db.selectDistinct({ modul: log_aktivitas.modul })
+  const rows = await query.findAll(db.selectDistinct({ modul: log_aktivitas.modul })
     .from(log_aktivitas)
     .orderBy(log_aktivitas.modul)
-    .all()
+  )
   return c.json({ success: true, data: rows.map(r => r.modul) })
 })

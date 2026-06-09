@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { permintaan_pelanggan, komplain_pelanggan, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
@@ -75,7 +75,7 @@ crmRouter.put('/permintaan/:id', requirePermission('pelanggan.lihat'), async (c)
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{ status: string; catatan: string; barang_id: number }>>()
 
-  const existing = db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)).get()
+  const existing = await query.find(db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
   const row = db.update(permintaan_pelanggan).set({
@@ -90,9 +90,9 @@ crmRouter.put('/permintaan/:id', requirePermission('pelanggan.lihat'), async (c)
 
 crmRouter.delete('/permintaan/:id', requirePermission('pelanggan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)).get()
+  const existing = await query.find(db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
-  db.delete(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)).run()
+  await query.exec(db.delete(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)))
   return c.json({ success: true, data: null })
 })
 
@@ -160,7 +160,7 @@ crmRouter.put('/komplain/:id', requirePermission('pelanggan.lihat'), async (c) =
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{ status: string; resolusi: string }>>()
 
-  const existing = db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)).get()
+  const existing = await query.find(db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Komplain tidak ditemukan' })
 
   const row = db.update(komplain_pelanggan).set({
@@ -174,8 +174,8 @@ crmRouter.put('/komplain/:id', requirePermission('pelanggan.lihat'), async (c) =
 
 crmRouter.delete('/komplain/:id', requirePermission('pelanggan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)).get()
+  const existing = await query.find(db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Komplain tidak ditemukan' })
-  db.delete(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)).run()
+  await query.exec(db.delete(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)))
   return c.json({ success: true, data: null })
 })

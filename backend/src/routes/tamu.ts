@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { tamu_birokrasi } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -62,8 +62,8 @@ tamuRouter.post('/', requirePermission('karyawan.lihat'), async (c) => {
 // DELETE /:id — hapus catatan tamu
 tamuRouter.delete('/:id', requirePermission('karyawan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: tamu_birokrasi.id }).from(tamu_birokrasi).where(eq(tamu_birokrasi.id, id)).get()
+  const existing = await query.find(db.select({ id: tamu_birokrasi.id }).from(tamu_birokrasi).where(eq(tamu_birokrasi.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
-  db.delete(tamu_birokrasi).where(eq(tamu_birokrasi.id, id)).run()
+  await query.exec(db.delete(tamu_birokrasi).where(eq(tamu_birokrasi.id, id)))
   return c.json({ success: true, data: null })
 })

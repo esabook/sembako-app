@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, sql, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { penggajian, karyawan, absensi, kasbon, jurnal_kas, sanksi_insentif } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -83,10 +83,10 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
   const karyawanIds = semua_karyawan.map((k) => k.id)
 
   const existingSet = new Set(
-    db.select({ karyawan_id: penggajian.karyawan_id })
+    await query.findAll(db.select({ karyawan_id: penggajian.karyawan_id })
       .from(penggajian)
       .where(eq(penggajian.periode_bulan, body.bulan))
-      .all()
+    )
       .map((r) => r.karyawan_id)
   )
 
@@ -105,10 +105,10 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
   const absensiMap = new Map(absensiRows.map((r) => [r.karyawan_id, r.hadir]))
 
   const kasbonAll = karyawanIds.length
-    ? db.select({ karyawan_id: kasbon.karyawan_id, cicilan: kasbon.cicilan_per_bulan })
+    ? await query.findAll(db.select({ karyawan_id: kasbon.karyawan_id, cicilan: kasbon.cicilan_per_bulan })
         .from(kasbon)
         .where(and(inArray(kasbon.karyawan_id, karyawanIds), eq(kasbon.status, 'aktif')))
-        .all()
+    )
     : []
   const kasbonMap = new Map<number, number>()
   for (const r of kasbonAll) {
@@ -195,14 +195,14 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
   // Recalculate total jika ada perubahan tunjangan/potongan
   const tunjangan = body.tunjangan ?? existing.tunjangan
   const potonganLain = body.potongan_lain ?? existing.potongan_lain
-  const karyw = db.select({ tipe_gaji: karyawan.tipe_gaji }).from(karyawan).where(eq(karyawan.id, existing.karyawan_id)).get()
+  const karyw = await query.find(db.select({ tipe_gaji: karyawan.tipe_gaji }).from(karyawan).where(eq(karyawan.id, existing.karyawan_id)))
   const gajiBase =
     karyw?.tipe_gaji === 'harian'
       ? existing.gaji_pokok * existing.hari_hadir
       : existing.gaji_pokok
   const total = Math.max(0, gajiBase + tunjangan - existing.potongan_kasbon - potonganLain)
 
-  const trxFn = sqlite.transaction(() => {
+  const row = await withTransaction(async (tx) => {
     const updated = db
       .update(penggajian)
       .set({
@@ -210,7 +210,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
         potongan_lain: potonganLain,
         total_gaji: total,
         status: body.status ?? existing.status,
-        updated_at: sql`(datetime('now','localtime'))`,
+        updated_at: isoNow(),
       })
       .where(eq(penggajian.id, id))
       .returning()
@@ -232,7 +232,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
           .set({
             sisa_kasbon: sisa,
             status: sisa <= 0 ? 'lunas' : 'aktif',
-            updated_at: sql`(datetime('now','localtime'))`,
+            updated_at: isoNow(),
           })
           .where(eq(kasbon.id, kb.id))
           .run()
@@ -255,7 +255,6 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
 
     return updated
   })
-  const row = trxFn()
 
   return c.json({ success: true, data: row })
 })
@@ -263,9 +262,9 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
 // DELETE /:id — hapus draft
 penggajianRouter.delete('/:id', requirePermission('gaji.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: penggajian.id, status: penggajian.status }).from(penggajian).where(eq(penggajian.id, id)).get()
+  const existing = await query.find(db.select({ id: penggajian.id, status: penggajian.status }).from(penggajian).where(eq(penggajian.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data penggajian tidak ditemukan' })
   if (existing.status !== 'draft') throw new HTTPException(400, { message: 'Hanya draft yang bisa dihapus' })
-  db.delete(penggajian).where(eq(penggajian.id, id)).run()
+  await query.exec(db.delete(penggajian).where(eq(penggajian.id, id)))
   return c.json({ success: true, data: null })
 })

@@ -2,7 +2,7 @@ import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, and } from 'drizzle-orm'
 import { networkInterfaces } from 'node:os'
-import { db, sqlite } from '../db/index.ts'
+import { db, sqlite, query, withTransaction, isoNow } from '../db/index.ts'
 import { toko_settings, preferensi_pengguna } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { HTTPException } from 'hono/http-exception'
@@ -22,7 +22,7 @@ export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 // ── GET /pengaturan/publik — tanpa auth, untuk login page ─────────────────
 pengaturanRouter.get('/publik', async (c) => {
-  const row = db.select().from(toko_settings).all().find((r) => r.key === 'nama_toko')
+  const row = await query.findAll(db.select().from(toko_settings)).find((r) => r.key === 'nama_toko')
   return c.json({ success: true, data: { nama_toko: row?.value ?? 'Stokasir' } })
 })
 
@@ -137,7 +137,7 @@ pengaturanRouter.get('/preferensi/:modul', async (c) => {
       eq(preferensi_pengguna.modul, modul),
     ))
     .get()
-  const nilai = row ? (() => { try { return JSON.parse(row.nilai_json) } catch { return null } })() : null
+  const nilai = row ? (() => { try { return JSON.parse(row.nilai_json) } catch { return null } }) : null
   return c.json({ success: true, data: nilai })
 })
 
@@ -158,14 +158,14 @@ pengaturanRouter.put('/preferensi/:modul', async (c) => {
     .get()
 
   if (existing) {
-    db.update(preferensi_pengguna)
+    await query.exec(db.update(preferensi_pengguna)
       .set({ nilai_json, updated_at: now })
       .where(eq(preferensi_pengguna.id, existing.id))
-      .run()
+    )
   } else {
-    db.insert(preferensi_pengguna)
+    await query.exec(db.insert(preferensi_pengguna)
       .values({ karyawan_id: Number(user.sub), modul, nilai_json, updated_at: now })
-      .run()
+    )
   }
 
   return c.json({ success: true, data: body })
@@ -174,7 +174,7 @@ pengaturanRouter.put('/preferensi/:modul', async (c) => {
 // ── GET /pengaturan ────────────────────────────────────────────────────────
 
 pengaturanRouter.get('/', async (c) => {
-  const rows = db.select().from(toko_settings).all()
+  const rows = await query.findAll(db.select().from(toko_settings))
 
   // Merge dengan defaults agar semua key selalu ada
   const result: Record<string, string> = { ...DEFAULTS }
@@ -197,7 +197,7 @@ pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
     return c.json({ success: false, error: `Key '${key}' tidak dikenal` }, 400)
   }
 
-  const existing = db.select().from(toko_settings).where(eq(toko_settings.key, key)).get()
+  const existing = await query.find(db.select().from(toko_settings).where(eq(toko_settings.key, key)))
 
   if (existing) {
     db.update(toko_settings)
@@ -208,7 +208,7 @@ pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
       .where(eq(toko_settings.key, key))
       .run()
   } else {
-    db.insert(toko_settings).values({ key, value: body.value }).run()
+    await query.exec(db.insert(toko_settings).values({ key, value: body.value }))
   }
 
   return c.json({ success: true, data: { key, value: body.value } })
@@ -223,7 +223,7 @@ pengaturanRouter.post('/bulk', requirePermission('*'), async (c) => {
   for (const [key, value] of Object.entries(body)) {
     if (!(key in DEFAULTS)) continue
 
-    const existing = db.select().from(toko_settings).where(eq(toko_settings.key, key)).get()
+    const existing = await query.find(db.select().from(toko_settings).where(eq(toko_settings.key, key)))
     if (existing) {
       db.update(toko_settings)
         .set({
@@ -233,7 +233,7 @@ pengaturanRouter.post('/bulk', requirePermission('*'), async (c) => {
         .where(eq(toko_settings.key, key))
         .run()
     } else {
-      db.insert(toko_settings).values({ key, value }).run()
+      await query.exec(db.insert(toko_settings).values({ key, value }))
     }
   }
 

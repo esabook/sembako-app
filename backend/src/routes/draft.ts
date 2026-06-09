@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   draft_keranjang, draft_keranjang_item,
   barang, satuan,
@@ -71,7 +71,7 @@ draftRouter.put('/keranjang', async (c) => {
     }[]
   }>()
 
-  sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     // Upsert draft header
     const existing = db
       .select({ id: draft_keranjang.id })
@@ -105,9 +105,9 @@ draftRouter.put('/keranjang', async (c) => {
     }
 
     // Replace semua item
-    db.delete(draft_keranjang_item)
+    await query.exec(db.delete(draft_keranjang_item)
       .where(eq(draft_keranjang_item.draft_id, draftId))
-      .run()
+    )
 
     if (body.items.length > 0) {
       db.insert(draft_keranjang_item)
@@ -124,7 +124,7 @@ draftRouter.put('/keranjang', async (c) => {
         )
         .run()
     }
-  })()
+  })
 
   return c.json({ success: true })
 })
@@ -141,14 +141,14 @@ draftRouter.delete('/keranjang', async (c) => {
     .get()
 
   if (draft) {
-    sqlite.transaction(() => {
-      db.delete(draft_keranjang_item)
+    await withTransaction(async (tx) => {
+      await query.exec(db.delete(draft_keranjang_item)
         .where(eq(draft_keranjang_item.draft_id, draft.id))
-        .run()
-      db.delete(draft_keranjang)
+      )
+      await query.exec(db.delete(draft_keranjang)
         .where(eq(draft_keranjang.id, draft.id))
-        .run()
-    })()
+      )
+    })
   }
 
   return c.json({ success: true })

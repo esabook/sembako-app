@@ -1,8 +1,8 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, and, gte, lte, ne, sql } from 'drizzle-orm'
-import { db } from '../db/index.ts'
-import { sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   penjualan, penjualan_detail,
   jurnal_kas, kas_bank,
@@ -132,7 +132,7 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
 
-  const akunList = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
+  const akunList = await query.findAll(db.select().from(kas_bank).where(eq(kas_bank.is_active, true)))
 
   // Saldo awal per akun: GROUP BY — tidak load seluruh tabel
   const sebelumPerAkun = db.select({
@@ -200,7 +200,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
 
   // ASET
   // 1. Kas & Bank — filter jurnal sampai per_tanggal
-  const akunList = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
+  const akunList = await query.findAll(db.select().from(kas_bank).where(eq(kas_bank.is_active, true)))
 
   const jurnalPerAkun = db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
@@ -417,16 +417,16 @@ laporanRouter.post('/init-harga-rata', requirePermission('*'), async (c) => {
 
   // Update harga_beli_rata untuk semua barang yang punya histori
   let updated = 0
-  sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     for (const [barangId, { rata }] of wacMap) {
       if (rata <= 0) continue
-      db.update(barang)
+      await query.exec(db.update(barang)
         .set({ harga_beli_rata: Math.round(rata) })
         .where(eq(barang.id, barangId))
-        .run()
+      )
       updated++
     }
-  })()
+  })
 
   return c.json({ success: true, data: { barang_diupdate: updated } })
 })
@@ -852,7 +852,7 @@ laporanRouter.post('/rekonsiliasi-diskon', requirePermission('*'), async (c) => 
     .all()
 
   let fixed = 0
-  sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     for (const trx of affected) {
       const diskonBaru = trx.total - trx.bayar   // selisih = diskon yang hilang
       db.update(penjualan)
@@ -864,7 +864,7 @@ laporanRouter.post('/rekonsiliasi-diskon', requirePermission('*'), async (c) => 
         .run()
       fixed++
     }
-  })()
+  })
 
   return c.json({
     success: true,

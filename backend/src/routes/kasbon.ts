@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { kasbon, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -72,7 +72,7 @@ kasbonRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
   if (body.jumlah <= 0)
     throw new HTTPException(400, { message: 'Jumlah kasbon harus > 0' })
 
-  const karyw = db.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.id, body.karyawan_id)).get()
+  const karyw = await query.find(db.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.id, body.karyawan_id)))
   if (!karyw) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   // Cek apakah ada kasbon aktif/pengajuan/disetujui yang belum lunas
@@ -105,7 +105,7 @@ kasbonRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
 kasbonRouter.put('/:id/setujui', requirePermission('karyawan.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(kasbon).where(eq(kasbon.id, id)).get()
+  const existing = await query.find(db.select().from(kasbon).where(eq(kasbon.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (existing.status !== 'pengajuan')
     throw new HTTPException(400, { message: `Kasbon status '${existing.status}', bukan pengajuan` })
@@ -113,7 +113,7 @@ kasbonRouter.put('/:id/setujui', requirePermission('karyawan.edit'), async (c) =
   db.update(kasbon).set({
     status: 'disetujui',
     disetujui_oleh: user.id,
-    updated_at: sql`(datetime('now','localtime'))`,
+    updated_at: isoNow(),
   }).where(eq(kasbon.id, id)).run()
 
   return c.json({ success: true, data: null })
@@ -124,7 +124,7 @@ kasbonRouter.put('/:id/setujui', requirePermission('karyawan.edit'), async (c) =
 kasbonRouter.put('/:id/tolak', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ catatan?: string }>()
-  const existing = db.select().from(kasbon).where(eq(kasbon.id, id)).get()
+  const existing = await query.find(db.select().from(kasbon).where(eq(kasbon.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (!['pengajuan', 'disetujui'].includes(existing.status))
     throw new HTTPException(400, { message: 'Hanya bisa tolak kasbon yang belum cair' })
@@ -132,7 +132,7 @@ kasbonRouter.put('/:id/tolak', requirePermission('karyawan.edit'), async (c) => 
   db.update(kasbon).set({
     status: 'ditolak',
     catatan: body.catatan ?? existing.catatan,
-    updated_at: sql`(datetime('now','localtime'))`,
+    updated_at: isoNow(),
   }).where(eq(kasbon.id, id)).run()
 
   return c.json({ success: true, data: null })
@@ -142,7 +142,7 @@ kasbonRouter.put('/:id/tolak', requirePermission('karyawan.edit'), async (c) => 
 
 kasbonRouter.put('/:id/cair', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(kasbon).where(eq(kasbon.id, id)).get()
+  const existing = await query.find(db.select().from(kasbon).where(eq(kasbon.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (existing.status !== 'disetujui')
     throw new HTTPException(400, { message: 'Kasbon harus berstatus disetujui sebelum dicairkan' })
@@ -150,7 +150,7 @@ kasbonRouter.put('/:id/cair', requirePermission('karyawan.edit'), async (c) => {
   db.update(kasbon).set({
     status: 'aktif',
     tanggal_cair: tglHariIni(),
-    updated_at: sql`(datetime('now','localtime'))`,
+    updated_at: isoNow(),
   }).where(eq(kasbon.id, id)).run()
 
   return c.json({ success: true, data: null })
@@ -165,7 +165,7 @@ kasbonRouter.put('/:id/cicil', requirePermission('karyawan.edit'), async (c) => 
   if (!body.jumlah_cicil || body.jumlah_cicil <= 0)
     throw new HTTPException(400, { message: 'jumlah_cicil harus > 0' })
 
-  const existing = db.select().from(kasbon).where(eq(kasbon.id, id)).get()
+  const existing = await query.find(db.select().from(kasbon).where(eq(kasbon.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (existing.status !== 'aktif')
     throw new HTTPException(400, { message: 'Hanya kasbon berstatus aktif yang bisa dicicil' })
@@ -174,7 +174,7 @@ kasbonRouter.put('/:id/cicil', requirePermission('karyawan.edit'), async (c) => 
   const row = db.update(kasbon).set({
     sisa_kasbon: sisa,
     status: sisa <= 0 ? 'lunas' : 'aktif',
-    updated_at: sql`(datetime('now','localtime'))`,
+    updated_at: isoNow(),
   }).where(eq(kasbon.id, id)).returning().get()
 
   return c.json({ success: true, data: row })
@@ -184,7 +184,7 @@ kasbonRouter.put('/:id/cicil', requirePermission('karyawan.edit'), async (c) => 
 
 kasbonRouter.get('/:id/jadwal', requirePermission('karyawan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const kb = db.select().from(kasbon).where(eq(kasbon.id, id)).get()
+  const kb = await query.find(db.select().from(kasbon).where(eq(kasbon.id, id)))
   if (!kb) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
 
   if (!kb.cicilan_per_bulan || kb.cicilan_per_bulan <= 0)
@@ -216,11 +216,11 @@ kasbonRouter.get('/:id/jadwal', requirePermission('karyawan.lihat'), async (c) =
 
 kasbonRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: kasbon.id, status: kasbon.status }).from(kasbon).where(eq(kasbon.id, id)).get()
+  const existing = await query.find(db.select({ id: kasbon.id, status: kasbon.status }).from(kasbon).where(eq(kasbon.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (existing.status === 'aktif' || existing.status === 'disetujui')
     throw new HTTPException(400, { message: 'Kasbon yang sudah disetujui atau aktif tidak bisa dihapus' })
 
-  db.delete(kasbon).where(eq(kasbon.id, id)).run()
+  await query.exec(db.delete(kasbon).where(eq(kasbon.id, id)))
   return c.json({ success: true, data: null })
 })

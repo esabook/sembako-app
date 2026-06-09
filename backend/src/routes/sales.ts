@@ -2,7 +2,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { kunjungan_sales, agenda_supplier, pipeline_grosir, pelanggan, karyawan, supplier } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
@@ -83,7 +83,7 @@ salesRouter.put('/kunjungan/:id', requirePermission('pelanggan.lihat'), async (c
     hasil: string; catatan: string; status_tindak_lanjut: string
   }>>()
 
-  const existing = db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(eq(kunjungan_sales.id, id)).get()
+  const existing = await query.find(db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(eq(kunjungan_sales.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
   const row = db.update(kunjungan_sales).set({
@@ -101,9 +101,9 @@ salesRouter.put('/kunjungan/:id', requirePermission('pelanggan.lihat'), async (c
 
 salesRouter.delete('/kunjungan/:id', requirePermission('pelanggan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(eq(kunjungan_sales.id, id)).get()
+  const existing = await query.find(db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(eq(kunjungan_sales.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
-  db.delete(kunjungan_sales).where(eq(kunjungan_sales.id, id)).run()
+  await query.exec(db.delete(kunjungan_sales).where(eq(kunjungan_sales.id, id)))
   return c.json({ success: true, data: null })
 })
 
@@ -177,7 +177,7 @@ salesRouter.put('/agenda-supplier/:id', requirePermission('pembelian.lihat'), as
     hasil: string; catatan: string; status: string
   }>>()
 
-  const existing = db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(eq(agenda_supplier.id, id)).get()
+  const existing = await query.find(db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(eq(agenda_supplier.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Agenda tidak ditemukan' })
 
   const row = db.update(agenda_supplier).set({
@@ -196,9 +196,9 @@ salesRouter.put('/agenda-supplier/:id', requirePermission('pembelian.lihat'), as
 
 salesRouter.delete('/agenda-supplier/:id', requirePermission('pembelian.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(eq(agenda_supplier.id, id)).get()
+  const existing = await query.find(db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(eq(agenda_supplier.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Agenda tidak ditemukan' })
-  db.delete(agenda_supplier).where(eq(agenda_supplier.id, id)).run()
+  await query.exec(db.delete(agenda_supplier).where(eq(agenda_supplier.id, id)))
   return c.json({ success: true, data: null })
 })
 
@@ -267,7 +267,7 @@ salesRouter.put('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c)
     produk_minat: string; catatan: string
   }>>()
 
-  const existing = db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(eq(pipeline_grosir.id, id)).get()
+  const existing = await query.find(db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(eq(pipeline_grosir.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Pipeline tidak ditemukan' })
 
   const tanggal_update = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
@@ -286,8 +286,8 @@ salesRouter.put('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c)
 
 salesRouter.delete('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(eq(pipeline_grosir.id, id)).get()
+  const existing = await query.find(db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(eq(pipeline_grosir.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Pipeline tidak ditemukan' })
-  db.delete(pipeline_grosir).where(eq(pipeline_grosir.id, id)).run()
+  await query.exec(db.delete(pipeline_grosir).where(eq(pipeline_grosir.id, id)))
   return c.json({ success: true, data: null })
 })

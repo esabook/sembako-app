@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc, and, like, or, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   barang,
   kategori,
@@ -103,7 +103,7 @@ hargaRouter.put('/:id', requirePermission('harga_jual.edit'), async (c) => {
     harga_jual_grosir: number
   }>()
 
-  const existing = db.select().from(barang).where(eq(barang.id, id)).get()
+  const existing = await query.find(db.select().from(barang).where(eq(barang.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
 
   const tgl = tglSekarang()
@@ -124,7 +124,7 @@ hargaRouter.put('/:id', requirePermission('harga_jual.edit'), async (c) => {
     .set({
       harga_jual_eceran: body.harga_jual_eceran,
       harga_jual_grosir: body.harga_jual_grosir,
-      updated_at: sql`(datetime('now','localtime'))`,
+      updated_at: isoNow(),
     })
     .where(eq(barang.id, id))
     .run()
@@ -222,7 +222,7 @@ hargaRouter.post('/massal', requirePermission('harga_jual.edit'), async (c) => {
   let updated = 0
 
   for (const id of body.barang_ids) {
-    const b = db.select().from(barang).where(eq(barang.id, id)).get()
+    const b = await query.find(db.select().from(barang).where(eq(barang.id, id)))
     if (!b) continue
 
     let eceran_baru: number
@@ -237,17 +237,17 @@ hargaRouter.post('/massal', requirePermission('harga_jual.edit'), async (c) => {
     }
 
     // Tutup histori lama
-    db.update(histori_harga_jual)
+    await query.exec(db.update(histori_harga_jual)
       .set({ tanggal_berakhir: tgl })
       .where(and(eq(histori_harga_jual.barang_id, id), sql`tanggal_berakhir IS NULL`))
-      .run()
+    )
 
     // Update master
     db.update(barang)
       .set({
         harga_jual_eceran: eceran_baru,
         harga_jual_grosir: grosir_baru,
-        updated_at: sql`(datetime('now','localtime'))`,
+        updated_at: isoNow(),
       })
       .where(eq(barang.id, id))
       .run()

@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { eq, and, gte, lte, sql, desc, isNull, isNotNull } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import type { Context, Next } from 'hono'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { absensi, karyawan } from '../db/schema.ts'
 import { authMiddleware, hasPermission, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -170,7 +170,7 @@ absensiRouter.put('/:id', requireAbsensiAkses(), async (c) => {
     status?: 'hadir' | 'izin' | 'sakit' | 'alpa'
   }>()
 
-  const existing = db.select().from(absensi).where(eq(absensi.id, id)).get()
+  const existing = await query.find(db.select().from(absensi).where(eq(absensi.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Absensi tidak ditemukan' })
   if (!canSemua && existing.karyawan_id !== user.id) {
     throw new HTTPException(403, { message: 'Hanya bisa edit absensi diri sendiri' })
@@ -194,8 +194,8 @@ absensiRouter.put('/:id', requireAbsensiAkses(), async (c) => {
 // DELETE /:id — hapus (hanya manajer/pemilik)
 absensiRouter.delete('/:id', requirePermission('absensi.semua'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: absensi.id }).from(absensi).where(eq(absensi.id, id)).get()
+  const existing = await query.find(db.select({ id: absensi.id }).from(absensi).where(eq(absensi.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Absensi tidak ditemukan' })
-  db.delete(absensi).where(eq(absensi.id, id)).run()
+  await query.exec(db.delete(absensi).where(eq(absensi.id, id)))
   return c.json({ success: true, data: null })
 })

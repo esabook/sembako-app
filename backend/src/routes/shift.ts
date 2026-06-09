@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc, gte, lte, ne, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { shift_kasir, penjualan, karyawan } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -243,7 +243,7 @@ shiftRouter.post('/tutup', async (c) => {
       total_penjualan: rekapRows?.total ?? 0,
       catatan: body.catatan ?? shift.catatan,
       status: 'tutup',
-      updated_at: sql`(datetime('now','localtime'))`,
+      updated_at: isoNow(),
     })
     .where(eq(shift_kasir.id, shift.id))
     .returning()

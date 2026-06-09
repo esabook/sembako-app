@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { sop_rule, sop_instance, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -11,7 +11,7 @@ sopRouter.use('*', authMiddleware)
 
 // ── GET /sop/rule — list semua rule ──────────────────────────────────────
 sopRouter.get('/rule', requirePermission('*'), async (c) => {
-  const rows = db.select().from(sop_rule).orderBy(sop_rule.event_name, sop_rule.urutan).all()
+  const rows = await query.findAll(db.select().from(sop_rule).orderBy(sop_rule.event_name, sop_rule.urutan))
   return c.json({ success: true, data: rows })
 })
 
@@ -44,7 +44,7 @@ sopRouter.post('/rule', requirePermission('*'), async (c) => {
 // ── PUT /sop/rule/:id — update rule ──────────────────────────────────────
 sopRouter.put('/rule/:id', requirePermission('*'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(sop_rule).where(eq(sop_rule.id, id)).get()
+  const existing = await query.find(db.select().from(sop_rule).where(eq(sop_rule.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Rule tidak ditemukan' })
 
   const body = await c.req.json<Partial<{
@@ -69,9 +69,9 @@ sopRouter.put('/rule/:id', requirePermission('*'), async (c) => {
 // ── DELETE /sop/rule/:id — nonaktifkan rule (soft) ────────────────────────
 sopRouter.delete('/rule/:id', requirePermission('*'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: sop_rule.id }).from(sop_rule).where(eq(sop_rule.id, id)).get()
+  const existing = await query.find(db.select({ id: sop_rule.id }).from(sop_rule).where(eq(sop_rule.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Rule tidak ditemukan' })
-  db.update(sop_rule).set({ is_active: false }).where(eq(sop_rule.id, id)).run()
+  await query.exec(db.update(sop_rule).set({ is_active: false }).where(eq(sop_rule.id, id)))
   return c.json({ success: true, data: null })
 })
 

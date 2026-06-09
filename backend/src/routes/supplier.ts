@@ -2,7 +2,7 @@ import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, like, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { supplier } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 
@@ -30,7 +30,7 @@ supplierRouter.get('/', async (c) => {
 
 supplierRouter.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  const row = db.select().from(supplier).where(eq(supplier.id, id)).get()
+  const row = await query.find(db.select().from(supplier).where(eq(supplier.id, id)))
   if (!row) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
@@ -65,12 +65,12 @@ supplierRouter.put('/:id', requirePermission('pembelian.buat'), async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<typeof supplier.$inferInsert>>()
 
-  const existing = db.select().from(supplier).where(eq(supplier.id, id)).get()
+  const existing = await query.find(db.select().from(supplier).where(eq(supplier.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
 
   const row = db
     .update(supplier)
-    .set({ ...body, updated_at: sql`(datetime('now','localtime'))` })
+    .set({ ...body, updated_at: isoNow() })
     .where(eq(supplier.id, id))
     .returning()
     .get()
@@ -80,13 +80,13 @@ supplierRouter.put('/:id', requirePermission('pembelian.buat'), async (c) => {
 
 supplierRouter.delete('/:id', requirePermission('pembelian.buat'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(supplier).where(eq(supplier.id, id)).get()
+  const existing = await query.find(db.select().from(supplier).where(eq(supplier.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
 
-  db.update(supplier)
-    .set({ is_active: false, updated_at: sql`(datetime('now','localtime'))` })
+  await query.exec(db.update(supplier)
+    .set({ is_active: false, updated_at: isoNow() })
     .where(eq(supplier.id, id))
-    .run()
+  )
 
   return c.json({ success: true, data: null })
 })

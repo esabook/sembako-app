@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc, sql, and, gte, lte } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   hutang_supplier, pembayaran_hutang,
   piutang_pelanggan, pembayaran_piutang,
@@ -22,14 +22,14 @@ function tglSekarang(): string {
 // ── GET /keuangan/kas-bank ────────────────────────────────────────────────
 
 keuanganRouter.get('/kas-bank', requirePermission('hutang.lihat'), async (c) => {
-  const rows = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
+  const rows = await query.findAll(db.select().from(kas_bank).where(eq(kas_bank.is_active, true)))
   return c.json({ success: true, data: rows })
 })
 
 // ── GET /keuangan/kas-bank/saldo ─────────────────────────────────────────
 
 keuanganRouter.get('/kas-bank/saldo', requirePermission('hutang.lihat'), async (c) => {
-  const rows = db.select().from(kas_bank).where(eq(kas_bank.is_active, true)).all()
+  const rows = await query.findAll(db.select().from(kas_bank).where(eq(kas_bank.is_active, true)))
 
   const saldoList = rows.map((kb) => {
     const masuk = db
@@ -77,7 +77,7 @@ keuanganRouter.put('/kas-bank/:id', requirePermission('hutang.edit'), async (c) 
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ nama?: string; saldo_awal?: number }>()
 
-  const kb = db.select().from(kas_bank).where(eq(kas_bank.id, id)).get()
+  const kb = await query.find(db.select().from(kas_bank).where(eq(kas_bank.id, id)))
   if (!kb) throw new HTTPException(404, { message: 'Akun tidak ditemukan' })
 
   const row = db.update(kas_bank)
@@ -95,7 +95,7 @@ keuanganRouter.put('/kas-bank/:id', requirePermission('hutang.edit'), async (c) 
 
 keuanganRouter.delete('/kas-bank/:id', requirePermission('hutang.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  db.update(kas_bank).set({ is_active: false }).where(eq(kas_bank.id, id)).run()
+  await query.exec(db.update(kas_bank).set({ is_active: false }).where(eq(kas_bank.id, id)))
   return c.json({ success: true })
 })
 
@@ -148,7 +148,7 @@ keuanganRouter.post('/hutang/:id/bayar', requirePermission('hutang.edit'), async
   if (!body.kas_bank_id)
     throw new HTTPException(400, { message: 'Pilih akun kas/bank' })
 
-  const hutang = db.select().from(hutang_supplier).where(eq(hutang_supplier.id, id)).get()
+  const hutang = await query.find(db.select().from(hutang_supplier).where(eq(hutang_supplier.id, id)))
   if (!hutang) throw new HTTPException(404, { message: 'Hutang tidak ditemukan' })
   if (hutang.status === 'lunas') throw new HTTPException(400, { message: 'Hutang sudah lunas' })
 
@@ -157,7 +157,7 @@ keuanganRouter.post('/hutang/:id/bayar', requirePermission('hutang.edit'), async
   const statusBaru = sisaBaru <= 0 ? 'lunas' : 'sebagian'
   const tgl = body.tanggal_bayar ?? tglSekarang()
 
-  sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     db.insert(pembayaran_hutang).values({
       hutang_id: id,
       tanggal_bayar: tgl,
@@ -166,10 +166,10 @@ keuanganRouter.post('/hutang/:id/bayar', requirePermission('hutang.edit'), async
       dibayar_oleh: user.id,
     }).run()
 
-    db.update(hutang_supplier)
-      .set({ sisa_hutang: sisaBaru, status: statusBaru, updated_at: sql`(datetime('now','localtime'))` })
+    await query.exec(db.update(hutang_supplier)
+      .set({ sisa_hutang: sisaBaru, status: statusBaru, updated_at: isoNow() })
       .where(eq(hutang_supplier.id, id))
-      .run()
+    )
 
     db.insert(jurnal_kas).values({
       tanggal: tgl,
@@ -182,7 +182,7 @@ keuanganRouter.post('/hutang/:id/bayar', requirePermission('hutang.edit'), async
       jumlah: bayar,
       dicatat_oleh: user.id,
     }).run()
-  })()
+  })
 
   return c.json({ success: true, data: { sisa_hutang: sisaBaru, status: statusBaru } })
 })
@@ -238,7 +238,7 @@ keuanganRouter.post('/piutang/:id/bayar', requirePermission('piutang.edit'), asy
   if (!body.kas_bank_id)
     throw new HTTPException(400, { message: 'Pilih akun kas/bank' })
 
-  const piutang = db.select().from(piutang_pelanggan).where(eq(piutang_pelanggan.id, id)).get()
+  const piutang = await query.find(db.select().from(piutang_pelanggan).where(eq(piutang_pelanggan.id, id)))
   if (!piutang) throw new HTTPException(404, { message: 'Piutang tidak ditemukan' })
   if (piutang.status === 'lunas') throw new HTTPException(400, { message: 'Piutang sudah lunas' })
 
@@ -247,7 +247,7 @@ keuanganRouter.post('/piutang/:id/bayar', requirePermission('piutang.edit'), asy
   const statusBaru = sisaBaru <= 0 ? 'lunas' : 'sebagian'
   const tgl = body.tanggal_bayar ?? tglSekarang()
 
-  sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     db.insert(pembayaran_piutang).values({
       piutang_id: id,
       tanggal_bayar: tgl,
@@ -256,10 +256,10 @@ keuanganRouter.post('/piutang/:id/bayar', requirePermission('piutang.edit'), asy
       diterima_oleh: user.id,
     }).run()
 
-    db.update(piutang_pelanggan)
-      .set({ sisa_piutang: sisaBaru, status: statusBaru, updated_at: sql`(datetime('now','localtime'))` })
+    await query.exec(db.update(piutang_pelanggan)
+      .set({ sisa_piutang: sisaBaru, status: statusBaru, updated_at: isoNow() })
       .where(eq(piutang_pelanggan.id, id))
-      .run()
+    )
 
     // Kurangi saldo_piutang di master pelanggan
     db.run(sql`
@@ -279,7 +279,7 @@ keuanganRouter.post('/piutang/:id/bayar', requirePermission('piutang.edit'), asy
       jumlah: terima,
       dicatat_oleh: user.id,
     }).run()
-  })()
+  })
 
   return c.json({ success: true, data: { sisa_piutang: sisaBaru, status: statusBaru } })
 })
@@ -410,15 +410,15 @@ keuanganRouter.post('/rekonsiliasi-piutang', requirePermission('*'), async (c) =
     .all()
 
   let fixed = 0
-  sqlite.transaction(() => {
+  await withTransaction(async (tx) => {
     for (const r of aktual) {
-      db.update(pelanggan)
+      await query.exec(db.update(pelanggan)
         .set({ saldo_piutang: Math.max(0, r.saldo_aktual) })
         .where(eq(pelanggan.id, r.pelanggan_id))
-        .run()
+      )
       fixed++
     }
-  })()
+  })
 
   return c.json({ success: true, data: { pelanggan_diupdate: fixed } })
 })

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, like, and, or, sql, max } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { barang, kategori, satuan } from '../db/schema.ts'
 import { catatLog } from '../utils/log.ts'
 import type { JWTPayload } from './auth.ts'
@@ -16,7 +16,7 @@ barangRouter.use('*', authMiddleware)
 // ── Kategori ──────────────────────────────────────────────────────────────
 
 barangRouter.get('/kategori', async (c) => {
-  const rows = db.select().from(kategori).all()
+  const rows = await query.findAll(db.select().from(kategori))
   return c.json({ success: true, data: rows })
 })
 
@@ -24,7 +24,7 @@ barangRouter.post('/kategori', requirePermission('stok.edit'), async (c) => {
   const body = await c.req.json<{ nama: string; kode?: string; contoh?: string }>()
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama kategori wajib diisi' })
 
-  const row = db.insert(kategori).values({ nama: body.nama.trim(), kode: body.kode?.trim().toUpperCase() || null, contoh: body.contoh?.trim() || null }).returning().get()
+  const row = await query.ret(db.insert(kategori).values({ nama: body.nama.trim(), kode: body.kode?.trim().toUpperCase() || null, contoh: body.contoh?.trim() || null }).returning())
   return c.json({ success: true, data: row }, 201)
 })
 
@@ -33,19 +33,19 @@ barangRouter.put('/kategori/:id', requirePermission('stok.edit'), async (c) => {
   const body = await c.req.json<{ nama: string; kode?: string; contoh?: string }>()
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama wajib diisi' })
 
-  const row = db.update(kategori).set({ nama: body.nama.trim(), kode: body.kode?.trim().toUpperCase() || null, contoh: body.contoh?.trim() || null }).where(eq(kategori.id, id)).returning().get()
+  const row = await query.ret(db.update(kategori).set({ nama: body.nama.trim(), kode: body.kode?.trim().toUpperCase() || null, contoh: body.contoh?.trim() || null }).where(eq(kategori.id, id)).returning())
   if (!row) throw new HTTPException(404, { message: 'Kategori tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
 
 barangRouter.delete('/kategori/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const item = db.select().from(kategori).where(eq(kategori.id, id)).get()
+  const item = await query.find(db.select().from(kategori).where(eq(kategori.id, id)))
   if (!item) throw new HTTPException(404, { message: 'Kategori tidak ditemukan' })
   if (item.is_preset) throw new HTTPException(400, { message: 'Kategori bawaan tidak bisa dihapus' })
-  const dipakai = db.select({ id: barang.id }).from(barang).where(eq(barang.kategori_id, id)).get()
+  const dipakai = await query.find(db.select({ id: barang.id }).from(barang).where(eq(barang.kategori_id, id)))
   if (dipakai) throw new HTTPException(400, { message: 'Kategori masih dipakai oleh barang' })
-  db.delete(kategori).where(eq(kategori.id, id)).run()
+  await query.exec(db.delete(kategori).where(eq(kategori.id, id)))
   return c.json({ success: true, data: null })
 })
 
@@ -55,12 +55,12 @@ barangRouter.post('/kategori/import-preset', requirePermission('stok.edit'), asy
   let updated = 0
   for (const item of body.items) {
     const kode = item.kode?.trim().toUpperCase() || null
-    const existing = db.select({ id: kategori.id }).from(kategori).where(eq(kategori.nama, item.nama)).get()
+    const existing = await query.find(db.select({ id: kategori.id }).from(kategori).where(eq(kategori.nama, item.nama)))
     if (!existing) {
-      db.insert(kategori).values({ nama: item.nama, kode, contoh: item.contoh ?? null, is_preset: true }).run()
+      await query.exec(db.insert(kategori).values({ nama: item.nama, kode, contoh: item.contoh ?? null, is_preset: true }))
       inserted++
     } else {
-      db.update(kategori).set({ kode, contoh: item.contoh ?? null, is_preset: true }).where(eq(kategori.id, existing.id)).run()
+      await query.exec(db.update(kategori).set({ kode, contoh: item.contoh ?? null, is_preset: true }).where(eq(kategori.id, existing.id)))
       updated++
     }
   }
@@ -70,7 +70,7 @@ barangRouter.post('/kategori/import-preset', requirePermission('stok.edit'), asy
 // ── Satuan ────────────────────────────────────────────────────────────────
 
 barangRouter.get('/satuan', async (c) => {
-  const rows = db.select().from(satuan).all()
+  const rows = await query.findAll(db.select().from(satuan))
   return c.json({ success: true, data: rows })
 })
 
@@ -103,12 +103,12 @@ barangRouter.put('/satuan/:id', requirePermission('stok.edit'), async (c) => {
 
 barangRouter.delete('/satuan/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const item = db.select().from(satuan).where(eq(satuan.id, id)).get()
+  const item = await query.find(db.select().from(satuan).where(eq(satuan.id, id)))
   if (!item) throw new HTTPException(404, { message: 'Satuan tidak ditemukan' })
   if (item.is_preset) throw new HTTPException(400, { message: 'Satuan bawaan tidak bisa dihapus' })
-  const dipakai = db.select({ id: barang.id }).from(barang).where(eq(barang.satuan_dasar_id, id)).get()
+  const dipakai = await query.find(db.select({ id: barang.id }).from(barang).where(eq(barang.satuan_dasar_id, id)))
   if (dipakai) throw new HTTPException(400, { message: 'Satuan masih dipakai oleh barang' })
-  db.delete(satuan).where(eq(satuan.id, id)).run()
+  await query.exec(db.delete(satuan).where(eq(satuan.id, id)))
   return c.json({ success: true, data: null })
 })
 
@@ -117,12 +117,12 @@ barangRouter.post('/satuan/import-preset', requirePermission('stok.edit'), async
   let inserted = 0
   let updated = 0
   for (const item of body.items) {
-    const existing = db.select({ id: satuan.id }).from(satuan).where(eq(satuan.nama, item.nama)).get()
+    const existing = await query.find(db.select({ id: satuan.id }).from(satuan).where(eq(satuan.nama, item.nama)))
     if (!existing) {
-      db.insert(satuan).values({ nama: item.nama, singkatan: item.singkatan, contoh: item.contoh ?? null, is_preset: true }).run()
+      await query.exec(db.insert(satuan).values({ nama: item.nama, singkatan: item.singkatan, contoh: item.contoh ?? null, is_preset: true }))
       inserted++
     } else {
-      db.update(satuan).set({ singkatan: item.singkatan, contoh: item.contoh ?? null, is_preset: true }).where(eq(satuan.id, existing.id)).run()
+      await query.exec(db.update(satuan).set({ singkatan: item.singkatan, contoh: item.contoh ?? null, is_preset: true }).where(eq(satuan.id, existing.id)))
       updated++
     }
   }
@@ -194,7 +194,7 @@ barangRouter.get('/stok-menipis', requirePermission('stok.lihat'), async (c) => 
 
 barangRouter.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
-  const row = db.select().from(barang).where(eq(barang.id, id)).get()
+  const row = await query.find(db.select().from(barang).where(eq(barang.id, id)))
   if (!row) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
@@ -239,7 +239,7 @@ barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<typeof barang.$inferInsert>>()
 
-  const existing = db.select().from(barang).where(eq(barang.id, id)).get()
+  const existing = await query.find(db.select().from(barang).where(eq(barang.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
   if ((body.harga_beli_terakhir !== undefined && body.harga_beli_terakhir < 0) ||
       (body.harga_jual_eceran !== undefined && body.harga_jual_eceran < 0) ||
@@ -250,7 +250,7 @@ barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
 
   const row = db
     .update(barang)
-    .set({ ...body, updated_at: sql`(datetime('now','localtime'))` })
+    .set({ ...body, updated_at: isoNow() })
     .where(eq(barang.id, id))
     .returning()
     .get()
@@ -261,7 +261,7 @@ barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
 barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
   const id = Number(c.req.param('id'))
   const user = c.get('user') as JWTPayload
-  const existing = db.select().from(barang).where(eq(barang.id, id)).get()
+  const existing = await query.find(db.select().from(barang).where(eq(barang.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
   if ((existing.stok_sekarang ?? 0) > 0) {
     throw new HTTPException(400, {
@@ -269,10 +269,10 @@ barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
     })
   }
 
-  db.update(barang)
-    .set({ is_active: false, updated_at: sql`(datetime('now','localtime'))` })
+  await query.exec(db.update(barang)
+    .set({ is_active: false, updated_at: isoNow() })
     .where(eq(barang.id, id))
-    .run()
+  )
 
   catatLog(user.id, 'nonaktifkan', 'barang', id, { nama_barang: existing.nama_barang, kode: existing.kode_barang })
   return c.json({ success: true, data: null })
@@ -282,7 +282,7 @@ barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
 
 barangRouter.post('/:id/foto', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(barang).where(eq(barang.id, id)).get()
+  const existing = await query.find(db.select().from(barang).where(eq(barang.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
 
   const formData = await c.req.formData()
@@ -297,10 +297,10 @@ barangRouter.post('/:id/foto', requirePermission('stok.edit'), async (c) => {
     thumbnail: { w: 60, h: 60, quality: 80 },
   })
 
-  db.update(barang)
-    .set({ foto_path: fotoPath, updated_at: sql`(datetime('now','localtime'))` })
+  await query.exec(db.update(barang)
+    .set({ foto_path: fotoPath, updated_at: isoNow() })
     .where(eq(barang.id, id))
-    .run()
+  )
 
   return c.json({ success: true, data: { foto_path: fotoPath } })
 })
@@ -350,17 +350,17 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
   const satCache = new Map<string, number>()
 
   // Seed cache dengan data yang sudah ada
-  for (const k of db.select({ id: kategori.id, nama: kategori.nama }).from(kategori).all()) {
+  for (const k of await query.findAll(db.select({ id: kategori.id, nama: kategori.nama }).from(kategori))) {
     katCache.set(k.nama.toLowerCase(), k.id)
   }
-  for (const s of db.select({ id: satuan.id, nama: satuan.nama }).from(satuan).all()) {
+  for (const s of await query.findAll(db.select({ id: satuan.id, nama: satuan.nama }).from(satuan))) {
     satCache.set(s.nama.toLowerCase(), s.id)
   }
 
   // Ambil counter kode otomatis terakhir
-  const lastKode = db.select({ kode: barang.kode_barang }).from(barang)
-    .where(like(barang.kode_barang, 'BRG-%')).all()
-    .map(r => parseInt(r.kode.replace('BRG-', '')) || 0)
+  const lastKodeRows = await query.findAll<{ kode: string }>(db.select({ kode: barang.kode_barang }).from(barang)
+    .where(like(barang.kode_barang, 'BRG-%')))
+  const lastKode = lastKodeRows.map(r => parseInt(r.kode.replace('BRG-', '')) || 0)
   let kodeCounter = lastKode.length > 0 ? Math.max(...lastKode) : 0
 
   function nextKode(): string {
@@ -368,7 +368,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
     return `BRG-${String(kodeCounter).padStart(4, '0')}`
   }
 
-  db.transaction(() => {
+  await withTransaction(async (tx) => {
     for (let i = 0; i < body.rows.length; i++) {
       const row = body.rows[i]!
       const nama = row.nama_barang?.trim()
@@ -384,7 +384,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
         if (katCache.has(key)) {
           kategoriId = katCache.get(key)
         } else if (body.settings.kategori_auto) {
-          const newKat = db.insert(kategori).values({ nama: row.kategori_nama.trim() }).returning().get()
+          const newKat = await query.ret(db.insert(kategori).values({ nama: row.kategori_nama.trim() }).returning())
           katCache.set(key, newKat.id)
           kategoriDibuat.push(row.kategori_nama.trim())
           kategoriId = newKat.id
@@ -400,7 +400,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
         if (satCache.has(key)) {
           satuanId = satCache.get(key)
         } else if (body.settings.satuan_auto) {
-          const newSat = db.insert(satuan).values({ nama: row.satuan_nama.trim(), singkatan: row.satuan_nama.trim().slice(0, 10) }).returning().get()
+          const newSat = await query.ret(db.insert(satuan).values({ nama: row.satuan_nama.trim(), singkatan: row.satuan_nama.trim().slice(0, 10) }).returning())
           satCache.set(key, newSat.id)
           satuanDibuat.push(row.satuan_nama.trim())
           satuanId = newSat.id
@@ -437,7 +437,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
             stok_sekarang: row.stok_sekarang ?? 0,
             lokasi_rak: row.lokasi_rak || null,
             ...{ updated_by: user.id },
-            updated_at: sql`(datetime('now','localtime'))`,
+            updated_at: isoNow(),
           }).where(eq(barang.id, existing.id)).run()
           berhasil.push(existing.id)
           continue

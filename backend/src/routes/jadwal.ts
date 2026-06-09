@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { tipe_shift, jadwal_kerja, tukar_shift, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -12,10 +12,10 @@ jadwalRouter.use('*', authMiddleware)
 // ── GET /jadwal/tipe — list tipe shift ───────────────────────────────────────
 
 jadwalRouter.get('/tipe', requirePermission('karyawan.lihat'), async (c) => {
-  const rows = db.select().from(tipe_shift)
+  const rows = await query.findAll(db.select().from(tipe_shift)
     .where(eq(tipe_shift.is_active, true))
     .orderBy(tipe_shift.jam_mulai)
-    .all()
+  )
   return c.json({ success: true, data: rows })
 })
 
@@ -40,7 +40,7 @@ jadwalRouter.post('/tipe', requirePermission('karyawan.edit'), async (c) => {
 jadwalRouter.put('/tipe/:id', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ nama?: string; jam_mulai?: string; jam_selesai?: string; warna?: string }>()
-  const existing = db.select({ id: tipe_shift.id }).from(tipe_shift).where(eq(tipe_shift.id, id)).get()
+  const existing = await query.find(db.select({ id: tipe_shift.id }).from(tipe_shift).where(eq(tipe_shift.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Tipe shift tidak ditemukan' })
 
   db.update(tipe_shift).set({
@@ -48,7 +48,7 @@ jadwalRouter.put('/tipe/:id', requirePermission('karyawan.edit'), async (c) => {
     ...(body.jam_mulai && { jam_mulai: body.jam_mulai }),
     ...(body.jam_selesai && { jam_selesai: body.jam_selesai }),
     ...(body.warna && { warna: body.warna }),
-    updated_at: sql`(datetime('now','localtime'))`,
+    updated_at: isoNow(),
   }).where(eq(tipe_shift.id, id)).run()
   return c.json({ success: true, data: null })
 })
@@ -57,7 +57,7 @@ jadwalRouter.put('/tipe/:id', requirePermission('karyawan.edit'), async (c) => {
 
 jadwalRouter.delete('/tipe/:id', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  db.update(tipe_shift).set({ is_active: false, updated_at: sql`(datetime('now','localtime'))` })
+  db.update(tipe_shift).set({ is_active: false, updated_at: isoNow() })
     .where(eq(tipe_shift.id, id)).run()
   return c.json({ success: true, data: null })
 })
@@ -192,7 +192,7 @@ jadwalRouter.put('/tukar/:id/setujui', requirePermission('karyawan.edit'), async
   const user = c.get('user') as JWTPayload
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ catatan?: string }>().catch(() => ({}))
-  const req = db.select().from(tukar_shift).where(eq(tukar_shift.id, id)).get()
+  const req = await query.find(db.select().from(tukar_shift).where(eq(tukar_shift.id, id)))
   if (!req) throw new HTTPException(404, { message: 'Permintaan tukar shift tidak ditemukan' })
   if (req.status !== 'menunggu') throw new HTTPException(400, { message: 'Permintaan sudah diproses' })
 
@@ -205,7 +205,7 @@ jadwalRouter.put('/tukar/:id/setujui', requirePermission('karyawan.edit'), async
   }
 
   // Swap karyawan_id pada kedua jadwal
-  db.transaction((tx) => {
+  await withTransaction(async (tx) => {
     tx.update(jadwal_kerja).set({ karyawan_id: req.penerima_id }).where(eq(jadwal_kerja.id, req.jadwal_id)).run()
     if (req.jadwal_penerima_id) {
       tx.update(jadwal_kerja).set({ karyawan_id: req.pengaju_id }).where(eq(jadwal_kerja.id, req.jadwal_penerima_id)).run()
@@ -214,7 +214,7 @@ jadwalRouter.put('/tukar/:id/setujui', requirePermission('karyawan.edit'), async
       status: 'disetujui',
       diproses_oleh: user.id,
       catatan_proses: (body as { catatan?: string }).catatan,
-      updated_at: sql`(datetime('now','localtime'))`,
+      updated_at: isoNow(),
     }).where(eq(tukar_shift.id, id)).run()
   })
 
@@ -236,7 +236,7 @@ jadwalRouter.put('/tukar/:id/tolak', requirePermission('karyawan.edit'), async (
     status: 'ditolak',
     diproses_oleh: user.id,
     catatan_proses: (body as { catatan?: string }).catatan,
-    updated_at: sql`(datetime('now','localtime'))`,
+    updated_at: isoNow(),
   }).where(eq(tukar_shift.id, id)).run()
   return c.json({ success: true, data: null })
 })
@@ -246,8 +246,8 @@ jadwalRouter.put('/tukar/:id/tolak', requirePermission('karyawan.edit'), async (
 
 jadwalRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: jadwal_kerja.id }).from(jadwal_kerja).where(eq(jadwal_kerja.id, id)).get()
+  const existing = await query.find(db.select({ id: jadwal_kerja.id }).from(jadwal_kerja).where(eq(jadwal_kerja.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Jadwal tidak ditemukan' })
-  db.delete(jadwal_kerja).where(eq(jadwal_kerja.id, id)).run()
+  await query.exec(db.delete(jadwal_kerja).where(eq(jadwal_kerja.id, id)))
   return c.json({ success: true, data: null })
 })
