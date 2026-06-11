@@ -140,7 +140,7 @@ purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
   if (!body.items?.length) throw new HTTPException(400, { message: 'Item PO kosong' })
 
   const totalNilai = body.items.reduce(
-    (s, i) => s + (i.harga_beli_estimasi ?? 0) * i.jumlah_pesan, 0
+    (s, i) => s + Math.round((i.harga_beli_estimasi ?? 0) * i.jumlah_pesan), 0
   )
 
   const tgl = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)

@@ -108,7 +108,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
   let totalNilai = 0
   for (const item of body.items) {
-    totalNilai += item.harga_beli * item.jumlah_terima
+    totalNilai += Math.round(item.harga_beli * item.jumlah_terima)
   }
 
   const termsHari = body.terms_bayar ?? sup.terms_bayar

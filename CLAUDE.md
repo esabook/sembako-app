@@ -362,7 +362,8 @@ Web Worker               → hanya jika withIdle() tidak cukup (kriteria di bawa
 | **Sprint 1** — Performa & DX | ✅ Selesai | N+1, null-safety, index DB, debounce, withLoading, warna |
 | **Sprint 2** — UX & Polish | ✅ Selesai | Page title, error page, animasi, toast, transisi modal |
 | **Sprint 3** — Correctness | ✅ Selesai | Skeleton loader, Spinner SVG, deployment mode env |
-| **Fase D** — Multi-tenant Cutover | ⏸ Ditunda | Tunggu toko kedua nyata |
+| **Fase D-1** — Currency Integer | ✅ Selesai | 60 kolom real → integer, migrate.ts PRAGMA fix |
+| **Fase D** — Multi-tenant Cutover | ⏸ Ditunda | Tunggu infrastruktur multi-toko siap |
 
 **Modul aktif:** dashboard, kasir, gudang, karyawan, keuangan, laporan, harga, pengaturan,
 kasir/retur, gudang/label, promo, pelanggan, crm, sales, aset, keuangan/pinjaman, tamu,
@@ -401,7 +402,7 @@ Pertimbangan jangka panjang:
   [x] Backup & Restore UI (A4, done)
   [ ] Multi-toko / multi-cabang → Fase D
   [ ] Migrasi ke Turso (libSQL) untuk akses remote → Fase D
-  [ ] Konversi 52 kolom real → integer Rupiah → Fase D (doc: currency_audit.md)
+  [x] Konversi 60 kolom real → integer Rupiah (Fase D-1, selesai)
 ```
 
 ---

@@ -1,4 +1,4 @@
-import { table, pkInt, int, txt, bool, flt, jsonText, timestamps, idx, uidx, chk, sql, isoNow } from './builders.ts'
+import { table, pkInt, int, txt, bool, flt, money, jsonText, timestamps, idx, uidx, chk, sql, isoNow } from './builders.ts'
 
 // ─── A1: tenant_id — siap multi-tenant, DEFAULT 1, belum dienforce ──────────
 // Pasang sekarang di semua tabel transaksional; RLS aktif di Fase D (Postgres).
@@ -26,7 +26,7 @@ export const karyawan = table('karyawan', {
   role: txt('role', { enum: ['pemilik', 'manajer', 'kasir', 'gudang'] }).notNull(),
   username: txt('username').notNull().unique(),
   password_hash: txt('password_hash').notNull(),
-  gaji_pokok: flt('gaji_pokok').notNull().default(0),
+  gaji_pokok: money('gaji_pokok').notNull().default(0),
   tipe_gaji: txt('tipe_gaji', { enum: ['harian', 'bulanan'] }).notNull().default('bulanan'),
   kontak: txt('kontak'),
   foto_path: txt('foto_path'),
@@ -97,10 +97,10 @@ export const barang = table('barang', {
   satuan_dasar_id: int('satuan_dasar_id').references(() => satuan.id),
   // JSON: [{ satuan_id, faktor }] misal 1 karton = 24 pcs
   konversi_satuan: jsonText('konversi_satuan'),
-  harga_beli_terakhir: flt('harga_beli_terakhir').notNull().default(0),
-  harga_beli_rata: flt('harga_beli_rata').notNull().default(0),
-  harga_jual_eceran: flt('harga_jual_eceran').notNull().default(0),
-  harga_jual_grosir: flt('harga_jual_grosir').notNull().default(0),
+  harga_beli_terakhir: money('harga_beli_terakhir').notNull().default(0),
+  harga_beli_rata: money('harga_beli_rata').notNull().default(0),
+  harga_jual_eceran: money('harga_jual_eceran').notNull().default(0),
+  harga_jual_grosir: money('harga_jual_grosir').notNull().default(0),
   stok_minimum: flt('stok_minimum').notNull().default(0),
   stok_sekarang: flt('stok_sekarang').notNull().default(0),
   lokasi_rak: txt('lokasi_rak'),
@@ -123,7 +123,7 @@ export const supplier = table('supplier', {
   kontak: txt('kontak'),
   alamat: txt('alamat'),
   terms_bayar: int('terms_bayar').notNull().default(0),
-  limit_hutang: flt('limit_hutang').notNull().default(0),
+  limit_hutang: money('limit_hutang').notNull().default(0),
   is_active: bool('is_active').notNull().default(true),
   ...tenantField,
   ...auditFields,
@@ -138,8 +138,8 @@ export const pelanggan = table('pelanggan', {
   tipe: txt('tipe', { enum: ['eceran', 'grosir', 'langganan'] }).notNull().default('eceran'),
   kontak: txt('kontak'),
   alamat: txt('alamat'),
-  limit_piutang: flt('limit_piutang').notNull().default(0),
-  saldo_piutang: flt('saldo_piutang').notNull().default(0),
+  limit_piutang: money('limit_piutang').notNull().default(0),
+  saldo_piutang: money('saldo_piutang').notNull().default(0),
   is_active: bool('is_active').notNull().default(true),
   ...tenantField,
   ...auditFields,
@@ -168,7 +168,7 @@ export const histori_harga_beli = table('histori_harga_beli', {
   barang_id: int('barang_id').notNull().references(() => barang.id),
   supplier_id: int('supplier_id').references(() => supplier.id),
   barang_masuk_id: int('barang_masuk_id'),
-  harga_beli: flt('harga_beli').notNull(),
+  harga_beli: money('harga_beli').notNull(),
   tanggal_berlaku: txt('tanggal_berlaku').notNull(),
   dicatat_oleh: int('dicatat_oleh').references(() => karyawan.id),
   ...tenantField,
@@ -177,8 +177,8 @@ export const histori_harga_beli = table('histori_harga_beli', {
 export const histori_harga_jual = table('histori_harga_jual', {
   id: pkInt('id'),
   barang_id: int('barang_id').notNull().references(() => barang.id),
-  harga_eceran: flt('harga_eceran').notNull(),
-  harga_grosir: flt('harga_grosir').notNull(),
+  harga_eceran: money('harga_eceran').notNull(),
+  harga_grosir: money('harga_grosir').notNull(),
   tanggal_berlaku: txt('tanggal_berlaku').notNull(),
   tanggal_berakhir: txt('tanggal_berakhir'),
   diubah_oleh: int('diubah_oleh').references(() => karyawan.id),
@@ -198,7 +198,7 @@ export const purchase_order = table('purchase_order', {
   status: txt('status', {
     enum: ['draft', 'dikirim', 'sebagian', 'lunas', 'batal'],
   }).notNull().default('draft'),
-  total_nilai: flt('total_nilai').notNull().default(0),
+  total_nilai: money('total_nilai').notNull().default(0),
   dibuat_oleh: int('dibuat_oleh').references(() => karyawan.id),
   ...tenantField,
   ...timestamps,
@@ -211,7 +211,7 @@ export const po_detail = table('po_detail', {
   satuan_id: int('satuan_id').references(() => satuan.id),
   jumlah_pesan: flt('jumlah_pesan').notNull(),
   jumlah_diterima: flt('jumlah_diterima').notNull().default(0),
-  harga_beli_estimasi: flt('harga_beli_estimasi').notNull().default(0),
+  harga_beli_estimasi: money('harga_beli_estimasi').notNull().default(0),
   ...tenantField,
 })
 
@@ -223,7 +223,7 @@ export const barang_masuk = table('barang_masuk', {
   tanggal_terima: txt('tanggal_terima').notNull(),
   no_faktur_supplier: txt('no_faktur_supplier'),
   foto_faktur_path: txt('foto_faktur_path'),
-  total_nilai: flt('total_nilai').notNull().default(0),
+  total_nilai: money('total_nilai').notNull().default(0),
   diterima_oleh: int('diterima_oleh').references(() => karyawan.id),
   ...tenantField,
   ...timestamps,
@@ -235,7 +235,7 @@ export const barang_masuk_detail = table('barang_masuk_detail', {
   barang_id: int('barang_id').notNull().references(() => barang.id),
   satuan_id: int('satuan_id').references(() => satuan.id),
   jumlah_terima: flt('jumlah_terima').notNull(),
-  harga_beli: flt('harga_beli').notNull(),
+  harga_beli: money('harga_beli').notNull(),
   tgl_kadaluarsa: txt('tgl_kadaluarsa'),
   ...tenantField,
 }, (t) => [
@@ -253,14 +253,14 @@ export const penjualan = table('penjualan', {
   tanggal: txt('tanggal').notNull(),
   tipe: txt('tipe', { enum: ['eceran', 'grosir'] }).notNull().default('eceran'),
   kasir_id: int('kasir_id').references(() => karyawan.id),
-  subtotal: flt('subtotal').notNull().default(0),
-  diskon_total: flt('diskon_total').notNull().default(0),
-  total: flt('total').notNull().default(0),
+  subtotal: money('subtotal').notNull().default(0),
+  diskon_total: money('diskon_total').notNull().default(0),
+  total: money('total').notNull().default(0),
   metode_bayar: txt('metode_bayar', {
     enum: ['tunai', 'transfer', 'qris', 'hutang'],
   }).notNull(),
-  bayar: flt('bayar').notNull().default(0),
-  kembalian: flt('kembalian').notNull().default(0),
+  bayar: money('bayar').notNull().default(0),
+  kembalian: money('kembalian').notNull().default(0),
   status: txt('status', { enum: ['lunas', 'hutang', 'void'] }).notNull().default('lunas'),
   ...tenantField,
   ...timestamps,
@@ -281,9 +281,9 @@ export const penjualan_detail = table('penjualan_detail', {
   barang_id: int('barang_id').notNull().references(() => barang.id),
   satuan_id: int('satuan_id').references(() => satuan.id),
   jumlah: flt('jumlah').notNull(),
-  harga_jual: flt('harga_jual').notNull(), // snapshot — jangan ambil dari master
-  diskon_item: flt('diskon_item').notNull().default(0),
-  subtotal: flt('subtotal').notNull(),
+  harga_jual: money('harga_jual').notNull(), // snapshot — jangan ambil dari master
+  diskon_item: money('diskon_item').notNull().default(0),
+  subtotal: money('subtotal').notNull(),
   ...tenantField,
 }, (t) => [
   idx('idx_penjualan_detail_trx').on(t.penjualan_id),
@@ -347,7 +347,7 @@ export const kas_bank = table('kas_bank', {
   id: pkInt('id'),
   nama: txt('nama').notNull(),
   tipe: txt('tipe', { enum: ['kas', 'bank'] }).notNull(),
-  saldo_awal: flt('saldo_awal').notNull().default(0),
+  saldo_awal: money('saldo_awal').notNull().default(0),
   is_active: bool('is_active').notNull().default(true),
   ...tenantField,
   ...auditFields,
@@ -362,7 +362,7 @@ export const jurnal_kas = table('jurnal_kas', {
   referensi_tipe: txt('referensi_tipe'),
   referensi_id: int('referensi_id'),
   keterangan: txt('keterangan'),
-  jumlah: flt('jumlah').notNull(),
+  jumlah: money('jumlah').notNull(),
   dicatat_oleh: int('dicatat_oleh').references(() => karyawan.id),
   ...tenantField,
   ...timestamps,
@@ -377,8 +377,8 @@ export const hutang_supplier = table('hutang_supplier', {
   barang_masuk_id: int('barang_masuk_id').notNull().references(() => barang_masuk.id),
   tanggal_hutang: txt('tanggal_hutang').notNull(),
   tanggal_jatuh_tempo: txt('tanggal_jatuh_tempo'),
-  total_hutang: flt('total_hutang').notNull(),
-  sisa_hutang: flt('sisa_hutang').notNull(),
+  total_hutang: money('total_hutang').notNull(),
+  sisa_hutang: money('sisa_hutang').notNull(),
   status: txt('status', { enum: ['belum', 'sebagian', 'lunas'] }).notNull().default('belum'),
   ...tenantField,
   ...auditFields,
@@ -392,7 +392,7 @@ export const pembayaran_hutang = table('pembayaran_hutang', {
   id: pkInt('id'),
   hutang_id: int('hutang_id').notNull().references(() => hutang_supplier.id),
   tanggal_bayar: txt('tanggal_bayar').notNull(),
-  jumlah_bayar: flt('jumlah_bayar').notNull(),
+  jumlah_bayar: money('jumlah_bayar').notNull(),
   kas_bank_id: int('kas_bank_id').notNull().references(() => kas_bank.id),
   dibayar_oleh: int('dibayar_oleh').references(() => karyawan.id),
   ...tenantField,
@@ -405,8 +405,8 @@ export const piutang_pelanggan = table('piutang_pelanggan', {
   penjualan_id: int('penjualan_id').notNull().references(() => penjualan.id),
   tanggal_piutang: txt('tanggal_piutang').notNull(),
   tanggal_jatuh_tempo: txt('tanggal_jatuh_tempo'),
-  total_piutang: flt('total_piutang').notNull(),
-  sisa_piutang: flt('sisa_piutang').notNull(),
+  total_piutang: money('total_piutang').notNull(),
+  sisa_piutang: money('sisa_piutang').notNull(),
   status: txt('status', { enum: ['belum', 'sebagian', 'lunas'] }).notNull().default('belum'),
   ...tenantField,
   ...auditFields,
@@ -423,7 +423,7 @@ export const pembayaran_piutang = table('pembayaran_piutang', {
   id: pkInt('id'),
   piutang_id: int('piutang_id').notNull().references(() => piutang_pelanggan.id),
   tanggal_bayar: txt('tanggal_bayar').notNull(),
-  jumlah_bayar: flt('jumlah_bayar').notNull(),
+  jumlah_bayar: money('jumlah_bayar').notNull(),
   kas_bank_id: int('kas_bank_id').notNull().references(() => kas_bank.id),
   diterima_oleh: int('diterima_oleh').references(() => karyawan.id),
   ...tenantField,
@@ -458,11 +458,11 @@ export const penggajian = table('penggajian', {
   periode_bulan: txt('periode_bulan').notNull(),
   hari_kerja: int('hari_kerja').notNull().default(0),
   hari_hadir: int('hari_hadir').notNull().default(0),
-  gaji_pokok: flt('gaji_pokok').notNull(),
-  tunjangan: flt('tunjangan').notNull().default(0),
-  potongan_kasbon: flt('potongan_kasbon').notNull().default(0),
-  potongan_lain: flt('potongan_lain').notNull().default(0),
-  total_gaji: flt('total_gaji').notNull(),
+  gaji_pokok: money('gaji_pokok').notNull(),
+  tunjangan: money('tunjangan').notNull().default(0),
+  potongan_kasbon: money('potongan_kasbon').notNull().default(0),
+  potongan_lain: money('potongan_lain').notNull().default(0),
+  total_gaji: money('total_gaji').notNull(),
   status: txt('status', { enum: ['draft', 'approved', 'dibayar'] }).notNull().default('draft'),
   ...tenantField,
   ...timestamps,
@@ -474,9 +474,9 @@ export const kasbon = table('kasbon', {
   id: pkInt('id'),
   karyawan_id: int('karyawan_id').notNull().references(() => karyawan.id),
   tanggal_pinjam: txt('tanggal_pinjam').notNull(),
-  jumlah: flt('jumlah').notNull(),
-  cicilan_per_bulan: flt('cicilan_per_bulan').notNull().default(0),
-  sisa_kasbon: flt('sisa_kasbon').notNull(),
+  jumlah: money('jumlah').notNull(),
+  cicilan_per_bulan: money('cicilan_per_bulan').notNull().default(0),
+  sisa_kasbon: money('sisa_kasbon').notNull(),
   status: txt('status', {
     enum: ['pengajuan', 'disetujui', 'ditolak', 'aktif', 'lunas'],
   }).notNull().default('pengajuan'),
@@ -539,7 +539,7 @@ export const sanksi_insentif = table('sanksi_insentif', {
   karyawan_id: int('karyawan_id').notNull().references(() => karyawan.id),
   tipe: txt('tipe', { enum: ['sanksi', 'insentif'] }).notNull(),
   jenis: txt('jenis').notNull(),            // 'terlambat' | 'lembur' | 'bonus' | 'potongan' | dst
-  jumlah: flt('jumlah').notNull(),          // nominal rupiah, selalu positif
+  jumlah: money('jumlah').notNull(),          // nominal rupiah, selalu positif
   tanggal: txt('tanggal').notNull(),
   keterangan: txt('keterangan'),
   periode_bulan: txt('periode_bulan').notNull(), // YYYY-MM — untuk grouping penggajian
@@ -558,12 +558,12 @@ export const shift_kasir = table('shift_kasir', {
   tanggal: txt('tanggal').notNull(),
   jam_buka: txt('jam_buka').notNull(),
   jam_tutup: txt('jam_tutup'),
-  kas_awal: flt('kas_awal').notNull().default(0),
-  kas_fisik: flt('kas_fisik'),
-  kas_sistem: flt('kas_sistem'),    // dihitung: kas_awal + penjualan_tunai
-  selisih_kas: flt('selisih_kas'),  // kas_fisik - kas_sistem
+  kas_awal: money('kas_awal').notNull().default(0),
+  kas_fisik: money('kas_fisik'),
+  kas_sistem: money('kas_sistem'),    // dihitung: kas_awal + penjualan_tunai
+  selisih_kas: money('selisih_kas'),  // kas_fisik - kas_sistem
   jumlah_transaksi: int('jumlah_transaksi').notNull().default(0),
-  total_penjualan: flt('total_penjualan').notNull().default(0),
+  total_penjualan: money('total_penjualan').notNull().default(0),
   catatan: txt('catatan'),
   status: txt('status', { enum: ['buka', 'tutup'] }).notNull().default('buka'),
   ...tenantField,
@@ -576,8 +576,8 @@ export const shift_kasir = table('shift_kasir', {
 export const harga_jadwal = table('harga_jadwal', {
   id: pkInt('id'),
   barang_id: int('barang_id').notNull().references(() => barang.id),
-  harga_eceran_baru: flt('harga_eceran_baru').notNull(),
-  harga_grosir_baru: flt('harga_grosir_baru').notNull(),
+  harga_eceran_baru: money('harga_eceran_baru').notNull(),
+  harga_grosir_baru: money('harga_grosir_baru').notNull(),
   berlaku_mulai: txt('berlaku_mulai').notNull(),
   berlaku_sampai: txt('berlaku_sampai'),
   status: txt('status', { enum: ['draft', 'aktif', 'selesai', 'batal'] }).notNull().default('draft'),
@@ -603,7 +603,7 @@ export const retur_penjualan = table('retur_penjualan', {
   penjualan_id: int('penjualan_id').notNull().references(() => penjualan.id),
   tanggal: txt('tanggal').notNull(),
   kasir_id: int('kasir_id').references(() => karyawan.id),
-  total_retur: flt('total_retur').notNull().default(0),
+  total_retur: money('total_retur').notNull().default(0),
   alasan: txt('alasan'),
   // tunai = uang kembali ke pelanggan, kurang_piutang = kurangi piutang, tukar_barang = stok saja
   metode_refund: txt('metode_refund', {
@@ -621,8 +621,8 @@ export const retur_penjualan_detail = table('retur_penjualan_detail', {
   barang_id: int('barang_id').notNull().references(() => barang.id),
   satuan_id: int('satuan_id').references(() => satuan.id),
   jumlah_retur: flt('jumlah_retur').notNull(),
-  harga_jual: flt('harga_jual').notNull(), // harga efektif per unit (sudah dipotong diskon proporsional)
-  subtotal: flt('subtotal').notNull(),
+  harga_jual: money('harga_jual').notNull(), // harga efektif per unit (sudah dipotong diskon proporsional)
+  subtotal: money('subtotal').notNull(),
   ...tenantField,
 })
 
@@ -633,8 +633,8 @@ export const retur_penjualan_tukar = table('retur_penjualan_tukar', {
   barang_id: int('barang_id').notNull().references(() => barang.id),
   satuan_id: int('satuan_id').references(() => satuan.id),
   jumlah: flt('jumlah').notNull(),
-  harga_jual: flt('harga_jual').notNull(), // snapshot harga saat retur
-  subtotal: flt('subtotal').notNull(),
+  harga_jual: money('harga_jual').notNull(), // snapshot harga saat retur
+  subtotal: money('subtotal').notNull(),
   ...tenantField,
 })
 
@@ -652,7 +652,7 @@ export const retur_supplier = table('retur_supplier', {
   supplier_id: int('supplier_id').notNull().references(() => supplier.id),
   tanggal: txt('tanggal').notNull(),
   dicatat_oleh: int('dicatat_oleh').references(() => karyawan.id),
-  total_retur: flt('total_retur').notNull().default(0),
+  total_retur: money('total_retur').notNull().default(0),
   alasan: txt('alasan'),
   // kurang_hutang = kurangi sisa hutang, tunai = terima uang balik
   metode_refund: txt('metode_refund', {
@@ -673,8 +673,8 @@ export const retur_supplier_detail = table('retur_supplier_detail', {
   retur_id: int('retur_id').notNull().references(() => retur_supplier.id),
   barang_id: int('barang_id').notNull().references(() => barang.id),
   jumlah_retur: flt('jumlah_retur').notNull(),
-  harga_beli: flt('harga_beli').notNull(), // snapshot harga dari penerimaan asal
-  subtotal: flt('subtotal').notNull(),
+  harga_beli: money('harga_beli').notNull(), // snapshot harga dari penerimaan asal
+  subtotal: money('subtotal').notNull(),
   ...tenantField,
 })
 
@@ -721,7 +721,7 @@ export const notifikasi_log = table('notifikasi_log', {
 export const target_penjualan = table('target_penjualan', {
   id: pkInt('id'),
   periode_bulan: txt('periode_bulan').notNull().unique(), // format YYYY-MM
-  target_omzet: flt('target_omzet').notNull().default(0),
+  target_omzet: money('target_omzet').notNull().default(0),
   target_transaksi: int('target_transaksi').notNull().default(0),
   target_margin_pct: flt('target_margin_pct').notNull().default(0), // persen, misal 15.0
   catatan: txt('catatan'),
@@ -737,7 +737,7 @@ export const budget_operasional = table('budget_operasional', {
   kategori: txt('kategori', {
     enum: ['gaji', 'sewa', 'listrik', 'kemasan', 'operasional', 'lain'],
   }).notNull(),
-  nilai_budget: flt('nilai_budget').notNull().default(0),
+  nilai_budget: money('nilai_budget').notNull().default(0),
   catatan: txt('catatan'),
   dibuat_oleh: int('dibuat_oleh').references(() => karyawan.id),
   ...tenantField,
@@ -754,7 +754,7 @@ export const promo = table('promo', {
   nilai: flt('nilai').notNull(),
   tipe_nilai: txt('tipe_nilai', { enum: ['persen', 'rupiah'] }).notNull().default('persen'),
   min_qty: int('min_qty').notNull().default(1),
-  min_total: flt('min_total').notNull().default(0),
+  min_total: money('min_total').notNull().default(0),
   berlaku_mulai: txt('berlaku_mulai'),
   berlaku_sampai: txt('berlaku_sampai'),
   max_penggunaan: int('max_penggunaan'),
@@ -845,8 +845,8 @@ export const draft_keranjang_item = table('draft_keranjang_item', {
   tipe_harga: txt('tipe_harga', { enum: ['eceran', 'grosir'] }).notNull().default('eceran'),
   satuan_id: int('satuan_id').references(() => satuan.id),
   jumlah: flt('jumlah').notNull(),
-  harga_jual: flt('harga_jual').notNull(),
-  diskon_item: flt('diskon_item').notNull().default(0),
+  harga_jual: money('harga_jual').notNull(),
+  diskon_item: money('diskon_item').notNull().default(0),
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
