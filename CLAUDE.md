@@ -363,6 +363,7 @@ Web Worker               → hanya jika withIdle() tidak cukup (kriteria di bawa
 | **Sprint 2** — UX & Polish | ✅ Selesai | Page title, error page, animasi, toast, transisi modal |
 | **Sprint 3** — Correctness | ✅ Selesai | Skeleton loader, Spinner SVG, deployment mode env |
 | **Fase D-1** — Currency Integer | ✅ Selesai | 60 kolom real → integer, migrate.ts PRAGMA fix |
+| **Fase D-2** — PostgreSQL Migration | ✅ Selesai | builders dialect-aware, PG migration generated (70 tabel) |
 | **Fase D** — Multi-tenant Cutover | ⏸ Ditunda | Tunggu infrastruktur multi-toko siap |
 
 **Modul aktif:** dashboard, kasir, gudang, karyawan, keuangan, laporan, harga, pengaturan,
@@ -394,7 +395,8 @@ _(tidak ada saat ini)_
 
 ```
 Aktif:
-  [ ] Fase D — migrasi ke PostgreSQL (hanya saat toko kedua)
+  [x] Fase D-2 — generate PostgreSQL migration (builders + 0000_famous_blob.sql, 70 tabel)
+  [ ] Fase D — actual cutover ke PostgreSQL/Turso (hanya saat toko kedua siap)
 
 Pertimbangan jangka panjang:
   [x] Service Worker / offline cache — fully implemented dengan deployment mode env
