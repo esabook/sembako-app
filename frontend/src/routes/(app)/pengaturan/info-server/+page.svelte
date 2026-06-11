@@ -15,6 +15,7 @@
 		platform: string;
 		uptime_detik: number;
 		app_version: string;
+		last_commit_date?: string;
 	};
 
 	let info = $state<ServerInfo | null>(null);
@@ -163,6 +164,7 @@
 						['Status Backend', ''],
 						['URL Saat Ini', typeof window !== 'undefined' ? window.location.origin : '—'],
 						['Versi App', info.app_version],
+						['Build Date', info.last_commit_date ?? '—'],
 						['Runtime', `Bun ${info.bun_version}`],
 						['Platform', info.platform],
 						['Uptime Server', formatUptime(info.uptime_detik)],
