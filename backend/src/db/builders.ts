@@ -40,8 +40,8 @@ export const jsonText = (name: string) =>
 export const isoNow = () => new Date().toISOString()
 
 export const timestamps = {
-  created_at: sl.text('created_at').$defaultFn(isoNow),
-  updated_at: sl.text('updated_at').$defaultFn(isoNow).$onUpdateFn(isoNow),
+  created_at: txt('created_at').$defaultFn(isoNow),
+  updated_at: txt('updated_at').$defaultFn(isoNow).$onUpdateFn(isoNow),
 }
 
 export { sql } from 'drizzle-orm'
