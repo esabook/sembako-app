@@ -29,6 +29,15 @@ pengaturanRouter.get('/publik', async (c) => {
 
 // ── GET /pengaturan/server-info — info jaringan & sistem ──────────────────
 pengaturanRouter.get('/server-info', async (c) => {
+  const commitDate = (() => {
+    try {
+      const proc = Bun.spawnSync(['git', 'log', '-1', '--format=%ci'])
+      return proc.stdout.toString().trim() || 'unknown'
+    } catch {
+      return 'unknown'
+    }
+  })()
+
   return c.json({
     success: true,
     data: {
@@ -39,6 +48,7 @@ pengaturanRouter.get('/server-info', async (c) => {
       platform: process.platform,
       uptime_detik: Math.floor(process.uptime()),
       app_version: '0.0.1',
+      last_commit_date: commitDate,
     },
   })
 })
