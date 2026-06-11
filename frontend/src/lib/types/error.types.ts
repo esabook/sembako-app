@@ -38,4 +38,5 @@ export interface WithLoadingOpts {
 	bisaRetry?: boolean;
 	suksesOtomatis?: boolean;
 	suksesPesan?: string;
+	onAntri?: () => void;
 }

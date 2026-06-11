@@ -7,6 +7,7 @@
 	import NavClock from '$lib/components/NavClock.svelte';
 	import NavUser from '$lib/components/NavUser.svelte';
 	import AppSidebar from '$lib/components/layout/AppSidebar.svelte';
+	import SyncIndicator from '$lib/components/SyncIndicator.svelte';
 
 	let { children, data } = $props();
 
@@ -60,6 +61,7 @@
 		</div>
 
 		<div class="ml-auto flex shrink-0 items-center gap-2">
+			<SyncIndicator />
 			<NavClock />
 			<NavUser />
 		</div>
