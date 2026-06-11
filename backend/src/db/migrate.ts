@@ -21,8 +21,12 @@ if (dialect === 'postgres') {
   await conn.end()
 } else {
   const { migrate } = await import('drizzle-orm/bun-sqlite/migrator')
-  const { db } = await import('./index.ts')
+  const { db, sqlite } = await import('./index.ts')
+  // PRAGMA foreign_keys must be set OUTSIDE a transaction — Drizzle wraps migration in BEGIN/COMMIT
+  // so we toggle it here, before/after migrate() issues BEGIN.
+  sqlite.run('PRAGMA foreign_keys = OFF')
   migrate(db as any, { migrationsFolder: './src/db/migrations/sqlite' })
+  sqlite.run('PRAGMA foreign_keys = ON')
 }
 
 console.log('Migrations complete')

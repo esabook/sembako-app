@@ -219,7 +219,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
     }
   }
 
-  const total = body.items.reduce((s, i) => s + i.harga_beli * i.jumlah_retur, 0)
+  const total = body.items.reduce((s, i) => s + Math.round(i.harga_beli * i.jumlah_retur), 0)
   const tgl = tglSekarang()
   const noRet = noRetur()
 
@@ -241,7 +241,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
 
     // 2. Detail + mutasi stok keluar
     for (const item of body.items) {
-      const subtotal = item.harga_beli * item.jumlah_retur
+      const subtotal = Math.round(item.harga_beli * item.jumlah_retur)
       await query.exec(db.insert(retur_supplier_detail).values({
         retur_id: ret.id,
         barang_id: item.barang_id,

@@ -160,12 +160,12 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         message: `Stok ${br.nama_barang} tidak cukup (ada: ${br.stok_sekarang}, butuh: ${item.jumlah})`,
       })
     }
-    const itemSubtotal = item.harga_jual * item.jumlah - (item.diskon_item ?? 0)
+    const itemSubtotal = Math.round(item.harga_jual * item.jumlah - (item.diskon_item ?? 0))
     subtotal += itemSubtotal
     itemsValidated.push({ ...item, subtotal: itemSubtotal })
   }
 
-  const diskonTotal = body.diskon_total ?? 0
+  const diskonTotal = Math.round(body.diskon_total ?? 0)
   const total = subtotal - diskonTotal
   const kembalian = body.metode_bayar === 'hutang' ? 0 : Math.max(0, body.bayar - total)
   const status = body.metode_bayar === 'hutang' ? 'hutang' : 'lunas'

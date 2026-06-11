@@ -10,6 +10,10 @@ export const table = (d === 'pg' ? pg.pgTable : d === 'my' ? my.mysqlTable : sl.
 export const int   = (d === 'pg' ? pg.integer : d === 'my' ? my.int       : sl.integer)      as typeof sl.integer
 export const txt   = (d === 'pg' ? pg.text    : d === 'my' ? my.text      : sl.text)          as typeof sl.text
 export const flt   = (d === 'pg' ? pg.doublePrecision : d === 'my' ? my.double : sl.real)     as typeof sl.real
+export const money = (name: string) =>
+  d === 'pg' ? pg.bigint(name, { mode: 'number' }) as unknown as ReturnType<typeof sl.integer>
+: d === 'my' ? my.bigint(name, { mode: 'number' }) as unknown as ReturnType<typeof sl.integer>
+: sl.integer(name)
 export const idx   = (d === 'pg' ? pg.index   : d === 'my' ? my.index     : sl.index)         as typeof sl.index
 export const uidx  = (d === 'pg' ? pg.uniqueIndex : d === 'my' ? my.uniqueIndex : sl.uniqueIndex) as typeof sl.uniqueIndex
 export const chk   = (d === 'pg' ? pg.check   : d === 'my' ? my.check     : sl.check)         as typeof sl.check

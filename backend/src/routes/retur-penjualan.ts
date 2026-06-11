@@ -256,8 +256,8 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
 
     // Fix 1 + Fix 3: Gunakan harga dari snapshot, hitung net price proporsional (sudah potong diskon)
     // detailAsli.subtotal = harga_jual * jumlah - diskon_item → hargaNet = subtotal / jumlah
-    const hargaNet = detailAsli.subtotal / detailAsli.jumlah
-    const subtotal = hargaNet * item.jumlah_retur
+    const hargaNet = Math.round(detailAsli.subtotal / detailAsli.jumlah)
+    const subtotal = Math.round(hargaNet * item.jumlah_retur)
 
     totalRetur += subtotal
     itemsValidated.push({ ...item, harga_jual: hargaNet, subtotal })
@@ -271,7 +271,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
       if (ti.harga_jual < 0) throw new HTTPException(400, { message: 'Harga barang pengganti tidak valid' })
       const br = await query.find(db.select({ id: barang.id }).from(barang).where(eq(barang.id, ti.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang pengganti ID ${ti.barang_id} tidak ditemukan` })
-      tukarItemsValidated.push({ ...ti, subtotal: ti.harga_jual * ti.jumlah })
+      tukarItemsValidated.push({ ...ti, subtotal: Math.round(ti.harga_jual * ti.jumlah) })
     }
   }
 
