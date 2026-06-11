@@ -1,7 +1,7 @@
 # Currency Audit — Kolom `real` di Schema Stokasir
 
-> **A3 — Fase A SaaS-Readiness**
-> Tujuan: inventarisasi semua 75 kolom `real`, tetapkan keputusan tipe akhir.
+> **A3 — Fase A SaaS-Readiness** (updated Sprint 4)
+> Tujuan: inventarisasi semua 78 kolom `real`, tetapkan keputusan tipe akhir.
 > Konversi nilai uang (`real` → `integer` Rupiah penuh) dilakukan saat cutover
 > PostgreSQL (Fase D) atau lebih awal per-tabel jika ada akumulasi bug float.
 
@@ -18,9 +18,9 @@
 
 ---
 
-## Daftar Lengkap — 75 Kolom
+## Daftar Lengkap — 78 Kolom
 
-### UANG (52 kolom) → target `integer` di Fase D
+### UANG (55 kolom) → target `integer` di Fase D
 
 | Tabel | Kolom | Keterangan |
 |---|---|---|
@@ -75,6 +75,9 @@
 | `retur_penjualan_detail` | `subtotal` | jumlah_retur × harga_jual |
 | `retur_penjualan_tukar` | `harga_jual` | **SNAPSHOT** harga barang pengganti |
 | `retur_penjualan_tukar` | `subtotal` | jumlah × harga_jual |
+| `retur_supplier_detail` | `harga_beli` | **SNAPSHOT** harga beli saat retur ke supplier |
+| `retur_supplier_detail` | `subtotal` | jumlah × harga_beli |
+| `sanksi_insentif` | `jumlah` | Nominal rupiah sanksi/insentif, selalu positif |
 | `budget_operasional` | `nilai_budget` | Target anggaran per kategori operasional |
 | `target_penjualan` | `target_omzet` | Target omzet penjualan bulanan |
 | `promo` | `min_total` | Minimum total belanja untuk promo berlaku |
@@ -136,8 +139,65 @@
 
 ---
 
+## Urutan Migrasi per Tabel (Fase D)
+
+Migrasi detail sebelum header — constraint FK dan konsistensi snapshot. **Tahap saat toko kedua nyata atau cutover ke PostgreSQL.**
+
+### Tahap 1 — Tabel master (tidak ada FK ke tabel lain)
+
+- `karyawan`
+- `barang`
+- `supplier`
+- `pelanggan`
+- `kas_bank`
+- `kartu_anggota`
+
+### Tahap 2 — Tabel transaksi header
+
+- `purchase_order`
+- `barang_masuk`
+- `penjualan`
+- `hutang_supplier`
+- `piutang_pelanggan`
+- `penggajian`
+- `kasbon`
+- `shift_kasir`
+- `retur_penjualan`
+- `harga_jadwal`
+- `budget_operasional`
+- `target_penjualan`
+- `promo`
+
+### Tahap 3 — Tabel detail + snapshot (FK ke Tahap 2)
+
+- `po_detail`
+- `barang_masuk_detail`
+- `penjualan_detail`
+- `pembayaran_hutang`
+- `pembayaran_piutang`
+- `retur_penjualan_detail`
+- `retur_penjualan_tukar`
+- `retur_supplier_detail`
+- `draft_keranjang_item`
+- `sanksi_insentif`
+- `histori_harga_beli`
+- `histori_harga_jual`
+
+### Checklist Tahap D
+
+- [x] Buat migration script: `ROUND(nilai)` untuk semua kolom uang (0036_nostalgic_galactus.sql)
+- [x] Ubah schema: semua `flt()` uang → `money()` builder (SQLite: integer, PG: bigint)
+- [x] Deploy SQLite: jalankan `bun run db:migrate` (Fase D-1 selesai 2026-06-11)
+- [ ] Validasi: sum() detail = header sebelum/sesudah per tabel (manual check)
+- [ ] Test: edge case negatif (kasbon, selisih_kas) → INTEGER signed
+- [ ] Deploy PG: Tahap 1 → Tahap 2 → Tahap 3 (Fase D-2, saat cutover PostgreSQL)
+
+---
+
 ## Status
 
-- [x] Inventarisasi selesai — 75 kolom real terdokumentasi
-- [ ] Konversi uang → integer (Fase D, saat cutover PostgreSQL)
-- [ ] Pisah `promo.nilai` jika diperlukan (Fase D)
+- [x] Inventarisasi selesai — 78 kolom real terdokumentasi (60 uang, 15 kuantitas, 2 persentase, 1 ambiguous)
+- [x] Migrasi urutan direncanakan — Tahap 1–3 checklist (Fase D)
+- [x] Konversi uang → integer SQLite (Fase D-1, selesai 2026-06-11) — 60 kolom via `money()` builder
+- [ ] Pisah `promo.nilai` jika diperlukan (Fase D-2)
+- [ ] Konversi uang → bigint PostgreSQL (Fase D-2, saat cutover)
