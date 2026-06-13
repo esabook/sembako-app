@@ -5,13 +5,17 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { kartu_anggota, pelanggan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 
 export const kartuAnggotaRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 kartuAnggotaRouter.use('*', authMiddleware)
+kartuAnggotaRouter.use('*', tenantMiddleware)
 
 // List semua kartu, opsional filter status (assigned/available) dan query
 kartuAnggotaRouter.get('/', async (c) => {
+  const user     = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const q      = c.req.query('q')
   const status = c.req.query('status') // 'assigned' | 'available'
   const aktif  = c.req.query('aktif') !== '0'
@@ -25,6 +29,7 @@ kartuAnggotaRouter.get('/', async (c) => {
     .from(kartu_anggota)
     .leftJoin(pelanggan, eq(kartu_anggota.pelanggan_id, pelanggan.id))
     .where(and(
+      eq(kartu_anggota.tenant_id, tenantId),
       aktif ? eq(kartu_anggota.is_active, true) : undefined,
       status === 'assigned'  ? sql`${kartu_anggota.pelanggan_id} IS NOT NULL` : undefined,
       status === 'available' ? sql`${kartu_anggota.pelanggan_id} IS NULL`     : undefined,
@@ -37,6 +42,8 @@ kartuAnggotaRouter.get('/', async (c) => {
 
 // Generate kartu baru (no_kartu 10 digit, unik)
 kartuAnggotaRouter.post('/generate', requirePermission('penjualan.buat'), async (c) => {
+  const user     = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     tier?: 'reguler' | 'silver' | 'gold'
     diskon_member?: number
@@ -59,11 +66,11 @@ kartuAnggotaRouter.post('/generate', requirePermission('penjualan.buat'), async 
       no_kartu = String(angka)
       dupCheck = await query.find(db.select({ id: kartu_anggota.id })
         .from(kartu_anggota)
-        .where(eq(kartu_anggota.no_kartu, no_kartu))
+        .where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.no_kartu, no_kartu)))
       )
     } while (dupCheck)
 
-    const row = await query.ret(db.insert(kartu_anggota).values({ no_kartu, tier, diskon_member: diskon }).returning())
+    const row = await query.ret(db.insert(kartu_anggota).values({ no_kartu, tier, diskon_member: diskon, tenant_id: tenantId }).returning())
     hasil.push(row)
   }
 
@@ -71,6 +78,8 @@ kartuAnggotaRouter.post('/generate', requirePermission('penjualan.buat'), async 
 })
 
 kartuAnggotaRouter.get('/:id', async (c) => {
+  const user     = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const row = await query.find(db
     .select({
@@ -80,7 +89,7 @@ kartuAnggotaRouter.get('/:id', async (c) => {
     })
     .from(kartu_anggota)
     .leftJoin(pelanggan, eq(kartu_anggota.pelanggan_id, pelanggan.id))
-    .where(eq(kartu_anggota.id, id))
+    .where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id)))
     )
   if (!row) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
   return c.json({ success: true, data: row })
@@ -88,16 +97,18 @@ kartuAnggotaRouter.get('/:id', async (c) => {
 
 // Update tier / diskon kartu
 kartuAnggotaRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
+  const user     = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id   = Number(c.req.param('id'))
   const body = await c.req.json<{ tier?: 'reguler' | 'silver' | 'gold'; diskon_member?: number }>()
 
-  const existing = await query.find(db.select().from(kartu_anggota).where(eq(kartu_anggota.id, id)))
+  const existing = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!existing) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   const row = await query.find(db
     .update(kartu_anggota)
     .set({ ...body, updated_at: isoNow() })
-    .where(eq(kartu_anggota.id, id))
+    .where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id)))
     .returning()
     )
 
@@ -106,17 +117,19 @@ kartuAnggotaRouter.put('/:id', requirePermission('penjualan.buat'), async (c) =>
 
 // Update poin kartu
 kartuAnggotaRouter.patch('/:id/poin', requirePermission('penjualan.buat'), async (c) => {
+  const user     = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id   = Number(c.req.param('id'))
   const body = await c.req.json<{ delta: number }>()
 
-  const existing = await query.find(db.select().from(kartu_anggota).where(eq(kartu_anggota.id, id)))
+  const existing = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!existing) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   const poin_baru = Math.max(0, existing.poin + body.delta)
   const row = await query.find(db
     .update(kartu_anggota)
     .set({ poin: poin_baru, updated_at: isoNow() })
-    .where(eq(kartu_anggota.id, id))
+    .where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id)))
     .returning()
     )
 
@@ -125,10 +138,12 @@ kartuAnggotaRouter.patch('/:id/poin', requirePermission('penjualan.buat'), async
 
 // Assign kartu ke pelanggan
 kartuAnggotaRouter.post('/:id/assign', requirePermission('penjualan.buat'), async (c) => {
+  const user     = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id   = Number(c.req.param('id'))
   const body = await c.req.json<{ pelanggan_id: number }>()
 
-  const kartu = await query.find(db.select().from(kartu_anggota).where(eq(kartu_anggota.id, id)))
+  const kartu = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!kartu) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
   if (!kartu.is_active) throw new HTTPException(400, { message: 'Kartu sudah tidak aktif' })
   if (kartu.pelanggan_id) throw new HTTPException(400, { message: 'Kartu sudah di-assign ke pelanggan lain' })
@@ -138,14 +153,14 @@ kartuAnggotaRouter.post('/:id/assign', requirePermission('penjualan.buat'), asyn
 
   // Pastikan pelanggan belum punya kartu aktif lain
   const kartuLain = await query.find(db.select().from(kartu_anggota)
-    .where(and(eq(kartu_anggota.pelanggan_id, body.pelanggan_id), eq(kartu_anggota.is_active, true)))
+    .where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.pelanggan_id, body.pelanggan_id), eq(kartu_anggota.is_active, true)))
   )
   if (kartuLain) throw new HTTPException(400, { message: 'Pelanggan sudah memiliki kartu anggota aktif' })
 
   const row = await query.find(db
     .update(kartu_anggota)
     .set({ pelanggan_id: body.pelanggan_id, updated_at: isoNow() })
-    .where(eq(kartu_anggota.id, id))
+    .where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id)))
     .returning()
     )
 
@@ -154,13 +169,15 @@ kartuAnggotaRouter.post('/:id/assign', requirePermission('penjualan.buat'), asyn
 
 // Unassign kartu dari pelanggan
 kartuAnggotaRouter.delete('/:id/assign', requirePermission('penjualan.buat'), async (c) => {
+  const user     = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const kartu = await query.find(db.select().from(kartu_anggota).where(eq(kartu_anggota.id, id)))
+  const kartu = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!kartu) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   await query.exec(db.update(kartu_anggota)
     .set({ pelanggan_id: null, updated_at: isoNow() })
-    .where(eq(kartu_anggota.id, id))
+    .where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id)))
   )
 
   return c.json({ success: true, data: null })
@@ -168,13 +185,15 @@ kartuAnggotaRouter.delete('/:id/assign', requirePermission('penjualan.buat'), as
 
 // Nonaktifkan kartu
 kartuAnggotaRouter.delete('/:id', requirePermission('penjualan.buat'), async (c) => {
+  const user     = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const kartu = await query.find(db.select().from(kartu_anggota).where(eq(kartu_anggota.id, id)))
+  const kartu = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!kartu) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   await query.exec(db.update(kartu_anggota)
     .set({ pelanggan_id: null, is_active: false, updated_at: isoNow() })
-    .where(eq(kartu_anggota.id, id))
+    .where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id)))
   )
 
   return c.json({ success: true, data: null })

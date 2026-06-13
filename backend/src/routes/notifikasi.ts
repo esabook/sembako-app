@@ -4,10 +4,12 @@ import { eq, desc, ne, lte, gte, and } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { notifikasi_config, notifikasi_log, barang, hutang_supplier, piutang_pelanggan, pelanggan, penjualan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 
 export const notifikasiRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 notifikasiRouter.use('*', authMiddleware)
+notifikasiRouter.use('*', tenantMiddleware)
 
 // Konfigurasi default semua jenis notifikasi
 const JENIS_DEFAULT = [
@@ -26,7 +28,9 @@ const JENIS_DEFAULT = [
 // ── GET /notifikasi/config ─────────────────────────────────────────────────
 
 notifikasiRouter.get('/config', async (c) => {
-  const rows = await query.findAll(db.select().from(notifikasi_config))
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const rows = await query.findAll(db.select().from(notifikasi_config).where(eq(notifikasi_config.tenant_id, tenantId)))
   const byJenis = Object.fromEntries(rows.map(r => [r.jenis, r]))
 
   const result = JENIS_DEFAULT.map(def => ({
@@ -49,6 +53,8 @@ notifikasiRouter.get('/config', async (c) => {
 // ── PUT /notifikasi/config/:jenis ──────────────────────────────────────────
 
 notifikasiRouter.put('/config/:jenis', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const jenis = c.req.param('jenis')
   const body = await c.req.json<{
     aktif?: boolean
@@ -60,28 +66,30 @@ notifikasiRouter.put('/config/:jenis', requirePermission('*'), async (c) => {
   }>()
 
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' })
-  const existing = await query.find(db.select().from(notifikasi_config).where(eq(notifikasi_config.jenis, jenis as any)))
+  const existing = await query.find(db.select().from(notifikasi_config).where(and(eq(notifikasi_config.jenis, jenis as any), eq(notifikasi_config.tenant_id, tenantId))))
 
   if (existing) {
     await query.exec(db.update(notifikasi_config)
       .set({ ...body, updated_at: now })
-      .where(eq(notifikasi_config.jenis, jenis as any))
+      .where(and(eq(notifikasi_config.jenis, jenis as any), eq(notifikasi_config.tenant_id, tenantId)))
     )
   } else {
     await query.exec(db.insert(notifikasi_config)
-      .values({ jenis: jenis as any, updated_at: now, ...body })
+      .values({ jenis: jenis as any, updated_at: now, tenant_id: tenantId, ...body })
     )
   }
 
-  const updated = await query.find(db.select().from(notifikasi_config).where(eq(notifikasi_config.jenis, jenis as any)))
+  const updated = await query.find(db.select().from(notifikasi_config).where(and(eq(notifikasi_config.jenis, jenis as any), eq(notifikasi_config.tenant_id, tenantId))))
   return c.json({ success: true, data: updated })
 })
 
 // ── GET /notifikasi/log ────────────────────────────────────────────────────
 
 notifikasiRouter.get('/log', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const limit = Number(c.req.query('limit') ?? 50)
-  const rows = await query.findAll(db.select().from(notifikasi_log).orderBy(desc(notifikasi_log.waktu)).limit(limit))
+  const rows = await query.findAll(db.select().from(notifikasi_log).where(eq(notifikasi_log.tenant_id, tenantId)).orderBy(desc(notifikasi_log.waktu)).limit(limit))
   return c.json({ success: true, data: rows })
 })
 
@@ -89,6 +97,8 @@ notifikasiRouter.get('/log', async (c) => {
 // Dipanggil oleh backend saat event terjadi (stok habis, void, dll)
 
 notifikasiRouter.post('/log', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     jenis: string
     channel: 'wa' | 'dashboard'
@@ -105,6 +115,7 @@ notifikasiRouter.post('/log', requirePermission('*'), async (c) => {
     pesan: body.pesan,
     penerima: body.penerima ?? null,
     status: body.status,
+    tenant_id: tenantId,
     referensi_tipe: body.referensi_tipe ?? null,
     referensi_id: body.referensi_id ?? null,
   }).returning())
@@ -116,7 +127,9 @@ notifikasiRouter.post('/log', requirePermission('*'), async (c) => {
 // Cek kondisi terkini dan hasilkan daftar notif yang perlu dikirim
 
 notifikasiRouter.get('/check', async (c) => {
-  const configs = await query.findAll(db.select().from(notifikasi_config).where(eq(notifikasi_config.aktif, true)))
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const configs = await query.findAll(db.select().from(notifikasi_config).where(and(eq(notifikasi_config.aktif, true), eq(notifikasi_config.tenant_id, tenantId))))
   const alerts: { jenis: string; pesan: string; referensi_tipe: string; referensi_id: number }[] = []
 
   for (const cfg of configs) {
@@ -127,7 +140,7 @@ notifikasiRouter.get('/check', async (c) => {
         id: barang.id,
         nama_barang: barang.nama_barang,
         stok_sekarang: barang.stok_sekarang,
-      }).from(barang).where(eq(barang.is_active, true)))
+      }).from(barang).where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId))))
 
       for (const item of stmt) {
         if ((item.stok_sekarang ?? 0) <= 0) {
@@ -147,7 +160,7 @@ notifikasiRouter.get('/check', async (c) => {
         nama_barang: barang.nama_barang,
         stok_sekarang: barang.stok_sekarang,
         stok_minimum: barang.stok_minimum,
-      }).from(barang).where(eq(barang.is_active, true)))
+      }).from(barang).where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId))))
 
       for (const item of stmt) {
         const min = item.stok_minimum ?? 0
@@ -173,7 +186,7 @@ notifikasiRouter.get('/check', async (c) => {
         id: hutang_supplier.id,
         sisa_hutang: hutang_supplier.sisa_hutang,
         tanggal_jatuh_tempo: hutang_supplier.tanggal_jatuh_tempo,
-      }).from(hutang_supplier).where(eq(hutang_supplier.status, 'belum')))
+      }).from(hutang_supplier).where(and(eq(hutang_supplier.status, 'belum'), eq(hutang_supplier.tenant_id, tenantId))))
 
       for (const row of rows) {
         if (row.tanggal_jatuh_tempo && row.tanggal_jatuh_tempo <= batasStr) {
@@ -197,7 +210,7 @@ notifikasiRouter.get('/check', async (c) => {
         id: piutang_pelanggan.id,
         sisa_piutang: piutang_pelanggan.sisa_piutang,
         tanggal_jatuh_tempo: piutang_pelanggan.tanggal_jatuh_tempo,
-      }).from(piutang_pelanggan).where(eq(piutang_pelanggan.status, 'belum')))
+      }).from(piutang_pelanggan).where(and(eq(piutang_pelanggan.status, 'belum'), eq(piutang_pelanggan.tenant_id, tenantId))))
 
       for (const row of rows) {
         if (row.tanggal_jatuh_tempo && row.tanggal_jatuh_tempo < batasStr) {
@@ -218,6 +231,8 @@ notifikasiRouter.get('/check', async (c) => {
 // ── GET /notifikasi/piutang-reminder — piutang jatuh tempo N hari ke depan ──
 
 notifikasiRouter.get('/piutang-reminder', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const hari = Number(c.req.query('hari') ?? 3)
   const hariIni = new Date().toISOString().slice(0, 10)
   const batas = new Date()
@@ -240,6 +255,7 @@ notifikasiRouter.get('/piutang-reminder', requirePermission('penjualan.lihat'), 
       ne(piutang_pelanggan.status, 'lunas'),
       gte(piutang_pelanggan.tanggal_jatuh_tempo, hariIni),
       lte(piutang_pelanggan.tanggal_jatuh_tempo, batasStr),
+      eq(piutang_pelanggan.tenant_id, tenantId),
     ))
     .orderBy(piutang_pelanggan.tanggal_jatuh_tempo)
     )

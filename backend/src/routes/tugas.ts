@@ -5,25 +5,31 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { checklist_item, checklist_log, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const tugasRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 tugasRouter.use('*', authMiddleware)
+tugasRouter.use('*', tenantMiddleware)
 
 // ── Template Checklist Item ───────────────────────────────────────────────────
 
 tugasRouter.get('/item', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const rows = await query.findAll(db
     .select()
     .from(checklist_item)
-    .where(eq(checklist_item.is_active, true))
+    .where(and(eq(checklist_item.is_active, true), eq(checklist_item.tenant_id, tenantId)))
     .orderBy(checklist_item.kategori, checklist_item.urutan)
     )
   return c.json({ success: true, data: rows })
 })
 
 tugasRouter.post('/item', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     nama: string; kategori?: string; urutan?: number
   }>()
@@ -33,6 +39,7 @@ tugasRouter.post('/item', requirePermission('*'), async (c) => {
     nama: body.nama.trim(),
     kategori: body.kategori?.trim() ?? 'kebersihan',
     urutan: body.urutan ?? 0,
+    tenant_id: tenantId,
     ...getAuditBy(c),
   }).returning())
 
@@ -40,9 +47,11 @@ tugasRouter.post('/item', requirePermission('*'), async (c) => {
 })
 
 tugasRouter.put('/item/:id', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{ nama: string; kategori: string; urutan: number; is_active: boolean }>>()
-  const existing = await query.find(db.select({ id: checklist_item.id }).from(checklist_item).where(eq(checklist_item.id, id)))
+  const existing = await query.find(db.select({ id: checklist_item.id }).from(checklist_item).where(and(eq(checklist_item.id, id), eq(checklist_item.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Item tidak ditemukan' })
 
   const row = await query.ret(db.update(checklist_item).set({
@@ -51,22 +60,26 @@ tugasRouter.put('/item/:id', requirePermission('*'), async (c) => {
     ...(body.urutan !== undefined && { urutan: body.urutan }),
     ...(body.is_active !== undefined && { is_active: body.is_active }),
     ...getUpdatedBy(c),
-  }).where(eq(checklist_item.id, id)).returning())
+  }).where(and(eq(checklist_item.id, id), eq(checklist_item.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 tugasRouter.delete('/item/:id', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: checklist_item.id }).from(checklist_item).where(eq(checklist_item.id, id)))
+  const existing = await query.find(db.select({ id: checklist_item.id }).from(checklist_item).where(and(eq(checklist_item.id, id), eq(checklist_item.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Item tidak ditemukan' })
-  await query.exec(db.update(checklist_item).set({ is_active: false }).where(eq(checklist_item.id, id)))
+  await query.exec(db.update(checklist_item).set({ is_active: false }).where(and(eq(checklist_item.id, id), eq(checklist_item.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })
 
 // ── Log Harian ────────────────────────────────────────────────────────────────
 
 tugasRouter.get('/log', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const tanggal = c.req.query('tanggal') ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
   const rows = await query.findAll(db
@@ -84,7 +97,7 @@ tugasRouter.get('/log', requirePermission('pelanggan.lihat'), async (c) => {
     .from(checklist_item)
     .leftJoin(
       checklist_log,
-      and(eq(checklist_log.item_id, checklist_item.id), eq(checklist_log.tanggal, tanggal)),
+      and(eq(checklist_log.item_id, checklist_item.id), eq(checklist_log.tanggal, tanggal), eq(checklist_log.tenant_id, tenantId)),
     )
     .leftJoin(karyawan, eq(checklist_log.karyawan_id, karyawan.id))
     .where(eq(checklist_item.is_active, true))
@@ -96,6 +109,7 @@ tugasRouter.get('/log', requirePermission('pelanggan.lihat'), async (c) => {
 
 tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{ item_id: number; selesai: boolean; catatan?: string; tanggal?: string }>()
 
   if (!body.item_id) throw new HTTPException(400, { message: 'item_id wajib' })
@@ -103,7 +117,7 @@ tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) 
 
   const existing = await query.find(db.select({ id: checklist_log.id })
     .from(checklist_log)
-    .where(and(eq(checklist_log.item_id, body.item_id), eq(checklist_log.tanggal, tanggal)))
+    .where(and(eq(checklist_log.item_id, body.item_id), eq(checklist_log.tanggal, tanggal), eq(checklist_log.tenant_id, tenantId)))
   )
 
   let row
@@ -120,6 +134,7 @@ tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) 
       karyawan_id: user.id,
       selesai: body.selesai,
       catatan: body.catatan,
+      tenant_id: tenantId,
     }).returning())
   }
 
@@ -127,6 +142,8 @@ tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) 
 })
 
 tugasRouter.get('/ringkasan', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
 
@@ -142,6 +159,7 @@ tugasRouter.get('/ringkasan', requirePermission('*'), async (c) => {
     .innerJoin(checklist_item, eq(checklist_log.item_id, checklist_item.id))
     .where(and(
       eq(checklist_item.is_active, true),
+      eq(checklist_log.tenant_id, tenantId),
     ))
     )
 

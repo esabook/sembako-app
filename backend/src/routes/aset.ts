@@ -4,19 +4,23 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { aset_tetap } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const asetRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 asetRouter.use('*', authMiddleware)
+asetRouter.use('*', tenantMiddleware)
 
 // GET / — list aset (filter: kondisi, kategori)
 asetRouter.get('/', requirePermission('stok.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const kondisi = c.req.query('kondisi')
   const kategori = c.req.query('kategori')
   const tampilSemua = c.req.query('semua') === '1'
 
-  const conds = []
+  const conds = [eq(aset_tetap.tenant_id, tenantId)]
   if (!tampilSemua) conds.push(eq(aset_tetap.is_active, true))
   if (kondisi) conds.push(eq(aset_tetap.kondisi, kondisi as any))
   if (kategori) conds.push(eq(aset_tetap.kategori, kategori))
@@ -24,7 +28,7 @@ asetRouter.get('/', requirePermission('stok.lihat'), async (c) => {
   const rows = await query.findAll(db
     .select()
     .from(aset_tetap)
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(aset_tetap.created_at))
     )
 
@@ -33,6 +37,8 @@ asetRouter.get('/', requirePermission('stok.lihat'), async (c) => {
 
 // POST / — tambah aset
 asetRouter.post('/', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     nama: string
     kategori?: string
@@ -47,6 +53,7 @@ asetRouter.post('/', requirePermission('stok.edit'), async (c) => {
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'nama wajib' })
 
   const row = await query.ret(db.insert(aset_tetap).values({
+    tenant_id: tenantId,
     nama: body.nama.trim(),
     kategori: body.kategori ?? 'Lainnya',
     nilai_beli: body.nilai_beli ?? 0,
@@ -63,6 +70,8 @@ asetRouter.post('/', requirePermission('stok.edit'), async (c) => {
 
 // PUT /:id — update aset
 asetRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{
     nama?: string
@@ -76,7 +85,7 @@ asetRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
     is_active?: boolean
   }>()
 
-  const existing = await query.find(db.select({ id: aset_tetap.id }).from(aset_tetap).where(eq(aset_tetap.id, id)))
+  const existing = await query.find(db.select({ id: aset_tetap.id }).from(aset_tetap).where(and(eq(aset_tetap.id, id), eq(aset_tetap.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Aset tidak ditemukan' })
 
   const row = await query.ret(db.update(aset_tetap).set({
@@ -90,17 +99,19 @@ asetRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...(body.is_active !== undefined && { is_active: body.is_active }),
     ...getUpdatedBy(c),
-  }).where(eq(aset_tetap.id, id)).returning())
+  }).where(and(eq(aset_tetap.id, id), eq(aset_tetap.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 // DELETE /:id — soft delete
 asetRouter.delete('/:id', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: aset_tetap.id }).from(aset_tetap).where(eq(aset_tetap.id, id)))
+  const existing = await query.find(db.select({ id: aset_tetap.id }).from(aset_tetap).where(and(eq(aset_tetap.id, id), eq(aset_tetap.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Aset tidak ditemukan' })
 
-  await query.exec(db.update(aset_tetap).set({ is_active: false, ...getUpdatedBy(c) }).where(eq(aset_tetap.id, id)))
+  await query.exec(db.update(aset_tetap).set({ is_active: false, ...getUpdatedBy(c) }).where(and(eq(aset_tetap.id, id), eq(aset_tetap.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

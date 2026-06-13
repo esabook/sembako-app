@@ -5,18 +5,22 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { acara_hajatan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const hajatanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 hajatanRouter.use('*', authMiddleware)
+hajatanRouter.use('*', tenantMiddleware)
 
 hajatanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
   const status = c.req.query('status')
 
-  const conds = []
+  const conds = [eq(acara_hajatan.tenant_id, tenantId)]
   if (dari) conds.push(gte(acara_hajatan.tanggal_acara, dari))
   if (sampai) conds.push(lte(acara_hajatan.tanggal_acara, sampai))
   if (status) conds.push(eq(acara_hajatan.status, status as any))
@@ -24,7 +28,7 @@ hajatanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
   const rows = await query.findAll(db
     .select()
     .from(acara_hajatan)
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(acara_hajatan.tanggal_acara))
     )
 
@@ -32,6 +36,8 @@ hajatanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
 })
 
 hajatanRouter.post('/', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     nama_acara: string; nama_penyelenggara: string
     pelanggan_id?: number; tanggal_acara: string
@@ -43,6 +49,7 @@ hajatanRouter.post('/', requirePermission('penjualan.lihat'), async (c) => {
   if (!body.tanggal_acara) throw new HTTPException(400, { message: 'tanggal_acara wajib' })
 
   const row = await query.ret(db.insert(acara_hajatan).values({
+    tenant_id: tenantId,
     nama_acara: body.nama_acara.trim(),
     nama_penyelenggara: body.nama_penyelenggara.trim(),
     pelanggan_id: body.pelanggan_id,
@@ -57,6 +64,8 @@ hajatanRouter.post('/', requirePermission('penjualan.lihat'), async (c) => {
 })
 
 hajatanRouter.put('/:id', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{
     nama_acara: string; nama_penyelenggara: string; tanggal_acara: string
@@ -64,7 +73,7 @@ hajatanRouter.put('/:id', requirePermission('penjualan.lihat'), async (c) => {
     status: string; total_order: number
   }>>()
 
-  const existing = await query.find(db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(eq(acara_hajatan.id, id)))
+  const existing = await query.find(db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(and(eq(acara_hajatan.id, id), eq(acara_hajatan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Acara tidak ditemukan' })
 
   const row = await query.ret(db.update(acara_hajatan).set({
@@ -77,15 +86,17 @@ hajatanRouter.put('/:id', requirePermission('penjualan.lihat'), async (c) => {
     ...(body.status !== undefined && { status: body.status as any }),
     ...(body.total_order !== undefined && { total_order: body.total_order }),
     ...getUpdatedBy(c),
-  }).where(eq(acara_hajatan.id, id)).returning())
+  }).where(and(eq(acara_hajatan.id, id), eq(acara_hajatan.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 hajatanRouter.delete('/:id', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(eq(acara_hajatan.id, id)))
+  const existing = await query.find(db.select({ id: acara_hajatan.id }).from(acara_hajatan).where(and(eq(acara_hajatan.id, id), eq(acara_hajatan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Acara tidak ditemukan' })
-  await query.exec(db.delete(acara_hajatan).where(eq(acara_hajatan.id, id)))
+  await query.exec(db.delete(acara_hajatan).where(and(eq(acara_hajatan.id, id), eq(acara_hajatan.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

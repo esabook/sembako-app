@@ -4,11 +4,13 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { target_penjualan, budget_operasional, jurnal_kas, penjualan, penjualan_detail, barang } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const budgetTargetRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 budgetTargetRouter.use('*', authMiddleware)
+budgetTargetRouter.use('*', tenantMiddleware)
 
 // Kategori pengeluaran yang bisa dianggarkan — harus match nilai jurnal_kas.kategori
 const KATEGORI_BUDGET = ['gaji', 'sewa', 'listrik', 'kemasan', 'operasional', 'lain'] as const
@@ -19,6 +21,8 @@ type KategoriBudget = typeof KATEGORI_BUDGET[number]
 // Riwayat target + ringkasan realisasi 6 bulan terakhir
 
 budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const periodeList: string[] = []
   const now = new Date()
   for (let i = 0; i < 6; i++) {
@@ -28,7 +32,10 @@ budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'),
   }
 
   const targets = await query.findAll(db.select().from(target_penjualan)
-    .where(sql`periode_bulan IN (${sql.join(periodeList.map(p => sql`${p}`), sql`, `)})`)
+    .where(and(
+      eq(target_penjualan.tenant_id, tenantId),
+      sql`periode_bulan IN (${sql.join(periodeList.map(p => sql`${p}`), sql`, `)})`,
+    ))
   )
 
   const realisasiRows = await query.findAll(db.select({
@@ -40,6 +47,7 @@ budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'),
     .where(and(
       sql`strftime('%Y-%m', tanggal) >= ${periodeList[periodeList.length - 1]}`,
       eq(penjualan.status, 'lunas'),
+      eq(penjualan.tenant_id, tenantId),
     ))
     .groupBy(sql`strftime('%Y-%m', tanggal)`)
     )
@@ -61,17 +69,25 @@ budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'),
 // Ambil target penjualan + semua budget operasional untuk satu bulan
 
 budgetTargetRouter.get('/:periode', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const periode = c.req.param('periode') ?? ''
   if (!/^\d{4}-\d{2}$/.test(periode)) {
     throw new HTTPException(400, { message: 'Format periode tidak valid. Gunakan YYYY-MM' })
   }
 
   const target = await query.find(db.select().from(target_penjualan)
-    .where(eq(target_penjualan.periode_bulan, periode))
+    .where(and(
+      eq(target_penjualan.tenant_id, tenantId),
+      eq(target_penjualan.periode_bulan, periode),
+    ))
   ) ?? null
 
   const budgets = await query.findAll(db.select().from(budget_operasional)
-    .where(eq(budget_operasional.periode_bulan, periode))
+    .where(and(
+      eq(budget_operasional.tenant_id, tenantId),
+      eq(budget_operasional.periode_bulan, periode),
+    ))
   )
 
   return c.json({ success: true, data: { target, budgets } })
@@ -81,7 +97,8 @@ budgetTargetRouter.get('/:periode', requirePermission('laporan.lihat'), async (c
 // Set atau update target penjualan (upsert by periode_bulan)
 
 budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c) => {
-  const user = c.get('user')
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     periode_bulan: string
     target_omzet?: number
@@ -95,7 +112,10 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
   }
 
   const existing = await query.find(db.select().from(target_penjualan)
-    .where(eq(target_penjualan.periode_bulan, body.periode_bulan))
+    .where(and(
+      eq(target_penjualan.tenant_id, tenantId),
+      eq(target_penjualan.periode_bulan, body.periode_bulan),
+    ))
   )
 
   if (existing) {
@@ -119,6 +139,7 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
     target_transaksi: body.target_transaksi ?? 0,
     target_margin_pct: body.target_margin_pct ?? 0,
     catatan: body.catatan,
+    tenant_id: tenantId,
     dibuat_oleh: Number(user.sub),
   }).returning())
 
@@ -129,7 +150,8 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
 // Set atau update budget satu kategori (upsert by periode_bulan + kategori)
 
 budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c) => {
-  const user = c.get('user')
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     periode_bulan: string
     kategori: KategoriBudget
@@ -149,6 +171,7 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
 
   const existing = await query.find(db.select().from(budget_operasional)
     .where(and(
+      eq(budget_operasional.tenant_id, tenantId),
       eq(budget_operasional.periode_bulan, body.periode_bulan),
       eq(budget_operasional.kategori, body.kategori),
     ))
@@ -172,6 +195,7 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
     kategori: body.kategori,
     nilai_budget: body.nilai_budget,
     catatan: body.catatan,
+    tenant_id: tenantId,
     dibuat_oleh: Number(user.sub),
   }).returning())
 
@@ -182,6 +206,8 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
 // Bandingkan target + budget vs realisasi aktual dari data transaksi
 
 budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const periode = c.req.param('periode') ?? ''
   if (!/^\d{4}-\d{2}$/.test(periode)) {
     throw new HTTPException(400, { message: 'Format periode tidak valid. Gunakan YYYY-MM' })
@@ -196,6 +222,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
     .where(and(
       sql`strftime('%Y-%m', tanggal) = ${periode}`,
       eq(penjualan.status, 'lunas'),
+      eq(penjualan.tenant_id, tenantId),
     ))
     )
 
@@ -209,6 +236,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
     .where(and(
       sql`strftime('%Y-%m', ${penjualan.tanggal}) = ${periode}`,
       eq(penjualan.status, 'lunas'),
+      eq(penjualan.tenant_id, tenantId),
     ))
     )
 
@@ -226,6 +254,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
     .where(and(
       sql`strftime('%Y-%m', tanggal) = ${periode}`,
       eq(jurnal_kas.jenis, 'keluar'),
+      eq(jurnal_kas.tenant_id, tenantId),
     ))
     .groupBy(jurnal_kas.kategori)
     )
@@ -259,6 +288,8 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
 // Proyeksi akhir bulan berdasarkan tren linear hari berjalan
 
 budgetTargetRouter.get('/:periode/proyeksi', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const periode = c.req.param('periode') ?? ''
   if (!/^\d{4}-\d{2}$/.test(periode)) {
     throw new HTTPException(400, { message: 'Format periode tidak valid. Gunakan YYYY-MM' })
@@ -280,6 +311,7 @@ budgetTargetRouter.get('/:periode/proyeksi', requirePermission('laporan.lihat'),
     .where(and(
       sql`strftime('%Y-%m', tanggal) = ${periode}`,
       eq(penjualan.status, 'lunas'),
+      eq(penjualan.tenant_id, tenantId),
     ))
     )
 
@@ -304,7 +336,8 @@ budgetTargetRouter.get('/:periode/proyeksi', requirePermission('laporan.lihat'),
 // Salin target & budget dari bulan sumber ke bulan tujuan
 
 budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) => {
-  const user = c.get('user')
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{ dari: string; ke: string }>()
 
   if (!/^\d{4}-\d{2}$/.test(body.dari) || !/^\d{4}-\d{2}$/.test(body.ke)) {
@@ -315,11 +348,17 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
   }
 
   const sumberTarget = await query.find(db.select().from(target_penjualan)
-    .where(eq(target_penjualan.periode_bulan, body.dari))
+    .where(and(
+      eq(target_penjualan.tenant_id, tenantId),
+      eq(target_penjualan.periode_bulan, body.dari),
+    ))
   )
 
   const sumberBudgets = await query.findAll(db.select().from(budget_operasional)
-    .where(eq(budget_operasional.periode_bulan, body.dari))
+    .where(and(
+      eq(budget_operasional.tenant_id, tenantId),
+      eq(budget_operasional.periode_bulan, body.dari),
+    ))
   )
 
   if (!sumberTarget && sumberBudgets.length === 0) {
@@ -330,7 +369,10 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
   let targetBaru = null
   if (sumberTarget) {
     const existingTarget = await query.find(db.select().from(target_penjualan)
-      .where(eq(target_penjualan.periode_bulan, body.ke))
+      .where(and(
+        eq(target_penjualan.tenant_id, tenantId),
+        eq(target_penjualan.periode_bulan, body.ke),
+      ))
     )
 
     if (existingTarget) {
@@ -350,6 +392,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
         target_omzet: sumberTarget.target_omzet,
         target_transaksi: sumberTarget.target_transaksi,
         target_margin_pct: sumberTarget.target_margin_pct,
+        tenant_id: tenantId,
         dibuat_oleh: Number(user.sub),
       }).returning())
     }
@@ -360,6 +403,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
   for (const src of sumberBudgets) {
     const existing = await query.find(db.select().from(budget_operasional)
       .where(and(
+        eq(budget_operasional.tenant_id, tenantId),
         eq(budget_operasional.periode_bulan, body.ke),
         eq(budget_operasional.kategori, src.kategori),
       ))
@@ -377,6 +421,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
         periode_bulan: body.ke,
         kategori: src.kategori,
         nilai_budget: src.nilai_budget,
+        tenant_id: tenantId,
         dibuat_oleh: Number(user.sub),
       }).returning())
       budgetBaru.push(created)

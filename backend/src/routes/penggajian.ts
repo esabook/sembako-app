@@ -4,10 +4,12 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { penggajian, karyawan, absensi, kasbon, jurnal_kas, sanksi_insentif } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const penggajianRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 penggajianRouter.use('*', authMiddleware)
+penggajianRouter.use('*', tenantMiddleware)
 
 function hitungHariKerja(tahun: number, bulan: number): number {
   // Hitung hari Senin–Sabtu dalam bulan
@@ -22,11 +24,14 @@ function hitungHariKerja(tahun: number, bulan: number): number {
 
 // GET / — list penggajian (filter: bulan YYYY-MM, karyawan_id, status)
 penggajianRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const bulan = c.req.query('bulan')
   const karyawanId = c.req.query('karyawan_id') ? Number(c.req.query('karyawan_id')) : undefined
   const status = c.req.query('status') as 'draft' | 'approved' | 'dibayar' | undefined
 
   const conds: ReturnType<typeof eq>[] = []
+  conds.push(eq(penggajian.tenant_id, tenantId))
   if (bulan) conds.push(eq(penggajian.periode_bulan, bulan))
   if (karyawanId) conds.push(eq(penggajian.karyawan_id, karyawanId))
   if (status) conds.push(eq(penggajian.status, status))
@@ -59,6 +64,7 @@ penggajianRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
 // POST /generate — generate penggajian untuk semua karyawan aktif pada bulan tertentu
 penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{ bulan: string; hari_kerja?: number }>()
 
   if (!body.bulan || !/^\d{4}-\d{2}$/.test(body.bulan)) {
@@ -76,7 +82,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
       tipe_gaji: karyawan.tipe_gaji,
     })
     .from(karyawan)
-    .where(eq(karyawan.is_active, true))
+    .where(and(eq(karyawan.is_active, true), eq(karyawan.toko_id, tenantId)))
     )
 
   // Batch-load semua data yang dibutuhkan sebelum loop — hindari N+1
@@ -85,7 +91,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
   const existingSet = new Set(
     await query.findAll(db.select({ karyawan_id: penggajian.karyawan_id })
       .from(penggajian)
-      .where(eq(penggajian.periode_bulan, body.bulan))
+      .where(and(eq(penggajian.tenant_id, tenantId), eq(penggajian.periode_bulan, body.bulan)))
     )
       .map((r) => r.karyawan_id)
   )
@@ -151,6 +157,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
     const row = await query.find(db
       .insert(penggajian)
       .values({
+        tenant_id: tenantId,
         karyawan_id: k.id,
         periode_bulan: body.bulan,
         hari_kerja: hariKerja,
@@ -177,6 +184,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
 // PUT /:id — update tunjangan, potongan_lain, atau status
 penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{
     tunjangan?: number
@@ -188,7 +196,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
   const existing = await query.find(db
     .select()
     .from(penggajian)
-    .where(eq(penggajian.id, id))
+    .where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId)))
     )
   if (!existing) throw new HTTPException(404, { message: 'Data penggajian tidak ditemukan' })
 
@@ -261,10 +269,12 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
 
 // DELETE /:id — hapus draft
 penggajianRouter.delete('/:id', requirePermission('gaji.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: penggajian.id, status: penggajian.status }).from(penggajian).where(eq(penggajian.id, id)))
+  const existing = await query.find(db.select({ id: penggajian.id, status: penggajian.status }).from(penggajian).where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data penggajian tidak ditemukan' })
   if (existing.status !== 'draft') throw new HTTPException(400, { message: 'Hanya draft yang bisa dihapus' })
-  await query.exec(db.delete(penggajian).where(eq(penggajian.id, id)))
+  await query.exec(db.delete(penggajian).where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

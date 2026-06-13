@@ -9,20 +9,24 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { sanksi_insentif, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const sanksiInsentifRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 sanksiInsentifRouter.use('*', authMiddleware)
+sanksiInsentifRouter.use('*', tenantMiddleware)
 
 // ── GET / ─────────────────────────────────────────────────────────────────
 
 sanksiInsentifRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const karyawanId = c.req.query('karyawan_id') ? Number(c.req.query('karyawan_id')) : undefined
   const bulan = c.req.query('periode_bulan')
   const tipe = c.req.query('tipe') as 'sanksi' | 'insentif' | undefined
 
-  const conds = []
+  const conds = [eq(sanksi_insentif.tenant_id, tenantId)]
   if (karyawanId) conds.push(eq(sanksi_insentif.karyawan_id, karyawanId))
   if (bulan) conds.push(eq(sanksi_insentif.periode_bulan, bulan))
   if (tipe) conds.push(eq(sanksi_insentif.tipe, tipe))
@@ -53,6 +57,7 @@ sanksiInsentifRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
 
 sanksiInsentifRouter.post('/', requirePermission('gaji.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
     throw new HTTPException(403, { message: 'Hanya manajer atau pemilik yang dapat mencatat' })
   }
@@ -77,6 +82,7 @@ sanksiInsentifRouter.post('/', requirePermission('gaji.edit'), async (c) => {
   }
 
   const row = await query.ret(db.insert(sanksi_insentif).values({
+    tenant_id: tenantId,
     karyawan_id: body.karyawan_id,
     tipe: body.tipe,
     jenis: body.jenis,
@@ -94,14 +100,15 @@ sanksiInsentifRouter.post('/', requirePermission('gaji.edit'), async (c) => {
 
 sanksiInsentifRouter.delete('/:id', requirePermission('gaji.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
     throw new HTTPException(403, { message: 'Hanya manajer atau pemilik yang dapat menghapus' })
   }
 
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: sanksi_insentif.id }).from(sanksi_insentif).where(eq(sanksi_insentif.id, id)))
+  const existing = await query.find(db.select({ id: sanksi_insentif.id }).from(sanksi_insentif).where(and(eq(sanksi_insentif.id, id), eq(sanksi_insentif.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
-  await query.exec(db.delete(sanksi_insentif).where(eq(sanksi_insentif.id, id)))
+  await query.exec(db.delete(sanksi_insentif).where(and(eq(sanksi_insentif.id, id), eq(sanksi_insentif.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

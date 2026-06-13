@@ -10,19 +10,23 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { evaluasi_karyawan, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const evaluasiRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 evaluasiRouter.use('*', authMiddleware)
+evaluasiRouter.use('*', tenantMiddleware)
 
 // ── GET / ─────────────────────────────────────────────────────────────────
 
 evaluasiRouter.get('/', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const karyawanId = c.req.query('karyawan_id') ? Number(c.req.query('karyawan_id')) : undefined
   const periode = c.req.query('periode')
 
-  const conds = []
+  const conds = [eq(evaluasi_karyawan.tenant_id, tenantId)]
   if (karyawanId) conds.push(eq(evaluasi_karyawan.karyawan_id, karyawanId))
   if (periode) conds.push(eq(evaluasi_karyawan.periode, periode))
 
@@ -40,7 +44,7 @@ evaluasiRouter.get('/', requirePermission('*'), async (c) => {
     })
     .from(evaluasi_karyawan)
     .leftJoin(karyawan, eq(evaluasi_karyawan.karyawan_id, karyawan.id))
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(evaluasi_karyawan.tanggal))
     )
 
@@ -51,6 +55,7 @@ evaluasiRouter.get('/', requirePermission('*'), async (c) => {
 
 evaluasiRouter.post('/', requirePermission('*'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
     throw new HTTPException(403, { message: 'Hanya manajer atau pemilik yang dapat menilai' })
   }
@@ -78,6 +83,7 @@ evaluasiRouter.post('/', requirePermission('*'), async (c) => {
     catatan: body.catatan,
     dinilai_oleh: user.id,
     tanggal: tgl,
+    tenant_id: tenantId,
   }).returning())
 
   return c.json({ success: true, data: row }, 201)
@@ -87,12 +93,13 @@ evaluasiRouter.post('/', requirePermission('*'), async (c) => {
 
 evaluasiRouter.put('/:id', requirePermission('*'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
     throw new HTTPException(403, { message: 'Hanya manajer atau pemilik yang dapat mengubah' })
   }
 
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)))
+  const existing = await query.find(db.select().from(evaluasi_karyawan).where(and(eq(evaluasi_karyawan.id, id), eq(evaluasi_karyawan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Evaluasi tidak ditemukan' })
 
   const body = await c.req.json<Partial<{ nilai: number; catatan: string; periode: string }>>()
@@ -105,7 +112,7 @@ evaluasiRouter.put('/:id', requirePermission('*'), async (c) => {
     nilai: body.nilai ?? existing.nilai,
     catatan: body.catatan !== undefined ? body.catatan : existing.catatan,
     periode: body.periode ?? existing.periode,
-  }).where(eq(evaluasi_karyawan.id, id)).returning())
+  }).where(and(eq(evaluasi_karyawan.id, id), eq(evaluasi_karyawan.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: updated })
 })
@@ -114,14 +121,15 @@ evaluasiRouter.put('/:id', requirePermission('*'), async (c) => {
 
 evaluasiRouter.delete('/:id', requirePermission('*'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
     throw new HTTPException(403, { message: 'Hanya manajer atau pemilik yang dapat menghapus' })
   }
 
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: evaluasi_karyawan.id }).from(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)))
+  const existing = await query.find(db.select({ id: evaluasi_karyawan.id }).from(evaluasi_karyawan).where(and(eq(evaluasi_karyawan.id, id), eq(evaluasi_karyawan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Evaluasi tidak ditemukan' })
 
-  await query.exec(db.delete(evaluasi_karyawan).where(eq(evaluasi_karyawan.id, id)))
+  await query.exec(db.delete(evaluasi_karyawan).where(and(eq(evaluasi_karyawan.id, id), eq(evaluasi_karyawan.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

@@ -5,20 +5,24 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { kunjungan_sales, agenda_supplier, pipeline_grosir, pelanggan, karyawan, supplier } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const salesRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 salesRouter.use('*', authMiddleware)
+salesRouter.use('*', tenantMiddleware)
 
 // ── Kunjungan Sales ───────────────────────────────────────────────────────────
 
 salesRouter.get('/kunjungan', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
   const status = c.req.query('status')
 
-  const conds = []
+  const conds = [eq(kunjungan_sales.tenant_id, tenantId)]
   if (dari) conds.push(gte(kunjungan_sales.tanggal, dari))
   if (sampai) conds.push(lte(kunjungan_sales.tanggal, sampai))
   if (status) conds.push(eq(kunjungan_sales.status_tindak_lanjut, status as any))
@@ -40,7 +44,7 @@ salesRouter.get('/kunjungan', requirePermission('pelanggan.lihat'), async (c) =>
     })
     .from(kunjungan_sales)
     .leftJoin(karyawan, eq(kunjungan_sales.petugas_id, karyawan.id))
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(kunjungan_sales.tanggal))
     )
 
@@ -49,6 +53,7 @@ salesRouter.get('/kunjungan', requirePermission('pelanggan.lihat'), async (c) =>
 
 salesRouter.post('/kunjungan', requirePermission('pelanggan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     nama_warung: string; alamat?: string; pelanggan_id?: number
     petugas_id?: number; tanggal: string
@@ -70,6 +75,7 @@ salesRouter.post('/kunjungan', requirePermission('pelanggan.lihat'), async (c) =
     hasil: body.hasil,
     catatan: body.catatan,
     status_tindak_lanjut: body.status_tindak_lanjut ?? 'open',
+    tenant_id: tenantId,
     ...getAuditBy(c),
   }).returning())
 
@@ -77,13 +83,15 @@ salesRouter.post('/kunjungan', requirePermission('pelanggan.lihat'), async (c) =
 })
 
 salesRouter.put('/kunjungan/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{
     nama_warung: string; alamat: string; tujuan: string
     hasil: string; catatan: string; status_tindak_lanjut: string
   }>>()
 
-  const existing = await query.find(db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(eq(kunjungan_sales.id, id)))
+  const existing = await query.find(db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(and(eq(kunjungan_sales.id, id), eq(kunjungan_sales.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
   const row = await query.ret(db.update(kunjungan_sales).set({
@@ -94,27 +102,31 @@ salesRouter.put('/kunjungan/:id', requirePermission('pelanggan.lihat'), async (c
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...(body.status_tindak_lanjut !== undefined && { status_tindak_lanjut: body.status_tindak_lanjut as any }),
     ...getUpdatedBy(c),
-  }).where(eq(kunjungan_sales.id, id)).returning())
+  }).where(and(eq(kunjungan_sales.id, id), eq(kunjungan_sales.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 salesRouter.delete('/kunjungan/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(eq(kunjungan_sales.id, id)))
+  const existing = await query.find(db.select({ id: kunjungan_sales.id }).from(kunjungan_sales).where(and(eq(kunjungan_sales.id, id), eq(kunjungan_sales.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
-  await query.exec(db.delete(kunjungan_sales).where(eq(kunjungan_sales.id, id)))
+  await query.exec(db.delete(kunjungan_sales).where(and(eq(kunjungan_sales.id, id), eq(kunjungan_sales.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })
 
 // ── Agenda Supplier ───────────────────────────────────────────────────────────
 
 salesRouter.get('/agenda-supplier', requirePermission('pembelian.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
   const status = c.req.query('status')
 
-  const conds = []
+  const conds = [eq(agenda_supplier.tenant_id, tenantId)]
   if (dari) conds.push(gte(agenda_supplier.tanggal, dari))
   if (sampai) conds.push(lte(agenda_supplier.tanggal, sampai))
   if (status) conds.push(eq(agenda_supplier.status, status as any))
@@ -136,7 +148,7 @@ salesRouter.get('/agenda-supplier', requirePermission('pembelian.lihat'), async 
     })
     .from(agenda_supplier)
     .leftJoin(karyawan, eq(agenda_supplier.petugas_id, karyawan.id))
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(agenda_supplier.tanggal))
     )
 
@@ -145,6 +157,7 @@ salesRouter.get('/agenda-supplier', requirePermission('pembelian.lihat'), async 
 
 salesRouter.post('/agenda-supplier', requirePermission('pembelian.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     supplier_id?: number; nama_supplier: string
     tipe?: 'kunjungan'|'negosiasi'|'pengiriman'|'lainnya'
@@ -164,6 +177,7 @@ salesRouter.post('/agenda-supplier', requirePermission('pembelian.lihat'), async
     lokasi: body.lokasi,
     petugas_id: body.petugas_id ?? user.id,
     catatan: body.catatan,
+    tenant_id: tenantId,
     ...getAuditBy(c),
   }).returning())
 
@@ -171,13 +185,15 @@ salesRouter.post('/agenda-supplier', requirePermission('pembelian.lihat'), async
 })
 
 salesRouter.put('/agenda-supplier/:id', requirePermission('pembelian.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{
     tipe: string; tanggal: string; jam: string; lokasi: string
     hasil: string; catatan: string; status: string
   }>>()
 
-  const existing = await query.find(db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(eq(agenda_supplier.id, id)))
+  const existing = await query.find(db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(and(eq(agenda_supplier.id, id), eq(agenda_supplier.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Agenda tidak ditemukan' })
 
   const row = await query.ret(db.update(agenda_supplier).set({
@@ -189,25 +205,29 @@ salesRouter.put('/agenda-supplier/:id', requirePermission('pembelian.lihat'), as
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...(body.status !== undefined && { status: body.status as any }),
     ...getUpdatedBy(c),
-  }).where(eq(agenda_supplier.id, id)).returning())
+  }).where(and(eq(agenda_supplier.id, id), eq(agenda_supplier.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 salesRouter.delete('/agenda-supplier/:id', requirePermission('pembelian.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(eq(agenda_supplier.id, id)))
+  const existing = await query.find(db.select({ id: agenda_supplier.id }).from(agenda_supplier).where(and(eq(agenda_supplier.id, id), eq(agenda_supplier.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Agenda tidak ditemukan' })
-  await query.exec(db.delete(agenda_supplier).where(eq(agenda_supplier.id, id)))
+  await query.exec(db.delete(agenda_supplier).where(and(eq(agenda_supplier.id, id), eq(agenda_supplier.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })
 
 // ── Pipeline Grosir ───────────────────────────────────────────────────────────
 
 salesRouter.get('/pipeline', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const tahap = c.req.query('tahap')
 
-  const conds = []
+  const conds = [eq(pipeline_grosir.tenant_id, tenantId)]
   if (tahap) conds.push(eq(pipeline_grosir.tahap, tahap as any))
 
   const rows = await query.findAll(db
@@ -225,7 +245,7 @@ salesRouter.get('/pipeline', requirePermission('pelanggan.lihat'), async (c) => 
     })
     .from(pipeline_grosir)
     .leftJoin(karyawan, eq(pipeline_grosir.petugas_id, karyawan.id))
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(pipeline_grosir.tahap, desc(pipeline_grosir.tanggal_masuk))
     )
 
@@ -234,6 +254,7 @@ salesRouter.get('/pipeline', requirePermission('pelanggan.lihat'), async (c) => 
 
 salesRouter.post('/pipeline', requirePermission('pelanggan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     nama_pelanggan: string; pelanggan_id?: number
     nilai_estimasi?: number
@@ -254,6 +275,7 @@ salesRouter.post('/pipeline', requirePermission('pelanggan.lihat'), async (c) =>
     catatan: body.catatan,
     tanggal_masuk: body.tanggal_masuk,
     tanggal_update: body.tanggal_masuk,
+    tenant_id: tenantId,
     ...getAuditBy(c),
   }).returning())
 
@@ -261,13 +283,15 @@ salesRouter.post('/pipeline', requirePermission('pelanggan.lihat'), async (c) =>
 })
 
 salesRouter.put('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{
     nama_pelanggan: string; nilai_estimasi: number; tahap: string
     produk_minat: string; catatan: string
   }>>()
 
-  const existing = await query.find(db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(eq(pipeline_grosir.id, id)))
+  const existing = await query.find(db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(and(eq(pipeline_grosir.id, id), eq(pipeline_grosir.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Pipeline tidak ditemukan' })
 
   const tanggal_update = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
@@ -279,15 +303,17 @@ salesRouter.put('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c)
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     tanggal_update,
     ...getUpdatedBy(c),
-  }).where(eq(pipeline_grosir.id, id)).returning())
+  }).where(and(eq(pipeline_grosir.id, id), eq(pipeline_grosir.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 salesRouter.delete('/pipeline/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(eq(pipeline_grosir.id, id)))
+  const existing = await query.find(db.select({ id: pipeline_grosir.id }).from(pipeline_grosir).where(and(eq(pipeline_grosir.id, id), eq(pipeline_grosir.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Pipeline tidak ditemukan' })
-  await query.exec(db.delete(pipeline_grosir).where(eq(pipeline_grosir.id, id)))
+  await query.exec(db.delete(pipeline_grosir).where(and(eq(pipeline_grosir.id, id), eq(pipeline_grosir.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

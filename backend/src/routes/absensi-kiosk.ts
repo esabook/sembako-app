@@ -20,10 +20,15 @@ function diffMenit(jamA: string, jamB: string): number {
 
 // GET /absensi-kiosk/karyawan — daftar karyawan aktif yang sudah punya PIN (publik)
 absensiKioskRouter.get('/karyawan', async (c) => {
+  const tokoId = c.req.query('toko_id') ? Number(c.req.query('toko_id')) : null
   const list = await query.findAll(db
     .select({ id: karyawan.id, nama: karyawan.nama })
     .from(karyawan)
-    .where(and(eq(karyawan.is_active, true), isNotNull(karyawan.pin_absensi)))
+    .where(and(
+      eq(karyawan.is_active, true),
+      isNotNull(karyawan.pin_absensi),
+      tokoId ? eq(karyawan.toko_id, tokoId) : undefined,
+    ))
     .orderBy(karyawan.nama)
     )
   return c.json({ success: true, data: list })
@@ -39,7 +44,7 @@ absensiKioskRouter.post('/check-pin', async (c) => {
   }
 
   const k = await query.find(db
-    .select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role, pin_absensi: karyawan.pin_absensi })
+    .select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role, pin_absensi: karyawan.pin_absensi, toko_id: karyawan.toko_id })
     .from(karyawan)
     .where(and(eq(karyawan.id, body.karyawan_id), eq(karyawan.is_active, true)))
     )
@@ -100,6 +105,12 @@ absensiKioskRouter.post('/masuk', async (c) => {
     if (diff > 0) terlambat_menit = diff
   }
 
+  const k2 = await query.find(db
+    .select({ toko_id: karyawan.toko_id })
+    .from(karyawan)
+    .where(eq(karyawan.id, body.karyawan_id))
+    )
+
   const row = await query.find(db
     .insert(absensi)
     .values({
@@ -109,6 +120,7 @@ absensiKioskRouter.post('/masuk', async (c) => {
       shift: shift_nama,
       status: 'hadir',
       terlambat_menit,
+      tenant_id: k2?.toko_id ?? 1,
     })
     .returning()
     )

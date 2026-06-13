@@ -5,20 +5,24 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { permintaan_pelanggan, komplain_pelanggan, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const crmRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 crmRouter.use('*', authMiddleware)
+crmRouter.use('*', tenantMiddleware)
 
 // ── Permintaan Pelanggan ──────────────────────────────────────────────────────
 
 crmRouter.get('/permintaan', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
   const status = c.req.query('status')
 
-  const conds = []
+  const conds = [eq(permintaan_pelanggan.tenant_id, tenantId)]
   if (dari) conds.push(gte(permintaan_pelanggan.tanggal, dari))
   if (sampai) conds.push(lte(permintaan_pelanggan.tanggal, sampai))
   if (status) conds.push(eq(permintaan_pelanggan.status, status as any))
@@ -38,7 +42,7 @@ crmRouter.get('/permintaan', requirePermission('pelanggan.lihat'), async (c) => 
     })
     .from(permintaan_pelanggan)
     .leftJoin(karyawan, eq(permintaan_pelanggan.ditangani_oleh, karyawan.id))
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(permintaan_pelanggan.tanggal))
     )
 
@@ -47,6 +51,7 @@ crmRouter.get('/permintaan', requirePermission('pelanggan.lihat'), async (c) => 
 
 crmRouter.post('/permintaan', requirePermission('pelanggan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     pelanggan_id?: number; nama_pelanggan?: string
     nama_barang: string; barang_id?: number; qty_minta?: number
@@ -57,6 +62,7 @@ crmRouter.post('/permintaan', requirePermission('pelanggan.lihat'), async (c) =>
   if (!body.tanggal) throw new HTTPException(400, { message: 'tanggal wajib' })
 
   const row = await query.ret(db.insert(permintaan_pelanggan).values({
+    tenant_id: tenantId,
     pelanggan_id: body.pelanggan_id,
     nama_pelanggan: body.nama_pelanggan?.trim(),
     nama_barang: body.nama_barang.trim(),
@@ -72,10 +78,12 @@ crmRouter.post('/permintaan', requirePermission('pelanggan.lihat'), async (c) =>
 })
 
 crmRouter.put('/permintaan/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{ status: string; catatan: string; barang_id: number }>>()
 
-  const existing = await query.find(db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)))
+  const existing = await query.find(db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(and(eq(permintaan_pelanggan.id, id), eq(permintaan_pelanggan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
   const row = await query.ret(db.update(permintaan_pelanggan).set({
@@ -83,28 +91,32 @@ crmRouter.put('/permintaan/:id', requirePermission('pelanggan.lihat'), async (c)
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...(body.barang_id !== undefined && { barang_id: body.barang_id }),
     ...getUpdatedBy(c),
-  }).where(eq(permintaan_pelanggan.id, id)).returning())
+  }).where(and(eq(permintaan_pelanggan.id, id), eq(permintaan_pelanggan.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 crmRouter.delete('/permintaan/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)))
+  const existing = await query.find(db.select({ id: permintaan_pelanggan.id }).from(permintaan_pelanggan).where(and(eq(permintaan_pelanggan.id, id), eq(permintaan_pelanggan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
-  await query.exec(db.delete(permintaan_pelanggan).where(eq(permintaan_pelanggan.id, id)))
+  await query.exec(db.delete(permintaan_pelanggan).where(and(eq(permintaan_pelanggan.id, id), eq(permintaan_pelanggan.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })
 
 // ── Komplain Pelanggan ────────────────────────────────────────────────────────
 
 crmRouter.get('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
   const status = c.req.query('status')
   const kategori = c.req.query('kategori')
 
-  const conds = []
+  const conds = [eq(komplain_pelanggan.tenant_id, tenantId)]
   if (dari) conds.push(gte(komplain_pelanggan.tanggal, dari))
   if (sampai) conds.push(lte(komplain_pelanggan.tanggal, sampai))
   if (status) conds.push(eq(komplain_pelanggan.status, status as any))
@@ -124,7 +136,7 @@ crmRouter.get('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
     })
     .from(komplain_pelanggan)
     .leftJoin(karyawan, eq(komplain_pelanggan.ditangani_oleh, karyawan.id))
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(komplain_pelanggan.tanggal))
     )
 
@@ -133,6 +145,7 @@ crmRouter.get('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
 
 crmRouter.post('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     pelanggan_id?: number; nama_pelanggan?: string
     kategori: 'kualitas_barang'|'pelayanan'|'harga'|'pengiriman'|'lainnya'
@@ -144,6 +157,7 @@ crmRouter.post('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
   if (!body.tanggal) throw new HTTPException(400, { message: 'tanggal wajib' })
 
   const row = await query.ret(db.insert(komplain_pelanggan).values({
+    tenant_id: tenantId,
     pelanggan_id: body.pelanggan_id,
     nama_pelanggan: body.nama_pelanggan?.trim(),
     kategori: body.kategori,
@@ -157,25 +171,29 @@ crmRouter.post('/komplain', requirePermission('pelanggan.lihat'), async (c) => {
 })
 
 crmRouter.put('/komplain/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{ status: string; resolusi: string }>>()
 
-  const existing = await query.find(db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)))
+  const existing = await query.find(db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(and(eq(komplain_pelanggan.id, id), eq(komplain_pelanggan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Komplain tidak ditemukan' })
 
   const row = await query.ret(db.update(komplain_pelanggan).set({
     ...(body.status !== undefined && { status: body.status as any }),
     ...(body.resolusi !== undefined && { resolusi: body.resolusi }),
     ...getUpdatedBy(c),
-  }).where(eq(komplain_pelanggan.id, id)).returning())
+  }).where(and(eq(komplain_pelanggan.id, id), eq(komplain_pelanggan.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 crmRouter.delete('/komplain/:id', requirePermission('pelanggan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)))
+  const existing = await query.find(db.select({ id: komplain_pelanggan.id }).from(komplain_pelanggan).where(and(eq(komplain_pelanggan.id, id), eq(komplain_pelanggan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Komplain tidak ditemukan' })
-  await query.exec(db.delete(komplain_pelanggan).where(eq(komplain_pelanggan.id, id)))
+  await query.exec(db.delete(komplain_pelanggan).where(and(eq(komplain_pelanggan.id, id), eq(komplain_pelanggan.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

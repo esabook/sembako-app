@@ -11,16 +11,20 @@ import { join } from 'node:path'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { lampiran } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 import { saveUpload } from '../utils/upload.ts'
 
 export const lampiranRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 lampiranRouter.use('*', authMiddleware)
+lampiranRouter.use('*', tenantMiddleware)
 
 // ── GET / — list lampiran untuk satu dokumen ─────────────────────────────
 
 lampiranRouter.get('/', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const referensiTipe = c.req.query('referensi_tipe')
   const referensiId = c.req.query('referensi_id')
 
@@ -33,6 +37,7 @@ lampiranRouter.get('/', async (c) => {
     .from(lampiran)
     .where(
       and(
+        eq(lampiran.tenant_id, tenantId),
         eq(lampiran.referensi_tipe, referensiTipe),
         eq(lampiran.referensi_id, Number(referensiId)),
       ),
@@ -48,6 +53,7 @@ lampiranRouter.get('/', async (c) => {
 
 lampiranRouter.post('/', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const formData = await c.req.formData()
 
   const referensiTipe = formData.get('referensi_tipe') as string | null
@@ -96,6 +102,7 @@ lampiranRouter.post('/', async (c) => {
   const row = await query.find(db
     .insert(lampiran)
     .values({
+      tenant_id: tenantId,
       referensi_tipe: referensiTipe,
       referensi_id: referensiId,
       tipe,
@@ -116,8 +123,9 @@ lampiranRouter.post('/', async (c) => {
 lampiranRouter.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
 
-  const row = await query.find(db.select().from(lampiran).where(eq(lampiran.id, id)))
+  const row = await query.find(db.select().from(lampiran).where(and(eq(lampiran.id, id), eq(lampiran.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Lampiran tidak ditemukan' })
 
   // Pemilik file atau manajer/pemilik toko boleh hapus
@@ -135,7 +143,7 @@ lampiranRouter.delete('/:id', async (c) => {
     if (existsSync(thumbPath)) unlinkSync(thumbPath)
   }
 
-  await query.exec(db.delete(lampiran).where(eq(lampiran.id, id)))
+  await query.exec(db.delete(lampiran).where(and(eq(lampiran.id, id), eq(lampiran.tenant_id, tenantId))))
 
   return c.json({ success: true, data: null })
 })

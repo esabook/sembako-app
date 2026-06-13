@@ -5,19 +5,23 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { inspeksi_toko, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const inspeksiRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 inspeksiRouter.use('*', authMiddleware)
+inspeksiRouter.use('*', tenantMiddleware)
 
 inspeksiRouter.get('/', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
   const jenis = c.req.query('jenis')
   const status = c.req.query('status')
 
-  const conds = []
+  const conds = [eq(inspeksi_toko.tenant_id, tenantId)]
   if (dari) conds.push(gte(inspeksi_toko.tanggal, dari))
   if (sampai) conds.push(lte(inspeksi_toko.tanggal, sampai))
   if (jenis) conds.push(eq(inspeksi_toko.jenis, jenis as any))
@@ -38,7 +42,7 @@ inspeksiRouter.get('/', requirePermission('*'), async (c) => {
     })
     .from(inspeksi_toko)
     .leftJoin(karyawan, eq(inspeksi_toko.petugas_id, karyawan.id))
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(inspeksi_toko.tanggal))
     )
 
@@ -47,6 +51,7 @@ inspeksiRouter.get('/', requirePermission('*'), async (c) => {
 
 inspeksiRouter.post('/', requirePermission('*'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     tanggal: string
     jenis?: 'rutin' | 'mendadak' | 'bulanan' | 'tahunan'
@@ -60,6 +65,7 @@ inspeksiRouter.post('/', requirePermission('*'), async (c) => {
   }
 
   const row = await query.ret(db.insert(inspeksi_toko).values({
+    tenant_id: tenantId,
     tanggal: body.tanggal,
     jenis: body.jenis ?? 'rutin',
     petugas_id: user.id,
@@ -75,6 +81,8 @@ inspeksiRouter.post('/', requirePermission('*'), async (c) => {
 })
 
 inspeksiRouter.put('/:id', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<{
     tanggal: string; jenis: string; area: string
@@ -82,7 +90,7 @@ inspeksiRouter.put('/:id', requirePermission('*'), async (c) => {
     status: string; catatan: string
   }>>()
 
-  const existing = await query.find(db.select({ id: inspeksi_toko.id }).from(inspeksi_toko).where(eq(inspeksi_toko.id, id)))
+  const existing = await query.find(db.select({ id: inspeksi_toko.id }).from(inspeksi_toko).where(and(eq(inspeksi_toko.id, id), eq(inspeksi_toko.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Inspeksi tidak ditemukan' })
 
   const row = await query.ret(db.update(inspeksi_toko).set({
@@ -95,15 +103,17 @@ inspeksiRouter.put('/:id', requirePermission('*'), async (c) => {
     ...(body.status !== undefined && { status: body.status as any }),
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...getUpdatedBy(c),
-  }).where(eq(inspeksi_toko.id, id)).returning())
+  }).where(and(eq(inspeksi_toko.id, id), eq(inspeksi_toko.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 inspeksiRouter.delete('/:id', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: inspeksi_toko.id }).from(inspeksi_toko).where(eq(inspeksi_toko.id, id)))
+  const existing = await query.find(db.select({ id: inspeksi_toko.id }).from(inspeksi_toko).where(and(eq(inspeksi_toko.id, id), eq(inspeksi_toko.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Inspeksi tidak ditemukan' })
-  await query.exec(db.delete(inspeksi_toko).where(eq(inspeksi_toko.id, id)))
+  await query.exec(db.delete(inspeksi_toko).where(and(eq(inspeksi_toko.id, id), eq(inspeksi_toko.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

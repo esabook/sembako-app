@@ -4,14 +4,18 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { sop_rule, sop_instance, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const sopRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 sopRouter.use('*', authMiddleware)
+sopRouter.use('*', tenantMiddleware)
 
 // ── GET /sop/rule — list semua rule ──────────────────────────────────────
 sopRouter.get('/rule', requirePermission('*'), async (c) => {
-  const rows = await query.findAll(db.select().from(sop_rule).orderBy(sop_rule.event_name, sop_rule.urutan))
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const rows = await query.findAll(db.select().from(sop_rule).where(eq(sop_rule.tenant_id, tenantId)).orderBy(sop_rule.event_name, sop_rule.urutan))
   return c.json({ success: true, data: rows })
 })
 
@@ -29,6 +33,9 @@ sopRouter.post('/rule', requirePermission('*'), async (c) => {
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'nama wajib' })
   if (!body.event_name?.trim()) throw new HTTPException(400, { message: 'event_name wajib' })
 
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+
   const row = await query.ret(db.insert(sop_rule).values({
     nama: body.nama,
     event_name: body.event_name,
@@ -36,6 +43,7 @@ sopRouter.post('/rule', requirePermission('*'), async (c) => {
     deskripsi: body.deskripsi,
     config_json: body.config_json ?? [],
     urutan: body.urutan ?? 0,
+    tenant_id: tenantId,
   }).returning())
 
   return c.json({ success: true, data: row }, 201)
@@ -43,8 +51,10 @@ sopRouter.post('/rule', requirePermission('*'), async (c) => {
 
 // ── PUT /sop/rule/:id — update rule ──────────────────────────────────────
 sopRouter.put('/rule/:id', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(sop_rule).where(eq(sop_rule.id, id)))
+  const existing = await query.find(db.select().from(sop_rule).where(and(eq(sop_rule.id, id), eq(sop_rule.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Rule tidak ditemukan' })
 
   const body = await c.req.json<Partial<{
@@ -61,17 +71,19 @@ sopRouter.put('/rule/:id', requirePermission('*'), async (c) => {
     config_json: body.config_json !== undefined ? body.config_json : existing.config_json,
     is_active: body.is_active !== undefined ? body.is_active : existing.is_active,
     urutan: body.urutan ?? existing.urutan,
-  }).where(eq(sop_rule.id, id)).returning())
+  }).where(and(eq(sop_rule.id, id), eq(sop_rule.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 // ── DELETE /sop/rule/:id — nonaktifkan rule (soft) ────────────────────────
 sopRouter.delete('/rule/:id', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: sop_rule.id }).from(sop_rule).where(eq(sop_rule.id, id)))
+  const existing = await query.find(db.select({ id: sop_rule.id }).from(sop_rule).where(and(eq(sop_rule.id, id), eq(sop_rule.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Rule tidak ditemukan' })
-  await query.exec(db.update(sop_rule).set({ is_active: false }).where(eq(sop_rule.id, id)))
+  await query.exec(db.update(sop_rule).set({ is_active: false }).where(and(eq(sop_rule.id, id), eq(sop_rule.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })
 
@@ -79,6 +91,7 @@ sopRouter.delete('/rule/:id', requirePermission('*'), async (c) => {
 // Dipanggil oleh kiosk setelah mendapat 428 dari /absensi-kiosk/masuk
 sopRouter.get('/checklist-hari-ini', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const tanggal = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
   const rows = await query.findAll(db
@@ -96,6 +109,7 @@ sopRouter.get('/checklist-hari-ini', async (c) => {
     .where(
       and(
         eq(sop_instance.karyawan_id, user.id),
+        eq(sop_rule.tenant_id, tenantId),
         sql`date(${sop_instance.dibuat_at}) = ${tanggal}`,
       ),
     )
@@ -136,11 +150,13 @@ sopRouter.post('/checklist/:instance_id/selesai', async (c) => {
 
 // ── GET /sop/instance — riwayat instance (manajer/pemilik) ───────────────
 sopRouter.get('/instance', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const karyawanId = c.req.query('karyawan_id') ? Number(c.req.query('karyawan_id')) : undefined
   const tanggal = c.req.query('tanggal')
   const limit = Math.min(Number(c.req.query('limit') ?? 100), 500)
 
-  const conds = []
+  const conds = [eq(sop_rule.tenant_id, tenantId)]
   if (karyawanId) conds.push(eq(sop_instance.karyawan_id, karyawanId))
   if (tanggal) conds.push(sql`date(${sop_instance.dibuat_at}) = ${tanggal}`)
 

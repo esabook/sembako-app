@@ -6,16 +6,20 @@ import {
   barang, satuan,
 } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const draftRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 draftRouter.use('*', authMiddleware)
+draftRouter.use('*', tenantMiddleware)
 
 // ── GET /draft/keranjang — ambil draft kasir ini ──────────────────────────
 
 draftRouter.get('/keranjang', async (c) => {
-  const kasirId = c.get('user').id
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const kasirId = user.id
 
   const draft = await query.find(db
     .select()
@@ -57,7 +61,9 @@ draftRouter.get('/keranjang', async (c) => {
 // ── PUT /draft/keranjang — upsert seluruh keranjang (atomic) ──────────────
 
 draftRouter.put('/keranjang', async (c) => {
-  const kasirId = c.get('user').id
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const kasirId = user.id
   const body = await c.req.json<{
     tipe: 'eceran' | 'grosir'
     pelanggan_id?: number | null
@@ -132,7 +138,9 @@ draftRouter.put('/keranjang', async (c) => {
 // ── DELETE /draft/keranjang — hapus draft kasir ini ──────────────────────
 
 draftRouter.delete('/keranjang', async (c) => {
-  const kasirId = c.get('user').id
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const kasirId = user.id
 
   const draft = await query.find(db
     .select({ id: draft_keranjang.id })

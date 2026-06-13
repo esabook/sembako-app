@@ -11,11 +11,13 @@ import {
   karyawan, satuan,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const returPenjualanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 returPenjualanRouter.use('*', authMiddleware)
+returPenjualanRouter.use('*', tenantMiddleware)
 
 function noRetur(): string {
   const d = new Date()
@@ -31,6 +33,9 @@ function tglSekarang(): string {
 // ── GET /retur-penjualan ──────────────────────────────────────────────────────
 
 returPenjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
 
@@ -51,6 +56,8 @@ returPenjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) =>
     .leftJoin(karyawan, eq(retur_penjualan.kasir_id, karyawan.id))
     .where(
       and(
+        eq(retur_penjualan.tenant_id, tenantId),
+        cabangId ? eq(retur_penjualan.cabang_id, cabangId) : undefined,
         dari ? gte(retur_penjualan.tanggal, dari) : undefined,
         sampai ? lte(retur_penjualan.tanggal, sampai + ' 23:59:59') : undefined,
       )
@@ -108,6 +115,8 @@ returPenjualanRouter.get('/sisa/:penjualan_id', requirePermission('penjualan.lih
 // ── GET /retur-penjualan/:id ──────────────────────────────────────────────────
 
 returPenjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
 
   const retur = await query.find(db
@@ -129,7 +138,7 @@ returPenjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c)
     .from(retur_penjualan)
     .leftJoin(penjualan, eq(retur_penjualan.penjualan_id, penjualan.id))
     .leftJoin(karyawan, eq(retur_penjualan.kasir_id, karyawan.id))
-    .where(eq(retur_penjualan.id, id))
+    .where(and(eq(retur_penjualan.id, id), eq(retur_penjualan.tenant_id, tenantId)))
     )
 
   if (!retur) throw new HTTPException(404, { message: 'Retur tidak ditemukan' })
@@ -192,6 +201,8 @@ type ItemTukar = {
 
 returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
   const body = await c.req.json<{
     penjualan_id: number
     alasan?: string
@@ -208,7 +219,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
   }
 
   // Validasi penjualan asal
-  const trxAsal = await query.find(db.select().from(penjualan).where(eq(penjualan.id, body.penjualan_id)))
+  const trxAsal = await query.find(db.select().from(penjualan).where(and(eq(penjualan.id, body.penjualan_id), eq(penjualan.tenant_id, tenantId))))
   if (!trxAsal) throw new HTTPException(404, { message: 'Transaksi penjualan tidak ditemukan' })
   if (trxAsal.status === 'void') throw new HTTPException(400, { message: 'Transaksi sudah di-void, tidak bisa diretur' })
 
@@ -290,6 +301,8 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
       metode_refund: body.metode_refund,
       kas_bank_id: body.kas_bank_id,
       catatan: body.catatan,
+      tenant_id: tenantId,
+      cabang_id: cabangId,
     }).returning())
 
     // 2. Detail item retur + kembalikan stok
@@ -301,6 +314,8 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
         jumlah_retur: item.jumlah_retur,
         harga_jual: item.harga_jual,
         subtotal: item.subtotal,
+        tenant_id: tenantId,
+        cabang_id: cabangId,
       }))
 
       const br = await query.find(db.select({ stok: barang.stok_sekarang })
@@ -317,6 +332,8 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
         jumlah_perubahan: item.jumlah_retur,
         jumlah_sesudah: br.stok + item.jumlah_retur,
         dicatat_oleh: user.id,
+        tenant_id: tenantId,
+        cabang_id: cabangId,
       }))
 
       await query.exec(db.update(barang)
@@ -337,6 +354,8 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
         keterangan: `Refund retur ${noRet} dari ${trxAsal.no_transaksi}`,
         jumlah: totalRetur,
         dicatat_oleh: user.id,
+        tenant_id: tenantId,
+        cabang_id: cabangId,
       }))
     }
 
@@ -377,6 +396,8 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
           jumlah: ti.jumlah,
           harga_jual: ti.harga_jual,
           subtotal: ti.subtotal,
+          tenant_id: tenantId,
+          cabang_id: cabangId,
         }))
 
         const brTukar = await query.find(db.select({ stok: barang.stok_sekarang })
@@ -393,6 +414,8 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
           jumlah_perubahan: ti.jumlah,
           jumlah_sesudah: Math.max(0, brTukar.stok - ti.jumlah),
           dicatat_oleh: user.id,
+          tenant_id: tenantId,
+          cabang_id: cabangId,
         }))
 
         await query.exec(db.update(barang)

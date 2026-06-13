@@ -4,25 +4,29 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { pinjaman_investasi } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { getAuditBy, getUpdatedBy } from '../utils/audit.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const pinjamanInvestasiRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 pinjamanInvestasiRouter.use('*', authMiddleware)
+pinjamanInvestasiRouter.use('*', tenantMiddleware)
 
 // GET / — list (filter: tipe, status)
 pinjamanInvestasiRouter.get('/', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const tipe = c.req.query('tipe') as 'pinjaman' | 'investasi' | undefined
   const status = c.req.query('status') as 'aktif' | 'lunas' | 'macet' | undefined
 
-  const conds = []
+  const conds = [eq(pinjaman_investasi.tenant_id, tenantId)]
   if (tipe) conds.push(eq(pinjaman_investasi.tipe, tipe))
   if (status) conds.push(eq(pinjaman_investasi.status, status))
 
   const rows = await query.findAll(db
     .select()
     .from(pinjaman_investasi)
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(desc(pinjaman_investasi.tanggal_mulai))
     )
 
@@ -31,6 +35,8 @@ pinjamanInvestasiRouter.get('/', requirePermission('laporan.lihat'), async (c) =
 
 // POST / — tambah
 pinjamanInvestasiRouter.post('/', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     tipe: 'pinjaman' | 'investasi'
     nama: string
@@ -57,6 +63,7 @@ pinjamanInvestasiRouter.post('/', requirePermission('laporan.lihat'), async (c) 
     jatuh_tempo: body.jatuh_tempo,
     sisa_pokok: body.jumlah_pokok,
     catatan: body.catatan,
+    tenant_id: tenantId,
     ...getAuditBy(c),
   }).returning())
 
@@ -65,6 +72,8 @@ pinjamanInvestasiRouter.post('/', requirePermission('laporan.lihat'), async (c) 
 
 // PUT /:id — update info atau status
 pinjamanInvestasiRouter.put('/:id', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{
     nama?: string
@@ -75,7 +84,7 @@ pinjamanInvestasiRouter.put('/:id', requirePermission('laporan.lihat'), async (c
     catatan?: string
   }>()
 
-  const existing = await query.find(db.select().from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
+  const existing = await query.find(db.select().from(pinjaman_investasi).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
   const row = await query.ret(db.update(pinjaman_investasi).set({
@@ -86,19 +95,21 @@ pinjamanInvestasiRouter.put('/:id', requirePermission('laporan.lihat'), async (c
     ...(body.status !== undefined && { status: body.status }),
     ...(body.catatan !== undefined && { catatan: body.catatan }),
     ...getUpdatedBy(c),
-  }).where(eq(pinjaman_investasi.id, id)).returning())
+  }).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 // POST /:id/cicil — bayar cicilan, kurangi sisa_pokok
 pinjamanInvestasiRouter.post('/:id/cicil', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ jumlah: number }>()
 
   if (!body.jumlah || body.jumlah <= 0) throw new HTTPException(400, { message: 'jumlah harus > 0' })
 
-  const existing = await query.find(db.select().from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
+  const existing = await query.find(db.select().from(pinjaman_investasi).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
   if (existing.status !== 'aktif') throw new HTTPException(400, { message: 'Hanya status aktif yang bisa dicicil' })
 
@@ -107,16 +118,18 @@ pinjamanInvestasiRouter.post('/:id/cicil', requirePermission('laporan.lihat'), a
     sisa_pokok: sisa,
     status: sisa <= 0 ? 'lunas' : 'aktif',
     ...getUpdatedBy(c),
-  }).where(eq(pinjaman_investasi.id, id)).returning())
+  }).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))).returning())
 
   return c.json({ success: true, data: row })
 })
 
 // DELETE /:id — hapus (hanya jika lunas/macet)
 pinjamanInvestasiRouter.delete('/:id', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: pinjaman_investasi.id }).from(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
+  const existing = await query.find(db.select({ id: pinjaman_investasi.id }).from(pinjaman_investasi).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
-  await query.exec(db.delete(pinjaman_investasi).where(eq(pinjaman_investasi.id, id)))
+  await query.exec(db.delete(pinjaman_investasi).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

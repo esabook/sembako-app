@@ -8,11 +8,13 @@ import {
   penjualan, penjualan_detail,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const purchaseOrderRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 purchaseOrderRouter.use('*', authMiddleware)
+purchaseOrderRouter.use('*', tenantMiddleware)
 
 function noPO(): string {
   const d = new Date()
@@ -24,6 +26,8 @@ function noPO(): string {
 // ── GET /purchase-order ───────────────────────────────────────────────────
 
 purchaseOrderRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const rows = await query.findAll(db
     .select({
       id: purchase_order.id,
@@ -37,6 +41,7 @@ purchaseOrderRouter.get('/', requirePermission('pembelian.lihat'), async (c) => 
     })
     .from(purchase_order)
     .leftJoin(supplier, eq(purchase_order.supplier_id, supplier.id))
+    .where(eq(purchase_order.tenant_id, tenantId))
     .orderBy(desc(purchase_order.tanggal_po))
     .limit(100)
     )
@@ -47,8 +52,10 @@ purchaseOrderRouter.get('/', requirePermission('pembelian.lihat'), async (c) => 
 // ── GET /purchase-order/:id ───────────────────────────────────────────────
 
 purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const po = await query.find(db.select().from(purchase_order).where(eq(purchase_order.id, id)))
+  const po = await query.find(db.select().from(purchase_order).where(and(eq(purchase_order.id, id), eq(purchase_order.tenant_id, tenantId))))
   if (!po) throw new HTTPException(404, { message: 'PO tidak ditemukan' })
 
   const items = await query.findAll(db
@@ -67,7 +74,7 @@ purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
     .from(po_detail)
     .leftJoin(barang, eq(po_detail.barang_id, barang.id))
     .leftJoin(satuan, eq(po_detail.satuan_id, satuan.id))
-    .where(eq(po_detail.po_id, id))
+    .where(and(eq(po_detail.po_id, id), eq(po_detail.tenant_id, tenantId)))
     )
 
   const sup = await query.find(db.select().from(supplier).where(eq(supplier.id, po.supplier_id)))
@@ -78,6 +85,8 @@ purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
 // ── GET /purchase-order/suggest — auto-suggest dari stok kritis + rata penjualan ──
 
 purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   // Barang stok di bawah minimum
   const kritisRows = await query.findAll(db
     .select({
@@ -90,7 +99,7 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
       satuan_dasar_id: barang.satuan_dasar_id,
     })
     .from(barang)
-    .where(eq(barang.is_active, true))
+    .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
     )
     .filter((b) => b.stok_sekarang <= b.stok_minimum)
 
@@ -108,6 +117,7 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
     .where(and(
       gte(penjualan.tanggal, tgl7HariLalu),
       ne(penjualan.status, 'void'),
+      eq(penjualan.tenant_id, tenantId),
     ))
     .groupBy(penjualan_detail.barang_id)
     )
@@ -130,6 +140,7 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
 
 purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     supplier_id: number
     tanggal_estimasi_datang?: string
@@ -153,6 +164,7 @@ purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
     status: 'draft',
     total_nilai: totalNilai,
     dibuat_oleh: user.id,
+    tenant_id: tenantId,
   }).returning())
 
   for (const item of body.items) {
@@ -163,6 +175,7 @@ purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
       jumlah_pesan: item.jumlah_pesan,
       jumlah_diterima: 0,
       harga_beli_estimasi: item.harga_beli_estimasi ?? 0,
+      tenant_id: tenantId,
     }))
   }
 
@@ -172,15 +185,17 @@ purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
 // ── PUT /purchase-order/:id/status ────────────────────────────────────────
 
 purchaseOrderRouter.put('/:id/status', requirePermission('pembelian.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ status: 'draft' | 'dikirim' | 'sebagian' | 'lunas' | 'batal' }>()
 
-  const po = await query.find(db.select().from(purchase_order).where(eq(purchase_order.id, id)))
+  const po = await query.find(db.select().from(purchase_order).where(and(eq(purchase_order.id, id), eq(purchase_order.tenant_id, tenantId))))
   if (!po) throw new HTTPException(404, { message: 'PO tidak ditemukan' })
 
   await query.exec(db.update(purchase_order)
     .set({ status: body.status, updated_at: isoNow() })
-    .where(eq(purchase_order.id, id))
+    .where(and(eq(purchase_order.id, id), eq(purchase_order.tenant_id, tenantId)))
   )
 
   return c.json({ success: true, data: { status: body.status } })

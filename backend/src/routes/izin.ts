@@ -11,11 +11,13 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { pengajuan_izin, absensi, karyawan } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const izinRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 izinRouter.use('*', authMiddleware)
+izinRouter.use('*', tenantMiddleware)
 
 function tglSekarang(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
@@ -37,6 +39,7 @@ function rangeTanggal(mulai: string, selesai: string): string[] {
 
 izinRouter.get('/', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const karyawanId = c.req.query('karyawan_id') ? Number(c.req.query('karyawan_id')) : undefined
   const status = c.req.query('status') as typeof pengajuan_izin.$inferSelect['status'] | undefined
   const dari = c.req.query('dari')
@@ -47,6 +50,7 @@ izinRouter.get('/', async (c) => {
   const targetId = isManager ? karyawanId : user.id
 
   const conds = []
+  conds.push(eq(pengajuan_izin.tenant_id, tenantId))
   if (targetId) conds.push(eq(pengajuan_izin.karyawan_id, targetId))
   if (status) conds.push(eq(pengajuan_izin.status, status))
   if (dari) conds.push(gte(pengajuan_izin.tanggal_mulai, dari))
@@ -78,6 +82,7 @@ izinRouter.get('/', async (c) => {
 
 izinRouter.get('/:id', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
 
   const row = await query.find(db
@@ -97,7 +102,7 @@ izinRouter.get('/:id', async (c) => {
     })
     .from(pengajuan_izin)
     .leftJoin(karyawan, eq(pengajuan_izin.karyawan_id, karyawan.id))
-    .where(eq(pengajuan_izin.id, id))
+    .where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId)))
     )
 
   if (!row) throw new HTTPException(404, { message: 'Pengajuan tidak ditemukan' })
@@ -114,6 +119,7 @@ izinRouter.get('/:id', async (c) => {
 
 izinRouter.post('/', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     karyawan_id?: number   // manajer bisa ajukan untuk orang lain
     jenis: 'cuti' | 'izin' | 'sakit'
@@ -140,6 +146,7 @@ izinRouter.post('/', async (c) => {
     tanggal_selesai: body.tanggal_selesai,
     alasan: body.alasan,
     status: 'menunggu',
+    tenant_id: tenantId,
   }).returning())
 
   return c.json({ success: true, data: row }, 201)
@@ -149,6 +156,7 @@ izinRouter.post('/', async (c) => {
 
 izinRouter.post('/:id/setujui', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
     throw new HTTPException(403, { message: 'Hanya manajer atau pemilik yang dapat menyetujui' })
   }
@@ -157,7 +165,7 @@ izinRouter.post('/:id/setujui', async (c) => {
   let catatan: string | undefined
   try { catatan = (await c.req.json<{ catatan?: string }>()).catatan } catch { /* opsional */ }
 
-  const row = await query.find(db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)))
+  const row = await query.find(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Pengajuan tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Pengajuan sudah ${row.status}` })
@@ -175,7 +183,7 @@ izinRouter.post('/:id/setujui', async (c) => {
     const sudahAda = await query.find(db
       .select({ id: absensi.id })
       .from(absensi)
-      .where(and(eq(absensi.karyawan_id, row.karyawan_id), eq(absensi.tanggal, tgl)))
+      .where(and(eq(absensi.karyawan_id, row.karyawan_id), eq(absensi.tanggal, tgl), eq(absensi.tenant_id, tenantId)))
       )
 
     if (!sudahAda) {
@@ -184,11 +192,12 @@ izinRouter.post('/:id/setujui', async (c) => {
         tanggal: tgl,
         status: statusAbsensi,
         dicatat_oleh: user.id,
+        tenant_id: tenantId,
       }))
     }
   }
 
-  const updated = await query.find(db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)))
+  const updated = await query.find(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
   return c.json({ success: true, data: updated })
 })
 
@@ -196,6 +205,7 @@ izinRouter.post('/:id/setujui', async (c) => {
 
 izinRouter.post('/:id/tolak', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
     throw new HTTPException(403, { message: 'Hanya manajer atau pemilik yang dapat menolak' })
   }
@@ -204,7 +214,7 @@ izinRouter.post('/:id/tolak', async (c) => {
   let catatan: string | undefined
   try { catatan = (await c.req.json<{ catatan?: string }>()).catatan } catch { /* opsional */ }
 
-  const row = await query.find(db.select().from(pengajuan_izin).where(eq(pengajuan_izin.id, id)))
+  const row = await query.find(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Pengajuan tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Pengajuan sudah ${row.status}` })

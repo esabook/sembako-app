@@ -6,12 +6,14 @@ import { barang, kategori, satuan } from '../db/schema.ts'
 import { catatLog } from '../utils/log.ts'
 import type { JWTPayload } from './auth.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { saveUpload } from '../utils/upload.ts'
 import { getAuditBy } from '../utils/audit.ts'
 
 export const barangRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 barangRouter.use('*', authMiddleware)
+barangRouter.use('*', tenantMiddleware)
 
 // ── Kategori ──────────────────────────────────────────────────────────────
 
@@ -132,6 +134,8 @@ barangRouter.post('/satuan/import-preset', requirePermission('stok.edit'), async
 // ── Barang ────────────────────────────────────────────────────────────────
 
 barangRouter.get('/', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const q = c.req.query('q')
   const aktif = c.req.query('aktif') !== '0'
 
@@ -159,6 +163,7 @@ barangRouter.get('/', async (c) => {
     .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
     .where(
       and(
+        eq(barang.tenant_id, tenantId),
         aktif ? eq(barang.is_active, true) : undefined,
         q ? or(like(barang.nama_barang, `%${q}%`), like(barang.kode_barang, `%${q}%`)) : undefined,
       )
@@ -169,6 +174,8 @@ barangRouter.get('/', async (c) => {
 })
 
 barangRouter.get('/stok-menipis', requirePermission('stok.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const rows = await query.findAll(db
     .select({
       id: barang.id,
@@ -182,6 +189,7 @@ barangRouter.get('/stok-menipis', requirePermission('stok.lihat'), async (c) => 
     .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
     .where(
       and(
+        eq(barang.tenant_id, tenantId),
         eq(barang.is_active, true),
         sql`${barang.stok_minimum} > 0 AND ${barang.stok_sekarang} <= ${barang.stok_minimum}`
       )
@@ -193,13 +201,17 @@ barangRouter.get('/stok-menipis', requirePermission('stok.lihat'), async (c) => 
 })
 
 barangRouter.get('/:id', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const row = await query.find(db.select().from(barang).where(eq(barang.id, id)))
+  const row = await query.find(db.select().from(barang).where(and(eq(barang.id, id), eq(barang.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
 
 barangRouter.post('/', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     kode_barang: string
     nama_barang: string
@@ -230,16 +242,19 @@ barangRouter.post('/', requirePermission('stok.edit'), async (c) => {
     harga_jual_grosir: body.harga_jual_grosir ?? 0,
     stok_minimum: body.stok_minimum ?? 0,
     lokasi_rak: body.lokasi_rak,
+    tenant_id: tenantId,
   }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
 
 barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<typeof barang.$inferInsert>>()
 
-  const existing = await query.find(db.select().from(barang).where(eq(barang.id, id)))
+  const existing = await query.find(db.select().from(barang).where(and(eq(barang.id, id), eq(barang.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
   if ((body.harga_beli_terakhir !== undefined && body.harga_beli_terakhir < 0) ||
       (body.harga_jual_eceran !== undefined && body.harga_jual_eceran < 0) ||
@@ -251,7 +266,7 @@ barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
   const row = await query.find(db
     .update(barang)
     .set({ ...body, updated_at: isoNow() })
-    .where(eq(barang.id, id))
+    .where(and(eq(barang.id, id), eq(barang.tenant_id, tenantId)))
     .returning()
     )
 

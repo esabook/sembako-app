@@ -4,11 +4,13 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { shift_kasir, penjualan, karyawan } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const shiftRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 shiftRouter.use('*', authMiddleware)
+shiftRouter.use('*', tenantMiddleware)
 
 function jamSekarang(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(11, 16)
@@ -24,6 +26,8 @@ function tglSekarang(): string {
 
 shiftRouter.get('/rekap-aktif', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
 
   const shift = await query.find(db
     .select()
@@ -33,6 +37,8 @@ shiftRouter.get('/rekap-aktif', async (c) => {
         eq(shift_kasir.karyawan_id, user.id),
         eq(shift_kasir.status, 'buka'),
         eq(shift_kasir.tanggal, tglSekarang()),
+        eq(shift_kasir.tenant_id, tenantId),
+        cabangId ? eq(shift_kasir.cabang_id, cabangId) : undefined,
       )
     )
     )
@@ -50,6 +56,8 @@ shiftRouter.get('/rekap-aktif', async (c) => {
       and(
         ne(penjualan.status, 'void'),
         eq(penjualan.kasir_id, user.id),
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         gte(penjualan.tanggal, `${shift.tanggal} ${shift.jam_buka}`),
       )
     )
@@ -89,6 +97,8 @@ shiftRouter.get('/rekap-aktif', async (c) => {
 
 shiftRouter.get('/aktif', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
 
   const shift = await query.find(db
     .select({
@@ -106,6 +116,8 @@ shiftRouter.get('/aktif', async (c) => {
         eq(shift_kasir.karyawan_id, user.id),
         eq(shift_kasir.status, 'buka'),
         eq(shift_kasir.tanggal, tglSekarang()),
+        eq(shift_kasir.tenant_id, tenantId),
+        cabangId ? eq(shift_kasir.cabang_id, cabangId) : undefined,
       )
     )
     )
@@ -118,14 +130,17 @@ shiftRouter.get('/aktif', async (c) => {
 
 shiftRouter.get('/', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const { dari, sampai } = c.req.query()
 
-  const conditions = []
-  if (!['pemilik', 'manajer'].includes(user.role)) {
-    conditions.push(eq(shift_kasir.karyawan_id, user.id))
-  }
-  if (dari) conditions.push(gte(shift_kasir.tanggal, dari))
-  if (sampai) conditions.push(lte(shift_kasir.tanggal, sampai))
+  const conditions = [
+    eq(shift_kasir.tenant_id, tenantId),
+    cabangId ? eq(shift_kasir.cabang_id, cabangId) : undefined,
+    !['pemilik', 'manajer'].includes(user.role) ? eq(shift_kasir.karyawan_id, user.id) : undefined,
+    dari ? gte(shift_kasir.tanggal, dari) : undefined,
+    sampai ? lte(shift_kasir.tanggal, sampai) : undefined,
+  ].filter(Boolean) as Parameters<typeof and>
 
   const rows = await query.findAll(db
     .select({
@@ -145,7 +160,7 @@ shiftRouter.get('/', async (c) => {
     })
     .from(shift_kasir)
     .leftJoin(karyawan, eq(shift_kasir.karyawan_id, karyawan.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .where(and(...conditions))
     .orderBy(desc(shift_kasir.tanggal))
     .limit(100)
     )
@@ -157,6 +172,8 @@ shiftRouter.get('/', async (c) => {
 
 shiftRouter.post('/buka', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
   const body = await c.req.json<{ kas_awal: number; catatan?: string }>()
 
   if (body.kas_awal == null || body.kas_awal < 0)
@@ -171,6 +188,8 @@ shiftRouter.post('/buka', async (c) => {
         eq(shift_kasir.karyawan_id, user.id),
         eq(shift_kasir.status, 'buka'),
         eq(shift_kasir.tanggal, tglSekarang()),
+        eq(shift_kasir.tenant_id, tenantId),
+        eq(shift_kasir.cabang_id, cabangId),
       )
     )
     )
@@ -184,6 +203,8 @@ shiftRouter.post('/buka', async (c) => {
     kas_awal: body.kas_awal,
     catatan: body.catatan,
     status: 'buka',
+    tenant_id: tenantId,
+    cabang_id: cabangId,
   }).returning())
 
   return c.json({ success: true, data: row }, 201)
@@ -193,6 +214,8 @@ shiftRouter.post('/buka', async (c) => {
 
 shiftRouter.post('/tutup', async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const body = await c.req.json<{ kas_fisik: number; catatan?: string }>()
 
   if (body.kas_fisik == null || body.kas_fisik < 0)
@@ -206,6 +229,8 @@ shiftRouter.post('/tutup', async (c) => {
         eq(shift_kasir.karyawan_id, user.id),
         eq(shift_kasir.status, 'buka'),
         eq(shift_kasir.tanggal, tglSekarang()),
+        eq(shift_kasir.tenant_id, tenantId),
+        cabangId ? eq(shift_kasir.cabang_id, cabangId) : undefined,
       )
     )
     )
@@ -224,6 +249,8 @@ shiftRouter.post('/tutup', async (c) => {
       and(
         ne(penjualan.status, 'void'),
         eq(penjualan.kasir_id, user.id),
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         gte(penjualan.tanggal, `${shift.tanggal} ${shift.jam_buka}`),
       )
     )

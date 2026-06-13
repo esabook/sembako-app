@@ -1,5 +1,7 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
+import { authMiddleware } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 
 type ScanData      = { kode: string; qty: number }
 type Poller        = { resolve: (data: ScanData | null) => void; timer: ReturnType<typeof setTimeout> }
@@ -10,6 +12,8 @@ const preQtyValues  = new Map<string, number>()          // persistent qty per s
 const preQtyWaiters = new Map<string, PreQtyWaiter[]>()  // long-poll waiters
 
 export const scanRelayRouter = new Hono<{ Variables: { user: JWTPayload } }>()
+scanRelayRouter.use('*', authMiddleware)
+scanRelayRouter.use('*', tenantMiddleware)
 
 // Kasir listen: long poll — tunggu scan masuk atau 30s timeout
 scanRelayRouter.get('/kasir/:sessionId', async (c) => {

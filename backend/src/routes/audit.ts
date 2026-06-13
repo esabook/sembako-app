@@ -4,28 +4,32 @@ import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { log_aktivitas, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 
 export const auditRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 auditRouter.use('*', authMiddleware)
+auditRouter.use('*', tenantMiddleware)
 auditRouter.use('*', requirePermission('laporan.lihat'))
 
 // ── GET /audit ─────────────────────────────────────────────────────────────
 
 auditRouter.get('/', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const q = c.req.query()
   const page = Math.max(1, Number(q.page) || 1)
   const perPage = Math.min(100, Math.max(10, Number(q.per_page) || 50))
   const offset = (page - 1) * perPage
 
-  const conditions = []
+  const conditions = [eq(karyawan.toko_id, tenantId)]
   if (q.karyawan_id) conditions.push(eq(log_aktivitas.karyawan_id, Number(q.karyawan_id)))
   if (q.modul)       conditions.push(eq(log_aktivitas.modul, q.modul))
   if (q.aksi)        conditions.push(like(log_aktivitas.aksi, `%${q.aksi}%`))
   if (q.dari)        conditions.push(gte(log_aktivitas.waktu, q.dari))
   if (q.sampai)      conditions.push(lte(log_aktivitas.waktu, q.sampai + ' 23:59:59'))
 
-  const where = conditions.length > 0 ? and(...conditions) : undefined
+  const where = and(...conditions)
 
   const rows = await query.findAll(db.select({
     id:            log_aktivitas.id,
@@ -48,6 +52,7 @@ auditRouter.get('/', async (c) => {
 
   const total = (await query.find(db.select({ n: sql<number>`count(*)` })
     .from(log_aktivitas)
+    .leftJoin(karyawan, eq(log_aktivitas.karyawan_id, karyawan.id))
     .where(where)
   ))?.n ?? 0
 
@@ -60,14 +65,16 @@ auditRouter.get('/', async (c) => {
 // ── GET /audit/export ──────────────────────────────────────────────────────
 
 auditRouter.get('/export', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const q = c.req.query()
-  const conditions = []
+  const conditions = [eq(karyawan.toko_id, tenantId)]
   if (q.karyawan_id) conditions.push(eq(log_aktivitas.karyawan_id, Number(q.karyawan_id)))
   if (q.modul)       conditions.push(eq(log_aktivitas.modul, q.modul))
   if (q.aksi)        conditions.push(like(log_aktivitas.aksi, `%${q.aksi}%`))
   if (q.dari)        conditions.push(gte(log_aktivitas.waktu, q.dari))
   if (q.sampai)      conditions.push(lte(log_aktivitas.waktu, q.sampai + ' 23:59:59'))
-  const where = conditions.length > 0 ? and(...conditions) : undefined
+  const where = and(...conditions)
 
   const rows = await query.findAll(db.select({
     id:            log_aktivitas.id,
@@ -108,8 +115,11 @@ auditRouter.get('/export', async (c) => {
 // untuk dropdown filter
 
 auditRouter.get('/karyawan-list', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const rows = await query.findAll(db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
     .from(karyawan)
+    .where(eq(karyawan.toko_id, tenantId))
     .orderBy(karyawan.nama)
   )
   return c.json({ success: true, data: rows })
@@ -119,8 +129,12 @@ auditRouter.get('/karyawan-list', async (c) => {
 // distinct modul yang sudah ada di log
 
 auditRouter.get('/modul-list', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const rows = await query.findAll(db.selectDistinct({ modul: log_aktivitas.modul })
     .from(log_aktivitas)
+    .leftJoin(karyawan, eq(log_aktivitas.karyawan_id, karyawan.id))
+    .where(eq(karyawan.toko_id, tenantId))
     .orderBy(log_aktivitas.modul)
   )
   return c.json({ success: true, data: rows.map(r => r.modul) })

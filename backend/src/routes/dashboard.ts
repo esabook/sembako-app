@@ -8,11 +8,16 @@ import {
   kas_bank, jurnal_kas, absensi, karyawan,
 } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 
 export const dashboardRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 dashboardRouter.use('*', authMiddleware)
+dashboardRouter.use('*', tenantMiddleware)
 
 dashboardRouter.get('/', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const today = new Date().toISOString().slice(0, 10)
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
   const day30ago = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
@@ -25,7 +30,7 @@ dashboardRouter.get('/', async (c) => {
     rata_per_trx: sql<number>`COALESCE(AVG(${penjualan.total}), 0)`,
   })
   .from(penjualan)
-  .where(and(gte(penjualan.tanggal, today), lte(penjualan.tanggal, today), eq(penjualan.status, 'lunas')))
+  .where(and(eq(penjualan.tenant_id, tenantId), cabangId ? eq(penjualan.cabang_id, cabangId) : undefined, gte(penjualan.tanggal, today), lte(penjualan.tanggal, today), eq(penjualan.status, 'lunas')))
   )
 
   const penjualanKemarin = await query.find(db.select({
@@ -33,7 +38,7 @@ dashboardRouter.get('/', async (c) => {
     jumlah_trx: sql<number>`COUNT(*)`,
   })
   .from(penjualan)
-  .where(and(gte(penjualan.tanggal, yesterday), lte(penjualan.tanggal, yesterday), eq(penjualan.status, 'lunas')))
+  .where(and(eq(penjualan.tenant_id, tenantId), cabangId ? eq(penjualan.cabang_id, cabangId) : undefined, gte(penjualan.tanggal, yesterday), lte(penjualan.tanggal, yesterday), eq(penjualan.status, 'lunas')))
   )
 
   // ── Penjualan 30 hari (untuk grafik) ───────────────────────────────────────
@@ -43,7 +48,7 @@ dashboardRouter.get('/', async (c) => {
     jumlah_trx: sql<number>`COUNT(*)`,
   })
   .from(penjualan)
-  .where(and(gte(penjualan.tanggal, day30ago), eq(penjualan.status, 'lunas')))
+  .where(and(eq(penjualan.tenant_id, tenantId), cabangId ? eq(penjualan.cabang_id, cabangId) : undefined, gte(penjualan.tanggal, day30ago), eq(penjualan.status, 'lunas')))
   .groupBy(penjualan.tanggal)
   .orderBy(asc(penjualan.tanggal))
   )
@@ -59,7 +64,7 @@ dashboardRouter.get('/', async (c) => {
   })
   .from(kas_bank)
   .leftJoin(jurnal_kas, eq(jurnal_kas.kas_bank_id, kas_bank.id))
-  .where(eq(kas_bank.is_active, true))
+  .where(and(eq(kas_bank.tenant_id, tenantId), cabangId ? eq(kas_bank.cabang_id, cabangId) : undefined, eq(kas_bank.is_active, true)))
   .groupBy(kas_bank.id)
   )
   const akunKas = akunKasRows.map(r => ({ ...r, saldo: r.saldo_awal + r.masuk - r.keluar }))
@@ -75,6 +80,7 @@ dashboardRouter.get('/', async (c) => {
   })
   .from(barang)
   .where(and(
+    eq(barang.tenant_id, tenantId),
     eq(barang.is_active, true),
     sql`${barang.stok_sekarang} <= ${barang.stok_minimum}`,
   ))
@@ -93,6 +99,7 @@ dashboardRouter.get('/', async (c) => {
   .from(piutang_pelanggan)
   .leftJoin(pelanggan, eq(piutang_pelanggan.pelanggan_id, pelanggan.id))
   .where(and(
+    eq(piutang_pelanggan.tenant_id, tenantId),
     sql`${piutang_pelanggan.status} != 'lunas'`,
     sql`${piutang_pelanggan.tanggal_jatuh_tempo} < ${today}`,
   ))
@@ -111,6 +118,7 @@ dashboardRouter.get('/', async (c) => {
   .from(hutang_supplier)
   .leftJoin(supplier, eq(hutang_supplier.supplier_id, supplier.id))
   .where(and(
+    eq(hutang_supplier.tenant_id, tenantId),
     sql`${hutang_supplier.status} != 'lunas'`,
     sql`${hutang_supplier.tanggal_jatuh_tempo} BETWEEN ${today} AND ${day7later}`,
   ))
@@ -130,6 +138,8 @@ dashboardRouter.get('/', async (c) => {
   .leftJoin(penjualan, eq(penjualan_detail.penjualan_id, penjualan.id))
   .leftJoin(barang, eq(penjualan_detail.barang_id, barang.id))
   .where(and(
+    eq(penjualan.tenant_id, tenantId),
+    cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
     gte(penjualan.tanggal, day30ago),
     eq(penjualan.status, 'lunas'),
   ))
@@ -155,14 +165,14 @@ dashboardRouter.get('/', async (c) => {
     total: sql<number>`COALESCE(SUM(${piutang_pelanggan.sisa_piutang}), 0)`,
   })
   .from(piutang_pelanggan)
-  .where(sql`${piutang_pelanggan.status} != 'lunas'`)
+  .where(and(eq(piutang_pelanggan.tenant_id, tenantId), sql`${piutang_pelanggan.status} != 'lunas'`))
   )
 
   const totalHutang = await query.find(db.select({
     total: sql<number>`COALESCE(SUM(${hutang_supplier.sisa_hutang}), 0)`,
   })
   .from(hutang_supplier)
-  .where(sql`${hutang_supplier.status} != 'lunas'`)
+  .where(and(eq(hutang_supplier.tenant_id, tenantId), sql`${hutang_supplier.status} != 'lunas'`))
   )
 
   return c.json({

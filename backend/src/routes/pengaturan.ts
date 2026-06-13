@@ -5,6 +5,7 @@ import { networkInterfaces } from 'node:os'
 import { db, sqlite, query, withTransaction, isoNow, dialect } from '../db/index.ts'
 import { toko_settings, preferensi_pengguna } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import { HTTPException } from 'hono/http-exception'
 
 function getLanIps(): string[] {
@@ -56,6 +57,7 @@ pengaturanRouter.get('/server-info', async (c) => {
 // Auth middleware — wajib sebelum semua route yang butuh login
 // /publik dan /server-info di atas ini tidak butuh auth (by design)
 pengaturanRouter.use('*', authMiddleware)
+pengaturanRouter.use('*', tenantMiddleware)
 
 const DB_PATH = (process.env.DATABASE_URL ?? './data.db').replace(/^file:/, '')
 
@@ -193,7 +195,9 @@ pengaturanRouter.put('/preferensi/:modul', async (c) => {
 // ── GET /pengaturan ────────────────────────────────────────────────────────
 
 pengaturanRouter.get('/', async (c) => {
-  const rows = await query.findAll(db.select().from(toko_settings))
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const rows = await query.findAll(db.select().from(toko_settings).where(eq(toko_settings.toko_id, tenantId)))
 
   // Merge dengan defaults agar semua key selalu ada
   const result: Record<string, string> = { ...DEFAULTS }
@@ -209,6 +213,8 @@ pengaturanRouter.get('/', async (c) => {
 // ── PUT /pengaturan/:key ───────────────────────────────────────────────────
 
 pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const key = c.req.param('key') ?? ''
   const body = await c.req.json<{ value: string }>()
 
@@ -216,7 +222,7 @@ pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
     return c.json({ success: false, error: `Key '${key}' tidak dikenal` }, 400)
   }
 
-  const existing = await query.find(db.select().from(toko_settings).where(eq(toko_settings.key, key)))
+  const existing = await query.find(db.select().from(toko_settings).where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key))))
 
   if (existing) {
     await query.exec(db.update(toko_settings)
@@ -224,10 +230,10 @@ pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
         value: body.value,
         updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
       })
-      .where(eq(toko_settings.key, key))
+      .where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key)))
     )
   } else {
-    await query.exec(db.insert(toko_settings).values({ key, value: body.value }))
+    await query.exec(db.insert(toko_settings).values({ toko_id: tenantId, key, value: body.value }))
   }
 
   return c.json({ success: true, data: { key, value: body.value } })
@@ -237,22 +243,24 @@ pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
 // Simpan banyak key sekaligus dari satu form submit
 
 pengaturanRouter.post('/bulk', requirePermission('*'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<Record<string, string>>()
 
   for (const [key, value] of Object.entries(body)) {
     if (!(key in DEFAULTS)) continue
 
-    const existing = await query.find(db.select().from(toko_settings).where(eq(toko_settings.key, key)))
+    const existing = await query.find(db.select().from(toko_settings).where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key))))
     if (existing) {
       await query.exec(db.update(toko_settings)
         .set({
           value,
           updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
         })
-        .where(eq(toko_settings.key, key))
+        .where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key)))
       )
     } else {
-      await query.exec(db.insert(toko_settings).values({ key, value }))
+      await query.exec(db.insert(toko_settings).values({ toko_id: tenantId, key, value }))
     }
   }
 

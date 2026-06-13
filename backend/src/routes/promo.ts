@@ -4,11 +4,13 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { promo, promo_target, barang, kategori } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const promoRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 promoRouter.use('*', authMiddleware)
+promoRouter.use('*', tenantMiddleware)
 
 function tglHariIni(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
@@ -17,7 +19,9 @@ function tglHariIni(): string {
 // ── GET /promo — list semua promo dengan target ────────────────────────────
 
 promoRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
-  const rows = await query.findAll(db.select().from(promo).orderBy(promo.created_at))
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const rows = await query.findAll(db.select().from(promo).where(eq(promo.tenant_id, tenantId)).orderBy(promo.created_at))
   const targets = await query.findAll(db.select().from(promo_target))
 
   const data = rows.map((p) => ({
@@ -31,10 +35,13 @@ promoRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
 // ── GET /promo/aktif — promo aktif hari ini (untuk kasir) ─────────────────
 
 promoRouter.get('/aktif', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const hari = tglHariIni()
 
   const rows = await query.findAll(db.select().from(promo).where(
     and(
+      eq(promo.tenant_id, tenantId),
       eq(promo.aktif, true),
       or(isNull(promo.berlaku_mulai), lte(promo.berlaku_mulai, hari)),
       or(isNull(promo.berlaku_sampai), gte(promo.berlaku_sampai, hari)),
@@ -59,8 +66,10 @@ promoRouter.get('/aktif', requirePermission('penjualan.lihat'), async (c) => {
 // ── GET /promo/:id ────────────────────────────────────────────────────────
 
 promoRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const p = await query.find(db.select().from(promo).where(eq(promo.id, id)))
+  const p = await query.find(db.select().from(promo).where(and(eq(promo.id, id), eq(promo.tenant_id, tenantId))))
   if (!p) throw new HTTPException(404, { message: 'Promo tidak ditemukan' })
 
   const targets = await query.findAll(db.select().from(promo_target).where(eq(promo_target.promo_id, id)))
@@ -73,6 +82,7 @@ type TargetIn = { target_tipe: 'barang' | 'kategori'; target_id: number }
 
 promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     nama: string
     deskripsi?: string
@@ -93,6 +103,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
   const hasil = await withTransaction(async (tx) => {
     const p = await query.ret(db.insert(promo).values({
+      tenant_id: tenantId,
       nama: body.nama,
       deskripsi: body.deskripsi,
       tipe: body.tipe,
@@ -121,8 +132,10 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 // ── PUT /promo/:id — update promo ─────────────────────────────────────────
 
 promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(promo).where(eq(promo.id, id)))
+  const existing = await query.find(db.select().from(promo).where(and(eq(promo.id, id), eq(promo.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Promo tidak ditemukan' })
 
   const body = await c.req.json<{
@@ -159,7 +172,7 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
         aktif: body.aktif !== undefined ? body.aktif : existing.aktif,
         updated_at: isoNow(),
       })
-      .where(eq(promo.id, id))
+      .where(and(eq(promo.id, id), eq(promo.tenant_id, tenantId)))
       )
 
     if (body.targets !== undefined) {
@@ -176,7 +189,9 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
 // ── DELETE /promo/:id — nonaktifkan ──────────────────────────────────────
 
 promoRouter.delete('/:id', requirePermission('penjualan.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  await query.exec(db.update(promo).set({ aktif: false, updated_at: isoNow() }).where(eq(promo.id, id)))
+  await query.exec(db.update(promo).set({ aktif: false, updated_at: isoNow() }).where(and(eq(promo.id, id), eq(promo.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

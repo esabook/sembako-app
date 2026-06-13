@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, desc, sql } from 'drizzle-orm'
+import { eq, desc, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
@@ -7,11 +7,13 @@ import {
   barang, mutasi_stok, kategori, satuan,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const stokOpnameRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 stokOpnameRouter.use('*', authMiddleware)
+stokOpnameRouter.use('*', tenantMiddleware)
 
 function noOpname(): string {
   const d = new Date()
@@ -27,9 +29,16 @@ function tglSekarang(): string {
 // ── GET /stok-opname ──────────────────────────────────────────────────────
 
 stokOpnameRouter.get('/', requirePermission('stok.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const rows = await query.findAll(db
     .select()
     .from(stok_opname)
+    .where(and(
+      eq(stok_opname.tenant_id, tenantId),
+      cabangId ? eq(stok_opname.cabang_id, cabangId) : undefined,
+    ))
     .orderBy(desc(stok_opname.tanggal_mulai))
     )
 
@@ -39,8 +48,15 @@ stokOpnameRouter.get('/', requirePermission('stok.lihat'), async (c) => {
 // ── GET /stok-opname/:id ──────────────────────────────────────────────────
 
 stokOpnameRouter.get('/:id', requirePermission('stok.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const id = Number(c.req.param('id'))
-  const op = await query.find(db.select().from(stok_opname).where(eq(stok_opname.id, id)))
+  const op = await query.find(db.select().from(stok_opname).where(and(
+    eq(stok_opname.id, id),
+    eq(stok_opname.tenant_id, tenantId),
+    cabangId ? eq(stok_opname.cabang_id, cabangId) : undefined,
+  )))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
 
   const items = await query.findAll(db
@@ -74,13 +90,25 @@ stokOpnameRouter.get('/:id', requirePermission('stok.lihat'), async (c) => {
 // ── POST /stok-opname — buat opname baru, snapshot stok sistem ────────────
 
 stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
-  // Cek tidak ada opname aktif (draft/proses)
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
+
+  // Cek tidak ada opname aktif (draft/proses) di cabang ini
   const aktif = await query.find(db
     .select()
     .from(stok_opname)
-    .where(eq(stok_opname.status, 'draft'))
+    .where(and(
+      eq(stok_opname.status, 'draft'),
+      eq(stok_opname.tenant_id, tenantId),
+      eq(stok_opname.cabang_id, cabangId),
+    ))
     )
-    ?? await query.find(db.select().from(stok_opname).where(eq(stok_opname.status, 'proses')))
+    ?? await query.find(db.select().from(stok_opname).where(and(
+      eq(stok_opname.status, 'proses'),
+      eq(stok_opname.tenant_id, tenantId),
+      eq(stok_opname.cabang_id, cabangId),
+    )))
 
   if (aktif) {
     throw new HTTPException(400, {
@@ -95,13 +123,15 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
       no_opname: noOpname(),
       tanggal_mulai: tgl,
       status: 'proses',
+      tenant_id: tenantId,
+      cabang_id: cabangId,
     }).returning())
 
-    // Snapshot semua barang aktif
+    // Snapshot semua barang aktif milik toko ini
     const semuaBarang = await query.findAll(db
       .select({ id: barang.id, stok_sekarang: barang.stok_sekarang })
       .from(barang)
-      .where(eq(barang.is_active, true))
+      .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
       )
 
     for (const br of semuaBarang) {
@@ -111,6 +141,8 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
         stok_sistem: br.stok_sekarang,
         stok_fisik: null,
         selisih: null,
+        tenant_id: tenantId,
+        cabang_id: cabangId,
       }))
     }
 
@@ -124,12 +156,20 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
 
 stokOpnameRouter.put('/:id/item/:itemId', requirePermission('stok.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const opId = Number(c.req.param('id'))
   const itemId = Number(c.req.param('itemId'))
   const body = await c.req.json<{ stok_fisik: number; alasan_selisih?: string }>()
 
   if (body.stok_fisik === undefined || body.stok_fisik < 0)
     throw new HTTPException(400, { message: 'Stok fisik tidak valid' })
+
+  // Verify opname belongs to tenant
+  const op = await query.find(db.select({ id: stok_opname.id }).from(stok_opname).where(and(
+    eq(stok_opname.id, opId),
+    eq(stok_opname.tenant_id, tenantId),
+  )))
+  if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
 
   const item = await query.find(db
     .select()
@@ -158,9 +198,14 @@ stokOpnameRouter.put('/:id/item/:itemId', requirePermission('stok.edit'), async 
 
 stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
   const id = Number(c.req.param('id'))
 
-  const op = await query.find(db.select().from(stok_opname).where(eq(stok_opname.id, id)))
+  const op = await query.find(db.select().from(stok_opname).where(and(
+    eq(stok_opname.id, id),
+    eq(stok_opname.tenant_id, tenantId),
+  )))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
   if (op.status === 'approved') throw new HTTPException(400, { message: 'Opname sudah diapprove' })
 
@@ -193,6 +238,8 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
         jumlah_perubahan: item.selisih!,
         jumlah_sesudah: item.stok_fisik!,
         dicatat_oleh: user.id,
+        tenant_id: tenantId,
+        cabang_id: cabangId,
       }))
 
       await query.exec(db.update(barang)
@@ -219,8 +266,13 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
 // ── DELETE /stok-opname/:id — batalkan opname (hanya draft/proses) ────────
 
 stokOpnameRouter.delete('/:id', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const op = await query.find(db.select().from(stok_opname).where(eq(stok_opname.id, id)))
+  const op = await query.find(db.select().from(stok_opname).where(and(
+    eq(stok_opname.id, id),
+    eq(stok_opname.tenant_id, tenantId),
+  )))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
   if (op.status === 'approved') throw new HTTPException(400, { message: 'Opname approved tidak bisa dibatalkan' })
 

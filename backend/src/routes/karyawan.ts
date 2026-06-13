@@ -4,16 +4,20 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { karyawan, shift_kasir, penjualan, absensi } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 import { saveUpload } from '../utils/upload.ts'
 
 export const karyawanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 karyawanRouter.use('*', authMiddleware)
+karyawanRouter.use('*', tenantMiddleware)
 
 karyawanRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
   const q = c.req.query('q')
   const aktif = c.req.query('aktif') !== '0'
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
 
   const rows = await query.findAll(db
     .select({
@@ -32,6 +36,7 @@ karyawanRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
     .from(karyawan)
     .where(
       and(
+        eq(karyawan.toko_id, tenantId),
         aktif ? eq(karyawan.is_active, true) : undefined,
         q ? like(karyawan.nama, `%${q}%`) : undefined,
       )
@@ -49,11 +54,13 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
   const bulan = c.req.query('bulan') ?? sekarang.slice(0, 7)
   const dari = `${bulan}-01`
   const sampai = `${bulan}-31`
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
 
   const kasirList = await query.findAll(db
     .select({ id: karyawan.id, nama: karyawan.nama })
     .from(karyawan)
-    .where(and(eq(karyawan.is_active, true), eq(karyawan.role, 'kasir')))
+    .where(and(eq(karyawan.toko_id, tenantId), eq(karyawan.is_active, true), eq(karyawan.role, 'kasir')))
     )
 
   const shiftRows = await query.findAll(db
@@ -70,7 +77,7 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
         ELSE NULL END)`,
     })
     .from(shift_kasir)
-    .where(and(gte(shift_kasir.tanggal, dari), lte(shift_kasir.tanggal, sampai)))
+    .where(and(eq(shift_kasir.tenant_id, tenantId), gte(shift_kasir.tanggal, dari), lte(shift_kasir.tanggal, sampai)))
     .groupBy(shift_kasir.karyawan_id)
     )
 
@@ -81,6 +88,7 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
     })
     .from(penjualan)
     .where(and(
+      eq(penjualan.tenant_id, tenantId),
       eq(penjualan.status, 'void'),
       gte(penjualan.tanggal, dari),
       lte(penjualan.tanggal, sampai + ' 23:59:59'),
@@ -95,7 +103,7 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
       alpa: sql<number>`SUM(CASE WHEN ${absensi.status} = 'alpa' THEN 1 ELSE 0 END)`,
     })
     .from(absensi)
-    .where(and(gte(absensi.tanggal, dari), lte(absensi.tanggal, sampai)))
+    .where(and(eq(absensi.tenant_id, tenantId), gte(absensi.tanggal, dari), lte(absensi.tanggal, sampai)))
     .groupBy(absensi.karyawan_id)
     )
 
@@ -151,15 +159,18 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
   const bulan = c.req.query('bulan') ?? sekarang.slice(0, 7)
   const dari = `${bulan}-01`
   const sampai = `${bulan}-31`
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
 
   const k = await query.find(db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
-    .from(karyawan).where(eq(karyawan.id, id)))
+    .from(karyawan).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId))))
   if (!k) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   const shifts = await query.findAll(db
     .select()
     .from(shift_kasir)
     .where(and(
+      eq(shift_kasir.tenant_id, tenantId),
       eq(shift_kasir.karyawan_id, id),
       gte(shift_kasir.tanggal, dari),
       lte(shift_kasir.tanggal, sampai),
@@ -198,6 +209,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
   const voidRow = await query.find(db.select({ total: sql<number>`COUNT(*)` })
     .from(penjualan)
     .where(and(
+      eq(penjualan.tenant_id, tenantId),
       eq(penjualan.kasir_id, id),
       eq(penjualan.status, 'void'),
       gte(penjualan.tanggal, dari),
@@ -207,7 +219,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
 
   const absensiData = await query.findAll(db.select()
     .from(absensi)
-    .where(and(eq(absensi.karyawan_id, id), gte(absensi.tanggal, dari), lte(absensi.tanggal, sampai)))
+    .where(and(eq(absensi.tenant_id, tenantId), eq(absensi.karyawan_id, id), gte(absensi.tanggal, dari), lte(absensi.tanggal, sampai)))
   )
 
   const totalTrx = perShift.reduce((s, r) => s + r.jumlah_transaksi, 0)
@@ -247,6 +259,8 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
 
 karyawanRouter.get('/:id', requirePermission('karyawan.lihat'), async (c) => {
   const id = Number(c.req.param('id'))
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const row = await query.find(db
     .select({
       id: karyawan.id,
@@ -261,7 +275,7 @@ karyawanRouter.get('/:id', requirePermission('karyawan.lihat'), async (c) => {
       is_active: karyawan.is_active,
     })
     .from(karyawan)
-    .where(eq(karyawan.id, id))
+    .where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId)))
     )
 
   if (!row) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
@@ -269,6 +283,8 @@ karyawanRouter.get('/:id', requirePermission('karyawan.lihat'), async (c) => {
 })
 
 karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     kode_karyawan: string
     nama: string
@@ -300,6 +316,7 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
       tipe_gaji: body.tipe_gaji ?? 'bulanan',
       kontak: body.kontak,
       pin_absensi: pinHash,
+      toko_id: tenantId,
     }).returning({
       id: karyawan.id,
       kode_karyawan: karyawan.kode_karyawan,
@@ -323,6 +340,8 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
 
 karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     nama?: string
     role?: 'pemilik' | 'manajer' | 'kasir' | 'gudang'
@@ -334,7 +353,7 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
     pin_absensi?: string
   }>()
 
-  const existing = await query.find(db.select().from(karyawan).where(eq(karyawan.id, id)))
+  const existing = await query.find(db.select().from(karyawan).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   const updates: Partial<typeof karyawan.$inferInsert> = {
@@ -352,7 +371,7 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
 
   let row
   try {
-    row = await query.find(db.update(karyawan).set(updates).where(eq(karyawan.id, id)).returning({
+    row = await query.find(db.update(karyawan).set(updates).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId))).returning({
       id: karyawan.id,
       kode_karyawan: karyawan.kode_karyawan,
       nama: karyawan.nama,
@@ -375,7 +394,9 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
 
 karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(karyawan).where(eq(karyawan.id, id)))
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const existing = await query.find(db.select().from(karyawan).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   const formData = await c.req.formData()
@@ -404,12 +425,13 @@ karyawanRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
 
   if (user.id === id) throw new HTTPException(400, { message: 'Tidak bisa menonaktifkan diri sendiri' })
 
-  const existing = await query.find(db.select().from(karyawan).where(eq(karyawan.id, id)))
+  const tenantId = user.tenant_id ?? 1
+  const existing = await query.find(db.select().from(karyawan).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   await query.exec(db.update(karyawan)
     .set({ is_active: false, updated_at: isoNow() })
-    .where(eq(karyawan.id, id))
+    .where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId)))
   )
 
   return c.json({ success: true, data: null })
