@@ -1,5 +1,5 @@
 {
-  "id": "d2353864-12d0-4d5a-bcee-15bd000603d9",
+  "id": "7274b0f3-7379-49ca-9308-472d21e99274",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1177,6 +1177,119 @@
           "tableTo": "karyawan",
           "columnsFrom": [
             "dibuat_oleh"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cabang": {
+      "name": "cabang",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "toko_id": {
+          "name": "toko_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kode_cabang": {
+          "name": "kode_cabang",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nama": {
+          "name": "nama",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alamat": {
+          "name": "alamat",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "uidx_cabang_toko_kode": {
+          "name": "uidx_cabang_toko_kode",
+          "columns": [
+            {
+              "expression": "toko_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kode_cabang",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_cabang_toko": {
+          "name": "idx_cabang_toko",
+          "columns": [
+            {
+              "expression": "toko_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "cabang_toko_id_toko_id_fk": {
+          "name": "cabang_toko_id_toko_id_fk",
+          "tableFrom": "cabang",
+          "tableTo": "toko",
+          "columnsFrom": [
+            "toko_id"
           ],
           "columnsTo": [
             "id"
@@ -2449,6 +2562,13 @@
           "notNull": true,
           "default": 1
         },
+        "cabang_id": {
+          "name": "cabang_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -2719,6 +2839,19 @@
           "notNull": true,
           "default": true
         },
+        "toko_id": {
+          "name": "toko_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 1
+        },
+        "cabang_id": {
+          "name": "cabang_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -2747,9 +2880,51 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "idx_karyawan_toko": {
+          "name": "idx_karyawan_toko",
+          "columns": [
+            {
+              "expression": "toko_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "karyawan_toko_id_toko_id_fk": {
+          "name": "karyawan_toko_id_toko_id_fk",
+          "tableFrom": "karyawan",
+          "tableTo": "toko",
+          "columnsFrom": [
+            "toko_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "karyawan_cabang_id_cabang_id_fk": {
+          "name": "karyawan_cabang_id_cabang_id_fk",
+          "tableFrom": "karyawan",
+          "tableTo": "cabang",
+          "columnsFrom": [
+            "cabang_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "karyawan_kode_karyawan_unique": {
@@ -2809,6 +2984,13 @@
         },
         "tenant_id": {
           "name": "tenant_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "cabang_id": {
+          "name": "cabang_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -3577,6 +3759,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 1
+        },
+        "cabang_id": {
+          "name": "cabang_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         }
       },
       "indexes": {
@@ -3600,6 +3789,21 @@
           "columns": [
             {
               "expression": "tanggal",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_mutasi_stok_cabang": {
+          "name": "idx_mutasi_stok_cabang",
+          "columns": [
+            {
+              "expression": "cabang_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -4558,6 +4762,13 @@
           "notNull": true,
           "default": 1
         },
+        "cabang_id": {
+          "name": "cabang_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -4607,6 +4818,21 @@
           "columns": [
             {
               "expression": "kasir_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_penjualan_cabang": {
+          "name": "idx_penjualan_cabang",
+          "columns": [
+            {
+              "expression": "cabang_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -4736,6 +4962,13 @@
         },
         "tenant_id": {
           "name": "tenant_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "cabang_id": {
+          "name": "cabang_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -6062,6 +6295,13 @@
           "notNull": true,
           "default": 1
         },
+        "cabang_id": {
+          "name": "cabang_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -6183,6 +6423,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 1
+        },
+        "cabang_id": {
+          "name": "cabang_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         }
       },
       "indexes": {},
@@ -6281,6 +6528,13 @@
         },
         "tenant_id": {
           "name": "tenant_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "cabang_id": {
+          "name": "cabang_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -6921,6 +7175,13 @@
           "notNull": true,
           "default": 1
         },
+        "cabang_id": {
+          "name": "cabang_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
         "created_by": {
           "name": "created_by",
           "type": "integer",
@@ -7250,6 +7511,13 @@
           "notNull": true,
           "default": 1
         },
+        "cabang_id": {
+          "name": "cabang_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -7347,6 +7615,13 @@
         },
         "tenant_id": {
           "name": "tenant_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "cabang_id": {
+          "name": "cabang_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -7879,6 +8154,70 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.toko": {
+      "name": "toko",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "kode_toko": {
+          "name": "kode_toko",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nama": {
+          "name": "nama",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alamat": {
+          "name": "alamat",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "toko_kode_toko_unique": {
+          "name": "toko_kode_toko_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "kode_toko"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.toko_settings": {
       "name": "toko_settings",
       "schema": "",
@@ -7888,6 +8227,13 @@
           "type": "serial",
           "primaryKey": true,
           "notNull": true
+        },
+        "toko_id": {
+          "name": "toko_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
         },
         "key": {
           "name": "key",
@@ -7908,18 +8254,46 @@
           "notNull": false
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "toko_settings_key_unique": {
-          "name": "toko_settings_key_unique",
-          "nullsNotDistinct": false,
+      "indexes": {
+        "uidx_toko_settings_key": {
+          "name": "uidx_toko_settings_key",
           "columns": [
-            "key"
-          ]
+            {
+              "expression": "toko_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
+      "foreignKeys": {
+        "toko_settings_toko_id_toko_id_fk": {
+          "name": "toko_settings_toko_id_toko_id_fk",
+          "tableFrom": "toko_settings",
+          "tableTo": "toko",
+          "columnsFrom": [
+            "toko_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
