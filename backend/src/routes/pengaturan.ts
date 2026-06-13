@@ -2,7 +2,7 @@ import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, and } from 'drizzle-orm'
 import { networkInterfaces } from 'node:os'
-import { db, sqlite, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, sqlite, query, withTransaction, isoNow, dialect } from '../db/index.ts'
 import { toko_settings, preferensi_pengguna } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { HTTPException } from 'hono/http-exception'
@@ -62,6 +62,10 @@ const DB_PATH = (process.env.DATABASE_URL ?? './data.db').replace(/^file:/, '')
 // ── GET /pengaturan/backup-db — download file SQLite ─────────────────────
 
 pengaturanRouter.get('/backup-db', requirePermission('*'), async (c) => {
+  if (dialect !== 'sqlite') {
+    throw new HTTPException(501, { message: `Backup tidak tersedia untuk dialect ${dialect}. Gunakan dashboard provider (Turso/Supabase).` })
+  }
+
   // WAL checkpoint: flush semua write pending ke file utama sebelum copy
   sqlite.run('PRAGMA wal_checkpoint(TRUNCATE)')
 
@@ -83,6 +87,10 @@ pengaturanRouter.get('/backup-db', requirePermission('*'), async (c) => {
 // ── POST /pengaturan/restore-db — upload & replace database ──────────────
 
 pengaturanRouter.post('/restore-db', requirePermission('*'), async (c) => {
+  if (dialect !== 'sqlite') {
+    throw new HTTPException(501, { message: `Restore tidak tersedia untuk dialect ${dialect}. Gunakan dashboard provider (Turso/Supabase).` })
+  }
+
   const user = c.get('user') as JWTPayload
   if (user.role !== 'pemilik') {
     throw new HTTPException(403, { message: 'Hanya pemilik yang bisa melakukan restore' })

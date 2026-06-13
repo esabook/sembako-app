@@ -44,6 +44,6 @@ Pertimbangan jangka panjang:
   [x] tenant_id di semua tabel (A1, done)
   [x] Backup & Restore UI (A4, done)
   [ ] Multi-toko / multi-cabang → Fase D
-  [ ] Migrasi ke Turso (libSQL) untuk akses remote → Fase D
+  [x] Migrasi ke Turso (libSQL) untuk akses remote — core done; set DATABASE_URL=libsql://... + TURSO_AUTH_TOKEN; backup/restore return 501 untuk non-sqlite dialect
   [x] Konversi 60 kolom real → integer Rupiah (Fase D-1 selesai, doc: currency_audit.md)
 ```
