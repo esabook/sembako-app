@@ -20,6 +20,7 @@
     "build:all": "bun run build:windows && bun run build:linux && bun run build:pi && bun run build:mac-arm && bun run build:mac-x64"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1068.0",
     "@libsql/client": "^0.17.3",
     "@scalar/hono-api-reference": "^0.10.16",
     "drizzle-orm": "^0.45.2",

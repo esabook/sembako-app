@@ -18,6 +18,7 @@
   import { api } from '$lib/utils/api.js'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import { thumbUrl } from '$lib/utils/upload.js'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -251,7 +252,7 @@
               <td class="px-3 py-2">
                 <div class="flex items-center gap-2">
                   {#if item.foto_path}
-                    <img src="/uploads/{item.foto_path.replace('med_', 'thumb_')}" alt={item.nama}
+                    <img src={thumbUrl(item.foto_path) ?? ''} alt={item.nama}
                       class="rounded-full object-cover shrink-0"
                       style="width:28px;height:28px;background:var(--surface2)" />
                   {:else}

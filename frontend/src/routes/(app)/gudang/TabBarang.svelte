@@ -5,6 +5,7 @@
 	import { user } from '$lib/stores/auth.js';
 	import { resizeImage } from '$lib/utils/image.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
+	import { thumbUrl } from '$lib/utils/upload.js';
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
@@ -140,7 +141,7 @@
 	function bukaFormBarang(item?: Barang) {
 		editBarang = item ?? null;
 		fotoFile = null;
-		fotoPreviewUrl = item?.foto_path ? `/uploads/${item.foto_path}` : '';
+		fotoPreviewUrl = thumbUrl(item?.foto_path) ?? '';
 		searchKategori = '';
 		searchSatuan = '';
 		fb = {
@@ -239,7 +240,7 @@
 					{#if !hidden.has('foto')}
 						<td class="px-2 py-1">
 							{#if item.foto_path}
-								<img src="/uploads/{item.foto_path.replace('med_', 'thumb_')}" alt={item.nama_barang} class="w-9 h-9 rounded object-cover" style="border:1px solid var(--border)" />
+								<img src={thumbUrl(item.foto_path) ?? ''} alt={item.nama_barang} class="w-9 h-9 rounded object-cover" style="border:1px solid var(--border)" />
 							{:else}
 								<div class="w-9 h-9 rounded flex items-center justify-center text-xs" style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim)">—</div>
 							{/if}

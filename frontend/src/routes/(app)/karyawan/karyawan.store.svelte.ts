@@ -22,6 +22,7 @@ import {
   fetchPerforma, fetchPerformaDetail,
 } from './karyawan.api'
 import { getMondayOf, getWeekDays, buildRekapCsvContent, jadwalFor } from './karyawan.logic'
+import { imgUrl } from '$lib/utils/upload'
 
 export function createKaryawanStore() {
   const _u = get(user)
@@ -134,7 +135,7 @@ export function createKaryawanStore() {
   function bukaFormKaryawan(item?: Karyawan) {
     editKaryawan = item ?? null
     fotoFile = null
-    fotoPreview = item?.foto_path ? `/uploads/${item.foto_path}` : ''
+    fotoPreview = imgUrl(item?.foto_path) ?? ''
     formKaryawan = {
       kode_karyawan: item?.kode_karyawan ?? '', nama: item?.nama ?? '', role: item?.role ?? 'kasir',
       username: item?.username ?? '', password: '', gaji_pokok: String(item?.gaji_pokok ?? ''),

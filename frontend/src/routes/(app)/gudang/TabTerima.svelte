@@ -4,6 +4,7 @@
 	import { user } from '$lib/stores/auth.js';
 	import { resizeImage } from '$lib/utils/image.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
+	import { imgUrl } from '$lib/utils/upload.js';
 	import TabTerimaGuide from './TabTerimaGuide.svelte';
 
 	type Barang = { id: number; kode_barang: string; nama_barang: string; harga_beli_terakhir: number; stok_sekarang: number; };
@@ -172,7 +173,7 @@
 				<div class="flex justify-between items-start">
 					<div class="font-bold" style="color:var(--accent)">{bm.no_penerimaan}</div>
 					{#if bm.foto_faktur_path}
-						<a href="/uploads/{bm.foto_faktur_path}" target="_blank" title="Lihat faktur"
+						<a href={imgUrl(bm.foto_faktur_path) ?? '#'} target="_blank" title="Lihat faktur"
 							style="color:var(--info)">🧾</a>
 					{/if}
 				</div>

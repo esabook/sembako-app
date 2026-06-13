@@ -14,6 +14,7 @@
 	} from './kasir.store';
 	import { rupiah } from './kasir.logic';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import { thumbUrl } from '$lib/utils/upload.js';
 
 	let inputEl: HTMLInputElement | undefined = $state();
 
@@ -117,7 +118,7 @@
 						<!-- Kol 1: foto -->
 						{#if br.foto_path}
 							<img
-								src="/uploads/{br.foto_path.replace('med_', 'thumb_')}"
+								src={thumbUrl(br.foto_path) ?? ''}
 								alt={br.nama_barang}
 								class="h-8 w-8 shrink-0 rounded object-cover"
 								style="border:1px solid var(--border)"
