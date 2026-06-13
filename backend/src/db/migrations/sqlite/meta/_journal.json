@@ -253,6 +253,13 @@
       "when": 1781184499529,
       "tag": "0036_nostalgic_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1781358807814,
+      "tag": "0037_strong_wallop",
+      "breakpoints": true
     }
   ]
 }

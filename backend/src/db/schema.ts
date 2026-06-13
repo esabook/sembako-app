@@ -1,9 +1,15 @@
 import { table, pkInt, int, txt, bool, flt, money, jsonText, timestamps, idx, uidx, chk, sql, isoNow } from './builders.ts'
 
-// ─── A1: tenant_id — siap multi-tenant, DEFAULT 1, belum dienforce ──────────
-// Pasang sekarang di semua tabel transaksional; RLS aktif di Fase D (Postgres).
+// ─── A1: tenant_id — aktif mulai Fase D: multi-toko, satu server ────────────
+// tenant_id = ID toko (bisnis); cabang_id = ID cabang dalam toko.
+// RLS aktif di Fase D (Postgres). Untuk sekarang dienforce via middleware.
 const tenantField = {
   tenant_id: int('tenant_id').notNull().default(1),
+}
+
+// ─── cabangField — filter penjualan & laporan per cabang dalam satu toko ────
+const cabangField = {
+  cabang_id: int('cabang_id').notNull().default(1),
 }
 
 // ─── A2: audit fields — siap tracking siapa buat/ubah ───────────────────────
@@ -19,6 +25,30 @@ const auditFields = {
 // TABEL SISTEM
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ─── Registry Toko (Tenant) ──────────────────────────────────────────────────
+export const toko = table('toko', {
+  id: pkInt('id'),
+  kode_toko: txt('kode_toko').notNull().unique(),
+  nama: txt('nama').notNull(),
+  alamat: txt('alamat'),
+  is_active: bool('is_active').notNull().default(true),
+  ...timestamps,
+})
+
+// ─── Cabang dalam Toko ───────────────────────────────────────────────────────
+export const cabang = table('cabang', {
+  id: pkInt('id'),
+  toko_id: int('toko_id').notNull().references(() => toko.id),
+  kode_cabang: txt('kode_cabang').notNull(),
+  nama: txt('nama').notNull(),
+  alamat: txt('alamat'),
+  is_active: bool('is_active').notNull().default(true),
+  ...timestamps,
+}, (t) => [
+  uidx('uidx_cabang_toko_kode').on(t.toko_id, t.kode_cabang),
+  idx('idx_cabang_toko').on(t.toko_id),
+])
+
 export const karyawan = table('karyawan', {
   id: pkInt('id'),
   kode_karyawan: txt('kode_karyawan').notNull().unique(),
@@ -32,9 +62,13 @@ export const karyawan = table('karyawan', {
   foto_path: txt('foto_path'),
   pin_absensi: txt('pin_absensi'),
   is_active: bool('is_active').notNull().default(true),
+  // Multi-toko: karyawan assigned ke toko + cabang tertentu
+  toko_id: int('toko_id').references(() => toko.id).default(1),
+  cabang_id: int('cabang_id').references(() => cabang.id), // null = akses semua cabang toko ini
   ...timestamps,
 }, (t) => [
   idx('idx_karyawan_active').on(t.is_active),
+  idx('idx_karyawan_toko').on(t.toko_id),
 ])
 
 export const log_aktivitas = table('log_aktivitas', {
@@ -263,11 +297,13 @@ export const penjualan = table('penjualan', {
   kembalian: money('kembalian').notNull().default(0),
   status: txt('status', { enum: ['lunas', 'hutang', 'void'] }).notNull().default('lunas'),
   ...tenantField,
+  ...cabangField,
   ...timestamps,
 }, (t) => [
   idx('idx_penjualan_tanggal').on(t.tanggal),
   idx('idx_penjualan_status').on(t.status),
   idx('idx_penjualan_kasir').on(t.kasir_id),
+  idx('idx_penjualan_cabang').on(t.cabang_id),
   chk('chk_penjualan_subtotal', sql`${t.subtotal} >= 0`),
   chk('chk_penjualan_total', sql`${t.total} >= 0`),
   chk('chk_penjualan_diskon', sql`${t.diskon_total} >= 0`),
@@ -285,6 +321,7 @@ export const penjualan_detail = table('penjualan_detail', {
   diskon_item: money('diskon_item').notNull().default(0),
   subtotal: money('subtotal').notNull(),
   ...tenantField,
+  ...cabangField,
 }, (t) => [
   idx('idx_penjualan_detail_trx').on(t.penjualan_id),
   chk('chk_detail_jumlah_pos', sql`${t.jumlah} > 0`),
@@ -309,9 +346,11 @@ export const mutasi_stok = table('mutasi_stok', {
   jumlah_sesudah: flt('jumlah_sesudah').notNull(),
   dicatat_oleh: int('dicatat_oleh').references(() => karyawan.id),
   ...tenantField,
+  ...cabangField,
 }, (t) => [
   idx('idx_mutasi_stok_barang').on(t.barang_id),
   idx('idx_mutasi_stok_tanggal').on(t.tanggal),
+  idx('idx_mutasi_stok_cabang').on(t.cabang_id),
 ])
 
 export const stok_opname = table('stok_opname', {
@@ -324,6 +363,7 @@ export const stok_opname = table('stok_opname', {
   }).notNull().default('draft'),
   diapprove_oleh: int('diapprove_oleh').references(() => karyawan.id),
   ...tenantField,
+  ...cabangField,
   ...timestamps,
 })
 
@@ -337,6 +377,7 @@ export const stok_opname_detail = table('stok_opname_detail', {
   alasan_selisih: txt('alasan_selisih'),
   dihitung_oleh: int('dihitung_oleh').references(() => karyawan.id),
   ...tenantField,
+  ...cabangField,
 })
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -350,6 +391,7 @@ export const kas_bank = table('kas_bank', {
   saldo_awal: money('saldo_awal').notNull().default(0),
   is_active: bool('is_active').notNull().default(true),
   ...tenantField,
+  ...cabangField,
   ...auditFields,
 })
 
@@ -365,6 +407,7 @@ export const jurnal_kas = table('jurnal_kas', {
   jumlah: money('jumlah').notNull(),
   dicatat_oleh: int('dicatat_oleh').references(() => karyawan.id),
   ...tenantField,
+  ...cabangField,
   ...timestamps,
 }, (t) => [
   idx('idx_jurnal_kas_tanggal').on(t.tanggal),
@@ -567,6 +610,7 @@ export const shift_kasir = table('shift_kasir', {
   catatan: txt('catatan'),
   status: txt('status', { enum: ['buka', 'tutup'] }).notNull().default('buka'),
   ...tenantField,
+  ...cabangField,
   ...auditFields,
   ...timestamps,
 })
@@ -590,10 +634,13 @@ export const harga_jadwal = table('harga_jadwal', {
 
 export const toko_settings = table('toko_settings', {
   id: pkInt('id'),
-  key: txt('key').notNull().unique(),
+  toko_id: int('toko_id').notNull().default(1).references(() => toko.id),
+  key: txt('key').notNull(),
   value: txt('value'),
   updated_at: txt('updated_at').$defaultFn(isoNow),
-})
+}, (t) => [
+  uidx('uidx_toko_settings_key').on(t.toko_id, t.key),
+])
 
 // ─── Retur Penjualan ──────────────────────────────────────────────────────────
 
@@ -612,6 +659,7 @@ export const retur_penjualan = table('retur_penjualan', {
   kas_bank_id: int('kas_bank_id').references(() => kas_bank.id),
   catatan: txt('catatan'),
   ...tenantField,
+  ...cabangField,
   ...timestamps,
 })
 
@@ -624,6 +672,7 @@ export const retur_penjualan_detail = table('retur_penjualan_detail', {
   harga_jual: money('harga_jual').notNull(), // harga efektif per unit (sudah dipotong diskon proporsional)
   subtotal: money('subtotal').notNull(),
   ...tenantField,
+  ...cabangField,
 })
 
 // Barang pengganti untuk retur dengan metode tukar_barang
@@ -636,6 +685,7 @@ export const retur_penjualan_tukar = table('retur_penjualan_tukar', {
   harga_jual: money('harga_jual').notNull(), // snapshot harga saat retur
   subtotal: money('subtotal').notNull(),
   ...tenantField,
+  ...cabangField,
 })
 
 // ═══════════════════════════════════════════════════════════════════════════

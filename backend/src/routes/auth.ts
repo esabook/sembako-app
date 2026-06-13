@@ -4,7 +4,7 @@ import { HTTPException } from 'hono/http-exception'
 import { SignJWT } from 'jose'
 import { eq } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
-import { karyawan } from '../db/schema.ts'
+import { karyawan, toko, cabang } from '../db/schema.ts'
 import type { Role } from '../middleware/auth.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 
@@ -36,6 +36,8 @@ export type JWTPayload = {
   nama: string
   role: Role
   kode_karyawan: string
+  tenant_id: number        // toko yang diakses
+  cabang_id: number | null // null = akses semua cabang toko ini (manajer/pemilik)
   iat?: number
   exp?: number
 }
@@ -69,12 +71,16 @@ authRouter.post('/login', async (c) => {
     throw new HTTPException(401, { message: 'Username atau password salah' })
   }
 
+  const tenantId = user.toko_id ?? 1
+
   const payload: JWTPayload = {
     sub: String(user.id),
     id: user.id,
     nama: user.nama,
     role: user.role,
     kode_karyawan: user.kode_karyawan,
+    tenant_id: tenantId,
+    cabang_id: user.cabang_id ?? null,
   }
 
   const token = await new SignJWT(payload as Record<string, unknown>)
@@ -92,7 +98,14 @@ authRouter.post('/login', async (c) => {
 
   return c.json({
     success: true,
-    data: { id: user.id, nama: user.nama, role: user.role, kode_karyawan: user.kode_karyawan },
+    data: {
+      id: user.id,
+      nama: user.nama,
+      role: user.role,
+      kode_karyawan: user.kode_karyawan,
+      tenant_id: tenantId,
+      cabang_id: user.cabang_id ?? null,
+    },
   })
 })
 
@@ -105,6 +118,13 @@ authRouter.get('/me', authMiddleware, (c) => {
   const user = c.get('user') as JWTPayload
   return c.json({
     success: true,
-    data: { id: user.id, nama: user.nama, role: user.role, kode_karyawan: user.kode_karyawan },
+    data: {
+      id: user.id,
+      nama: user.nama,
+      role: user.role,
+      kode_karyawan: user.kode_karyawan,
+      tenant_id: user.tenant_id,
+      cabang_id: user.cabang_id,
+    },
   })
 })

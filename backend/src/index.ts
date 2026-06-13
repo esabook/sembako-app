@@ -56,11 +56,12 @@ import { tugasRouter } from './routes/tugas.ts'
 import { hajatanRouter } from './routes/hajatan.ts'
 import { inspeksiRouter } from './routes/inspeksi.ts'
 import { printerRouter } from './routes/printer.ts'
+import { tokoRouter } from './routes/toko.ts'
 import { initHooks } from './lib/hooks.ts'
 import { initScheduler } from './lib/scheduler.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
-type Variables = { user: JWTPayload }
+type Variables = { user: JWTPayload; tenant_id: number; cabang_id: number | null }
 
 const app = new Hono<{ Variables: Variables }>()
 
@@ -154,6 +155,7 @@ app.route('/tugas', tugasRouter)
 app.route('/hajatan', hajatanRouter)
 app.route('/inspeksi', inspeksiRouter)
 app.route('/printer', printerRouter)
+app.route('/toko', tokoRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 if (dialect === 'sqlite') {
