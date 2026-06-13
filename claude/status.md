@@ -9,7 +9,7 @@
 | **Sprint 2** — UX & Polish | ✅ Selesai | Page title, error page, animasi, toast, transisi modal |
 | **Sprint 3** — Correctness | ✅ Selesai | Skeleton loader, Spinner SVG, deployment mode env |
 | **Fase D-1** — Currency Integer | ✅ Selesai | 60 kolom real → integer, migrate.ts PRAGMA fix |
-| **Fase D-2** — PostgreSQL Migration | ✅ Selesai | builders dialect-aware, PG migration generated (70 tabel) |
+| **Fase D-2** — Multi-Dialect DB | ✅ Selesai | builders dialect-aware; PG migration di-regenerate dari schema terkini (72 tabel) |
 | **Fase D-3** — Multi-Toko + Multi-Cabang | ✅ Selesai | Phase 1–4 done (lihat detail di bawah) |
 | **Fase D-4** — Cloud Storage | ✅ Selesai | STORAGE_DRIVER=local\|s3, S3/R2/MinIO ready |
 
@@ -89,12 +89,31 @@ Selesai:
   [x] Backup & Restore UI (Fase A4)
   [x] Migrasi ke Turso (libSQL) remote — set DATABASE_URL=libsql://... + TURSO_AUTH_TOKEN
   [x] Konversi 60 kolom real → integer Rupiah (Fase D-1)
+  [x] Multi-dialect DB (SQLite/Turso/PostgreSQL/MySQL) — builders.ts dialect-aware
+  [x] PostgreSQL migration terkini — 0000_gray_kingpin.sql, 72 tabel, schema lengkap
   [x] Multi-toko + multi-cabang (Fase D-3, Phase 1–4)
   [x] Cloud file storage abstraction — STORAGE_DRIVER=local|s3 (Fase D-4)
 
+## Deploy Checklist
+
+### Turso (cloud libSQL) — recommended
+  1. Buat DB di turso.tech, dapat DATABASE_URL + TURSO_AUTH_TOKEN
+  2. Set env: DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... JWT_SECRET=... FRONTEND_URL=...
+  3. bun run db:migrate   ← apply SQLite migrations (Turso kompatibel)
+  4. bun run db:seed      ← buat toko-1, cabang-1, admin user
+  5. Deploy backend + frontend
+
+### PostgreSQL (Supabase / Neon / self-hosted)
+  1. Set env: DATABASE_URL=postgresql://...
+  2. bun run db:migrate   ← apply postgres/0000_gray_kingpin.sql (72 tabel)
+  3. bun run db:seed
+  4. Deploy
+
+### Cloud File Storage (opsional — untuk uploads persisten)
+  Set: STORAGE_DRIVER=s3 S3_ENDPOINT=... S3_ACCESS_KEY_ID=... S3_SECRET_ACCESS_KEY=...
+       S3_BUCKET=stokasir-uploads S3_PUBLIC_URL=https://cdn.example.com
+
 Masih terbuka:
-  [ ] Fase D — migrasi ke PostgreSQL (hanya saat toko kedua nyata butuh isolasi DB)
-  [ ] Dockerfile + deployment guide untuk cloud (Fly.io / Railway)
-  [ ] Backup/restore untuk Turso (saat ini 501 — arahkan ke Turso dashboard)
-  [ ] Seed script untuk cloud DB baru (toko + cabang + admin awal)
+  [ ] Dockerfile + compose untuk self-hosted cloud (Fly.io / Railway / VPS)
+  [ ] Backup/restore untuk Turso (saat ini 501 — gunakan Turso dashboard / turso db dump)
 ```
