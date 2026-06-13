@@ -1,7 +1,7 @@
 <svelte:head><title>Laporan — Stokasir</title></svelte:head>
 
 <script lang="ts">
-  import { untrack } from 'svelte'
+  import { untrack, onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import { api } from '$lib/utils/api'
@@ -184,12 +184,21 @@
   let tahunPenggajian = $state(String(new Date().getFullYear()))
   let periodeJam = $state(defaultPeriode())
 
+  let cabangList = $state<{ id: number; nama: string }[]>([])
+  let selectedCabang = $state<number | ''>('')
+  const cabangParam = $derived(selectedCabang ? `&cabang_id=${selectedCabang}` : '')
+
+  onMount(async () => {
+    const res = await api.get<{ id: number; nama: string }[]>('/toko/cabang')
+    if (res.success && res.data.length > 1) cabangList = res.data
+  })
+
   // ── Load data ─────────────────────────────────────────────────────────────
 
   async function muatLabaRugi() {
     loading = true; error = ''
     const res = await api.get<LabaRugi>(
-      `/laporan/laba-rugi?dari=${periode.dari}&sampai=${periode.sampai}`
+      `/laporan/laba-rugi?dari=${periode.dari}&sampai=${periode.sampai}${cabangParam}`
     )
     loading = false
     if (res.success) labaRugi = res.data!
@@ -199,7 +208,7 @@
   async function muatArusKas() {
     loading = true; error = ''
     const res = await api.get<ArusKas>(
-      `/laporan/arus-kas?dari=${periode.dari}&sampai=${periode.sampai}`
+      `/laporan/arus-kas?dari=${periode.dari}&sampai=${periode.sampai}${cabangParam}`
     )
     loading = false
     if (res.success) arusKas = res.data!
@@ -250,7 +259,7 @@
   async function muatMarginProduk() {
     loading = true; error = ''
     const res = await api.get<MarginProduk>(
-      `/laporan/margin-produk?dari=${periodeMargin.dari}&sampai=${periodeMargin.sampai}`
+      `/laporan/margin-produk?dari=${periodeMargin.dari}&sampai=${periodeMargin.sampai}${cabangParam}`
     )
     loading = false
     if (res.success) marginProduk = res.data!
@@ -308,7 +317,7 @@
   async function muatAnalitikJam() {
     loading = true; error = ''
     const res = await api.get<AnalitikJam>(
-      `/laporan/analitik-jam?dari=${periodeJam.dari}&sampai=${periodeJam.sampai}`
+      `/laporan/analitik-jam?dari=${periodeJam.dari}&sampai=${periodeJam.sampai}${cabangParam}`
     )
     loading = false
     if (res.success) analitikJam = res.data!
@@ -714,6 +723,22 @@
       >Print / PDF</button>
     </div>
   </div>
+
+  <!-- Filter Cabang (hanya jika ada >1 cabang) -->
+  {#if cabangList.length > 0}
+    <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem; flex-wrap:wrap" class="no-print">
+      <span style="font-size:.75rem; color:var(--text-dim)">Cabang:</span>
+      <select
+        bind:value={selectedCabang}
+        style="padding:.25rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem"
+      >
+        <option value="">Semua Cabang</option>
+        {#each cabangList as c (c.id)}
+          <option value={c.id}>{c.nama}</option>
+        {/each}
+      </select>
+    </div>
+  {/if}
 
   <!-- Filter Periode -->
   {#if tab === 'laba-rugi' || tab === 'arus-kas'}

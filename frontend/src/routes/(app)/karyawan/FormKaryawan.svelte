@@ -84,6 +84,17 @@
         <input id="f-foto" type="file" accept="image/*" onchange={store.handleFotoKaryawanChange} class="text-xs" style="color:var(--text)" />
       </div>
     </div>
+    <div class="flex flex-col gap-1">
+      <label for="f-cabang" class="text-xs" style="color:var(--text-dim)">CABANG (kosong = semua cabang)</label>
+      <select id="f-cabang" bind:value={store.formKaryawan.cabang_id}
+        class="px-2 py-1 rounded border outline-none"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+        <option value={null}>— Semua Cabang —</option>
+        {#each store.cabangList as c (c.id)}
+          <option value={c.id}>{c.nama}</option>
+        {/each}
+      </select>
+    </div>
     <div class="flex justify-end gap-2 mt-1">
       <button type="button" onclick={() => store.modalKaryawanOpen = false} class="px-3 py-1 rounded text-sm"
         style="color:var(--text-dim)">Batal</button>

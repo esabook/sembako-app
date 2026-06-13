@@ -53,10 +53,11 @@ absensiKioskRouter.post('/check-pin', async (c) => {
   if (!await Bun.password.verify(pin, k.pin_absensi)) throw new HTTPException(401, { message: 'PIN salah' })
 
   const { tanggal } = getWaktuJakarta()
+  const tenantId = k.toko_id ?? 1
   const existing = await query.find(db
     .select({ jam_masuk: absensi.jam_masuk, jam_keluar: absensi.jam_keluar })
     .from(absensi)
-    .where(and(eq(absensi.karyawan_id, k.id), eq(absensi.tanggal, tanggal)))
+    .where(and(eq(absensi.karyawan_id, k.id), eq(absensi.tanggal, tanggal), eq(absensi.tenant_id, tenantId)))
     )
 
   let status_hari_ini: 'belum' | 'masuk' | 'selesai'
@@ -83,10 +84,17 @@ absensiKioskRouter.post('/masuk', async (c) => {
     return c.json({ success: false, error: beforeResult.reason, data: beforeResult.data }, 428)
   }
 
+  const k2 = await query.find(db
+    .select({ toko_id: karyawan.toko_id })
+    .from(karyawan)
+    .where(eq(karyawan.id, body.karyawan_id))
+    )
+  const tenantId = k2?.toko_id ?? 1
+
   const existing = await query.find(db
     .select({ id: absensi.id })
     .from(absensi)
-    .where(and(eq(absensi.karyawan_id, body.karyawan_id), eq(absensi.tanggal, tanggal)))
+    .where(and(eq(absensi.karyawan_id, body.karyawan_id), eq(absensi.tanggal, tanggal), eq(absensi.tenant_id, tenantId)))
     )
   if (existing) throw new HTTPException(409, { message: 'Sudah clock in hari ini' })
 
@@ -94,7 +102,7 @@ absensiKioskRouter.post('/masuk', async (c) => {
     .select({ jam_mulai: tipe_shift.jam_mulai, nama: tipe_shift.nama })
     .from(jadwal_kerja)
     .innerJoin(tipe_shift, eq(jadwal_kerja.tipe_shift_id, tipe_shift.id))
-    .where(and(eq(jadwal_kerja.karyawan_id, body.karyawan_id), eq(jadwal_kerja.tanggal, tanggal)))
+    .where(and(eq(jadwal_kerja.karyawan_id, body.karyawan_id), eq(jadwal_kerja.tanggal, tanggal), eq(jadwal_kerja.tenant_id, tenantId)))
     )
 
   let terlambat_menit: number | null = null
@@ -105,12 +113,6 @@ absensiKioskRouter.post('/masuk', async (c) => {
     if (diff > 0) terlambat_menit = diff
   }
 
-  const k2 = await query.find(db
-    .select({ toko_id: karyawan.toko_id })
-    .from(karyawan)
-    .where(eq(karyawan.id, body.karyawan_id))
-    )
-
   const row = await query.find(db
     .insert(absensi)
     .values({
@@ -120,7 +122,7 @@ absensiKioskRouter.post('/masuk', async (c) => {
       shift: shift_nama,
       status: 'hadir',
       terlambat_menit,
-      tenant_id: k2?.toko_id ?? 1,
+      tenant_id: tenantId,
     })
     .returning()
     )
@@ -136,10 +138,13 @@ absensiKioskRouter.post('/pulang', async (c) => {
 
   const { tanggal, jam } = getWaktuJakarta()
 
+  const kp = await query.find(db.select({ toko_id: karyawan.toko_id }).from(karyawan).where(eq(karyawan.id, body.karyawan_id)))
+  const tenantId = kp?.toko_id ?? 1
+
   const existing = await query.find(db
     .select({ id: absensi.id, jam_keluar: absensi.jam_keluar })
     .from(absensi)
-    .where(and(eq(absensi.karyawan_id, body.karyawan_id), eq(absensi.tanggal, tanggal)))
+    .where(and(eq(absensi.karyawan_id, body.karyawan_id), eq(absensi.tanggal, tanggal), eq(absensi.tenant_id, tenantId)))
     )
 
   if (!existing) throw new HTTPException(404, { message: 'Belum clock in hari ini' })

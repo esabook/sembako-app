@@ -47,6 +47,8 @@ export type Karyawan = {
   kontak: string | null
   foto_path: string | null
   is_active: boolean
+  toko_id: number | null
+  cabang_id: number | null
 }
 
 export type AbsensiRow = {

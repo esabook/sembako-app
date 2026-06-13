@@ -16,12 +16,22 @@
 	});
 
 	let namaToko = $state('');
+	let namaCabang = $state('');
 	let sidebarMobileOpen = $state(false);
 
 	onMount(() => {
 		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
 			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
 		});
+		const u = data.user;
+		if (u?.cabang_id) {
+			api.get<{ id: number; nama: string }[]>('/toko/cabang').then((res) => {
+				if (res.success) {
+					const cab = res.data.find((c) => c.id === u.cabang_id);
+					if (cab) namaCabang = cab.nama;
+				}
+			});
+		}
 	});
 </script>
 
@@ -58,6 +68,9 @@
 		<div class="hidden shrink-0 items-center gap-1.5 sm:flex">
 			<img src="/logo.png" alt="Logo Stokasir" class="h-[32px] w-[32px]" />
 			<span class="font-bold" style="color:var(--accent)">{namaToko}</span>
+			{#if namaCabang}
+				<span class="text-xs" style="color:var(--text-dim)">· {namaCabang}</span>
+			{/if}
 		</div>
 
 		<div class="ml-auto flex shrink-0 items-center gap-2">

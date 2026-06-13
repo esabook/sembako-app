@@ -23,5 +23,14 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 		redirect(302, '/login')
 	}
 
-	return { user: json.data as { id: number; nama: string; role: string; kode_karyawan?: string } }
+	return {
+		user: json.data as {
+			id: number
+			nama: string
+			role: string
+			kode_karyawan?: string
+			tenant_id?: number
+			cabang_id?: number | null
+		}
+	}
 }

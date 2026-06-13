@@ -1,5 +1,6 @@
 import { get } from 'svelte/store'
 import { user } from '$lib/stores/auth'
+import { api } from '$lib/utils/api'
 import { withLoading } from '$lib/utils/async'
 import { toast } from '$lib/stores/ui.store'
 import { resizeImage } from '$lib/utils/image'
@@ -90,7 +91,8 @@ export function createKaryawanStore() {
   let loadingKaryawan = $state(false)
   let modalKaryawanOpen = $state(false)
   let editKaryawan    = $state<Partial<Karyawan> | null>(null)
-  let formKaryawan    = $state({ kode_karyawan: '', nama: '', role: 'kasir', username: '', password: '', gaji_pokok: '', tipe_gaji: 'bulanan', kontak: '', pin_absensi: '' })
+  let formKaryawan    = $state({ kode_karyawan: '', nama: '', role: 'kasir', username: '', password: '', gaji_pokok: '', tipe_gaji: 'bulanan', kontak: '', pin_absensi: '', toko_id: _u?.tenant_id ?? 1, cabang_id: null as number | null })
+  let cabangList      = $state<{ id: number; nama: string }[]>([])
   let fotoFile        = $state<File | null>(null)
   let fotoPreview     = $state('')
   let sortKeyKaryawan  = $state('nama')
@@ -120,8 +122,12 @@ export function createKaryawanStore() {
 
   async function muatKaryawan() {
     loadingKaryawan = true
-    const hasil = await withLoading(() => fetchKaryawan(), { loadingKey: 'karyawan-list', loadingPesan: 'Memuat karyawan...', modul: 'karyawan', aksi: 'muat', errorPesan: 'Gagal memuat data karyawan' })
+    const [hasil, resCabang] = await Promise.all([
+      withLoading(() => fetchKaryawan(), { loadingKey: 'karyawan-list', loadingPesan: 'Memuat karyawan...', modul: 'karyawan', aksi: 'muat', errorPesan: 'Gagal memuat data karyawan' }),
+      api.get<{ id: number; nama: string }[]>('/toko/cabang'),
+    ])
     if (hasil) karyawanList = hasil
+    if (resCabang.success) cabangList = resCabang.data
     loadingKaryawan = false
   }
 
@@ -133,6 +139,7 @@ export function createKaryawanStore() {
       kode_karyawan: item?.kode_karyawan ?? '', nama: item?.nama ?? '', role: item?.role ?? 'kasir',
       username: item?.username ?? '', password: '', gaji_pokok: String(item?.gaji_pokok ?? ''),
       tipe_gaji: item?.tipe_gaji ?? 'bulanan', kontak: item?.kontak ?? '', pin_absensi: '',
+      toko_id: item?.toko_id ?? _u?.tenant_id ?? 1, cabang_id: item?.cabang_id ?? null,
     }
     modalKaryawanOpen = true
   }
@@ -153,6 +160,8 @@ export function createKaryawanStore() {
     if (formKaryawan.password) payload.password = formKaryawan.password
     if (!editKaryawan?.id) payload.password = formKaryawan.password
     if (typeof formKaryawan.pin_absensi === 'string') payload.pin_absensi = formKaryawan.pin_absensi
+    payload.toko_id = formKaryawan.toko_id
+    payload.cabang_id = formKaryawan.cabang_id ?? null
 
     let savedId = editKaryawan?.id
     if (editKaryawan?.id) {
@@ -605,6 +614,7 @@ export function createKaryawanStore() {
     set modalKaryawanOpen(v: boolean) { modalKaryawanOpen = v },
     get editKaryawan()   { return editKaryawan },
     get formKaryawan()   { return formKaryawan },
+    get cabangList()     { return cabangList },
     get fotoPreview()    { return fotoPreview },
     get sortKeyKaryawan()  { return sortKeyKaryawan },
     set sortKeyKaryawan(v: string) { sortKeyKaryawan = v },

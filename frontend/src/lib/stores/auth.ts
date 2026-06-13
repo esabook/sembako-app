@@ -7,6 +7,8 @@ export type User = {
   nama: string
   role: Role
   kode_karyawan?: string
+  tenant_id?: number
+  cabang_id?: number | null
 }
 
 export const user = writable<User | null>(null)
