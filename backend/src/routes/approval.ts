@@ -20,7 +20,7 @@ approvalRouter.use('*', tenantMiddleware)
 
 // ── GET / — list approval dengan filter ──────────────────────────────────
 
-approvalRouter.get('/', requirePermission('*'), async (c) => {
+approvalRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const referensiTipe = c.req.query('referensi_tipe')
@@ -55,7 +55,7 @@ approvalRouter.get('/', requirePermission('*'), async (c) => {
 
 // ── POST /:id/setujui ─────────────────────────────────────────────────────
 
-approvalRouter.post('/:id/setujui', requirePermission('*'), async (c) => {
+approvalRouter.post('/:id/setujui', requirePermission('karyawan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
@@ -95,7 +95,7 @@ approvalRouter.post('/:id/setujui', requirePermission('*'), async (c) => {
 
 // ── POST /:id/tolak ───────────────────────────────────────────────────────
 
-approvalRouter.post('/:id/tolak', requirePermission('*'), async (c) => {
+approvalRouter.post('/:id/tolak', requirePermission('karyawan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {

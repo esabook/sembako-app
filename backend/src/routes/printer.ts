@@ -63,7 +63,7 @@ printerRouter.post('/cetak', requirePermission('stok.lihat'), async (c) => {
 })
 
 // POST /printer/test — proxy test print ke Go agent
-printerRouter.post('/test', requirePermission('*'), async (c) => {
+printerRouter.post('/test', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const port = await getBridgePort(tenantId)

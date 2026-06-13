@@ -52,7 +52,7 @@ notifikasiRouter.get('/config', async (c) => {
 
 // ── PUT /notifikasi/config/:jenis ──────────────────────────────────────────
 
-notifikasiRouter.put('/config/:jenis', requirePermission('*'), async (c) => {
+notifikasiRouter.put('/config/:jenis', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const jenis = c.req.param('jenis')
@@ -96,7 +96,7 @@ notifikasiRouter.get('/log', async (c) => {
 // ── POST /notifikasi/log ───────────────────────────────────────────────────
 // Dipanggil oleh backend saat event terjadi (stok habis, void, dll)
 
-notifikasiRouter.post('/log', requirePermission('*'), async (c) => {
+notifikasiRouter.post('/log', requirePermission('absensi.diri'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{

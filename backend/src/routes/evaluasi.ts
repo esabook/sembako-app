@@ -20,7 +20,7 @@ evaluasiRouter.use('*', tenantMiddleware)
 
 // ── GET / ─────────────────────────────────────────────────────────────────
 
-evaluasiRouter.get('/', requirePermission('*'), async (c) => {
+evaluasiRouter.get('/', requirePermission('karyawan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const karyawanId = c.req.query('karyawan_id') ? Number(c.req.query('karyawan_id')) : undefined
@@ -53,7 +53,7 @@ evaluasiRouter.get('/', requirePermission('*'), async (c) => {
 
 // ── POST / ────────────────────────────────────────────────────────────────
 
-evaluasiRouter.post('/', requirePermission('*'), async (c) => {
+evaluasiRouter.post('/', requirePermission('karyawan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
@@ -91,7 +91,7 @@ evaluasiRouter.post('/', requirePermission('*'), async (c) => {
 
 // ── PUT /:id ──────────────────────────────────────────────────────────────
 
-evaluasiRouter.put('/:id', requirePermission('*'), async (c) => {
+evaluasiRouter.put('/:id', requirePermission('karyawan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {
@@ -119,7 +119,7 @@ evaluasiRouter.put('/:id', requirePermission('*'), async (c) => {
 
 // ── DELETE /:id ───────────────────────────────────────────────────────────
 
-evaluasiRouter.delete('/:id', requirePermission('*'), async (c) => {
+evaluasiRouter.delete('/:id', requirePermission('karyawan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   if (!['pemilik', 'manajer'].includes(user.role)) {

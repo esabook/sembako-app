@@ -12,7 +12,7 @@ sopRouter.use('*', authMiddleware)
 sopRouter.use('*', tenantMiddleware)
 
 // ── GET /sop/rule — list semua rule ──────────────────────────────────────
-sopRouter.get('/rule', requirePermission('*'), async (c) => {
+sopRouter.get('/rule', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const rows = await query.findAll(db.select().from(sop_rule).where(eq(sop_rule.tenant_id, tenantId)).orderBy(sop_rule.event_name, sop_rule.urutan))
@@ -20,7 +20,7 @@ sopRouter.get('/rule', requirePermission('*'), async (c) => {
 })
 
 // ── POST /sop/rule — buat rule baru ──────────────────────────────────────
-sopRouter.post('/rule', requirePermission('*'), async (c) => {
+sopRouter.post('/rule', requirePermission('pengaturan.kelola'), async (c) => {
   const body = await c.req.json<{
     nama: string
     event_name: string
@@ -50,7 +50,7 @@ sopRouter.post('/rule', requirePermission('*'), async (c) => {
 })
 
 // ── PUT /sop/rule/:id — update rule ──────────────────────────────────────
-sopRouter.put('/rule/:id', requirePermission('*'), async (c) => {
+sopRouter.put('/rule/:id', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
@@ -77,7 +77,7 @@ sopRouter.put('/rule/:id', requirePermission('*'), async (c) => {
 })
 
 // ── DELETE /sop/rule/:id — nonaktifkan rule (soft) ────────────────────────
-sopRouter.delete('/rule/:id', requirePermission('*'), async (c) => {
+sopRouter.delete('/rule/:id', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
@@ -149,7 +149,7 @@ sopRouter.post('/checklist/:instance_id/selesai', async (c) => {
 })
 
 // ── GET /sop/instance — riwayat instance (manajer/pemilik) ───────────────
-sopRouter.get('/instance', requirePermission('*'), async (c) => {
+sopRouter.get('/instance', requirePermission('absensi.diri'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const karyawanId = c.req.query('karyawan_id') ? Number(c.req.query('karyawan_id')) : undefined

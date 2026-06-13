@@ -430,7 +430,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
 
 // ── POST /laporan/init-harga-rata — hitung WAC awal dari histori barang_masuk ──
 
-laporanRouter.post('/init-harga-rata', requirePermission('*'), async (c) => {
+laporanRouter.post('/init-harga-rata', requirePermission('pengaturan.kelola'), async (c) => {
   // Ambil semua histori penerimaan barang diurutkan dari terlama
   const histori = await query.findAll(db
     .select({
@@ -471,7 +471,7 @@ laporanRouter.post('/init-harga-rata', requirePermission('*'), async (c) => {
 
 // ── GET /laporan/rekonsiliasi-diskon — preview transaksi yang totalnya salah ──
 
-laporanRouter.get('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
+laporanRouter.get('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), async (c) => {
   // Transaksi non-hutang, non-void, kembalian=0, tapi bayar < total
   // → diskon member/promo tidak tercatat karena bug lama
   const affected = await query.findAll(db
@@ -896,7 +896,7 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
   })
 })
 
-laporanRouter.post('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
+laporanRouter.post('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), async (c) => {
   const affected = await query.findAll(db
     .select({
       id: penjualan.id,

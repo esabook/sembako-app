@@ -63,7 +63,7 @@ const DB_PATH = (process.env.DATABASE_URL ?? './data.db').replace(/^file:/, '')
 
 // ── GET /pengaturan/backup-db — download file SQLite ─────────────────────
 
-pengaturanRouter.get('/backup-db', requirePermission('*'), async (c) => {
+pengaturanRouter.get('/backup-db', requirePermission('pengaturan.kelola'), async (c) => {
   if (dialect !== 'sqlite') {
     throw new HTTPException(501, { message: `Backup tidak tersedia untuk dialect ${dialect}. Gunakan dashboard provider (Turso/Supabase).` })
   }
@@ -88,7 +88,7 @@ pengaturanRouter.get('/backup-db', requirePermission('*'), async (c) => {
 
 // ── POST /pengaturan/restore-db — upload & replace database ──────────────
 
-pengaturanRouter.post('/restore-db', requirePermission('*'), async (c) => {
+pengaturanRouter.post('/restore-db', requirePermission('pengaturan.kelola'), async (c) => {
   if (dialect !== 'sqlite') {
     throw new HTTPException(501, { message: `Restore tidak tersedia untuk dialect ${dialect}. Gunakan dashboard provider (Turso/Supabase).` })
   }
@@ -212,7 +212,7 @@ pengaturanRouter.get('/', async (c) => {
 
 // ── PUT /pengaturan/:key ───────────────────────────────────────────────────
 
-pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
+pengaturanRouter.put('/:key', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const key = c.req.param('key') ?? ''
@@ -242,7 +242,7 @@ pengaturanRouter.put('/:key', requirePermission('*'), async (c) => {
 // ── POST /pengaturan/bulk ──────────────────────────────────────────────────
 // Simpan banyak key sekaligus dari satu form submit
 
-pengaturanRouter.post('/bulk', requirePermission('*'), async (c) => {
+pengaturanRouter.post('/bulk', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<Record<string, string>>()

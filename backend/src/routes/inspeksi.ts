@@ -13,7 +13,7 @@ export const inspeksiRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 inspeksiRouter.use('*', authMiddleware)
 inspeksiRouter.use('*', tenantMiddleware)
 
-inspeksiRouter.get('/', requirePermission('*'), async (c) => {
+inspeksiRouter.get('/', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
@@ -49,7 +49,7 @@ inspeksiRouter.get('/', requirePermission('*'), async (c) => {
   return c.json({ success: true, data: rows })
 })
 
-inspeksiRouter.post('/', requirePermission('*'), async (c) => {
+inspeksiRouter.post('/', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
@@ -80,7 +80,7 @@ inspeksiRouter.post('/', requirePermission('*'), async (c) => {
   return c.json({ success: true, data: row }, 201)
 })
 
-inspeksiRouter.put('/:id', requirePermission('*'), async (c) => {
+inspeksiRouter.put('/:id', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
@@ -108,7 +108,7 @@ inspeksiRouter.put('/:id', requirePermission('*'), async (c) => {
   return c.json({ success: true, data: row })
 })
 
-inspeksiRouter.delete('/:id', requirePermission('*'), async (c) => {
+inspeksiRouter.delete('/:id', requirePermission('pengaturan.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))

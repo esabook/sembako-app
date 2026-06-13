@@ -27,7 +27,7 @@ tugasRouter.get('/item', requirePermission('pelanggan.lihat'), async (c) => {
   return c.json({ success: true, data: rows })
 })
 
-tugasRouter.post('/item', requirePermission('*'), async (c) => {
+tugasRouter.post('/item', requirePermission('absensi.diri'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
@@ -46,7 +46,7 @@ tugasRouter.post('/item', requirePermission('*'), async (c) => {
   return c.json({ success: true, data: row }, 201)
 })
 
-tugasRouter.put('/item/:id', requirePermission('*'), async (c) => {
+tugasRouter.put('/item/:id', requirePermission('absensi.diri'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
@@ -65,7 +65,7 @@ tugasRouter.put('/item/:id', requirePermission('*'), async (c) => {
   return c.json({ success: true, data: row })
 })
 
-tugasRouter.delete('/item/:id', requirePermission('*'), async (c) => {
+tugasRouter.delete('/item/:id', requirePermission('absensi.diri'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
@@ -141,7 +141,7 @@ tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) 
   return c.json({ success: true, data: row })
 })
 
-tugasRouter.get('/ringkasan', requirePermission('*'), async (c) => {
+tugasRouter.get('/ringkasan', requirePermission('karyawan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const dari = c.req.query('dari')
