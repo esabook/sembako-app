@@ -10,12 +10,14 @@ import {
   pelanggan, karyawan,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 import { bus } from '../lib/event-bus.ts'
 
 export const penjualanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 penjualanRouter.use('*', authMiddleware)
+penjualanRouter.use('*', tenantMiddleware)
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -33,9 +35,13 @@ function tglSekarang(): string {
 // ── GET /penjualan — list transaksi (filter tanggal) ──────────────────────
 
 penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
   const kasirId = c.req.query('kasir_id')
+  const filterCabang = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : cabangId
 
   const rows = await query.findAll(db
     .select({
@@ -47,11 +53,14 @@ penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
       metode_bayar: penjualan.metode_bayar,
       status: penjualan.status,
       kasir_id: penjualan.kasir_id,
+      cabang_id: penjualan.cabang_id,
       retur_id: sql<number | null>`(SELECT id FROM retur_penjualan WHERE penjualan_id = penjualan.id ORDER BY id DESC LIMIT 1)`,
     })
     .from(penjualan)
     .where(
       and(
+        eq(penjualan.tenant_id, tenantId),
+        filterCabang ? eq(penjualan.cabang_id, filterCabang) : undefined,
         dari ? gte(penjualan.tanggal, dari) : undefined,
         sampai ? lte(penjualan.tanggal, sampai + ' 23:59:59') : undefined,
         kasirId ? eq(penjualan.kasir_id, Number(kasirId)) : undefined,
@@ -66,6 +75,8 @@ penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
 // ── GET /penjualan/:id — detail + item ────────────────────────────────────
 
 penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const trx = await query.find(db
     .select({
@@ -89,7 +100,7 @@ penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
     .from(penjualan)
     .leftJoin(pelanggan, eq(penjualan.pelanggan_id, pelanggan.id))
     .leftJoin(karyawan, eq(penjualan.kasir_id, karyawan.id))
-    .where(eq(penjualan.id, id))
+    .where(and(eq(penjualan.id, id), eq(penjualan.tenant_id, tenantId)))
     )
   if (!trx) throw new HTTPException(404, { message: 'Transaksi tidak ditemukan' })
 
@@ -125,6 +136,8 @@ type ItemInput = {
 
 penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
   const body = await c.req.json<{
     pelanggan_id?: number
     tipe: 'eceran' | 'grosir'
@@ -188,6 +201,8 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       bayar: body.bayar,
       kembalian,
       status,
+      tenant_id: tenantId,
+      cabang_id: cabangId,
     }).returning())
 
     // 2. Detail + mutasi stok
@@ -200,6 +215,8 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         harga_jual: item.harga_jual,
         diskon_item: item.diskon_item ?? 0,
         subtotal: item.subtotal,
+        tenant_id: tenantId,
+        cabang_id: cabangId,
       }))
 
       const br = await query.find(db.select({ stok: barang.stok_sekarang })
@@ -221,6 +238,8 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         jumlah_perubahan: -item.jumlah,
         jumlah_sesudah: br.stok - item.jumlah,
         dicatat_oleh: user.id,
+        tenant_id: tenantId,
+        cabang_id: cabangId,
       }))
 
       await query.exec(db.update(barang)
@@ -232,11 +251,11 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     // 3. Jurnal kas (hanya jika bukan hutang)
     if (body.metode_bayar !== 'hutang') {
       let kasTujuan = body.kas_bank_id
-        ? await query.find(db.select().from(kas_bank).where(eq(kas_bank.id, body.kas_bank_id)))
+        ? await query.find(db.select().from(kas_bank).where(and(eq(kas_bank.id, body.kas_bank_id), eq(kas_bank.tenant_id, tenantId), eq(kas_bank.cabang_id, cabangId))))
         : null
-      // Fallback ke kas tunai pertama jika tidak ada kas_bank_id atau tidak ditemukan
+      // Fallback ke kas tunai pertama milik cabang ini
       if (!kasTujuan) {
-        kasTujuan = await query.find(db.select().from(kas_bank).where(eq(kas_bank.tipe, 'kas')))
+        kasTujuan = await query.find(db.select().from(kas_bank).where(and(eq(kas_bank.tipe, 'kas'), eq(kas_bank.tenant_id, tenantId), eq(kas_bank.cabang_id, cabangId))))
       }
       if (kasTujuan) {
         await query.exec(db.insert(jurnal_kas).values({
@@ -249,6 +268,8 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
           keterangan: `Penjualan ${noTrx}`,
           jumlah: total,
           dicatat_oleh: user.id,
+          tenant_id: tenantId,
+          cabang_id: cabangId,
         }))
       }
     }
@@ -298,8 +319,10 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c) => {
   const id = Number(c.req.param('id'))
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
 
-  const trx = await query.find(db.select().from(penjualan).where(eq(penjualan.id, id)))
+  const trx = await query.find(db.select().from(penjualan).where(and(eq(penjualan.id, id), eq(penjualan.tenant_id, tenantId))))
   if (!trx) throw new HTTPException(404, { message: 'Transaksi tidak ditemukan' })
   if (trx.status === 'void') throw new HTTPException(400, { message: 'Transaksi sudah di-void' })
 
@@ -325,6 +348,8 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
         jumlah_perubahan: item.jumlah,
         jumlah_sesudah: br.stok + item.jumlah,
         dicatat_oleh: user.id,
+        tenant_id: tenantId,
+        cabang_id: cabangId,
       }))
 
       await query.exec(db.update(barang)

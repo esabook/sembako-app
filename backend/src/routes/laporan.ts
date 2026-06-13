@@ -11,10 +11,12 @@ import {
   kategori, karyawan, penggajian,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 
 export const laporanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 laporanRouter.use('*', authMiddleware)
+laporanRouter.use('*', tenantMiddleware)
 
 function hariIni(): string {
   return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
@@ -31,6 +33,9 @@ function bulanIni(): { dari: string; sampai: string } {
 // ── GET /laporan/laba-rugi ────────────────────────────────────────────────
 
 laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const { dari, sampai } = {
     dari: c.req.query('dari') ?? bulanIni().dari,
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
@@ -42,6 +47,8 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
     .from(penjualan)
     .where(
       and(
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         gte(penjualan.tanggal, dari),
         lte(penjualan.tanggal, sampai + ' 23:59:59')
@@ -63,6 +70,8 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
     .innerJoin(barang, eq(penjualan_detail.barang_id, barang.id))
     .where(
       and(
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         gte(penjualan.tanggal, dari),
         lte(penjualan.tanggal, sampai + ' 23:59:59')
@@ -79,6 +88,8 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
     .from(jurnal_kas)
     .where(
       and(
+        eq(jurnal_kas.tenant_id, tenantId),
+        cabangId ? eq(jurnal_kas.cabang_id, cabangId) : undefined,
         eq(jurnal_kas.jenis, 'keluar'),
         ne(jurnal_kas.kategori, 'pembayaran_hutang'),
         gte(jurnal_kas.tanggal, dari),
@@ -126,19 +137,28 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
 // ── GET /laporan/arus-kas ─────────────────────────────────────────────────
 
 laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const { dari, sampai } = {
     dari: c.req.query('dari') ?? bulanIni().dari,
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
 
-  const akunList = await query.findAll(db.select().from(kas_bank).where(eq(kas_bank.is_active, true)))
+  const akunList = await query.findAll(db.select().from(kas_bank).where(
+    and(eq(kas_bank.is_active, true), eq(kas_bank.tenant_id, tenantId), cabangId ? eq(kas_bank.cabang_id, cabangId) : undefined)
+  ))
 
   // Saldo awal per akun: GROUP BY — tidak load seluruh tabel
   const sebelumPerAkun = await query.findAll(db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
-  }).from(jurnal_kas).where(sql`${jurnal_kas.tanggal} < ${dari}`).groupBy(jurnal_kas.kas_bank_id))
+  }).from(jurnal_kas).where(and(
+    eq(jurnal_kas.tenant_id, tenantId),
+    cabangId ? eq(jurnal_kas.cabang_id, cabangId) : undefined,
+    sql`${jurnal_kas.tanggal} < ${dari}`
+  )).groupBy(jurnal_kas.kas_bank_id))
   const sebelumMap = new Map(sebelumPerAkun.map((r) => [r.kas_bank_id, r]))
 
   // Mutasi periode per akun: GROUP BY
@@ -146,7 +166,12 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
-  }).from(jurnal_kas).where(and(gte(jurnal_kas.tanggal, dari), lte(jurnal_kas.tanggal, sampai))).groupBy(jurnal_kas.kas_bank_id))
+  }).from(jurnal_kas).where(and(
+    eq(jurnal_kas.tenant_id, tenantId),
+    cabangId ? eq(jurnal_kas.cabang_id, cabangId) : undefined,
+    gte(jurnal_kas.tanggal, dari),
+    lte(jurnal_kas.tanggal, sampai)
+  )).groupBy(jurnal_kas.kas_bank_id))
   const mutasiMap = new Map(mutasiPerAkun.map((r) => [r.kas_bank_id, r]))
 
   // Ringkasan per kategori: GROUP BY
@@ -154,7 +179,12 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
     kategori: jurnal_kas.kategori,
     jenis: jurnal_kas.jenis,
     jumlah: sql<number>`COALESCE(SUM(${jurnal_kas.jumlah}),0)`,
-  }).from(jurnal_kas).where(and(gte(jurnal_kas.tanggal, dari), lte(jurnal_kas.tanggal, sampai))).groupBy(jurnal_kas.kategori, jurnal_kas.jenis))
+  }).from(jurnal_kas).where(and(
+    eq(jurnal_kas.tenant_id, tenantId),
+    cabangId ? eq(jurnal_kas.cabang_id, cabangId) : undefined,
+    gte(jurnal_kas.tanggal, dari),
+    lte(jurnal_kas.tanggal, sampai)
+  )).groupBy(jurnal_kas.kategori, jurnal_kas.jenis))
   const kategoriMap: Record<string, { masuk: number; keluar: number }> = {}
   for (const r of kategoriRows) {
     const entry = kategoriMap[r.kategori] ?? { masuk: 0, keluar: 0 }
@@ -194,19 +224,24 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
 // ── GET /laporan/neraca ───────────────────────────────────────────────────
 
 laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const perTanggal = c.req.query('per_tanggal') || hariIni()
   const batasTgl = perTanggal + ' 23:59:59'
 
   // ASET
   // 1. Kas & Bank — filter jurnal sampai per_tanggal
-  const akunList = await query.findAll(db.select().from(kas_bank).where(eq(kas_bank.is_active, true)))
+  const akunList = await query.findAll(db.select().from(kas_bank).where(
+    and(eq(kas_bank.is_active, true), eq(kas_bank.tenant_id, tenantId), cabangId ? eq(kas_bank.cabang_id, cabangId) : undefined)
+  ))
 
   const jurnalPerAkun = await query.findAll(db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
   }).from(jurnal_kas)
-    .where(lte(jurnal_kas.tanggal, batasTgl))
+    .where(and(eq(jurnal_kas.tenant_id, tenantId), cabangId ? eq(jurnal_kas.cabang_id, cabangId) : undefined, lte(jurnal_kas.tanggal, batasTgl)))
     .groupBy(jurnal_kas.kas_bank_id))
   const jurnalAkunMap = new Map(jurnalPerAkun.map((r) => [r.kas_bank_id, r]))
 
@@ -222,6 +257,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
     .select({ sisa: piutang_pelanggan.sisa_piutang })
     .from(piutang_pelanggan)
     .where(and(
+      eq(piutang_pelanggan.tenant_id, tenantId),
       ne(piutang_pelanggan.status, 'lunas'),
       lte(piutang_pelanggan.created_at, batasTgl),
     ))
@@ -234,7 +270,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
       total: sql<number>`sum(${barang.stok_sekarang} * CASE WHEN ${barang.harga_beli_rata} > 0 THEN ${barang.harga_beli_rata} ELSE ${barang.harga_beli_terakhir} END)`,
     })
     .from(barang)
-    .where(eq(barang.is_active, true))
+    .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
     )
   const totalNilaiStok = nilaiStokRow?.total ?? 0
 
@@ -245,6 +281,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
     .select({ sisa: hutang_supplier.sisa_hutang })
     .from(hutang_supplier)
     .where(and(
+      eq(hutang_supplier.tenant_id, tenantId),
       ne(hutang_supplier.status, 'lunas'),
       lte(hutang_supplier.created_at, batasTgl),
     ))
@@ -285,6 +322,8 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
 // Analisis umur piutang pelanggan & hutang supplier per bucket waktu
 
 laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const today = hariIni()
 
   function hitungHari(jatuhTempo: string | null): number {
@@ -323,7 +362,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
     })
     .from(piutang_pelanggan)
     .leftJoin(pelanggan, eq(piutang_pelanggan.pelanggan_id, pelanggan.id))
-    .where(ne(piutang_pelanggan.status, 'lunas'))
+    .where(and(eq(piutang_pelanggan.tenant_id, tenantId), ne(piutang_pelanggan.status, 'lunas')))
     )
 
   const piutangBuckets: Record<string, AgingBucket> = {}
@@ -355,7 +394,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
     })
     .from(hutang_supplier)
     .leftJoin(supplier, eq(hutang_supplier.supplier_id, supplier.id))
-    .where(ne(hutang_supplier.status, 'lunas'))
+    .where(and(eq(hutang_supplier.tenant_id, tenantId), ne(hutang_supplier.status, 'lunas')))
     )
 
   const hutangBuckets: Record<string, AgingBucket> = {}
@@ -475,6 +514,9 @@ laporanRouter.get('/rekonsiliasi-diskon', requirePermission('*'), async (c) => {
 // ── GET /laporan/margin-produk — margin per SKU dalam periode ────────────────
 
 laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const { dari, sampai } = {
     dari: c.req.query('dari') ?? bulanIni().dari,
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
@@ -496,6 +538,8 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
     .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
     .where(
       and(
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         gte(penjualan.tanggal, dari),
         lte(penjualan.tanggal, sampai + ' 23:59:59'),
@@ -534,6 +578,9 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
 // ── GET /laporan/pajak-umkm — estimasi PPh Final 0.5% per bulan (PP 23/2018) ───
 
 laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const now = new Date()
   const tahun = c.req.query('tahun') ?? String(now.getFullYear())
 
@@ -550,6 +597,8 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
     .from(penjualan)
     .where(
       and(
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         sql`strftime('%Y', ${penjualan.tanggal}) = ${tahun}`,
       )
@@ -588,6 +637,8 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
 // ── GET /laporan/persediaan — nilai stok saat ini per produk ─────────────────
 
 laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const rows = await query.findAll(db
     .select({
       barang_id: barang.id,
@@ -599,7 +650,7 @@ laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) =
     })
     .from(barang)
     .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
-    .where(eq(barang.is_active, true))
+    .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
     )
 
   const produk = rows.map((r) => {
@@ -634,6 +685,9 @@ laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) =
 // ── GET /laporan/top-pelanggan — omset & transaksi per pelanggan ──────────────
 
 laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const { dari, sampai } = {
     dari: c.req.query('dari') ?? bulanIni().dari,
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
@@ -654,6 +708,8 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
     .innerJoin(pelanggan, eq(penjualan.pelanggan_id, pelanggan.id))
     .where(
       and(
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         gte(penjualan.tanggal, dari),
         lte(penjualan.tanggal, sampai + ' 23:59:59'),
@@ -684,6 +740,8 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
 // ── GET /laporan/pembelian-supplier — rekapitulasi pembelian per supplier ─────
 
 laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const { dari, sampai } = {
     dari: c.req.query('dari') ?? bulanIni().dari,
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
@@ -701,6 +759,7 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
     .innerJoin(supplier, eq(barang_masuk.supplier_id, supplier.id))
     .where(
       and(
+        eq(barang_masuk.tenant_id, tenantId),
         gte(barang_masuk.tanggal_terima, dari),
         lte(barang_masuk.tanggal_terima, sampai),
       )
@@ -728,6 +787,8 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
 // ── GET /laporan/rekap-penggajian — ringkasan biaya SDM per bulan ─────────────
 
 laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const now = new Date()
   const tahun = c.req.query('tahun') ?? String(now.getFullYear())
 
@@ -748,6 +809,7 @@ laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async
     .from(penggajian)
     .where(
       and(
+        eq(penggajian.tenant_id, tenantId),
         sql`substr(${penggajian.periode_bulan}, 1, 4) = ${tahun}`,
         ne(penggajian.status, 'draft'),
       )
@@ -786,6 +848,9 @@ laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async
 // Bantu pemilik melihat "jam sibuk" untuk atur jadwal shift
 
 laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const sekarang = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' })
   const hariIni = sekarang.slice(0, 10)
   const tigaPuluhHariLalu = new Date(Date.now() - 30 * 86400000)
@@ -803,6 +868,8 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
     })
     .from(penjualan)
     .where(and(
+      eq(penjualan.tenant_id, tenantId),
+      cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
       gte(penjualan.tanggal, dari),
       lte(penjualan.tanggal, sampai + ' 23:59:59'),
       ne(penjualan.status, 'void'),

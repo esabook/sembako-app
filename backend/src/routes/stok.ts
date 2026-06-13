@@ -5,15 +5,19 @@ import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { barang, mutasi_stok, kategori, satuan, karyawan, penjualan, penjualan_detail } from '../db/schema.ts'
 import { catatLog } from '../utils/log.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const stokRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 stokRouter.use('*', authMiddleware)
+stokRouter.use('*', tenantMiddleware)
 
 // ── GET /stok — list semua barang + status stok ───────────────────────────
 
 stokRouter.get('/', requirePermission('stok.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const rows = await query.findAll(db
     .select({
       id: barang.id,
@@ -29,7 +33,7 @@ stokRouter.get('/', requirePermission('stok.lihat'), async (c) => {
     .from(barang)
     .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
     .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
-    .where(eq(barang.is_active, true))
+    .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
     )
 
   return c.json({ success: true, data: rows })
@@ -39,6 +43,9 @@ stokRouter.get('/', requirePermission('stok.lihat'), async (c) => {
 // Hitung rata-rata penjualan 7 hari terakhir → estimasi hari tersisa
 
 stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const hariPrediksi = Number(c.req.query('hari') ?? 7)
 
   const tujuhHariLalu = new Date(Date.now() - 7 * 86400000)
@@ -54,6 +61,8 @@ stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) =>
     .where(and(
       ne(penjualan.status, 'void'),
       gte(penjualan.tanggal, tujuhHariLalu),
+      eq(penjualan.tenant_id, tenantId),
+      cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
     ))
     .groupBy(penjualan_detail.barang_id)
     )
@@ -71,7 +80,7 @@ stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) =>
     })
     .from(barang)
     .leftJoin(satuan, eq(barang.satuan_dasar_id, satuan.id))
-    .where(eq(barang.is_active, true))
+    .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
     )
 
   const hasil = barangList
@@ -89,12 +98,16 @@ stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) =>
 // ── GET /stok/:id/mutasi — riwayat mutasi per barang ─────────────────────
 
 stokRouter.get('/:id/mutasi', requirePermission('stok.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const id = Number(c.req.param('id'))
   const dari = c.req.query('dari')
   const sampai = c.req.query('sampai')
   const limit = Math.min(Number(c.req.query('limit') ?? 200), 500)
 
-  const conditions = [eq(mutasi_stok.barang_id, id)]
+  const conditions = [eq(mutasi_stok.barang_id, id), eq(mutasi_stok.tenant_id, tenantId)]
+  if (cabangId) conditions.push(eq(mutasi_stok.cabang_id, cabangId))
   if (dari) conditions.push(gte(mutasi_stok.tanggal, dari))
   if (sampai) conditions.push(lte(mutasi_stok.tanggal, sampai + ' 23:59:59'))
 
@@ -124,6 +137,8 @@ stokRouter.get('/:id/mutasi', requirePermission('stok.lihat'), async (c) => {
 
 stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
   const body = await c.req.json<{
     barang_id: number
     stok_baru: number
@@ -133,7 +148,7 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
   if (body.stok_baru < 0) throw new HTTPException(400, { message: 'Stok tidak boleh negatif' })
   if (!body.alasan?.trim()) throw new HTTPException(400, { message: 'Alasan koreksi wajib diisi' })
 
-  const br = await query.find(db.select().from(barang).where(eq(barang.id, body.barang_id)))
+  const br = await query.find(db.select().from(barang).where(and(eq(barang.id, body.barang_id), eq(barang.tenant_id, tenantId))))
   if (!br) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
 
   const selisih = body.stok_baru - br.stok_sekarang
@@ -151,6 +166,8 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
       jumlah_perubahan: selisih,
       jumlah_sesudah: body.stok_baru,
       dicatat_oleh: user.id,
+      tenant_id: tenantId,
+      cabang_id: cabangId,
     }))
 
     await query.exec(db.update(barang)
@@ -172,7 +189,10 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
 // ── GET /stok/rekonsiliasi — deteksi drift stok_sekarang vs mutasi terakhir ──
 
 stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
-  // Ambil jumlah_sesudah dari mutasi terakhir tiap barang
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
+
   const mutasiTerakhir = await query.findAll(db
     .select({
       barang_id: mutasi_stok.barang_id,
@@ -181,11 +201,17 @@ stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
       id: mutasi_stok.id,
     })
     .from(mutasi_stok)
-    .where(sql`${mutasi_stok.id} = (
-      SELECT id FROM mutasi_stok m2
-      WHERE m2.barang_id = ${mutasi_stok.barang_id}
-      ORDER BY m2.id DESC LIMIT 1
-    )`)
+    .where(and(
+      eq(mutasi_stok.tenant_id, tenantId),
+      cabangId ? eq(mutasi_stok.cabang_id, cabangId) : undefined,
+      sql`${mutasi_stok.id} = (
+        SELECT id FROM mutasi_stok m2
+        WHERE m2.barang_id = ${mutasi_stok.barang_id}
+        AND m2.tenant_id = ${tenantId}
+        ${cabangId ? sql`AND m2.cabang_id = ${cabangId}` : sql``}
+        ORDER BY m2.id DESC LIMIT 1
+      )`
+    ))
     )
 
   const mutasiMap = new Map(mutasiTerakhir.map((m) => [m.barang_id, m]))
@@ -198,7 +224,7 @@ stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
       stok_sekarang: barang.stok_sekarang,
     })
     .from(barang)
-    .where(eq(barang.is_active, true))
+    .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
     )
 
   const drift = []
