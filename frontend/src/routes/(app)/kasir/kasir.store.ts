@@ -436,6 +436,11 @@ export async function prosesBayar() {
 			modul: 'kasir',
 			aksi: 'proses_bayar',
 			errorPesan: 'Transaksi gagal. Coba lagi.',
+			onAntri: () => {
+				void deleteDraft().catch(() => {});
+				draftStatus.set('idle');
+				resetKasir();
+			},
 		}
 	);
 

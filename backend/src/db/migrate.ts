@@ -19,6 +19,14 @@ if (dialect === 'postgres') {
   const db = drizzle(conn)
   await migrate(db, { migrationsFolder: './src/db/migrations/mysql' })
   await conn.end()
+} else if (dialect === 'libsql') {
+  const { migrate } = await import('drizzle-orm/libsql/migrator')
+  const { createClient } = await import('@libsql/client')
+  const { drizzle } = await import('drizzle-orm/libsql')
+  const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN })
+  const db = drizzle(client)
+  await migrate(db, { migrationsFolder: './src/db/migrations/sqlite' })
+  client.close()
 } else {
   const { migrate } = await import('drizzle-orm/bun-sqlite/migrator')
   const { db, sqlite } = await import('./index.ts')

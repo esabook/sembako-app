@@ -27,5 +27,8 @@ build/*.tar.gz
 scripts/release/
 scripts/.bun-cache/
 scripts/prebuilt/
-data/
 .contynu/
+data/
+.codegraph/
+.claude/
+.gemini/

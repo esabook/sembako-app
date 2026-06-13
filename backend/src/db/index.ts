@@ -4,6 +4,8 @@ import postgres from 'postgres'
 import { drizzle as drizzlePg } from 'drizzle-orm/postgres-js'
 import mysql from 'mysql2/promise'
 import { drizzle as drizzleMy } from 'drizzle-orm/mysql2'
+import { createClient } from '@libsql/client'
+import { drizzle as drizzleLibsql } from 'drizzle-orm/libsql'
 import * as schema from './schema.ts'
 
 export { query } from './query.ts'
@@ -12,7 +14,9 @@ export { isoNow } from './builders.ts'
 const url = process.env.DATABASE_URL ?? './data.db'
 
 export const dialect = url.startsWith('postgres') ? 'postgres'
-  : url.startsWith('mysql') ? 'mysql' : 'sqlite'
+  : url.startsWith('mysql') ? 'mysql'
+  : (url.startsWith('libsql://') || url.startsWith('https://')) ? 'libsql'
+  : 'sqlite'
 
 // Canonical TS type — runtime may be PG/MySQL instance but API is the same
 type AnyDB = ReturnType<typeof drizzleSQLite<typeof schema>>
@@ -29,6 +33,14 @@ function initDB() {
   if (dialect === 'mysql') {
     const pool = mysql.createPool(url)
     const db = drizzleMy(pool, { schema, mode: 'default' }) as unknown as AnyDB
+    const withTransaction = <T>(fn: (tx: AnyDB) => Promise<T>) =>
+      (db as any).transaction((tx: any) => fn(tx as AnyDB))
+    return { db, withTransaction, sqlite: undefined as unknown as Database }
+  }
+
+  if (dialect === 'libsql') {
+    const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN })
+    const db = drizzleLibsql(client, { schema }) as unknown as AnyDB
     const withTransaction = <T>(fn: (tx: AnyDB) => Promise<T>) =>
       (db as any).transaction((tx: any) => fn(tx as AnyDB))
     return { db, withTransaction, sqlite: undefined as unknown as Database }

@@ -1,5 +1,6 @@
 import { loading, errors, toast } from '$lib/stores/ui.store';
 import type { WithLoadingOpts } from '$lib/types/error.types';
+import { OfflineQueuedError } from '$lib/stores/offlineQueue';
 
 // --- withIdle ---
 
@@ -95,6 +96,11 @@ export async function withLoading<T>(
 		}
 		return hasil;
 	} catch (e) {
+		if (e instanceof OfflineQueuedError) {
+			toast.info(`Offline — ${e.label} disimpan dalam antrian`);
+			opts.onAntri?.();
+			return null;
+		}
 		const asli = e instanceof Error ? e.message : String(e);
 		const pesan = opts.errorPesan ?? petakanError(asli);
 		errors.tambah({

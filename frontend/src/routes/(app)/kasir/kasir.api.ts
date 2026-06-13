@@ -3,6 +3,7 @@
 // Konsumsi oleh kasir.store.ts via withLoading().
 
 import { api } from '$lib/utils/api';
+import { enqueue, OfflineQueuedError } from '$lib/stores/offlineQueue';
 import type { BarangResult, PelangganResult, HistoriPenjualan, HistoriDetail, StokMenipis } from './kasir.types';
 import type { ItemKeranjang, MetodeBayar, TipeTransaksi } from '$lib/stores/kasir';
 
@@ -30,7 +31,14 @@ type SubmitPenjualanBody = {
 
 export async function submitPenjualan(body: SubmitPenjualanBody): Promise<{ no_transaksi: string }> {
 	const res = await api.post<{ no_transaksi: string }>('/penjualan', body);
-	if (!res.success) throw new Error(res.error);
+	if (!res.success) {
+		if (res.error === 'Network error' && !navigator.onLine) {
+			const label = `Transaksi Rp ${new Intl.NumberFormat('id-ID').format(body.bayar)}`
+			enqueue({ method: 'post', path: '/penjualan', body, label })
+			throw new OfflineQueuedError(label)
+		}
+		throw new Error(res.error);
+	}
 	return res.data;
 }
 
