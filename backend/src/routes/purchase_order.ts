@@ -88,7 +88,7 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   // Barang stok di bawah minimum
-  const kritisRows = await query.findAll(db
+  const kritisRows = (await query.findAll(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -100,7 +100,7 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
     })
     .from(barang)
     .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
-    )
+    ))
     .filter((b) => b.stok_sekarang <= b.stok_minimum)
 
   // Rata penjualan 7 hari — hitung dari penjualan_detail
