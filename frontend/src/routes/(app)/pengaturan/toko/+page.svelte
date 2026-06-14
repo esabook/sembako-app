@@ -5,6 +5,8 @@
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/layout/PageHeader.svelte';
 	import SectionCard from '$lib/components/layout/SectionCard.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import Input from '$lib/components/ui/Input.svelte';
 
 	type Toko = {
 		id: number;
@@ -118,30 +120,13 @@
 	<SectionCard judul="Tambah Toko Baru">
 		<div class="flex flex-col gap-2">
 			<div class="flex gap-2">
-				<input
-					class="w-full rounded border px-3 py-2 text-sm"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					placeholder="Kode (mis. TOKO-2)"
-					bind:value={formToko.kode_toko}
-				/>
-				<input
-					class="w-full rounded border px-3 py-2 text-sm"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					placeholder="Nama toko"
-					bind:value={formToko.nama}
-				/>
+				<Input placeholder="Kode (mis. TOKO-2)" bind:value={formToko.kode_toko} />
+				<Input placeholder="Nama toko" bind:value={formToko.nama} />
 			</div>
-			<input
-				class="w-full rounded border px-3 py-2 text-sm"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-				placeholder="Alamat (opsional)"
-				bind:value={formToko.alamat}
-			/>
-			<button
-				class="shrink-0 self-end rounded px-3 py-1 text-sm font-bold"
-				style="background:var(--accent);color:var(--bg)"
-				onclick={tambahToko}>+ Tambah Toko</button
-			>
+			<Input placeholder="Alamat (opsional)" bind:value={formToko.alamat} />
+			<div class="self-end">
+				<Button onclick={tambahToko}>+ Tambah Toko</Button>
+			</div>
 		</div>
 	</SectionCard>
 
@@ -157,24 +142,14 @@
 					>
 						<span class="font-mono text-xs" style="color:var(--text-dim)">[{t.kode_toko}]</span>
 						{t.nama}
-						{#if t.alamat}<span class="text-xs" style="color:var(--text-dim)">
-								· {t.alamat}</span
-							>{/if}
+						{#if t.alamat}<span class="text-xs" style="color:var(--text-dim)">· {t.alamat}</span>{/if}
 					</button>
-					<button
-						class="ml-auto rounded border px-2 py-1 text-xs transition-colors"
-						style="border-color:var(--border);color:var(--danger)"
-						onclick={() => toggleAktifToko(t)}
-					>
+					<Button variant="ghost" size="xs" onclick={() => toggleAktifToko(t)}>
 						{t.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-					</button>
-					<button
-						class="rounded px-2 py-0.5 text-xs"
-						style="background:var(--surface-2)"
-						onclick={() => toggleToko(t.id)}
-					>
+					</Button>
+					<Button variant="dim" size="xs" onclick={() => toggleToko(t.id)}>
 						{expandedToko === t.id ? '▲ Cabang' : '▼ Cabang'}
-					</button>
+					</Button>
 				</div>
 
 				{#if expandedToko === t.id}
@@ -187,45 +162,25 @@
 									>
 									{c.nama}
 								</span>
-								<button
-									class="ml-auto rounded border px-2 py-1 text-xs transition-colors"
-									style="border-color:var(--border);color:var(--danger)"
-									onclick={() => toggleAktifCabang(t.id, c)}
-								>
+								<Button variant="ghost" size="xs" onclick={() => toggleAktifCabang(t.id, c)}>
 									{c.is_active ? 'Nonaktifkan' : 'Aktifkan'}
-								</button>
+								</Button>
 							</div>
 						{/each}
 
 						{#if addingCabangForToko === t.id}
 							<div class="mt-2 flex flex-col gap-1.5">
 								<div class="flex gap-2">
-									<input
-										class="w-full rounded border px-3 py-2 text-sm"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+									<Input
 										placeholder="Kode (mis. CAB-02)"
 										bind:value={formCabang.kode_cabang}
 									/>
-									<input
-										class="w-full rounded border px-3 py-2 text-sm"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-										placeholder="Nama cabang"
-										bind:value={formCabang.nama}
-									/>
+									<Input placeholder="Nama cabang" bind:value={formCabang.nama} />
 								</div>
-								<input
-									class="w-full rounded border px-3 py-2 text-sm"
-									style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-									placeholder="Alamat (opsional)"
-									bind:value={formCabang.alamat}
-								/>
+								<Input placeholder="Alamat (opsional)" bind:value={formCabang.alamat} />
 								<div class="flex gap-2">
-									<button class="btn-primary text-xs" onclick={() => tambahCabang(t.id)}
-										>Simpan</button
-									>
-									<button class="btn-ghost text-xs" onclick={() => (addingCabangForToko = null)}
-										>Batal</button
-									>
+									<Button onclick={() => tambahCabang(t.id)}>Simpan</Button>
+									<Button variant="ghost" onclick={() => (addingCabangForToko = null)}>Batal</Button>
 								</div>
 							</div>
 						{:else}

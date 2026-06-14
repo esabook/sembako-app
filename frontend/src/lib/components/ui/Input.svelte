@@ -45,7 +45,7 @@
 		{onblur}
 		onkeydown={handleKey}
 		{autofocus}
-		class="w-full rounded border px-2 py-1.5 text-sm outline-none disabled:opacity-50"
-		style="background:var(--bg);border-color:var(--border);color:var(--text)"
+		class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1 disabled:opacity-50"
+		style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)"
 	/>
 </label>

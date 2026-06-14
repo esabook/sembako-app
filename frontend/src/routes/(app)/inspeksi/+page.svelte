@@ -6,6 +6,7 @@
   import SlideOver from '$lib/components/SlideOver.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
 
   type Inspeksi = {
     id: number; tanggal: string; jenis: string; area: string | null
@@ -106,25 +107,22 @@
 <div class="p-3 md:p-6 space-y-4">
   <div class="flex flex-wrap items-center justify-between gap-2">
     <h1 class="text-base md:text-lg font-bold" style="color:var(--text)">Inspeksi Toko</h1>
-    <button onclick={bukaFormTambah}
-      class="px-3 py-1.5 rounded text-sm font-medium text-white" style="background:var(--accent)">
-      + Catat Inspeksi
-    </button>
+    <Button onclick={bukaFormTambah}>+ Catat Inspeksi</Button>
   </div>
 
   <!-- Filter -->
   <div class="flex flex-wrap gap-2">
     <input type="month" bind:value={filterBulan}
-      class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+      class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)" />
     <select bind:value={filterJenis}
-      class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+      class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)">
       <option value="">Semua Jenis</option>
       {#each Object.entries(JENIS_LABEL) as [k, v] (k)}
         <option value={k}>{v}</option>
       {/each}
     </select>
     <select bind:value={filterStatus}
-      class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+      class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)">
       <option value="">Semua Status</option>
       <option value="draft">Draft</option>
       <option value="selesai">Selesai</option>
@@ -181,19 +179,17 @@
                 {/if}
               </td>
               <td class="py-2 px-3">
-                <span class="text-xs px-2 py-0.5 rounded-full"
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium"
                   style={row.status === 'selesai'
-                    ? 'background:#d1fae5;color:#059669'
-                    : 'background:#fef3c7;color:#d97706'}>
+                    ? 'background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)'
+                    : 'background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)'}>
                   {row.status === 'selesai' ? 'Selesai' : 'Draft'}
                 </span>
               </td>
               <td class="py-2 px-3">
                 <div class="flex gap-2 justify-end">
-                  <button onclick={() => bukaFormEdit(row)}
-                    class="text-xs px-2 py-1 rounded" style="background:var(--surface2);color:var(--text)">Edit</button>
-                  <button onclick={() => konfirmHapus = { buka: true, id: row.id }}
-                    class="text-xs px-2 py-1 rounded" style="background:#fee2e2;color:#dc2626">Hapus</button>
+                  <Button size="xs" variant="dim" onclick={() => bukaFormEdit(row)}>Edit</Button>
+                  <Button size="xs" variant="danger" onclick={() => konfirmHapus = { buka: true, id: row.id }}>Hapus</Button>
                 </div>
               </td>
             </tr>
@@ -222,7 +218,7 @@
     <div>
       <label for="fi-tgl" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Tanggal *</label>
       <input id="fi-tgl" bind:value={fTanggal} type="date"
-        class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+        class="w-full border rounded px-3 py-2 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
       <p class="block text-sm font-medium mb-2" style="color:var(--text-dim)">Jenis Inspeksi</p>
@@ -241,22 +237,22 @@
     <div>
       <label for="fi-area" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Area yang Diperiksa</label>
       <input id="fi-area" bind:value={fArea} type="text" placeholder="Gudang, Kasir, Toilet, dll"
-        class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+        class="w-full border rounded px-3 py-2 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
       <label for="fi-temuan" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Temuan</label>
       <textarea id="fi-temuan" bind:value={fTemuan} rows="3" placeholder="Masalah atau kondisi yang ditemukan"
-        class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
+        class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--bg);border-color:var(--border);color:var(--text)"></textarea>
     </div>
     <div>
       <label for="fi-tindakan" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Tindakan</label>
       <textarea id="fi-tindakan" bind:value={fTindakan} rows="2" placeholder="Tindakan yang sudah/akan dilakukan"
-        class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
+        class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--bg);border-color:var(--border);color:var(--text)"></textarea>
     </div>
     <div>
       <label for="fi-nilai" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Nilai (1–100)</label>
       <input id="fi-nilai" bind:value={fNilai} type="number" min="1" max="100"
-        class="w-full border rounded px-3 py-2 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+        class="w-full border rounded px-3 py-2 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)" />
     </div>
     <div>
       <p class="block text-sm font-medium mb-2" style="color:var(--text-dim)">Status</p>
@@ -275,13 +271,11 @@
     <div>
       <label for="fi-catatan" class="block text-sm font-medium mb-1" style="color:var(--text-dim)">Catatan</label>
       <textarea id="fi-catatan" bind:value={fCatatan} rows="2"
-        class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
+        class="w-full border rounded px-3 py-2 text-sm resize-none" style="background:var(--bg);border-color:var(--border);color:var(--text)"></textarea>
     </div>
     <div class="flex gap-2 pt-2">
-      <button onclick={() => formOpen = false}
-        class="flex-1 py-2 rounded text-sm" style="background:var(--surface2);color:var(--text)">Batal</button>
-      <button onclick={simpan}
-        class="flex-1 py-2 rounded text-sm font-medium text-white" style="background:var(--accent)">Simpan</button>
+      <div class="flex-1"><Button variant="dim" onclick={() => formOpen = false}>Batal</Button></div>
+      <div class="flex-1"><Button onclick={simpan}>Simpan</Button></div>
     </div>
   </div>
   {/snippet}

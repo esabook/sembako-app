@@ -9,6 +9,9 @@
   import DataTable from '$lib/components/DataTable.svelte'
   import Skeleton from '$lib/components/ui/Skeleton.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
+  import Modal from '$lib/components/ui/Modal.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Input from '$lib/components/ui/Input.svelte'
   import type { Column } from '$lib/components/DataTable.svelte'
   import { createBudgetStore } from './budget/budget.store.svelte.js'
   import {
@@ -498,10 +501,11 @@
 <div >
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem">
     <h1 style="font-size:1.1rem; font-weight:700; color:var(--text)">Keuangan</h1>
-    <button
-      onclick={() => tab === 'jurnal' ? bukaModalJurnal() : bukaTambahKasBank()}
-      style="padding:.4rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer; visibility:{tab === 'jurnal' || tab === 'kasbank' ? 'visible' : 'hidden'}"
-    >{tab === 'kasbank' ? '+ Tambah Akun' : '+ Catat Jurnal'}</button>
+    {#if tab === 'jurnal' || tab === 'kasbank'}
+      <Button onclick={() => tab === 'jurnal' ? bukaModalJurnal() : bukaTambahKasBank()}>
+        {tab === 'kasbank' ? '+ Tambah Akun' : '+ Catat Jurnal'}
+      </Button>
+    {/if}
   </div>
 
   <!-- Ringkasan -->
@@ -1152,302 +1156,218 @@
 
 <!-- ── Modal: Form Pinjaman/Investasi ────────────────────────────────────────── -->
 {#if piFormOpen}
-  <div role="dialog" aria-modal="true" tabindex="-1"
-    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
-    onclick={(e) => { if (e.target === e.currentTarget) piFormOpen=false }}
-    onkeydown={(e) => { if (e.key === 'Escape') piFormOpen=false }}>
-    <div class="rounded-lg p-5 w-full max-w-md flex flex-col gap-3 text-sm overflow-y-auto max-h-full"
-      style="background:var(--surface);max-height:90vh">
-      <h2 class="font-bold text-base">{editPiId ? 'Edit' : 'Tambah'} Pinjaman / Investasi</h2>
+  <Modal judul="{editPiId ? 'Edit' : 'Tambah'} Pinjaman / Investasi" ontutup={() => piFormOpen = false}>
+    <div class="flex flex-col gap-3 text-sm">
       <div class="flex gap-4">
         {#each ([['pinjaman','Pinjaman'],['investasi','Investasi']] as const) as [v, lbl] (v)}
-          <label class="flex items-center gap-1.5 cursor-pointer">
+          <label class="flex cursor-pointer items-center gap-1.5">
             <input type="radio" bind:group={fPiTipe} value={v} class="accent-[var(--accent)]" />
             <span style="color:{v==='pinjaman' ? 'var(--danger)' : 'var(--accent)'}">{lbl}</span>
           </label>
         {/each}
       </div>
-      <div class="flex flex-col gap-1">
-        <label for="pi-nama" class="text-xs" style="color:var(--text-dim)">{fPiTipe === 'pinjaman' ? 'NAMA PEMBERI PINJAMAN' : 'NAMA PENERIMA/PROYEK'} *</label>
-        <input id="pi-nama" bind:value={fPiNama} required placeholder="mis. Bank BRI, Koperasi, ..."
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
+      <Input label="{fPiTipe === 'pinjaman' ? 'NAMA PEMBERI PINJAMAN' : 'NAMA PENERIMA/PROYEK'} *"
+        placeholder="mis. Bank BRI, Koperasi, ..." bind:value={fPiNama} />
       <div class="grid grid-cols-2 gap-3">
-        <div class="flex flex-col gap-1">
-          <label for="pi-pokok" class="text-xs" style="color:var(--text-dim)">JUMLAH POKOK (Rp) *</label>
-          <input id="pi-pokok" type="number" min="1" bind:value={fPiPokok} required
-            class="px-2 py-1 rounded border outline-none"
-            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        <div>
+          <span class="mb-1 block text-xs" style="color:var(--text-dim)">JUMLAH POKOK (Rp) *</span>
+          <input type="number" min="1" bind:value={fPiPokok}
+            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
         </div>
-        <div class="flex flex-col gap-1">
-          <label for="pi-bunga" class="text-xs" style="color:var(--text-dim)">BUNGA (% per tahun)</label>
-          <input id="pi-bunga" type="number" min="0" step="0.1" bind:value={fPiBunga}
-            class="px-2 py-1 rounded border outline-none"
-            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        <div>
+          <span class="mb-1 block text-xs" style="color:var(--text-dim)">BUNGA (% per tahun)</span>
+          <input type="number" min="0" step="0.1" bind:value={fPiBunga}
+            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
         </div>
-        <div class="flex flex-col gap-1">
-          <label for="pi-cicilan" class="text-xs" style="color:var(--text-dim)">CICILAN/BULAN (Rp)</label>
-          <input id="pi-cicilan" type="number" min="0" bind:value={fPiCicilan}
-            class="px-2 py-1 rounded border outline-none"
-            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        <div>
+          <span class="mb-1 block text-xs" style="color:var(--text-dim)">CICILAN/BULAN (Rp)</span>
+          <input type="number" min="0" bind:value={fPiCicilan}
+            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
         </div>
-        <div class="flex flex-col gap-1">
-          <label for="pi-mulai" class="text-xs" style="color:var(--text-dim)">TANGGAL MULAI *</label>
-          <input id="pi-mulai" type="date" bind:value={fPiMulai} required
-            class="px-2 py-1 rounded border outline-none"
-            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        <div>
+          <span class="mb-1 block text-xs" style="color:var(--text-dim)">TANGGAL MULAI *</span>
+          <input type="date" bind:value={fPiMulai}
+            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
         </div>
-        <div class="flex flex-col gap-1 col-span-2">
-          <label for="pi-jatuh" class="text-xs" style="color:var(--text-dim)">JATUH TEMPO</label>
-          <input id="pi-jatuh" type="date" bind:value={fPiJatuh}
-            class="px-2 py-1 rounded border outline-none"
-            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        <div class="col-span-2">
+          <span class="mb-1 block text-xs" style="color:var(--text-dim)">JATUH TEMPO</span>
+          <input type="date" bind:value={fPiJatuh}
+            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
         </div>
       </div>
-      <div class="flex flex-col gap-1">
-        <label for="pi-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
-        <input id="pi-catatan" bind:value={fPiCatatan} placeholder="Opsional"
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
+      <Input label="CATATAN" placeholder="Opsional" bind:value={fPiCatatan} />
       {#if piError}<p class="text-xs" style="color:var(--danger)">{piError}</p>{/if}
-      <div class="flex justify-end gap-2 mt-1">
-        <button onclick={() => piFormOpen=false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
-        <button onclick={simpanPi} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
-      </div>
     </div>
-  </div>
+    {#snippet footer()}
+      <Button variant="ghost" onclick={() => piFormOpen = false}>Batal</Button>
+      <Button onclick={simpanPi}>Simpan</Button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ── Modal: Bayar Cicilan Pinjaman ─────────────────────────────────────────── -->
 {#if piCicilOpen}
-  <div role="dialog" aria-modal="true" tabindex="-1"
-    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
-    onclick={(e) => { if (e.target === e.currentTarget) piCicilOpen=false }}
-    onkeydown={(e) => { if (e.key === 'Escape') piCicilOpen=false }}>
-    <div class="rounded-lg p-5 w-full max-w-sm flex flex-col gap-3 text-sm"
-      style="background:var(--surface)">
-      <h2 class="font-bold text-base">Bayar Cicilan</h2>
-      <div class="flex flex-col gap-1">
-        <label for="pi-cicil-jml" class="text-xs" style="color:var(--text-dim)">JUMLAH CICILAN (Rp) *</label>
-        <input id="pi-cicil-jml" type="number" min="1" bind:value={cicilJumlah}
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
-      <div class="flex justify-end gap-2 mt-1">
-        <button onclick={() => piCicilOpen=false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
-        <button onclick={cicilPi} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Bayar</button>
-      </div>
+  <Modal judul="Bayar Cicilan" lebar="sm" ontutup={() => piCicilOpen = false}>
+    <div>
+      <span class="mb-1 block text-xs" style="color:var(--text-dim)">JUMLAH CICILAN (Rp) *</span>
+      <input type="number" min="1" bind:value={cicilJumlah}
+        class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+        style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
     </div>
-  </div>
+    {#snippet footer()}
+      <Button variant="ghost" onclick={() => piCicilOpen = false}>Batal</Button>
+      <Button onclick={cicilPi}>Bayar</Button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ═══════════════════════════════════ MODAL BAYAR HUTANG ═══ -->
 {#if modalBayarHutang && hutangDipilih}
-  <div
-    role="dialog" aria-modal="true" tabindex="-1"
-    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
-    onkeydown={(e) => { if (e.key === 'Escape') modalBayarHutang = false }}
-  >
-    <div
-      style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;max-width:420px"
-      role="presentation" onclick={(e) => e.stopPropagation()}
-    >
-      <h2 style="font-size:1rem; font-weight:700; margin:0 0 1rem; color:var(--text)">Bayar Hutang</h2>
-      <p style="font-size:.82rem; color:var(--text-dim); margin:0 0 1rem">
+  <Modal judul="Bayar Hutang" ontutup={() => modalBayarHutang = false}>
+    <div class="flex flex-col gap-3">
+      <p class="text-sm" style="color:var(--text-dim)">
         {hutangDipilih.nama_supplier} — Sisa <strong style="color:var(--danger)">Rp {fmt(hutangDipilih.sisa_hutang)}</strong>
       </p>
-      <div style="display:flex; flex-direction:column; gap:.75rem">
-        <div>
-          <label for="bh-tgl" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Tanggal Bayar</label>
-          <input id="bh-tgl" type="date" bind:value={formBayarHutang.tanggal_bayar}
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
-        <div>
-          <label for="bh-jumlah" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Jumlah Bayar</label>
-          <input id="bh-jumlah" type="number" bind:value={formBayarHutang.jumlah_bayar} min="1"
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
-        <div>
-          <label for="bh-akun" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Akun Kas/Bank</label>
-          <select id="bh-akun" bind:value={formBayarHutang.kas_bank_id}
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
-            {#each kasBankList as kb (kb.id)}
-              <option value={kb.id}>{kb.nama}</option>
-            {/each}
-          </select>
-        </div>
+      <Input label="Tanggal Bayar" type="text" value={formBayarHutang.tanggal_bayar}
+        oninput={(v) => formBayarHutang.tanggal_bayar = v} />
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jumlah Bayar</span>
+        <input type="number" bind:value={formBayarHutang.jumlah_bayar} min="1"
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
       </div>
-      <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem">
-        <button onclick={() => modalBayarHutang = false}
-          style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
-        <button onclick={simpanBayarHutang} disabled={savingBayarHutang}
-          style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingBayarHutang ? .6 : 1}">
-          {savingBayarHutang ? 'Menyimpan...' : 'Bayar'}
-        </button>
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Akun Kas/Bank</span>
+        <select bind:value={formBayarHutang.kas_bank_id}
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
+          {#each kasBankList as kb (kb.id)}
+            <option value={kb.id}>{kb.nama}</option>
+          {/each}
+        </select>
       </div>
     </div>
-  </div>
+    {#snippet footer()}
+      <Button variant="ghost" onclick={() => modalBayarHutang = false}>Batal</Button>
+      <Button onclick={simpanBayarHutang} loading={savingBayarHutang}>Bayar</Button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ══════════════════════════════════ MODAL BAYAR PIUTANG ══ -->
 {#if modalBayarPiutang && piutangDipilih}
-  <div
-    role="dialog" aria-modal="true" tabindex="-1"
-    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
-    onkeydown={(e) => { if (e.key === 'Escape') modalBayarPiutang = false }}
-  >
-    <div
-      style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;max-width:420px"
-      role="presentation" onclick={(e) => e.stopPropagation()}
-    >
-      <h2 style="font-size:1rem; font-weight:700; margin:0 0 1rem; color:var(--text)">Terima Pembayaran Piutang</h2>
-      <p style="font-size:.82rem; color:var(--text-dim); margin:0 0 1rem">
+  <Modal judul="Terima Pembayaran Piutang" ontutup={() => modalBayarPiutang = false}>
+    <div class="flex flex-col gap-3">
+      <p class="text-sm" style="color:var(--text-dim)">
         {piutangDipilih.nama_pelanggan} — Sisa <strong style="color:var(--warn)">Rp {fmt(piutangDipilih.sisa_piutang)}</strong>
       </p>
-      <div style="display:flex; flex-direction:column; gap:.75rem">
-        <div>
-          <label for="bp-tgl" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Tanggal Terima</label>
-          <input id="bp-tgl" type="date" bind:value={formBayarPiutang.tanggal_bayar}
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
-        <div>
-          <label for="bp-jumlah" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Jumlah Diterima</label>
-          <input id="bp-jumlah" type="number" bind:value={formBayarPiutang.jumlah_bayar} min="1"
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
-        <div>
-          <label for="bp-akun" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Akun Kas/Bank</label>
-          <select id="bp-akun" bind:value={formBayarPiutang.kas_bank_id}
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
-            {#each kasBankList as kb (kb.id)}
-              <option value={kb.id}>{kb.nama}</option>
-            {/each}
-          </select>
-        </div>
+      <Input label="Tanggal Terima" type="text" value={formBayarPiutang.tanggal_bayar}
+        oninput={(v) => formBayarPiutang.tanggal_bayar = v} />
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jumlah Diterima</span>
+        <input type="number" bind:value={formBayarPiutang.jumlah_bayar} min="1"
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
       </div>
-      <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem">
-        <button onclick={() => modalBayarPiutang = false}
-          style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
-        <button onclick={simpanBayarPiutang} disabled={savingBayarPiutang}
-          style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingBayarPiutang ? .6 : 1}">
-          {savingBayarPiutang ? 'Menyimpan...' : 'Terima'}
-        </button>
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Akun Kas/Bank</span>
+        <select bind:value={formBayarPiutang.kas_bank_id}
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
+          {#each kasBankList as kb (kb.id)}
+            <option value={kb.id}>{kb.nama}</option>
+          {/each}
+        </select>
       </div>
     </div>
-  </div>
+    {#snippet footer()}
+      <Button variant="ghost" onclick={() => modalBayarPiutang = false}>Batal</Button>
+      <Button onclick={simpanBayarPiutang} loading={savingBayarPiutang}>Terima</Button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ══════════════════════════════════ MODAL JURNAL MANUAL ══ -->
 {#if modalJurnal}
-  <div
-    role="dialog" aria-modal="true" tabindex="-1"
-    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
-    onkeydown={(e) => { if (e.key === 'Escape') modalJurnal = false }}
-  >
-    <div
-      style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;max-width:440px"
-      role="presentation" onclick={(e) => e.stopPropagation()}
-    >
-      <h2 style="font-size:1rem; font-weight:700; margin:0 0 1rem; color:var(--text)">Catat Jurnal Kas</h2>
-      <div style="display:flex; flex-direction:column; gap:.75rem">
-        <div>
-          <label for="jm-tgl" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Tanggal</label>
-          <input id="jm-tgl" type="date" bind:value={formJurnal.tanggal}
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
-        <div>
-          <label for="jm-akun" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Akun Kas/Bank</label>
-          <select id="jm-akun" bind:value={formJurnal.kas_bank_id}
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
-            {#each kasBankList as kb (kb.id)}
-              <option value={kb.id}>{kb.nama}</option>
-            {/each}
-          </select>
-        </div>
-        <div>
-          <label for="jm-jenis" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Jenis</label>
-          <select id="jm-jenis" bind:value={formJurnal.jenis}
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
-            <option value="masuk">Masuk</option>
-            <option value="keluar">Keluar</option>
-          </select>
-        </div>
-        <div>
-          <label for="jm-kategori" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Kategori</label>
-          <input id="jm-kategori" type="text" bind:value={formJurnal.kategori} placeholder="contoh: operasional, gaji..."
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
-        <div>
-          <label for="jm-ket" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Keterangan</label>
-          <input id="jm-ket" type="text" bind:value={formJurnal.keterangan}
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
-        <div>
-          <label for="jm-jumlah" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Jumlah</label>
-          <input id="jm-jumlah" type="number" bind:value={formJurnal.jumlah} min="1"
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
+  <Modal judul="Catat Jurnal Kas" ontutup={() => modalJurnal = false}>
+    <div class="flex flex-col gap-3">
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Tanggal</span>
+        <input type="date" bind:value={formJurnal.tanggal}
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
       </div>
-      <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem">
-        <button onclick={() => modalJurnal = false}
-          style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
-        <button onclick={simpanJurnal} disabled={savingJurnal}
-          style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingJurnal ? .6 : 1}">
-          {savingJurnal ? 'Menyimpan...' : 'Simpan'}
-        </button>
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Akun Kas/Bank</span>
+        <select bind:value={formJurnal.kas_bank_id}
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
+          {#each kasBankList as kb (kb.id)}
+            <option value={kb.id}>{kb.nama}</option>
+          {/each}
+        </select>
+      </div>
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jenis</span>
+        <select bind:value={formJurnal.jenis}
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
+          <option value="masuk">Masuk</option>
+          <option value="keluar">Keluar</option>
+        </select>
+      </div>
+      <Input label="Kategori" placeholder="contoh: operasional, gaji..." value={formJurnal.kategori}
+        oninput={(v) => formJurnal.kategori = v} />
+      <Input label="Keterangan" value={formJurnal.keterangan ?? ''}
+        oninput={(v) => formJurnal.keterangan = v} />
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jumlah</span>
+        <input type="number" bind:value={formJurnal.jumlah} min="1"
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
       </div>
     </div>
-  </div>
+    {#snippet footer()}
+      <Button variant="ghost" onclick={() => modalJurnal = false}>Batal</Button>
+      <Button onclick={simpanJurnal} loading={savingJurnal}>Simpan</Button>
+    {/snippet}
+  </Modal>
 {/if}
 
 <!-- ══════════════════════════════════ MODAL KAS/BANK ════════ -->
 {#if modalKasBank}
-  <div
-    role="dialog" aria-modal="true" tabindex="-1"
-    style="position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem"
-    onkeydown={(e) => { if (e.key === 'Escape') modalKasBank = false }}
-  >
-    <div
-      style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.5rem;width:100%;max-width:400px"
-      role="presentation" onclick={(e) => e.stopPropagation()}
-    >
-      <h2 style="font-size:1rem; font-weight:700; margin:0 0 1rem; color:var(--text)">
-        {editKasBank ? 'Edit Akun' : 'Tambah Akun Kas/Bank'}
-      </h2>
-      <div style="display:flex; flex-direction:column; gap:.75rem">
+  <Modal judul={editKasBank ? 'Edit Akun' : 'Tambah Akun Kas/Bank'} ontutup={() => modalKasBank = false}>
+    <div class="flex flex-col gap-3">
+      <Input label="Nama Akun" placeholder="contoh: Kas Toko, BCA 1234"
+        bind:value={formKasBank.nama} />
+      {#if !editKasBank}
         <div>
-          <label for="kb-nama" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Nama Akun</label>
-          <input id="kb-nama" type="text" bind:value={formKasBank.nama} placeholder="contoh: Kas Toko, BCA 1234"
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
+          <span class="mb-1 block text-xs" style="color:var(--text-dim)">Tipe</span>
+          <select bind:value={formKasBank.tipe}
+            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
+            <option value="kas">Kas (uang tunai)</option>
+            <option value="bank">Bank (rekening)</option>
+          </select>
         </div>
-        {#if !editKasBank}
-          <div>
-            <label for="kb-tipe" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Tipe</label>
-            <select id="kb-tipe" bind:value={formKasBank.tipe}
-              style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box">
-              <option value="kas">Kas (uang tunai)</option>
-              <option value="bank">Bank (rekening)</option>
-            </select>
-          </div>
-        {/if}
-        <div>
-          <label for="kb-saldo" style="display:block; font-size:.75rem; color:var(--text-dim); margin-bottom:.3rem">Saldo Awal</label>
-          <input id="kb-saldo" type="number" bind:value={formKasBank.saldo_awal} min="0"
-            style="width:100%; padding:.5rem .7rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.85rem; box-sizing:border-box" />
-        </div>
-      </div>
-      <div style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem">
-        <button onclick={() => modalKasBank = false}
-          style="padding:.45rem .9rem; background:transparent; border:1px solid var(--border); border-radius:4px; color:var(--text-dim); font-family:inherit; font-size:.82rem; cursor:pointer">Batal</button>
-        <button onclick={simpanKasBank} disabled={savingKasBank}
-          style="padding:.45rem .9rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.82rem; font-weight:700; cursor:pointer; opacity:{savingKasBank ? .6 : 1}">
-          {savingKasBank ? 'Menyimpan...' : 'Simpan'}
-        </button>
+      {/if}
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Saldo Awal</span>
+        <input type="number" bind:value={formKasBank.saldo_awal} min="0"
+          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
       </div>
     </div>
-  </div>
+    {#snippet footer()}
+      <Button variant="ghost" onclick={() => modalKasBank = false}>Batal</Button>
+      <Button onclick={simpanKasBank} loading={savingKasBank}>Simpan</Button>
+    {/snippet}
+  </Modal>
 {/if}
 
 {#snippet kartuTarget(label: string, nilai: string, target: string | null, pct: number, status: StatusMetrik)}

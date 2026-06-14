@@ -7,6 +7,7 @@
   import SlideOver from '$lib/components/SlideOver.svelte'
   import { api } from '$lib/utils/api.js'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer', 'kasir', 'pelayanan'].includes($user.role)) goto('/kasir')
@@ -165,16 +166,17 @@
   {#if tab === 'permintaan'}
     <div class="flex flex-wrap gap-2 items-end mb-2">
       <input type="month" bind:value={pBulan}
-        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)">
       <select bind:value={pStatus}
-        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)">
         <option value="">Semua Status</option>
         <option value="menunggu">Menunggu</option>
         <option value="tersedia">Tersedia</option>
         <option value="tidak_tersedia">Tidak Tersedia</option>
       </select>
-      <button onclick={() => { pError=''; fPNama=''; fPBarang=''; fPPelanggan=''; fPQty=''; fPCatatan=''; fPTanggal=new Date().toISOString().slice(0,10); pFormOpen=true }}
-        class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Catat Permintaan</button>
+      <div class="ml-auto">
+        <Button onclick={() => { pError=''; fPNama=''; fPBarang=''; fPPelanggan=''; fPQty=''; fPCatatan=''; fPTanggal=new Date().toISOString().slice(0,10); pFormOpen=true }}>+ Catat Permintaan</Button>
+      </div>
     </div>
 
     {#if pRows.length === 0}
@@ -225,17 +227,18 @@
   {#if tab === 'komplain'}
     <div class="flex flex-wrap gap-2 items-end mb-2">
       <input type="month" bind:value={kBulan}
-        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)">
       <select bind:value={kStatus}
-        class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
+        class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)">
         <option value="">Semua Status</option>
         <option value="masuk">Masuk</option>
         <option value="diproses">Diproses</option>
         <option value="selesai">Selesai</option>
         <option value="ditolak">Ditolak</option>
       </select>
-      <button onclick={() => { kError=''; fKPelanggan=''; fKKategori='lainnya'; fKDeskripsi=''; fKTanggal=new Date().toISOString().slice(0,10); kFormOpen=true }}
-        class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Catat Komplain</button>
+      <div class="ml-auto">
+        <Button onclick={() => { kError=''; fKPelanggan=''; fKKategori='lainnya'; fKDeskripsi=''; fKTanggal=new Date().toISOString().slice(0,10); kFormOpen=true }}>+ Catat Komplain</Button>
+      </div>
     </div>
 
     {#if kRows.length === 0}
@@ -288,8 +291,8 @@
     <div class="flex flex-col gap-1">
       <label for="fp-barang" class="text-xs" style="color:var(--text-dim)">NAMA BARANG DIMINTA *</label>
       <input id="fp-barang" bind:value={fPBarang} required placeholder="mis. Mie Instan ABC Rasa Soto"
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+        style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div class="flex flex-col gap-1">
@@ -314,13 +317,13 @@
     <div class="flex flex-col gap-1">
       <label for="fp-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
       <input id="fp-catatan" bind:value={fPCatatan} placeholder="Detail tambahan"
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+        style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
     </div>
     {#if pError}<p class="text-xs" style="color:var(--danger)">{pError}</p>{/if}
     <div class="flex justify-end gap-2 mt-1">
-      <button type="button" onclick={() => pFormOpen=false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
-      <button type="submit" class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
+      <Button type="button" variant="ghost" onclick={() => pFormOpen=false}>Batal</Button>
+      <Button type="submit">Simpan</Button>
     </div>
   </form>
   {/snippet}
@@ -333,8 +336,8 @@
     <div class="flex flex-col gap-1">
       <label for="fk-kat" class="text-xs" style="color:var(--text-dim)">KATEGORI *</label>
       <select id="fk-kat" bind:value={fKKategori}
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+        class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
+        style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
         {#each Object.entries(KATEGORI_LABEL) as [v, lbl] (v)}
           <option value={v}>{lbl}</option>
         {/each}
@@ -343,8 +346,8 @@
     <div class="flex flex-col gap-1">
       <label for="fk-desk" class="text-xs" style="color:var(--text-dim)">DESKRIPSI KOMPLAIN *</label>
       <textarea id="fk-desk" bind:value={fKDeskripsi} rows="3" required
-        class="px-2 py-1 rounded border outline-none resize-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)"></textarea>
+        class="w-full rounded border px-2 py-1.5 text-sm outline-none resize-none transition-colors focus:ring-1"
+        style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)"></textarea>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div class="flex flex-col gap-1">
@@ -362,8 +365,8 @@
     </div>
     {#if kError}<p class="text-xs" style="color:var(--danger)">{kError}</p>{/if}
     <div class="flex justify-end gap-2 mt-1">
-      <button type="button" onclick={() => kFormOpen=false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
-      <button type="submit" class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
+      <Button type="button" variant="ghost" onclick={() => kFormOpen=false}>Batal</Button>
+      <Button type="submit">Simpan</Button>
     </div>
   </form>
   {/snippet}
@@ -381,22 +384,19 @@
     <div class="flex flex-col gap-1">
       <label for="kd-res" class="text-xs" style="color:var(--text-dim)">RESOLUSI / CATATAN</label>
       <textarea id="kd-res" bind:value={fKResolusi} rows="3" placeholder="Cara penyelesaian komplain"
-        class="px-2 py-1 rounded border outline-none resize-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)"></textarea>
+        class="w-full rounded border px-2 py-1.5 text-sm outline-none resize-none transition-colors focus:ring-1"
+        style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)"></textarea>
     </div>
     <div class="flex flex-wrap gap-2 mt-1">
-      <button onclick={() => ubahStatusK(kDetailRow!.id, 'diproses', fKResolusi||undefined)}
-        class="px-3 py-1 rounded text-sm" style="background:color-mix(in srgb,var(--info) 20%,transparent);color:var(--info)">
+      <Button variant="ghost" onclick={() => ubahStatusK(kDetailRow!.id, 'diproses', fKResolusi||undefined)}>
         Tandai Diproses
-      </button>
-      <button onclick={() => ubahStatusK(kDetailRow!.id, 'selesai', fKResolusi||undefined)}
-        class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">
+      </Button>
+      <Button onclick={() => ubahStatusK(kDetailRow!.id, 'selesai', fKResolusi||undefined)}>
         Selesaikan
-      </button>
-      <button onclick={() => ubahStatusK(kDetailRow!.id, 'ditolak', fKResolusi||undefined)}
-        class="px-3 py-1 rounded text-sm" style="color:var(--danger)">
+      </Button>
+      <Button variant="danger" onclick={() => ubahStatusK(kDetailRow!.id, 'ditolak', fKResolusi||undefined)}>
         Tolak
-      </button>
+      </Button>
     </div>
   </div>
   {/if}

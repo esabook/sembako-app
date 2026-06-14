@@ -11,6 +11,7 @@
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabBarangGuide from './TabBarangGuide.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	type Barang = {
 		id: number;
@@ -217,9 +218,9 @@
 			{tampilNonAktif ? 'Sembunyikan Non-Aktif' : 'Tampilkan Non-Aktif'}
 		</button>
 		{#if $user && ['pemilik', 'manajer', 'gudang'].includes($user.role)}
-			<button onclick={() => goto('/gudang/import')} class="px-3 py-1 rounded text-sm border" style="border-color:var(--accent);color:var(--accent)">↑ Import CSV</button>
+			<Button variant="ghost" onclick={() => goto('/gudang/import')}>↑ Import CSV</Button>
 		{/if}
-		<button onclick={() => bukaFormBarang()} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+		<Button onclick={() => bukaFormBarang()}>+ Tambah</Button>
 	</div>
 	<DataTable
 		columns={kolBarang}
@@ -292,27 +293,27 @@
 		<div class="grid grid-cols-2 gap-3">
 			<div class="flex flex-col gap-1">
 				<label for="fb-kode" class="text-xs" style="color:var(--text-dim)">KODE *</label>
-				<input id="fb-kode" bind:value={fb.kode_barang} required class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				<input id="fb-kode" bind:value={fb.kode_barang} required class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="fb-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label>
-				<input id="fb-nama" bind:value={fb.nama_barang} required class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				<input id="fb-nama" bind:value={fb.nama_barang} required class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="fb-hb" class="text-xs" style="color:var(--text-dim)">HARGA BELI</label>
-				<input id="fb-hb" type="number" min="0" bind:value={fb.harga_beli_terakhir} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				<input id="fb-hb" type="number" min="0" bind:value={fb.harga_beli_terakhir} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="fb-he" class="text-xs" style="color:var(--text-dim)">HARGA ECERAN</label>
-				<input id="fb-he" type="number" min="0" bind:value={fb.harga_jual_eceran} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				<input id="fb-he" type="number" min="0" bind:value={fb.harga_jual_eceran} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="fb-hg" class="text-xs" style="color:var(--text-dim)">HARGA GROSIR</label>
-				<input id="fb-hg" type="number" min="0" bind:value={fb.harga_jual_grosir} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				<input id="fb-hg" type="number" min="0" bind:value={fb.harga_jual_grosir} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="fb-min" class="text-xs" style="color:var(--text-dim)">STOK MINIMUM</label>
-				<input id="fb-min" type="number" min="0" bind:value={fb.stok_minimum} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				<input id="fb-min" type="number" min="0" bind:value={fb.stok_minimum} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
 			</div>
 
 			<!-- Kategori dengan filter -->
@@ -321,8 +322,8 @@
 				{#if kategoriList.length === 0}
 					<p class="text-xs px-2 py-1.5 rounded" style="background:var(--surface2);color:var(--warn)">Belum ada kategori — tambah di tab Pengaturan.</p>
 				{:else}
-					<input type="text" placeholder="Filter kategori..." bind:value={searchKategori} class="px-2 py-1 rounded border outline-none text-xs" style="background:var(--surface2);border-color:var(--border);color:var(--text-dim)" />
-					<select id="fb-kat" bind:value={fb.kategori_id} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+					<input type="text" placeholder="Filter kategori..." bind:value={searchKategori} class="w-full rounded border px-2 py-1.5 text-xs outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text-dim);--tw-ring-color:var(--accent)" />
+					<select id="fb-kat" bind:value={fb.kategori_id} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
 						<option value={null}>— pilih —</option>
 						{#each filteredKategori as k (k.id)}
 							<option value={k.id}>{k.nama}{k.contoh ? ` — ${k.contoh}` : ''}</option>
@@ -337,8 +338,8 @@
 				{#if satuanList.length === 0}
 					<p class="text-xs px-2 py-1.5 rounded" style="background:var(--surface2);color:var(--warn)">Belum ada satuan — tambah di tab Pengaturan.</p>
 				{:else}
-					<input type="text" placeholder="Filter satuan..." bind:value={searchSatuan} class="px-2 py-1 rounded border outline-none text-xs" style="background:var(--surface2);border-color:var(--border);color:var(--text-dim)" />
-					<select id="fb-sat" bind:value={fb.satuan_dasar_id} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)">
+					<input type="text" placeholder="Filter satuan..." bind:value={searchSatuan} class="w-full rounded border px-2 py-1.5 text-xs outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text-dim);--tw-ring-color:var(--accent)" />
+					<select id="fb-sat" bind:value={fb.satuan_dasar_id} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
 						<option value={null}>— pilih —</option>
 						{#each filteredSatuan as s (s.id)}
 							<option value={s.id}>{s.nama} ({s.singkatan}){s.contoh ? ` — ${s.contoh}` : ''}</option>
@@ -349,7 +350,7 @@
 
 			<div class="flex flex-col gap-1 col-span-2">
 				<label for="fb-rak" class="text-xs" style="color:var(--text-dim)">LOKASI RAK</label>
-				<input id="fb-rak" bind:value={fb.lokasi_rak} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+				<input id="fb-rak" bind:value={fb.lokasi_rak} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
 			</div>
 
 			<!-- Foto produk -->
@@ -369,8 +370,8 @@
 			</div>
 		</div>
 		<div class="flex justify-end gap-2">
-			<button type="button" onclick={() => modalBarang = false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
-			<button type="submit" class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
+			<Button type="button" variant="ghost" onclick={() => modalBarang = false}>Batal</Button>
+			<Button type="submit">Simpan</Button>
 		</div>
 	</form>
 	{/snippet}
