@@ -69,6 +69,8 @@ _(tidak ada saat ini)_
 
 ### Sudah Diperbaiki
 
+- 30× `requirePermission('*')` di 9 route files → diganti permission string semantik (`pengaturan.kelola`, `karyawan.lihat`, `laporan.lihat`, `absensi.diri`)
+
 - TabReturSupplier: DataTable snippet API (`{#snippet body()}`) bukan default slot
 - keuangan/+page.svelte: `onclick|self` → `onclick={(e) => if (e.target===e.currentTarget)…}`
 - Semua a11y warnings label for/id + dialog tabindex/keyboard
