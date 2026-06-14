@@ -10,6 +10,12 @@
 	import SlideOverEditHarga from './components/SlideOverEditHarga.svelte'
 	import SlideOverHistoriHarga from './components/SlideOverHistoriHarga.svelte'
 	import type { Tab } from './harga.types.js'
+	import TabBar from '$lib/components/ui/TabBar.svelte'
+
+	const TABS = [
+		{ key: 'daftar', label: 'DAFTAR HARGA' },
+		{ key: 'massal', label: 'UPDATE MASSAL' },
+	]
 
 	$effect(() => {
 		if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir')
@@ -26,18 +32,12 @@
 		<h1 class="text-lg font-bold" style="color:var(--text)">Manajemen Harga</h1>
 	</div>
 
-	<!-- Tab -->
-	<div class="flex gap-1 border-b" style="border-color:var(--border)">
-		{#each [['daftar', 'DAFTAR HARGA'], ['massal', 'UPDATE MASSAL']] as [id, label] (id)}
-			<button
-				onclick={() => goto(`?tab=${id}`, { replaceState: true, keepFocus: true, noScroll: true })}
-				class="px-3 py-2 text-xs font-bold border-b-2 -mb-px"
-				style="{tab === id ? 'border-color:var(--accent);color:var(--accent)' : 'border-color:transparent;color:var(--text-dim)'}"
-			>
-				{label}
-			</button>
-		{/each}
-	</div>
+	<TabBar
+		tabs={TABS}
+		active={tab}
+		storageKey="harga"
+		onchange={(key) => goto(`?tab=${key}`, { replaceState: true, keepFocus: true, noScroll: true })}
+	/>
 
 	{#if tab === 'daftar'}
 		<TabDaftarHarga {store} />

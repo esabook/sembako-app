@@ -7,6 +7,7 @@
   import TabPelanggan from './TabPelanggan.svelte'
   import TabKartu from './TabKartu.svelte'
   import TabRiwayat from './TabRiwayat.svelte'
+  import TabBar from '$lib/components/ui/TabBar.svelte'
 
   $effect(() => {
     if ($user && !['pemilik', 'manajer', 'kasir'].includes($user.role)) goto('/kasir')
@@ -20,6 +21,12 @@
   let tabKartuRef = $state<{ muat: () => void } | null>(null)
   let riwayatId = $state<number | null>(null)
   let riwayatNama = $state('')
+
+  const TABS = $derived([
+    { key: 'pelanggan', label: 'Pelanggan' },
+    { key: 'kartu',     label: 'Kartu Anggota' },
+    ...(tab === 'riwayat' && riwayatId ? [{ key: 'riwayat', label: `Riwayat — ${riwayatNama}` }] : []),
+  ])
 
   function gantiTab(t: Tab) {
     goto(`?tab=${t}`, { replaceState: true, keepFocus: true, noScroll: true })
@@ -36,31 +43,12 @@
 </script>
 
 <div class="space-y-4">
-  <!-- Header + Tabs -->
-  <div class="flex items-center gap-3 flex-wrap">
-    <div class="flex gap-1 border rounded overflow-hidden" style="border-color:var(--border)">
-      {#each [['pelanggan', 'Pelanggan'], ['kartu', 'Kartu Anggota']] as [val, label] (val)}
-        <button
-          onclick={() => gantiTab(val as Tab)}
-          class="px-3 py-1.5 text-sm transition-colors"
-          style="{tab === val ? 'background:var(--accent);color:var(--bg);font-weight:600' : 'color:var(--text-dim)'}"
-        >{label}</button>
-      {/each}
-      {#if tab === 'riwayat' && riwayatId}
-        <button
-          class="px-3 py-1.5 text-sm"
-          style="background:var(--accent);color:var(--bg);font-weight:600"
-        >Riwayat — {riwayatNama}</button>
-      {/if}
-    </div>
-    {#if tab === 'riwayat' && riwayatId}
-      <button onclick={() => gantiTab('pelanggan')}
-        class="text-xs px-2 py-1 rounded ml-auto"
-        style="background:transparent;border:1px solid var(--border);color:var(--text-dim);cursor:pointer">
-        ← Kembali
-      </button>
-    {/if}
-  </div>
+  <TabBar
+    tabs={TABS}
+    active={tab}
+    storageKey="pelanggan"
+    onchange={(key) => gantiTab(key as Tab)}
+  />
 
   {#if tab === 'pelanggan'}
     <TabPelanggan onbukariwayat={bukaRiwayat} />
