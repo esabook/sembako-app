@@ -458,7 +458,7 @@ laporanRouter.post('/init-harga-rata', requirePermission('pengaturan.kelola'), a
   await withTransaction(async (tx) => {
     for (const [barangId, { rata }] of wacMap) {
       if (rata <= 0) continue
-      await query.exec(db.update(barang)
+      await query.exec(tx.update(barang)
         .set({ harga_beli_rata: Math.round(rata) })
         .where(eq(barang.id, barangId))
       )
@@ -716,7 +716,7 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
       )
     )
     .groupBy(pelanggan.id)
-    .orderBy(sql`total_omset DESC`)
+    .orderBy(sql`COALESCE(SUM(${penjualan.total}), 0) DESC`)
     .limit(limit)
     )
 
@@ -765,7 +765,7 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
       )
     )
     .groupBy(supplier.id)
-    .orderBy(sql`total_pembelian DESC`)
+    .orderBy(sql`COALESCE(SUM(${barang_masuk.total_nilai}), 0) DESC`)
     )
 
   const total_semua = rows.reduce((s, r) => s + r.total_pembelian, 0)
@@ -919,7 +919,7 @@ laporanRouter.post('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), a
   await withTransaction(async (tx) => {
     for (const trx of affected) {
       const diskonBaru = trx.total - trx.bayar   // selisih = diskon yang hilang
-      await query.exec(db.update(penjualan)
+      await query.exec(tx.update(penjualan)
         .set({
           diskon_total: diskonBaru,
           total: trx.bayar,                       // total = bayar (yang benar)
