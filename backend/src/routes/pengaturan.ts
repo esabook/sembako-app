@@ -7,6 +7,7 @@ import { toko_settings, preferensi_pengguna } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
 import { HTTPException } from 'hono/http-exception'
+import { createBackupStream, restoreFromBackup } from '../utils/backup-logical.ts'
 
 function getLanIps(): string[] {
   const nets = networkInterfaces()
@@ -61,38 +62,49 @@ pengaturanRouter.use('*', tenantMiddleware)
 
 const DB_PATH = (process.env.DATABASE_URL ?? './data.db').replace(/^file:/, '')
 
-// ── GET /pengaturan/backup-db — download file SQLite ─────────────────────
+// ── GET /pengaturan/backup-db — download backup database ─────────────────
+// SQLite   → binary .db file (WAL checkpoint + buffer)
+// lainnya  → streaming NDJSON.gz logical backup
+//   ?include_media=1 → sertakan file uploads/ sebagai base64 (STORAGE_DRIVER=local)
 
 pengaturanRouter.get('/backup-db', requirePermission('pengaturan.kelola'), async (c) => {
-  if (dialect !== 'sqlite') {
-    throw new HTTPException(501, { message: `Backup tidak tersedia untuk dialect ${dialect}. Gunakan dashboard provider (Turso/Supabase).` })
+  const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 16).replace(/[: ]/g, '-')
+
+  if (dialect === 'sqlite') {
+    // WAL checkpoint: flush semua write pending ke file utama sebelum copy
+    sqlite.run('PRAGMA wal_checkpoint(TRUNCATE)')
+
+    const file = Bun.file(DB_PATH)
+    if (!await file.exists()) throw new HTTPException(500, { message: 'File database tidak ditemukan' })
+
+    const buffer = await file.arrayBuffer()
+    return new Response(buffer, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="stokasir-backup-${now}.db"`,
+        'Content-Length': String(buffer.byteLength),
+      },
+    })
   }
 
-  // WAL checkpoint: flush semua write pending ke file utama sebelum copy
-  sqlite.run('PRAGMA wal_checkpoint(TRUNCATE)')
+  // Logical streaming backup untuk Turso/libSQL/PostgreSQL
+  const includeMedia = c.req.query('include_media') === '1'
+  const rawStream = createBackupStream(includeMedia)
+  const gzStream = rawStream.pipeThrough(new CompressionStream('gzip'))
 
-  const file = Bun.file(DB_PATH)
-  if (!await file.exists()) throw new HTTPException(500, { message: 'File database tidak ditemukan' })
-
-  const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 16).replace(/[: ]/g, '-')
-  const buffer = await file.arrayBuffer()
-
-  return new Response(buffer, {
+  return new Response(gzStream, {
     headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="stokasir-backup-${now}.db"`,
-      'Content-Length': String(buffer.byteLength),
+      'Content-Type': 'application/gzip',
+      'Content-Disposition': `attachment; filename="stokasir-backup-${now}.json.gz"`,
     },
   })
 })
 
 // ── POST /pengaturan/restore-db — upload & replace database ──────────────
+// SQLite  → upload .db binary, replace file, restart
+// lainnya → upload .json.gz, logical restore (truncate + re-insert)
 
 pengaturanRouter.post('/restore-db', requirePermission('pengaturan.kelola'), async (c) => {
-  if (dialect !== 'sqlite') {
-    throw new HTTPException(501, { message: `Restore tidak tersedia untuk dialect ${dialect}. Gunakan dashboard provider (Turso/Supabase).` })
-  }
-
   const user = c.get('user') as JWTPayload
   if (user.role !== 'pemilik') {
     throw new HTTPException(403, { message: 'Hanya pemilik yang bisa melakukan restore' })
@@ -100,11 +112,28 @@ pengaturanRouter.post('/restore-db', requirePermission('pengaturan.kelola'), asy
 
   const formData = await c.req.formData()
   const file = formData.get('file') as File | null
-  if (!file) throw new HTTPException(400, { message: 'File database wajib diunggah' })
-  if (!file.name.endsWith('.db')) throw new HTTPException(400, { message: 'File harus berekstensi .db' })
+  if (!file) throw new HTTPException(400, { message: 'File backup wajib diunggah' })
 
-  const MAX_SIZE = 500 * 1024 * 1024 // 500 MB
+  const MAX_SIZE = 500 * 1024 * 1024
   if (file.size > MAX_SIZE) throw new HTTPException(400, { message: 'File terlalu besar (maks 500 MB)' })
+
+  // JSON.gz logical restore (untuk semua dialect, tapi utamanya non-sqlite)
+  if (file.name.endsWith('.json.gz')) {
+    const stream = file.stream() as unknown as ReadableStream<Uint8Array>
+    const result = await restoreFromBackup(stream)
+    return c.json({
+      success: true,
+      data: { message: `Restore selesai: ${result.tables} tabel, ${result.files} file gambar dipulihkan.` },
+    })
+  }
+
+  // SQLite binary restore
+  if (dialect !== 'sqlite') {
+    throw new HTTPException(400, { message: 'Upload file .json.gz untuk restore di dialect ini.' })
+  }
+  if (!file.name.endsWith('.db')) {
+    throw new HTTPException(400, { message: 'File harus berekstensi .db atau .json.gz' })
+  }
 
   const buffer = await file.arrayBuffer()
   const bytes = new Uint8Array(buffer)
@@ -119,7 +148,6 @@ pengaturanRouter.post('/restore-db', requirePermission('pengaturan.kelola'), asy
   sqlite.close()
   await Bun.write(DB_PATH, buffer)
 
-  // Beri waktu respons terkirim sebelum proses mati
   setTimeout(() => process.exit(0), 200)
 
   return c.json({

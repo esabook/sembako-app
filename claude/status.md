@@ -12,6 +12,7 @@
 | **Fase D-2** — Multi-Dialect DB | ✅ Selesai | builders dialect-aware; PG migration di-regenerate dari schema terkini (72 tabel) |
 | **Fase D-3** — Multi-Toko + Multi-Cabang | ✅ Selesai | Phase 1–4 done (lihat detail di bawah) |
 | **Fase D-4** — Cloud Storage | ✅ Selesai | STORAGE_DRIVER=local\|s3, S3/R2/MinIO ready |
+| **Fase D-5** — Backup/Restore Hybrid | ✅ Selesai | SQLite: binary .db; libSQL/PG: streaming NDJSON.gz; opsional include media |
 
 **Modul aktif:** dashboard, kasir, gudang, karyawan, keuangan, laporan, harga, pengaturan, kasir/retur, gudang/label, promo, pelanggan, crm, sales, aset, keuangan/pinjaman, tamu, tugas, hajatan, inspeksi, karyawan/izin, karyawan/evaluasi, karyawan/sanksi.
 
@@ -95,6 +96,7 @@ Selesai:
   [x] PostgreSQL migration terkini — 0000_gray_kingpin.sql, 72 tabel, schema lengkap
   [x] Multi-toko + multi-cabang (Fase D-3, Phase 1–4)
   [x] Cloud file storage abstraction — STORAGE_DRIVER=local|s3 (Fase D-4)
+  [x] Backup/restore hybrid — SQLite binary .db + libSQL/PG streaming NDJSON.gz (Fase D-5)
 
 ## Deploy Checklist
 

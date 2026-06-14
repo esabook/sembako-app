@@ -113,15 +113,46 @@
 	}
 
 	// ── Backup & Restore ────────────────────────────────────────────────────────
+	let backing = $state(false)
+	let backupIncludeMedia = $state(false)
 	let restoring = $state(false)
 	let restoreFile = $state<File | null>(null)
 	let restoreConfirm = $state(false)
 
+	async function downloadBackup() {
+		if (backing) return
+		backing = true
+		try {
+			const url = backupIncludeMedia
+				? '/api/pengaturan/backup-db?include_media=1'
+				: '/api/pengaturan/backup-db'
+			const res = await fetch(url, { credentials: 'include' })
+			if (!res.ok) {
+				const body = await res.json().catch(() => null)
+				toast.error(body?.message ?? 'Gagal download backup')
+				return
+			}
+			const cd = res.headers.get('Content-Disposition') ?? ''
+			const match = cd.match(/filename="([^"]+)"/)
+			const filename = match?.[1] ?? 'stokasir-backup.db'
+			const blob = await res.blob()
+			const a = document.createElement('a')
+			a.href = URL.createObjectURL(blob)
+			a.download = filename
+			a.click()
+			URL.revokeObjectURL(a.href)
+		} catch {
+			toast.error('Gagal menghubungi server')
+		} finally {
+			backing = false
+		}
+	}
+
 	function pilihFileRestore(e: Event) {
 		const f = (e.target as HTMLInputElement).files?.[0]
 		if (!f) return
-		if (!f.name.endsWith('.db')) {
-			toast.error('Pilih file .db hasil backup Stokasir')
+		if (!f.name.endsWith('.db') && !f.name.endsWith('.json.gz')) {
+			toast.error('Pilih file .db atau .json.gz hasil backup Stokasir')
 			return
 		}
 		restoreFile = f
@@ -474,17 +505,25 @@
 			<h2 class="text-sm font-bold uppercase tracking-widest" style="color:var(--text-dim)">Backup & Restore Database</h2>
 
 			<!-- Export -->
-			<div class="space-y-1">
+			<div class="space-y-2">
 				<p class="text-xs font-semibold" style="color:var(--text)">Export / Download Backup</p>
-				<p class="text-xs" style="color:var(--text-dim)">Download salinan penuh database SQLite. Simpan di tempat aman sebagai cadangan sebelum update besar.</p>
-				<a
-					href="/api/pengaturan/backup-db"
-					download
-					class="inline-flex items-center gap-2 rounded border px-4 py-2 text-sm font-medium mt-1"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+				<p class="text-xs" style="color:var(--text-dim)">Download salinan penuh database. Simpan di tempat aman sebagai cadangan sebelum update besar.</p>
+				<label class="flex items-center gap-2 text-xs cursor-pointer" style="color:var(--text-dim)">
+					<input type="checkbox" bind:checked={backupIncludeMedia} />
+					Sertakan file gambar uploads/ (hanya untuk storage lokal)
+				</label>
+				<button
+					onclick={downloadBackup}
+					disabled={backing}
+					class="inline-flex items-center gap-2 rounded border px-4 py-2 text-sm font-medium"
+					style="background:var(--surface2);border-color:var(--border);color:var(--text);cursor:{backing ? 'default' : 'pointer'};opacity:{backing ? 0.6 : 1}"
 				>
-					↓ Download Backup (.db)
-				</a>
+					{#if backing}
+						<Spinner size={14} /> Mengunduh...
+					{:else}
+						↓ Download Backup
+					{/if}
+				</button>
 			</div>
 
 			<hr style="border-color:var(--border)" />
@@ -493,12 +532,12 @@
 			<div class="space-y-2">
 				<p class="text-xs font-semibold" style="color:var(--text)">Restore dari Backup</p>
 				<p class="text-xs" style="color:var(--text-dim)">
-					Upload file <code class="font-mono">.db</code> hasil backup. <strong style="color:var(--danger)">Semua data saat ini akan diganti.</strong> Lakukan hanya jika yakin.
+					Upload file <code class="font-mono">.db</code> (SQLite) atau <code class="font-mono">.json.gz</code> hasil backup. <strong style="color:var(--danger)">Semua data saat ini akan diganti.</strong> Lakukan hanya jika yakin.
 				</p>
 
 				<input
 					type="file"
-					accept=".db"
+					accept=".db,.json.gz"
 					onchange={pilihFileRestore}
 					class="text-xs"
 					style="color:var(--text-dim)"
