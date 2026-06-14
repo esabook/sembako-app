@@ -5,6 +5,7 @@
 	import { api } from '$lib/utils/api.js';
 	import { toast } from '$lib/stores/ui.store.js';
 	import SlideOver from '$lib/components/SlideOver.svelte';
+	import DatePicker from '$lib/components/ui/DatePicker.svelte';
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 
@@ -384,18 +385,8 @@
 			{/if}
 
 			<!-- Periode -->
-			<div class="flex flex-col gap-1">
-				<label for="pm-mulai" class="text-xs" style="color:var(--text-dim)">BERLAKU MULAI</label>
-				<input id="pm-mulai" type="date" bind:value={fb.berlaku_mulai}
-					class="px-2 py-1.5 rounded border outline-none text-sm"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
-			<div class="flex flex-col gap-1">
-				<label for="pm-sampai" class="text-xs" style="color:var(--text-dim)">BERLAKU SAMPAI</label>
-				<input id="pm-sampai" type="date" bind:value={fb.berlaku_sampai}
-					class="px-2 py-1.5 rounded border outline-none text-sm"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			</div>
+			<DatePicker label="BERLAKU MULAI" bind:value={fb.berlaku_mulai} placeholder="Pilih tanggal mulai" />
+			<DatePicker label="BERLAKU SAMPAI" bind:value={fb.berlaku_sampai} placeholder="Pilih tanggal selesai" />
 
 			<!-- Max penggunaan -->
 			<div class="flex flex-col gap-1">

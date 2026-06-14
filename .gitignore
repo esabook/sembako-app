@@ -32,3 +32,4 @@ data/
 .codegraph/
 .claude/
 .gemini/
+.agents/

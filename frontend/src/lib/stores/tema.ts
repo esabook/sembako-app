@@ -13,8 +13,11 @@ function temaAwal(): Tema {
 
 export const tema = writable<Tema>(temaAwal())
 
+const DARK_THEMES: Tema[] = ['dark', 'eye', 'bwb', 'island', 'klasik']
+
 tema.subscribe((val) => {
   if (!browser) return
   localStorage.setItem(STORAGE_KEY, val)
   document.documentElement.setAttribute('data-theme', val)
+  document.documentElement.classList.toggle('dark', DARK_THEMES.includes(val))
 })

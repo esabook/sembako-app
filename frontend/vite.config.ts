@@ -4,6 +4,9 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
     plugins: [tailwindcss(), sveltekit()],
+    ssr: {
+        noExternal: ['bits-ui', '@internationalized/date'],
+    },
     build: {
         // Satukan semua CSS jadi 1 file — eliminasi warning preload CSS per-chunk
         cssCodeSplit: false,
