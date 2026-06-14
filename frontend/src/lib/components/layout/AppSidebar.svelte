@@ -16,13 +16,13 @@
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 	let isMobile = $state(false);
 
-	const IDLE_MS = 10_000;
+	// const IDLE_MS = 10_000;
 
 	function resetIdle() {
-		if (idleTimer) clearTimeout(idleTimer);
-		idleTimer = setTimeout(() => {
-			if (sidebarState === 'expanded') sidebarState = 'icon';
-		}, IDLE_MS);
+		// if (idleTimer) clearTimeout(idleTimer);
+		// idleTimer = setTimeout(() => {
+		// 	if (sidebarState === 'expanded') sidebarState = 'icon';
+		// }, IDLE_MS);
 	}
 
 	function toggleSidebar() {

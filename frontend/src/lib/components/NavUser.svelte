@@ -23,20 +23,19 @@
 	}
 
 	const TEMA_LIST: { nilai: Tema; label: string; deskripsi: string }[] = [
-		{ nilai: 'dark',   label: 'DARK',   deskripsi: 'Terminal gelap' },
-		{ nilai: 'light',  label: 'LIGHT',  deskripsi: 'Siang hari' },
-		{ nilai: 'eye',    label: 'EYE',    deskripsi: 'Malam, nyaman' },
-		{ nilai: 'bww',    label: 'BW ☯',   deskripsi: 'Hitam-putih terang' },
-		{ nilai: 'bwb',    label: 'BW ☯',   deskripsi: 'Hitam-putih gelap' },
+		{ nilai: 'dark', label: 'DARK', deskripsi: 'Terminal gelap' },
+		{ nilai: 'light', label: 'LIGHT', deskripsi: 'Siang hari' },
+		{ nilai: 'bww', label: 'BW ☯', deskripsi: 'Hitam-putih terang' },
+		{ nilai: 'bwb', label: 'BW ☯', deskripsi: 'Hitam-putih gelap' },
 		{ nilai: 'island', label: 'ISLAND', deskripsi: 'Panel mengambang' },
-		{ nilai: 'klasik', label: 'KLASIK', deskripsi: 'Kasir terminal' },
+		{ nilai: 'klasik', label: 'KLASIK', deskripsi: 'Kasir terminal' }
 	];
 
 	const ROLE_LABEL: Record<string, string> = {
 		pemilik: 'Pemilik',
 		manajer: 'Manajer',
-		kasir:   'Kasir',
-		gudang:  'Gudang',
+		kasir: 'Kasir',
+		gudang: 'Gudang'
 	};
 
 	async function logout() {
@@ -62,44 +61,52 @@
 
 <div class="relative" bind:this={ref}>
 	<button
-		onclick={() => buka = !buka}
-		class="flex items-center gap-1.5 px-2 py-1 rounded transition-colors text-xs"
+		onclick={() => (buka = !buka)}
+		class="flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors"
 		style="color:var(--text-dim)"
 	>
 		<!-- Ikon user sederhana -->
 		<span
-			class="w-8 h-8 rounded-full flex items-center justify-center text-[0.7em] font-bold shrink-0"
+			class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[0.7em] font-bold"
 			style="background:var(--surface2);color:var(--accent)"
-		>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span>
+			>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span
+		>
 	</button>
 
 	{#if buka}
 		<div
-			class="absolute right-0 top-full mt-1 z-50 rounded border shadow-lg w-52"
+			class="absolute top-full right-0 z-50 mt-1 w-52 rounded border shadow-lg"
 			style="background:var(--surface);border-color:var(--border)"
 		>
 			<!-- Header: info user -->
-			<div class="px-3 py-2.5 border-b" style="border-color:var(--border)">
+			<div class="border-b px-3 py-2.5" style="border-color:var(--border)">
 				<div class="flex items-center gap-2">
 					<span
-						class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+						class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold"
 						style="background:var(--surface2);color:var(--accent)"
-					>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span>
+						>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span
+					>
 					<div class="min-w-0">
-						<div class="text-sm font-medium truncate" style="color:var(--text)">{$user?.nama ?? '—'}</div>
-						<div class="text-[0.7em]" style="color:var(--text-dim)">{ROLE_LABEL[$user?.role ?? ''] ?? $user?.role}</div>
+						<div class="truncate text-sm font-medium" style="color:var(--text)">
+							{$user?.nama ?? '—'}
+						</div>
+						<div class="text-[0.7em]" style="color:var(--text-dim)">
+							{ROLE_LABEL[$user?.role ?? ''] ?? $user?.role}
+						</div>
 					</div>
 				</div>
 			</div>
 
 			<!-- Pilihan tema -->
-			<div class="px-3 py-2 border-b" style="border-color:var(--border)">
-				<div class="text-[0.7em] uppercase mb-1.5 tracking-wider" style="color:var(--text-dim)">Tema</div>
+			<div class="border-b px-3 py-2" style="border-color:var(--border)">
+				<div class="mb-1.5 text-[0.7em] tracking-wider uppercase" style="color:var(--text-dim)">
+					Tema
+				</div>
 				<div class="flex flex-col gap-0.5">
 					{#each TEMA_LIST as t (t.nilai)}
 						<button
 							onclick={() => tema.set(t.nilai)}
-							class="flex items-center justify-between px-2 py-1 rounded text-xs transition-colors w-full text-left"
+							class="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors"
 							style={$tema === t.nilai
 								? 'background:var(--surface2);color:var(--accent)'
 								: 'color:var(--text-dim)'}
@@ -112,21 +119,21 @@
 			</div>
 
 			<!-- Scanner + Fullscreen + Keluar -->
-			<div class="px-3 py-2 flex flex-col gap-0.5">
+			<div class="flex flex-col gap-0.5 px-3 py-2">
 				{#if page.url.pathname !== '/scanner'}
-				<a
-					href="/scanner"
-					onclick={() => buka = false}
-					class="w-full text-left text-xs px-2 py-1.5 rounded transition-colors flex items-center justify-between"
-					style="color:var(--accent)"
-				>
-					<span>Mode Scanner</span>
-					<span>📷</span>
-				</a>
+					<a
+						href="/scanner"
+						onclick={() => (buka = false)}
+						class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors"
+						style="color:var(--accent)"
+					>
+						<span>Mode Scanner</span>
+						<span>📷</span>
+					</a>
 				{/if}
 				<button
 					onclick={toggleFullscreen}
-					class="w-full text-left text-xs px-2 py-1.5 rounded transition-colors flex items-center justify-between"
+					class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors"
 					style="color:var(--text-dim)"
 				>
 					<span>{isFullscreen ? 'Keluar Fullscreen' : 'Fullscreen'}</span>
@@ -137,7 +144,7 @@
 				<a
 					href="/panduan"
 					target="_blank"
-					class="w-full text-left text-xs px-2 py-1.5 rounded transition-colors flex items-center justify-between"
+					class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors"
 					style="color:var(--text-dim)"
 				>
 					<span>Panduan Penggunaan</span>
@@ -146,9 +153,9 @@
 
 				<button
 					onclick={logout}
-					class="w-full text-left text-xs px-2 py-1.5 rounded transition-colors"
-					style="color:var(--danger)"
-				>Keluar</button>
+					class="w-full rounded px-2 py-1.5 text-left text-xs transition-colors"
+					style="color:var(--danger)">Keluar</button
+				>
 			</div>
 		</div>
 	{/if}

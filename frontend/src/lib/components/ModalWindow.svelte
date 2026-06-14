@@ -39,89 +39,133 @@
     </ModalWindow>
 -->
 <script lang="ts">
-  import type { Snippet } from 'svelte'
-  import { fade, fly } from 'svelte/transition'
+	import type { Snippet } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 
-  let {
-    open = $bindable(false),
-    title = '',
-    maxWidth = 'md',
-    noPadding = false,
-    fullscreen = false,
-    ontutup = undefined,
-    children,
-  }: {
-    open?: boolean;
-    title?: string;
-    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '3xl' | '4xl';
-    noPadding?: boolean;
-    fullscreen?: boolean;
-    ontutup?: () => void;
-    children: Snippet;
-  } = $props()
+	let {
+		open = $bindable(false),
+		title = '',
+		maxWidth = 'md',
+		noPadding = false,
+		fullscreen = false,
+		ontutup = undefined,
+		children
+	}: {
+		open?: boolean;
+		title?: string;
+		maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '3xl' | '4xl';
+		noPadding?: boolean;
+		fullscreen?: boolean;
+		ontutup?: () => void;
+		children: Snippet;
+	} = $props();
 
-  function tutup() { if (ontutup) { ontutup(); return } open = false }
-  function onKeydown(e: KeyboardEvent) { if (e.key === 'Escape') tutup() }
+	function tutup() {
+		if (ontutup) {
+			ontutup();
+			return;
+		}
+		open = false;
+	}
+	function onKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') tutup();
+	}
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
 {#if open}
-  <!-- Backdrop -->
-  <div
-    transition:fade={{ duration: 150 }}
-    class="fixed inset-0 z-50 flex justify-center {fullscreen ? 'items-center p-2' : 'items-end sm:items-center px-2 sm:px-0'}"
-    style="background:rgba(0,0,0,0.5)"
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    onclick={tutup}
-    onkeydown={(e) => { if (e.key === 'Escape') tutup() }}
-  >
-    <!-- Panel -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      transition:fly={{ duration: 200, y: 24, opacity: 0 }}
-      class="relative flex flex-col overflow-hidden border w-full
+	<!-- Backdrop -->
+	<div
+		transition:fade={{ duration: 150 }}
+		class="ui-backdrop fixed inset-0 z-50 flex justify-center {fullscreen
+			? 'items-center p-2'
+			: 'items-end px-2 sm:items-center sm:px-0'}"
+		// style="background:rgba(0,0,0,0.5)"
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
+		onclick={tutup}
+		onkeydown={(e) => {
+			if (e.key === 'Escape') tutup();
+		}}
+	>
+		<!-- Panel -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			transition:fly={{ duration: 200, y: 24, opacity: 0 }}
+			class="relative flex w-full flex-col overflow-hidden border
              {fullscreen
-               ? 'h-full rounded-2xl'
-               : 'rounded-t-2xl sm:rounded-2xl ' + (
-                   maxWidth === 'sm'  ? 'sm:max-w-sm'
-                 : maxWidth === 'lg'  ? 'sm:max-w-lg'
-                 : maxWidth === 'xl'  ? 'sm:max-w-xl'
-                 : maxWidth === '3xl' ? 'sm:max-w-3xl'
-                 : maxWidth === '4xl' ? 'sm:max-w-4xl'
-                 : 'sm:max-w-md')}"
-      style="background:var(--surface);border-color:var(--border);{fullscreen ? '' : 'max-height:90svh'}"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); tutup(); } else { e.stopPropagation(); } }}
-    >
-      <!-- Close button -->
-      <button
-        onclick={tutup}
-        class="absolute w-7 h-7 flex items-center justify-center rounded-full text-base leading-none z-10"
-        style="top:4px;right:4px;background:var(--surface2);color:var(--text-dim)"
-        aria-label="Tutup"
-      >&times;</button>
+				? 'h-full rounded-2xl'
+				: 'rounded-t-2xl sm:rounded-2xl ' +
+					(maxWidth === 'sm'
+						? 'sm:max-w-sm'
+						: maxWidth === 'lg'
+							? 'sm:max-w-lg'
+							: maxWidth === 'xl'
+								? 'sm:max-w-xl'
+								: maxWidth === '3xl'
+									? 'sm:max-w-3xl'
+									: maxWidth === '4xl'
+										? 'sm:max-w-4xl'
+										: 'sm:max-w-md')}"
+			style="background:var(--surface);border-color:var(--border);{fullscreen
+				? ''
+				: 'max-height:90svh'}"
+			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => {
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					tutup();
+				} else {
+					e.stopPropagation();
+				}
+			}}
+		>
+			<!-- Close button -->
+			<button
+				onclick={tutup}
+				class="absolute z-10 flex h-7 w-7 items-center justify-center rounded-full text-base leading-none"
+				style="top:4px;right:4px;background:var(--surface2);color:var(--text-dim)"
+				aria-label="Tutup">&times;</button
+			>
 
-      <!-- Drag handle (mobile only, non-fullscreen) -->
-      {#if !fullscreen}
-      <div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
-        <div class="w-10 h-1 rounded-full" style="background:var(--border)"></div>
-      </div>
-      {/if}
+			<!-- Drag handle (mobile only, non-fullscreen) -->
+			{#if !fullscreen}
+				<div class="flex shrink-0 justify-center pt-3 pb-1 sm:hidden">
+					<div class="h-1 w-10 rounded-full" style="background:var(--border)"></div>
+				</div>
+			{/if}
 
-      <!-- Header -->
-      {#if title}
-        <div class="border-b shrink-0" style="border-color:var(--border);padding:16px;padding-right:48px">
-          <h3 class="text-sm font-bold" style="color:var(--text)">{title}</h3>
-        </div>
-      {/if}
+			<!-- Header -->
+			{#if title}
+				<div
+					class="shrink-0 border-b"
+					style="border-color:var(--border);padding:16px;padding-right:48px"
+				>
+					<h3 class="text-sm font-bold" style="color:var(--text)">{title}</h3>
+				</div>
+			{/if}
 
-      <!-- Body -->
-      <div class="{noPadding ? 'overflow-hidden flex-1' : 'overflow-y-auto flex-1 px-4 sm:px-6 py-4'}">
-        {@render children()}
-      </div>
-    </div>
-  </div>
+			<!-- Body -->
+			<div
+				class={noPadding ? 'flex-1 overflow-hidden' : 'flex-1 overflow-y-auto px-4 py-4 sm:px-6'}
+			>
+				{@render children()}
+			</div>
+		</div>
+	</div>
 {/if}
+
+<style>
+	.ui-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: rgba(0, 0, 0, 0.45);
+		backdrop-filter: blur(3px);
+	}
+</style>
