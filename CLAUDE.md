@@ -20,3 +20,9 @@ frontend_stack: Svelte 5; withLoading; async utilities; responsive; anti-pattern
 database_rules: multi-dialect (SQLite/Turso/PG/MySQL), helper builders.ts, pola tenant ada di claude/database.md
 backend_modules: SOP engine, event bus, attachment, approval, scheduler, storage driver, backup/restore
 status_tracking: Status implementasi, bugfix, dan backlog ada di claude/status.md
+
+# Svelte MCP Tools (jika tersedia)
+svelte_mcp_list_sections: Panggil PERTAMA saat ada pertanyaan Svelte/SvelteKit — temukan section relevan
+svelte_mcp_get_documentation: Ambil dokumentasi lengkap section yang relevan
+svelte_mcp_autofixer: Jalankan pada setiap kode Svelte sebelum dikirim ke user — ulangi sampai 0 issues
+svelte_mcp_playground_link: Generate Svelte Playground link — HANYA setelah konfirmasi user, JANGAN jika kode sudah ditulis ke file project

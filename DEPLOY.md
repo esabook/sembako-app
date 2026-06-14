@@ -1,4 +1,6 @@
-# DEPLOY.md — Panduan Instalasi Server
+# DEPLOY.md — Panduan Instalasi Server Lokal
+
+> **Deploy ke cloud (Turso/Supabase/Railway/Fly.io)?** Baca `claude/deployment.md`.
 
 Stokasir berjalan sebagai server lokal di jaringan WiFi toko. Pilih platform server:
 
