@@ -6,7 +6,6 @@ export type FontPilihan =
 	| 'ibm-plex-mono'
 	| 'courier'
 	| 'inconsolata'
-	| 'roboto-mono'
 	| 'space-mono'
 	| 'vt323'
 	| 'ibm-plex-sans'
@@ -17,7 +16,6 @@ export const FONT_LABEL: Record<FontPilihan, string> = {
 	'ibm-plex-mono': 'IBM Plex Mono',
 	'courier': 'Courier New',
 	'inconsolata': 'Inconsolata',
-	'roboto-mono': 'Roboto Mono',
 	'space-mono': 'Space Mono',
 	'vt323': 'VT323',
 	'ibm-plex-sans': 'IBM Plex Sans',
@@ -29,7 +27,6 @@ export const FONT_CSS: Record<FontPilihan, string> = {
 	'ibm-plex-mono': "'IBM Plex Mono', monospace",
 	'courier': "'Courier New', monospace",
 	'inconsolata': "'Inconsolata', monospace",
-	'roboto-mono': "'Roboto Mono', monospace",
 	'space-mono': "'Space Mono', monospace",
 	'vt323': "'VT323', monospace",
 	'ibm-plex-sans': "'IBM Plex Sans', sans-serif",
@@ -41,7 +38,8 @@ const DEFAULT: FontPilihan = 'jetbrains'
 
 function fontAwal(): FontPilihan {
 	if (!browser) return DEFAULT
-	return (localStorage.getItem(STORAGE_KEY) as FontPilihan) ?? DEFAULT
+	const tersimpan = localStorage.getItem(STORAGE_KEY) as FontPilihan
+	return tersimpan in FONT_LABEL ? tersimpan : DEFAULT
 }
 
 export const font = writable<FontPilihan>(fontAwal())
