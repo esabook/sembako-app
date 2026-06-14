@@ -6,6 +6,7 @@
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
 	import { imgUrl } from '$lib/utils/upload.js';
 	import TabTerimaGuide from './TabTerimaGuide.svelte';
+	import { rupiah } from '$lib/utils/format'
 
 	type Barang = { id: number; kode_barang: string; nama_barang: string; harga_beli_terakhir: number; stok_sekarang: number; };
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean; };
@@ -31,8 +32,6 @@
 		fotoFakturFile = await resizeImage(raw, 1920, 1920, 0.92, 'inside');
 		fotoFakturPreview = URL.createObjectURL(fotoFakturFile);
 	}
-
-	function rupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
 
 	async function muatBM() { const r = await api.get<BarangMasuk[]>('/barang-masuk'); if (r.success) bmList = r.data; }
 	async function muatSupplier() { const r = await api.get<Supplier[]>('/supplier'); if (r.success) supplierList = r.data; }

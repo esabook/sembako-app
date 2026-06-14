@@ -176,7 +176,7 @@
     background:var(--surface);
     border-color:var(--border);
     transform:{panelTransform};
-    transition:{isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.32,0.72,0,1)'};
+    transition:{isDragging ? 'none' : 'transform 0.1s cubic-bezier(0.32,0.72,0,1)'};
     max-height:{panelHeightVh}vh;
     {isDesktop ? `width:${panelWidth}px;` : ''}
     will-change:transform;

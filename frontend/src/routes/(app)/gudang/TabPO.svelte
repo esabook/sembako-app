@@ -6,6 +6,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabPOGuide from './TabPOGuide.svelte';
+	import { rupiah } from '$lib/utils/format'
 
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean; };
 	type PORow = { id: number; no_po: string; tanggal_po: string; nama_supplier: string | null; kontak_supplier: string | null; status: string; total_nilai: number; };
@@ -39,8 +40,6 @@
 	let showPoDetail = $state(false);
 
 	const SPC: Record<string, string> = { draft: 'var(--text-dim)', dikirim: 'var(--info)', sebagian: 'var(--warn)', lunas: 'var(--accent)', batal: 'var(--danger)' };
-
-	function rupiah(n: number) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n); }
 
 	async function muatPO() { loading = true; const r = await api.get<PORow[]>('/purchase-order'); if (r.success) poList = r.data; loading = false; }
 	async function muatSupplier() { const r = await api.get<Supplier[]>('/supplier'); if (r.success) supplierList = r.data; }

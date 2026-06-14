@@ -5,6 +5,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import { debounce } from '$lib/utils/async.js';
+	import { rupiah } from '$lib/utils/format'
 
 	const kolBarang: Column[] = [
 		{ key: 'pilih',            label: '',       width: 24,  sortable: false, hideable: false },
@@ -43,10 +44,6 @@
 		'80': { w: 302, h: 120, bw: 2,   bh: 52, fs: 10, fsh: 11, pad: 6, label: '80mm (thermal sedang)' },
 		a6:   { w: 397, h: 265, bw: 2.5, bh: 72, fs: 13, fsh: 15, pad: 8, label: 'A6 (printer biasa)' },
 	};
-
-	function rupiah(n: number) {
-		return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-	}
 
 	// Buat SVG barcode sebagai string HTML — tidak perlu bind:this
 	function barcodeSvg(kode: string): string {

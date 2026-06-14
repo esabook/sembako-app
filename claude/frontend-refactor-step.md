@@ -1,6 +1,6 @@
 # Frontend Refactor Step
 
-Panduan refactor frontend. Baca juga: `frontend.md`, `patterns.md`.
+Panduan refactor frontend. 
 
 ---
 
