@@ -9,6 +9,7 @@ import type {
   Karyawan, AbsensiRow, RekapRow, PenggajianRow, KasBank,
   KasbonRow, KasbonStatus, JadwalCicilan, TipeShift, JadwalRow, TukarRow,
   PerformaRingkasan, PerformaDetail, RealtimeRow,
+  IzinRow, EvaluasiRow, SanksiInsentifRow,
 } from './karyawan.types'
 import {
   fetchKaryawan, createKaryawan, updateKaryawan, uploadFotoKaryawan, deleteKaryawan,
@@ -20,6 +21,9 @@ import {
   createTipeShiftApi, updateTipeShiftApi, deleteTipeShiftApi, createTukarApi,
   setujuiTukarApi, tolakTukarApi,
   fetchPerforma, fetchPerformaDetail,
+  fetchIzin, setujuiIzinApi, tolakIzinApi, createIzin,
+  fetchEvaluasi, createEvaluasi, updateEvaluasi, deleteEvaluasi,
+  fetchSanksiInsentif, createSanksiInsentif, deleteSanksiInsentif,
 } from './karyawan.api'
 import { getMondayOf, getWeekDays, buildRekapCsvContent, jadwalFor } from './karyawan.logic'
 import { imgUrl } from '$lib/utils/upload'
@@ -598,10 +602,192 @@ export function createKaryawanStore() {
     if (hasil) performaDetail = hasil
   }
 
+  // ── Tab: Cuti & Izin ──────────────────────────────────────────────────────
+  let izinRows       = $state<IzinRow[]>([])
+  let izinLoading    = $state(false)
+  let izinBulan      = $state('')
+  let izinKaryawanId = $state('')
+  let izinFormOpen   = $state(false)
+  let izinError      = $state('')
+  let fIzinJenis     = $state<'cuti' | 'izin' | 'sakit'>('izin')
+  let fIzinMulai     = $state('')
+  let fIzinSelesai   = $state('')
+  let fIzinAlasan    = $state('')
+  let fIzinKaryawanId = $state('')
+
+  async function muatIzin() {
+    izinLoading = true
+    const q = new URLSearchParams()
+    if (izinKaryawanId) q.set('karyawan_id', izinKaryawanId)
+    if (izinBulan) { q.set('dari', izinBulan + '-01'); q.set('sampai', izinBulan + '-31') }
+    const hasil = await withLoading(() => fetchIzin(q), { loadingKey: 'izin-list', loadingPesan: 'Memuat izin...', modul: 'karyawan', aksi: 'muat_izin', errorPesan: 'Gagal memuat izin' })
+    if (hasil) izinRows = hasil
+    izinLoading = false
+  }
+
+  async function setujuiIzin(id: number) {
+    await withLoading(() => setujuiIzinApi(id), { loadingKey: 'izin-setujui', loadingPesan: 'Menyetujui...', modul: 'karyawan', aksi: 'setujui_izin', errorPesan: 'Gagal menyetujui', suksesOtomatis: true, suksesPesan: 'Izin disetujui' })
+    muatIzin()
+  }
+
+  async function tolakIzin(id: number) {
+    const catatan = prompt('Alasan penolakan (opsional):') ?? ''
+    await withLoading(() => tolakIzinApi(id, catatan), { loadingKey: 'izin-tolak', loadingPesan: 'Menolak...', modul: 'karyawan', aksi: 'tolak_izin', errorPesan: 'Gagal menolak', suksesOtomatis: true, suksesPesan: 'Izin ditolak' })
+    muatIzin()
+  }
+
+  function bukaFormIzin() {
+    izinError = ''
+    fIzinJenis = 'izin'; fIzinMulai = ''; fIzinSelesai = ''; fIzinAlasan = ''; fIzinKaryawanId = ''
+    izinFormOpen = true
+  }
+
+  async function simpanIzin() {
+    izinError = ''
+    if (!fIzinMulai || !fIzinSelesai) { izinError = 'Tanggal wajib diisi'; return }
+    const body: Record<string, unknown> = {
+      jenis: fIzinJenis, tanggal_mulai: fIzinMulai, tanggal_selesai: fIzinSelesai, alasan: fIzinAlasan || undefined,
+    }
+    if (isManager && fIzinKaryawanId) body.karyawan_id = Number(fIzinKaryawanId)
+    try {
+      await createIzin(body)
+    } catch (e) {
+      izinError = e instanceof Error ? e.message : 'Gagal menyimpan'
+      return
+    }
+    izinFormOpen = false
+    muatIzin()
+  }
+
+  // ── Tab: Evaluasi ─────────────────────────────────────────────────────────
+  let evalRows       = $state<EvaluasiRow[]>([])
+  let evalKaryawanId = $state('')
+  let evalPeriode    = $state('')
+  let evalFormOpen   = $state(false)
+  let evalError      = $state('')
+  let editEvalId     = $state<number | null>(null)
+  let fEvalKaryawanId = $state('')
+  let fEvalPeriode   = $state('')
+  let fEvalNilai     = $state('3')
+  let fEvalCatatan   = $state('')
+  let konfirmEvalId  = $state<number | null>(null)
+  let konfirmEvalBuka = $state(false)
+
+  async function muatEval() {
+    const q = new URLSearchParams()
+    if (evalKaryawanId) q.set('karyawan_id', evalKaryawanId)
+    if (evalPeriode) q.set('periode', evalPeriode)
+    const hasil = await withLoading(() => fetchEvaluasi(q), { loadingKey: 'eval-list', loadingPesan: 'Memuat evaluasi...', modul: 'karyawan', aksi: 'muat_evaluasi', errorPesan: 'Gagal memuat evaluasi' })
+    if (hasil) evalRows = hasil
+  }
+
+  function bukaEvalForm(row?: EvaluasiRow) {
+    editEvalId = row?.id ?? null
+    fEvalKaryawanId = row ? String(row.karyawan_id) : ''
+    fEvalPeriode = row?.periode ?? evalPeriode
+    fEvalNilai = String(row?.nilai ?? 3)
+    fEvalCatatan = row?.catatan ?? ''
+    evalError = ''
+    evalFormOpen = true
+  }
+
+  async function simpanEval() {
+    evalError = ''
+    if (!fEvalKaryawanId) { evalError = 'Pilih karyawan'; return }
+    if (!fEvalPeriode) { evalError = 'Periode wajib'; return }
+    const body = { karyawan_id: Number(fEvalKaryawanId), periode: fEvalPeriode, nilai: Number(fEvalNilai), catatan: fEvalCatatan || undefined, tanggal: new Date().toISOString().slice(0, 10) }
+    try {
+      if (editEvalId) await updateEvaluasi(editEvalId, body)
+      else await createEvaluasi(body)
+    } catch (e) {
+      evalError = e instanceof Error ? e.message : 'Gagal menyimpan'
+      return
+    }
+    evalFormOpen = false
+    muatEval()
+  }
+
+  function hapusEval(id: number) {
+    konfirmEvalId = id
+    konfirmEvalBuka = true
+  }
+
+  async function doHapusEval() {
+    if (!konfirmEvalId) return
+    await withLoading(() => deleteEvaluasi(konfirmEvalId!), { loadingKey: 'eval-hapus', loadingPesan: 'Menghapus...', modul: 'karyawan', aksi: 'hapus_evaluasi', errorPesan: 'Gagal hapus evaluasi', suksesOtomatis: true, suksesPesan: 'Evaluasi dihapus' })
+    konfirmEvalId = null
+    muatEval()
+  }
+
+  // ── Tab: Sanksi & Insentif ────────────────────────────────────────────────
+  let siRows       = $state<SanksiInsentifRow[]>([])
+  let siBulan      = $state('')
+  let siKaryawanId = $state('')
+  let siTipe       = $state('')
+  let siFormOpen   = $state(false)
+  let siError      = $state('')
+  let fSiKaryawanId = $state('')
+  let fSiTipe      = $state<'sanksi' | 'insentif'>('insentif')
+  let fSiJenis     = $state('')
+  let fSiJumlah    = $state('')
+  let fSiTanggal   = $state('')
+  let fSiBulan     = $state('')
+  let fSiKet       = $state('')
+  let konfirmSIId  = $state<number | null>(null)
+  let konfirmSIBuka = $state(false)
+
+  async function muatSI() {
+    const q = new URLSearchParams()
+    if (siKaryawanId) q.set('karyawan_id', siKaryawanId)
+    if (siBulan) q.set('periode_bulan', siBulan)
+    if (siTipe) q.set('tipe', siTipe)
+    const hasil = await withLoading(() => fetchSanksiInsentif(q), { loadingKey: 'si-list', loadingPesan: 'Memuat data...', modul: 'karyawan', aksi: 'muat_sanksi', errorPesan: 'Gagal memuat data' })
+    if (hasil) siRows = hasil
+  }
+
+  function bukaFormSI() {
+    siError = ''
+    fSiKaryawanId = ''; fSiTipe = 'insentif'; fSiJenis = ''; fSiJumlah = ''; fSiTanggal = ''; fSiBulan = siBulan; fSiKet = ''
+    siFormOpen = true
+  }
+
+  async function simpanSI() {
+    siError = ''
+    if (!fSiKaryawanId) { siError = 'Pilih karyawan'; return }
+    if (!fSiJenis.trim()) { siError = 'Jenis wajib'; return }
+    if (!fSiJumlah || Number(fSiJumlah) <= 0) { siError = 'Jumlah harus > 0'; return }
+    if (!fSiTanggal) { siError = 'Tanggal wajib'; return }
+    if (!fSiBulan) { siError = 'Periode bulan wajib'; return }
+    try {
+      await createSanksiInsentif({
+        karyawan_id: Number(fSiKaryawanId), tipe: fSiTipe, jenis: fSiJenis,
+        jumlah: Number(fSiJumlah), tanggal: fSiTanggal, periode_bulan: fSiBulan, keterangan: fSiKet || undefined,
+      })
+    } catch (e) {
+      siError = e instanceof Error ? e.message : 'Gagal menyimpan'
+      return
+    }
+    siFormOpen = false
+    muatSI()
+  }
+
+  function hapusSI(id: number) {
+    konfirmSIId = id
+    konfirmSIBuka = true
+  }
+
+  async function doHapusSI() {
+    if (!konfirmSIId) return
+    await withLoading(() => deleteSanksiInsentif(konfirmSIId!), { loadingKey: 'si-hapus', loadingPesan: 'Menghapus...', modul: 'karyawan', aksi: 'hapus_sanksi', errorPesan: 'Gagal hapus data', suksesOtomatis: true, suksesPesan: 'Data dihapus' })
+    konfirmSIId = null
+    muatSI()
+  }
+
   // ── Return ────────────────────────────────────────────────────────────────
   return {
     // Auth
     isManager,
+    userId,
 
     // Column definitions
     kolKaryawan, kolAbsensiList, kolAbsensiRekap, kolPenggajian, kolKasbon,
@@ -733,6 +919,81 @@ export function createKaryawanStore() {
     set performaDetailId(v: number | null) { performaDetailId = v },
     get loadingPerforma(){ return loadingPerforma },
     muatPerforma, muatPerformaDetail,
+
+    // ── Izin ──
+    get izinRows()       { return izinRows },
+    get izinLoading()    { return izinLoading },
+    get izinBulan()      { return izinBulan },
+    set izinBulan(v: string) { izinBulan = v },
+    get izinKaryawanId() { return izinKaryawanId },
+    set izinKaryawanId(v: string) { izinKaryawanId = v },
+    get izinFormOpen()   { return izinFormOpen },
+    set izinFormOpen(v: boolean) { izinFormOpen = v },
+    get izinError()      { return izinError },
+    get fIzinJenis()     { return fIzinJenis },
+    set fIzinJenis(v: 'cuti' | 'izin' | 'sakit') { fIzinJenis = v },
+    get fIzinMulai()     { return fIzinMulai },
+    set fIzinMulai(v: string) { fIzinMulai = v },
+    get fIzinSelesai()   { return fIzinSelesai },
+    set fIzinSelesai(v: string) { fIzinSelesai = v },
+    get fIzinAlasan()    { return fIzinAlasan },
+    set fIzinAlasan(v: string) { fIzinAlasan = v },
+    get fIzinKaryawanId(){ return fIzinKaryawanId },
+    set fIzinKaryawanId(v: string) { fIzinKaryawanId = v },
+    muatIzin, setujuiIzin, tolakIzin, bukaFormIzin, simpanIzin,
+
+    // ── Evaluasi ──
+    get evalRows()       { return evalRows },
+    get evalKaryawanId() { return evalKaryawanId },
+    set evalKaryawanId(v: string) { evalKaryawanId = v },
+    get evalPeriode()    { return evalPeriode },
+    set evalPeriode(v: string) { evalPeriode = v },
+    get evalFormOpen()   { return evalFormOpen },
+    set evalFormOpen(v: boolean) { evalFormOpen = v },
+    get evalError()      { return evalError },
+    get editEvalId()     { return editEvalId },
+    get fEvalKaryawanId(){ return fEvalKaryawanId },
+    set fEvalKaryawanId(v: string) { fEvalKaryawanId = v },
+    get fEvalPeriode()   { return fEvalPeriode },
+    set fEvalPeriode(v: string) { fEvalPeriode = v },
+    get fEvalNilai()     { return fEvalNilai },
+    set fEvalNilai(v: string) { fEvalNilai = v },
+    get fEvalCatatan()   { return fEvalCatatan },
+    set fEvalCatatan(v: string) { fEvalCatatan = v },
+    get konfirmEvalBuka(){ return konfirmEvalBuka },
+    set konfirmEvalBuka(v: boolean) { konfirmEvalBuka = v },
+    muatEval, bukaEvalForm, simpanEval, hapusEval, doHapusEval,
+    resetKonfirmEval() { konfirmEvalId = null },
+
+    // ── Sanksi & Insentif ──
+    get siRows()         { return siRows },
+    get siBulan()        { return siBulan },
+    set siBulan(v: string) { siBulan = v },
+    get siKaryawanId()   { return siKaryawanId },
+    set siKaryawanId(v: string) { siKaryawanId = v },
+    get siTipe()         { return siTipe },
+    set siTipe(v: string) { siTipe = v },
+    get siFormOpen()     { return siFormOpen },
+    set siFormOpen(v: boolean) { siFormOpen = v },
+    get siError()        { return siError },
+    get fSiKaryawanId()  { return fSiKaryawanId },
+    set fSiKaryawanId(v: string) { fSiKaryawanId = v },
+    get fSiTipe()        { return fSiTipe },
+    set fSiTipe(v: 'sanksi' | 'insentif') { fSiTipe = v },
+    get fSiJenis()       { return fSiJenis },
+    set fSiJenis(v: string) { fSiJenis = v },
+    get fSiJumlah()      { return fSiJumlah },
+    set fSiJumlah(v: string) { fSiJumlah = v },
+    get fSiTanggal()     { return fSiTanggal },
+    set fSiTanggal(v: string) { fSiTanggal = v },
+    get fSiBulan()       { return fSiBulan },
+    set fSiBulan(v: string) { fSiBulan = v },
+    get fSiKet()         { return fSiKet },
+    set fSiKet(v: string) { fSiKet = v },
+    get konfirmSIBuka()  { return konfirmSIBuka },
+    set konfirmSIBuka(v: boolean) { konfirmSIBuka = v },
+    muatSI, bukaFormSI, simpanSI, hapusSI, doHapusSI,
+    resetKonfirmSI() { konfirmSIId = null },
   }
 }
 

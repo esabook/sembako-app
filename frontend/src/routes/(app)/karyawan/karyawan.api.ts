@@ -3,6 +3,7 @@ import type {
   Karyawan, AbsensiRow, RekapRow, PenggajianRow, KasBank,
   KasbonRow, JadwalCicilan, TipeShift, JadwalRow, TukarRow,
   PerformaRingkasan, PerformaDetail, RealtimeRow,
+  IzinRow, EvaluasiRow, SanksiInsentifRow,
 } from './karyawan.types'
 
 function unwrap<T>(res: { success: true; data: T } | { success: false; error: string }): T {
@@ -191,4 +192,60 @@ export async function fetchPerforma(bulan: string): Promise<{ bulan: string; has
 
 export async function fetchPerformaDetail(id: number, bulan: string): Promise<PerformaDetail> {
   return unwrap(await api.get<PerformaDetail>(`/karyawan/${id}/performa?bulan=${bulan}`))
+}
+
+// ── Izin ─────────────────────────────────────────────────────────────────────
+
+export async function fetchIzin(params: URLSearchParams): Promise<IzinRow[]> {
+  return unwrap(await api.get<IzinRow[]>(`/izin?${params}`))
+}
+
+export async function setujuiIzinApi(id: number): Promise<void> {
+  await api.post(`/izin/${id}/setujui`, {})
+}
+
+export async function tolakIzinApi(id: number, catatan: string): Promise<void> {
+  await api.post(`/izin/${id}/tolak`, { catatan })
+}
+
+export async function createIzin(payload: Record<string, unknown>): Promise<true> {
+  unwrap(await api.post('/izin', payload))
+  return true
+}
+
+// ── Evaluasi ─────────────────────────────────────────────────────────────────
+
+export async function fetchEvaluasi(params: URLSearchParams): Promise<EvaluasiRow[]> {
+  return unwrap(await api.get<EvaluasiRow[]>(`/evaluasi?${params}`))
+}
+
+export async function createEvaluasi(payload: Record<string, unknown>): Promise<true> {
+  unwrap(await api.post('/evaluasi', payload))
+  return true
+}
+
+export async function updateEvaluasi(id: number, payload: Record<string, unknown>): Promise<true> {
+  unwrap(await api.put(`/evaluasi/${id}`, payload))
+  return true
+}
+
+export async function deleteEvaluasi(id: number): Promise<true> {
+  await api.delete(`/evaluasi/${id}`)
+  return true
+}
+
+// ── Sanksi & Insentif ──────────────────────────────────────────────────────
+
+export async function fetchSanksiInsentif(params: URLSearchParams): Promise<SanksiInsentifRow[]> {
+  return unwrap(await api.get<SanksiInsentifRow[]>(`/sanksi-insentif?${params}`))
+}
+
+export async function createSanksiInsentif(payload: Record<string, unknown>): Promise<true> {
+  unwrap(await api.post('/sanksi-insentif', payload))
+  return true
+}
+
+export async function deleteSanksiInsentif(id: number): Promise<true> {
+  await api.delete(`/sanksi-insentif/${id}`)
+  return true
 }
