@@ -4,7 +4,7 @@ project: Stokasir App
 summary: Aplikasi manajemen stok-kasir grosir/eceran. Multi-toko, multi-cabang, multi-dialect DB. Webview lokal (LAN/Pi) atau cloud (Turso/Supabase/Railway).
 team: 1 developer
 principles: SIMPEL; RINGAN; OFFLINE; WEBVIEW
-detail_refs: claude/identity.md, claude/coding.md, claude/database.md, claude/frontend.md, claude/status.md, claude/deployment.md, claude/sop-engine.md, claude/attachments.md, claude/approval.md, claude/scheduler.md, claude/patterns.md
+detail_refs: claude/identity.md, claude/coding.md, claude/database.md, claude/frontend.md, claude/status.md, claude/deployment.md, claude/sop-engine.md, claude/attachments.md, claude/approval.md, claude/scheduler.md, claude/patterns.md, claude/frontend-refactor-step.md
 deployment_notes: Deployment ke Raspberry Pi baca DEPLOY.md; cloud (Turso/PG) baca claude/deployment.md
 feature_notes: Pola implementasi fitur baru baca CLAUDE_SKILL_FEATURE_DEV.md
 
