@@ -17,6 +17,7 @@ response_recap_format: <type>(<scope>): <deskripsi singkat>\n\n<body: kenapa ber
 response_recap_rules: 1 blok code fence di akhir respons; tanpa label atau header tambahan; pilih scope paling dominan jika banyak file/scope
 
 frontend_stack: Svelte 5; withLoading; async utilities; responsive; anti-pattern rules ada di claude/frontend.md
+frontend_refactor_steps: rules ada di claude/frontend-refactor-step.md
 database_rules: multi-dialect (SQLite/Turso/PG/MySQL), helper builders.ts, pola tenant ada di claude/database.md
 backend_modules: SOP engine, event bus, attachment, approval, scheduler, storage driver, backup/restore
 status_tracking: Status implementasi, bugfix, dan backlog ada di claude/status.md
