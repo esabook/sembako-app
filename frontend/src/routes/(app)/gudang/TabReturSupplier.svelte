@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import SlideOver from '$lib/components/SlideOver.svelte';
+	import DateRangePicker from '$lib/components/ui/DateRangePicker.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 
@@ -52,6 +53,8 @@
 	let dari = $state('');
 	let sampai = $state('');
 	let filterSupplier = $state('');
+
+	$effect(() => { dari; sampai; muat() })
 	let loading = $state(false);
 	let error = $state('');
 
@@ -197,16 +200,7 @@
 
 <!-- Toolbar -->
 <div class="flex flex-wrap gap-2 mb-3 items-end">
-	<div class="flex flex-col gap-1">
-		<span class="text-xs" style="color:var(--text-dim)">Dari</span>
-		<input type="date" bind:value={dari} onchange={muat}
-			class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
-	</div>
-	<div class="flex flex-col gap-1">
-		<span class="text-xs" style="color:var(--text-dim)">Sampai</span>
-		<input type="date" bind:value={sampai} onchange={muat}
-			class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
-	</div>
+	<DateRangePicker label="Periode" bind:from={dari} bind:to={sampai} />
 	<button onclick={muat} class="px-3 py-1 rounded text-sm border" style="border-color:var(--border);color:var(--text)">Muat</button>
 	<button onclick={bukaForm} class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Retur Supplier</button>
 </div>
