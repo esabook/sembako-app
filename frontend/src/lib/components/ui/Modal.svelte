@@ -7,7 +7,7 @@
 		bisaTutup = true,
 		ontutup,
 		children,
-		footer,
+		footer
 	}: {
 		judul: string;
 		lebar?: 'sm' | 'md' | 'lg';
@@ -35,11 +35,7 @@
 	style="background:rgba(0,0,0,0.6)"
 >
 	<!-- backdrop: klik untuk tutup -->
-	<button
-		class="absolute inset-0 cursor-default"
-		aria-label="Tutup"
-		tabindex="-1"
-		onclick={tutup}
+	<button class="absolute inset-0 cursor-default" aria-label="Tutup" tabindex="-1" onclick={tutup}
 	></button>
 
 	<div
@@ -69,10 +65,7 @@
 		</div>
 
 		{#if footer}
-			<div
-				class="flex justify-end gap-2 border-t px-4 py-3"
-				style="border-color:var(--border)"
-			>
+			<div class="flex justify-end gap-2 border-t px-4 py-3" style="border-color:var(--border)">
 				{@render footer()}
 			</div>
 		{/if}

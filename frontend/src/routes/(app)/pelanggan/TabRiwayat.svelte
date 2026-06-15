@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { api } from '$lib/utils/api.js'
+  import Button from '$lib/components/ui/Button.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
 
   let { pelangganId, namaPelanggan }: { pelangganId: number; namaPelanggan: string } = $props()
@@ -141,17 +142,9 @@
         class="rounded border px-2 py-1 text-xs"
         style="background:var(--surface2);border-color:var(--border);color:var(--text);font-family:inherit" />
     </div>
-    <button onclick={() => muat()}
-      class="rounded px-3 py-1.5 text-xs font-bold"
-      style="background:var(--accent);color:var(--bg);border:none;cursor:pointer">
-      Filter
-    </button>
+    <Button onclick={() => muat()} size="sm">Filter</Button>
     {#if dari || sampai}
-      <button onclick={() => { dari = ''; sampai = ''; muat() }}
-        class="rounded px-2 py-1.5 text-xs"
-        style="background:transparent;border:1px solid var(--border);color:var(--text-dim);cursor:pointer">
-        Reset
-      </button>
+      <Button variant="ghost" size="sm" onclick={() => { dari = ''; sampai = ''; muat() }}>Reset</Button>
     {/if}
     <span class="text-xs ml-auto" style="color:var(--text-dim)">{total} transaksi</span>
   </div>
@@ -205,11 +198,9 @@
                 {/if}
               </td>
               <td class="px-3 py-2 text-center">
-                <button onclick={() => toggleDetail(trx.id)}
-                  class="text-xs px-2 py-1 rounded"
-                  style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);cursor:pointer">
+                <Button variant="ghost" size="xs" onclick={() => toggleDetail(trx.id)}>
                   {expandedId === trx.id ? '▲' : '▼'}
-                </button>
+                </Button>
               </td>
             </tr>
 
@@ -253,19 +244,11 @@
     <!-- Pagination -->
     {#if total > limit}
       <div class="flex items-center gap-3 justify-between pt-1">
-        <button onclick={halamanSebelum} disabled={offset === 0}
-          class="text-xs px-3 py-1.5 rounded"
-          style="background:var(--surface2);border:1px solid var(--border);color:{offset === 0 ? 'var(--text-dim)' : 'var(--text)'};cursor:{offset === 0 ? 'default' : 'pointer'};opacity:{offset === 0 ? '.5' : '1'}">
-          ← Sebelum
-        </button>
+        <Button variant="ghost" size="sm" disabled={offset === 0} onclick={halamanSebelum}>← Sebelum</Button>
         <span class="text-xs" style="color:var(--text-dim)">
           {offset + 1}–{Math.min(offset + limit, total)} dari {total}
         </span>
-        <button onclick={halamanBerikut} disabled={offset + limit >= total}
-          class="text-xs px-3 py-1.5 rounded"
-          style="background:var(--surface2);border:1px solid var(--border);color:{offset + limit >= total ? 'var(--text-dim)' : 'var(--text)'};cursor:{offset + limit >= total ? 'default' : 'pointer'};opacity:{offset + limit >= total ? '.5' : '1'}">
-          Berikut →
-        </button>
+        <Button variant="ghost" size="sm" disabled={offset + limit >= total} onclick={halamanBerikut}>Berikut →</Button>
       </div>
     {/if}
   {/if}

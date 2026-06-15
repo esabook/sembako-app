@@ -80,7 +80,7 @@
 		transition:fade={{ duration: 150 }}
 		class="ui-backdrop fixed inset-0 z-50 flex justify-center {fullscreen
 			? 'items-center p-2'
-			: 'items-end px-2 sm:items-center sm:px-0'}"
+			: 'items-end px-2 pt-4 sm:items-center sm:px-0'}"
 		// style="background:rgba(0,0,0,0.5)"
 		role="dialog"
 		aria-modal="true"
@@ -111,7 +111,7 @@
 										: 'sm:max-w-md')}"
 			style="background:var(--surface);border-color:var(--border);{fullscreen
 				? ''
-				: 'max-height:90svh'}"
+				: 'max-height:100svh'}"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => {
 				if (e.key === 'Escape') {

@@ -8,15 +8,17 @@
 		loading = false,
 		shortcut = null,
 		type = 'button',
+		clasz = '',
 		onclick,
-		children,
+		children
 	}: {
-		variant?: 'primary' | 'danger' | 'ghost' | 'dim';
+		variant?: 'primary' | 'danger' | 'ghost' | 'dim' | 'info';
 		size?: 'xs' | 'sm' | 'md' | 'lg';
 		disabled?: boolean;
 		loading?: boolean;
 		shortcut?: string | null;
 		type?: 'button' | 'submit';
+		clasz?: string;
 		onclick?: (e: MouseEvent) => void;
 		children: Snippet;
 	} = $props();
@@ -25,7 +27,7 @@
 		xs: 'px-1.5 py-0.5 text-xs gap-1',
 		sm: 'px-2 py-1 text-xs gap-1',
 		md: 'px-3 py-1.5 text-sm gap-1.5',
-		lg: 'px-4 py-2.5 text-base gap-2',
+		lg: 'px-4 py-2.5 text-base gap-2'
 	} as const;
 
 	const gaya = $derived.by(() => {
@@ -38,6 +40,8 @@
 				return 'background:transparent;color:var(--text);border-color:var(--border)';
 			case 'dim':
 				return 'background:var(--surface2);color:var(--text-dim);border-color:var(--border)';
+			case 'info':
+				return 'background:color-mix(in srgb,var(--info) 15%,transparent);color:var(--info);border-color:var(--info)';
 		}
 	});
 </script>
@@ -48,7 +52,7 @@
 	{onclick}
 	class="inline-flex items-center justify-center rounded border font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 {sizeCls[
 		size
-	]}"
+	]} {clasz}"
 	style={gaya}
 >
 	{#if loading}

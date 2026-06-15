@@ -6,6 +6,7 @@
   import Spinner from '$lib/components/ui/Spinner.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import Button from '$lib/components/ui/Button.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
 
   let { onbukariwayat }: { onbukariwayat?: (id: number, nama: string) => void } = $props()
 
@@ -307,34 +308,14 @@
 
           <!-- Aksi -->
           <div class="mt-auto flex flex-wrap items-center gap-1.5 border-t pt-2" style="border-color:var(--border)">
-            <button
-              onclick={() => bukaEditPlg(p)}
-              class="rounded border px-2 py-1 text-xs transition-colors"
-              style="border-color:var(--border);color:var(--text-dim)"
-            >Edit</button>
-            <button
-              onclick={() => onbukariwayat?.(p.id, p.nama)}
-              class="rounded border px-2 py-1 text-xs transition-colors"
-              style="border-color:var(--border);color:var(--info)"
-            >Riwayat</button>
+            <Button variant="ghost" size="xs" onclick={() => bukaEditPlg(p)}>Edit</Button>
+            <Button variant="ghost" size="xs" onclick={() => onbukariwayat?.(p.id, p.nama)}>Riwayat</Button>
             {#if p.no_kartu}
-              <button
-                onclick={() => { konfirmUnassignPlg = p; konfirmUnassignBuka = true }}
-                class="rounded border px-2 py-1 text-xs transition-colors"
-                style="border-color:var(--border);color:var(--danger)"
-              >Lepas Kartu</button>
+              <Button variant="danger" size="xs" onclick={() => { konfirmUnassignPlg = p; konfirmUnassignBuka = true }}>Lepas Kartu</Button>
             {:else}
-              <button
-                onclick={() => bukaAssignKartu(p)}
-                class="rounded border px-2 py-1 text-xs transition-colors"
-                style="border-color:var(--border);color:var(--accent)"
-              >+ Kartu</button>
+              <Button variant="ghost" size="xs" onclick={() => bukaAssignKartu(p)}>+ Kartu</Button>
             {/if}
-            <button
-              onclick={() => { konfirmTogglePlg = p; konfirmToggleBuka = true }}
-              class="ml-auto rounded border px-2 py-1 text-xs transition-colors"
-              style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}"
-            >{p.is_active ? 'Nonaktif' : 'Aktifkan'}</button>
+            <Button variant={p.is_active ? 'danger' : 'ghost'} size="xs" onclick={() => { konfirmTogglePlg = p; konfirmToggleBuka = true }} clasz="ml-auto">{p.is_active ? 'Nonaktif' : 'Aktifkan'}</Button>
           </div>
         </div>
       {/each}
@@ -391,16 +372,16 @@
             {#if !hidden.has('aksi')}
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1 justify-end flex-wrap">
-                  <button onclick={() => bukaEditPlg(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--text-dim)">Edit</button>
-                  <button onclick={() => onbukariwayat?.(p.id, p.nama)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--info)">Riwayat</button>
+                  <Button variant="ghost" size="xs" onclick={() => bukaEditPlg(p)}>Edit</Button>
+                  <Button variant="ghost" size="xs" onclick={() => onbukariwayat?.(p.id, p.nama)}>Riwayat</Button>
                   {#if p.no_kartu}
-                    <button onclick={() => { konfirmUnassignPlg = p; konfirmUnassignBuka = true }} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--danger)">Lepas Kartu</button>
+                    <Button variant="danger" size="xs" onclick={() => { konfirmUnassignPlg = p; konfirmUnassignBuka = true }}>Lepas Kartu</Button>
                   {:else}
-                    <button onclick={() => bukaAssignKartu(p)} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:var(--accent)">+ Kartu</button>
+                    <Button variant="ghost" size="xs" onclick={() => bukaAssignKartu(p)}>+ Kartu</Button>
                   {/if}
-                  <button onclick={() => { konfirmTogglePlg = p; konfirmToggleBuka = true }} class="rounded border px-2 py-0.5 text-xs" style="border-color:var(--border);color:{p.is_active ? 'var(--danger)' : 'var(--text-dim)'}">
+                  <Button variant={p.is_active ? 'danger' : 'ghost'} size="xs" onclick={() => { konfirmTogglePlg = p; konfirmToggleBuka = true }}>
                     {p.is_active ? 'Nonaktif' : 'Aktifkan'}
-                  </button>
+                  </Button>
                 </div>
               </td>
             {/if}
@@ -427,13 +408,15 @@
         />
       </div>
       <div>
-        <label for="plg-tipe" class="block text-xs mb-1" style="color:var(--text-dim)">Tipe</label>
-        <select id="plg-tipe" bind:value={formPlg.tipe} class="w-full px-3 py-1.5 text-sm rounded border"
-          style="background:var(--bg);border-color:var(--border);color:var(--text)">
-          <option value="eceran">Eceran</option>
-          <option value="grosir">Grosir</option>
-          <option value="langganan">Langganan</option>
-        </select>
+        <Select
+          bind:value={formPlg.tipe}
+          label="Tipe"
+          options={[
+            { value: 'eceran', label: 'Eceran' },
+            { value: 'grosir', label: 'Grosir' },
+            { value: 'langganan', label: 'Langganan' }
+          ]}
+        />
       </div>
     </div>
     <div>
