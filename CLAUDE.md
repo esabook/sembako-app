@@ -4,7 +4,8 @@ project: Stokasir App
 summary: Aplikasi manajemen stok-kasir grosir/eceran. Multi-toko, multi-cabang, multi-dialect DB. Webview lokal (LAN/Pi) atau cloud (Turso/Supabase/Railway).
 team: 1 developer
 principles: SIMPEL; RINGAN; OFFLINE; WEBVIEW
-detail_refs: claude/identity.md, claude/coding.md, claude/database.md, claude/frontend.md, claude/status.md, claude/deployment.md, claude/sop-engine.md, claude/attachments.md, claude/approval.md, claude/scheduler.md, claude/patterns.md, claude/frontend-refactor-step.md
+detail_refs: claude/identity.md, claude/coding.md, claude/database.md, claude/frontend.md, claude/status.md, claude/deployment.md, claude/sop-engine.md, claude/attachments.md, claude/approval.md, claude/scheduler.md, claude/patterns.md, claude/frontend-refactor-step.md, claude/frontend-component-bot.md
+
 deployment_notes: Deployment ke Raspberry Pi baca DEPLOY.md; cloud (Turso/PG) baca claude/deployment.md
 feature_notes: Pola implementasi fitur baru baca CLAUDE_SKILL_FEATURE_DEV.md
 
@@ -18,6 +19,8 @@ response_recap_rules: 1 blok code fence di akhir respons; tanpa label atau heade
 
 frontend_stack: Svelte 5; withLoading; async utilities; responsive; anti-pattern rules ada di claude/frontend.md
 frontend_refactor_steps: rules ada di claude/frontend-refactor-step.md
+frontend_reused_components: claude/frontend-component-bot.md
+
 database_rules: multi-dialect (SQLite/Turso/PG/MySQL), helper builders.ts, pola tenant ada di claude/database.md
 backend_modules: SOP engine, event bus, attachment, approval, scheduler, storage driver, backup/restore
 status_tracking: Status implementasi, bugfix, dan backlog ada di claude/status.md
