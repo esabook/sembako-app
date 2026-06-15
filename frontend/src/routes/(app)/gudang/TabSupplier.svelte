@@ -5,6 +5,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	type Supplier = { id: number; kode_supplier: string; nama_supplier: string; kontak: string | null; alamat: string | null; terms_bayar: number; limit_hutang: number; is_active: boolean; };
 
@@ -73,7 +74,7 @@
 
 <div class="flex flex-col gap-3">
 	<div class="flex justify-end">
-		<button onclick={() => bukaFormSupplier()} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+		<Button onclick={() => bukaFormSupplier()}>+ Tambah</Button>
 	</div>
 	<DataTable
 		columns={kolSupplier}
@@ -104,8 +105,8 @@
 				{/if}
 				{#if !hidden.has('aksi')}
 					<td class="px-3 py-2 text-right">
-						<button onclick={() => bukaFormSupplier(item)} class="text-xs mr-2" style="color:var(--info)">Edit</button>
-						<button onclick={() => { konfirmSupplierId = item.id; konfirmSupplierBuka = true }} class="text-xs" style="color:var(--danger)">Nonaktif</button>
+						<Button variant="ghost" size="xs" onclick={() => bukaFormSupplier(item)}>Edit</Button>
+						<Button variant="danger" size="xs" onclick={() => { konfirmSupplierId = item.id; konfirmSupplierBuka = true }}>Nonaktif</Button>
 					</td>
 				{/if}
 			</tr>
@@ -115,7 +116,6 @@
 </div>
 
 <SlideOver bind:open={modalSupplier} title={editSupplier?.id ? 'Edit Supplier' : 'Tambah Supplier'}>
-	{#snippet children()}
 	<form onsubmit={(e) => { e.preventDefault(); simpanSupplier(); }} class="flex flex-col gap-3 text-sm">
 		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{error}</p>{/if}
 		<div class="grid grid-cols-2 gap-3">
@@ -126,11 +126,10 @@
 			<div class="flex flex-col gap-1 col-span-2"><label for="fs-alamat" class="text-xs" style="color:var(--text-dim)">ALAMAT</label><input id="fs-alamat" bind:value={fs.alamat} class="px-2 py-1 rounded border outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></div>
 		</div>
 		<div class="flex justify-end gap-2">
-			<button type="button" onclick={() => modalSupplier = false} class="px-3 py-1 rounded text-sm" style="color:var(--text-dim)">Batal</button>
-			<button type="submit" class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">Simpan</button>
+			<Button type="button" variant="dim" onclick={() => modalSupplier = false}>Batal</Button>
+			<Button type="submit">Simpan</Button>
 		</div>
 	</form>
-	{/snippet}
 </SlideOver>
 
 <ConfirmDialog

@@ -7,6 +7,7 @@
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabOpnameGuide from './TabOpnameGuide.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	type OpnameRow = { id: number; no_opname: string; tanggal_mulai: string; tanggal_selesai: string | null; status: string };
 	type OpnameDetail = OpnameRow & {
@@ -144,7 +145,7 @@
 <div class="flex flex-col gap-4">
 
 	{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{error}
-		<button onclick={() => error = ''} class="float-right" style="background:none;border:none;color:var(--danger);cursor:pointer">✕</button>
+		<Button variant="danger" size="xs" onclick={() => error = ''}>✕</Button>
 	</p>{/if}
 
 	{#if !opnameAktif}
@@ -152,11 +153,7 @@
 			<p class="text-sm" style="color:var(--text-dim)">
 				{opnameList.filter(o => o.status === 'approved').length} opname selesai
 			</p>
-			<button onclick={() => bukaKonfirm('buat')} disabled={opnameSaving}
-				class="px-3 py-1 rounded text-sm font-bold"
-				style="background:var(--accent);color:var(--bg);opacity:{opnameSaving ? .6 : 1}">
-				{opnameSaving ? 'Membuat...' : '+ Buat Opname Baru'}
-			</button>
+			<Button onclick={() => bukaKonfirm('buat')} loading={opnameSaving}>+ Buat Opname Baru</Button>
 		</div>
 
 		{#if opnameList.length > 0}
@@ -208,17 +205,11 @@
 			</div>
 			<div class="flex flex-col items-end gap-1">
 				{#if opnameAktif.sudah_dihitung === opnameAktif.items.length && opnameAktif.items.length > 0}
-					<button onclick={() => bukaKonfirm('approve')} disabled={opnameSaving}
-						class="px-3 py-1 rounded text-xs font-bold"
-						style="background:var(--accent);color:var(--bg);opacity:{opnameSaving ? .6 : 1}">
-						{opnameSaving ? '...' : 'Approve & Perbarui Stok'}
-					</button>
+					<Button size="sm" onclick={() => bukaKonfirm('approve')} loading={opnameSaving}>Approve & Perbarui Stok</Button>
 				{:else}
 					<div class="text-xs" style="color:var(--text-dim)">Isi semua item untuk Approve</div>
 				{/if}
-				<button onclick={() => bukaKonfirm('batal')} class="px-2 py-1 rounded text-xs border" style="border-color:var(--danger);color:var(--danger)">
-					Batalkan Opname
-				</button>
+				<Button variant="danger" size="xs" onclick={() => bukaKonfirm('batal')}>Batalkan Opname</Button>
 			</div>
 		</div>
 

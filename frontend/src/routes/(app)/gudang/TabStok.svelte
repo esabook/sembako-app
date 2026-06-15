@@ -8,6 +8,8 @@
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabStokGuide from './TabStokGuide.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import SearchInput from '$lib/components/data/SearchInput.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	type StokItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; lokasi_rak: string | null; nama_kategori: string | null; singkatan_satuan: string | null; };
 	type MutasiItem = {
@@ -124,7 +126,7 @@
 
 <div class="flex flex-col gap-3">
 	<div class="flex items-center gap-3">
-		<input type="search" placeholder="Filter nama/kode..." bind:value={query} oninput={() => { pageStok = 1; }} class="px-3 py-1 rounded border text-sm max-w-xs outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
+		<SearchInput bind:value={query} placeholder="Filter nama/kode..." autofocus={false} onsearch={() => { pageStok = 1; }} />
 		<span class="text-xs" style="color:var(--text-dim)">{filteredStok.length} barang</span>
 	</div>
 	<DataTable
@@ -166,7 +168,7 @@
 					{/if}
 					{#if !hidden.has('aksi')}
 						<td class="px-3 py-2 text-right">
-							<button onclick={() => muatMutasi(item.id, item.nama_barang)} class="text-xs" style="color:var(--info)">Riwayat</button>
+							<Button variant="ghost" size="xs" onclick={() => muatMutasi(item.id, item.nama_barang)}>Riwayat</Button>
 						</td>
 					{/if}
 				</tr>
@@ -176,7 +178,6 @@
 </div>
 
 <SlideOver bind:open={showMutasi} title="Riwayat Mutasi — {mutasiNama}">
-	{#snippet children()}
 	<div class="space-y-3">
 		<!-- Filter tanggal -->
 		<div class="flex flex-wrap gap-2 items-center">
@@ -187,17 +188,9 @@
 			<input type="date" bind:value={mutasiSampai}
 				class="rounded border px-2 py-1 text-xs outline-none"
 				style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			<button
-				onclick={filterMutasi}
-				class="rounded px-3 py-1 text-xs font-medium"
-				style="background:var(--accent);color:#000"
-			>Filter</button>
+			<Button size="sm" onclick={filterMutasi}>Filter</Button>
 			{#if mutasiDari || mutasiSampai}
-				<button
-					onclick={() => { mutasiDari = ''; mutasiSampai = ''; filterMutasi(); }}
-					class="text-xs"
-					style="color:var(--text-dim)"
-				>Reset</button>
+				<Button variant="dim" size="xs" onclick={() => { mutasiDari = ''; mutasiSampai = ''; filterMutasi(); }}>Reset</Button>
 			{/if}
 			<span class="text-xs ml-auto" style="color:var(--text-dim)">{mutasiList.length} baris</span>
 		</div>
@@ -245,7 +238,6 @@
 			{/if}
 		</div>
 	</div>
-	{/snippet}
 </SlideOver>
 
 <TabStokGuide />

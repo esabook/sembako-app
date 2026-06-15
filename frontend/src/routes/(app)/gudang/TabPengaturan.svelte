@@ -3,6 +3,7 @@
 	import { api } from '$lib/utils/api.js';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	type Kategori = { id: number; nama: string; contoh: string | null;kode: string | null; is_preset: boolean };
 	type Satuan = { id: number; nama: string; singkatan: string; contoh: string | null; is_preset: boolean };
@@ -227,7 +228,7 @@
 
 	{#if errorPengaturan}
 		<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{errorPengaturan}
-			<button onclick={() => errorPengaturan = ''} class="float-right font-bold" style="background:none;border:none;color:inherit;cursor:pointer">✕</button>
+			<Button variant="ghost" size="xs" onclick={() => errorPengaturan = ''}>✕</Button>
 		</p>
 	{/if}
 
@@ -236,19 +237,8 @@
 		<div class="flex items-center justify-between gap-3 flex-wrap">
 			<h3 class="text-sm font-bold">Kategori Barang</h3>
 			<div class="flex gap-2">
-				<button
-					onclick={importPresetKategori}
-					disabled={importingPreset}
-					class="text-xs px-2 py-1 rounded border disabled:opacity-50"
-					style="border-color:var(--accent);color:var(--accent)">
-					{importingPreset ? '...' : '↓ Import Data Bawaan ke DB'}
-				</button>
-				<button
-					onclick={() => showPredefinedKategori = !showPredefinedKategori}
-					class="text-xs px-2 py-1 rounded border"
-					style="border-color:var(--border);color:var(--text-dim)">
-					{showPredefinedKategori ? 'Sembunyikan' : 'Lihat'} Referensi ({PREDEFINED_KATEGORI.length})
-				</button>
+				<Button variant="ghost" size="xs" onclick={importPresetKategori} loading={importingPreset}>↓ Import Data Bawaan ke DB</Button>
+				<Button variant="dim" size="xs" onclick={() => showPredefinedKategori = !showPredefinedKategori}>{showPredefinedKategori ? 'Sembunyikan' : 'Lihat'} Referensi ({PREDEFINED_KATEGORI.length})</Button>
 			</div>
 		</div>
 
@@ -262,8 +252,7 @@
 			<input bind:value={newKategoriContoh} placeholder="Contoh penggunaan (opsional)"
 				class="px-2 py-1 rounded border text-sm outline-none"
 				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:200px;flex:2" />
-			<button type="submit" class="px-3 py-1 rounded text-sm font-bold shrink-0"
-				style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+			<Button type="submit" size="sm">+ Tambah</Button>
 		</form>
 
 		<DataTable
@@ -298,8 +287,8 @@
 							{/if}
 							<td class="px-2 py-1.5">
 								<div class="flex gap-1.5 justify-end">
-									<button onclick={() => simpanEditKategori(item.id)} class="px-2 py-0.5 text-xs rounded" style="background:var(--accent);color:var(--bg)">simpan</button>
-									<button onclick={() => editKategoriId = null} class="px-2 py-0.5 text-xs rounded border" style="border-color:var(--border);color:var(--text-dim)">batal</button>
+									<Button size="xs" onclick={() => simpanEditKategori(item.id)}>simpan</Button>
+									<Button variant="dim" size="xs" onclick={() => editKategoriId = null}>batal</Button>
 								</div>
 							</td>
 						{:else}
@@ -318,14 +307,8 @@
 							<td class="px-2 py-2">
 								{#if !item.is_preset}
 									<div class="flex gap-1.5 justify-end">
-										<button
-											onclick={() => { editKategoriId = item.id; editKategoriNama = item.nama; editKategoriKode = item.kode ?? ''; editKategoriContoh = item.contoh ?? ''; errorPengaturan = '' }}
-											class="px-2 py-0.5 text-xs rounded border"
-											style="border-color:var(--info);color:var(--info)">edit</button>
-										<button
-											onclick={() => hapusKategori(item.id)}
-											class="px-2 py-0.5 text-xs rounded border"
-											style="border-color:var(--danger);color:var(--danger)">hapus</button>
+										<Button variant="ghost" size="xs" onclick={() => { editKategoriId = item.id; editKategoriNama = item.nama; editKategoriKode = item.kode ?? ''; editKategoriContoh = item.contoh ?? ''; errorPengaturan = '' }}>edit</Button>
+										<Button variant="danger" size="xs" onclick={() => hapusKategori(item.id)}>hapus</Button>
 									</div>
 								{/if}
 							</td>
@@ -360,19 +343,8 @@
 		<div class="flex items-center justify-between gap-3 flex-wrap">
 			<h3 class="text-sm font-bold">Satuan Barang</h3>
 			<div class="flex gap-2">
-				<button
-					onclick={importPresetSatuan}
-					disabled={importingPreset}
-					class="text-xs px-2 py-1 rounded border disabled:opacity-50"
-					style="border-color:var(--accent);color:var(--accent)">
-					{importingPreset ? '...' : '↓ Import Data Bawaan ke DB'}
-				</button>
-				<button
-					onclick={() => showPredefinedSatuan = !showPredefinedSatuan}
-					class="text-xs px-2 py-1 rounded border"
-					style="border-color:var(--border);color:var(--text-dim)">
-					{showPredefinedSatuan ? 'Sembunyikan' : 'Lihat'} Referensi ({PREDEFINED_SATUAN.length})
-				</button>
+				<Button variant="ghost" size="xs" onclick={importPresetSatuan} loading={importingPreset}>↓ Import Data Bawaan ke DB</Button>
+				<Button variant="dim" size="xs" onclick={() => showPredefinedSatuan = !showPredefinedSatuan}>{showPredefinedSatuan ? 'Sembunyikan' : 'Lihat'} Referensi ({PREDEFINED_SATUAN.length})</Button>
 			</div>
 		</div>
 
@@ -386,8 +358,7 @@
 			<input bind:value={newSatuanContoh} placeholder="Contoh penggunaan (opsional)"
 				class="px-2 py-1 rounded border text-sm outline-none"
 				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:200px;flex:2" />
-			<button type="submit" class="px-3 py-1 rounded text-sm font-bold shrink-0"
-				style="background:var(--accent);color:var(--bg)">+ Tambah</button>
+			<Button type="submit" size="sm">+ Tambah</Button>
 		</form>
 
 		<DataTable
@@ -422,8 +393,8 @@
 							{/if}
 							<td class="px-2 py-1.5">
 								<div class="flex gap-1.5 justify-end">
-									<button onclick={() => simpanEditSatuan(item.id)} class="px-2 py-0.5 text-xs rounded" style="background:var(--accent);color:var(--bg)">simpan</button>
-									<button onclick={() => editSatuanId = null} class="px-2 py-0.5 text-xs rounded border" style="border-color:var(--border);color:var(--text-dim)">batal</button>
+									<Button size="xs" onclick={() => simpanEditSatuan(item.id)}>simpan</Button>
+									<Button variant="dim" size="xs" onclick={() => editSatuanId = null}>batal</Button>
 								</div>
 							</td>
 						{:else}
@@ -444,14 +415,8 @@
 							<td class="px-2 py-2">
 								{#if !item.is_preset}
 									<div class="flex gap-1.5 justify-end">
-										<button
-											onclick={() => { editSatuanId = item.id; editSatuanNama = item.nama; editSatuanSingkatan = item.singkatan; editSatuanContoh = item.contoh ?? ''; errorPengaturan = '' }}
-											class="px-2 py-0.5 text-xs rounded border"
-											style="border-color:var(--info);color:var(--info)">edit</button>
-										<button
-											onclick={() => hapusSatuan(item.id)}
-											class="px-2 py-0.5 text-xs rounded border"
-											style="border-color:var(--danger);color:var(--danger)">hapus</button>
+										<Button variant="ghost" size="xs" onclick={() => { editSatuanId = item.id; editSatuanNama = item.nama; editSatuanSingkatan = item.singkatan; editSatuanContoh = item.contoh ?? ''; errorPengaturan = '' }}>edit</Button>
+										<Button variant="danger" size="xs" onclick={() => hapusSatuan(item.id)}>hapus</Button>
 									</div>
 								{/if}
 							</td>

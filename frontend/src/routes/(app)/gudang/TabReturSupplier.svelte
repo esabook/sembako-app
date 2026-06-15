@@ -5,6 +5,7 @@
 	import DateRangePicker from '$lib/components/ui/DateRangePicker.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	type ReturRow = {
 		id: number;
@@ -201,8 +202,8 @@
 <!-- Toolbar -->
 <div class="flex flex-wrap gap-2 mb-3 items-end">
 	<DateRangePicker label="Periode" bind:from={dari} bind:to={sampai} />
-	<button onclick={muat} class="px-3 py-1 rounded text-sm border" style="border-color:var(--border);color:var(--text)">Muat</button>
-	<button onclick={bukaForm} class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Retur Supplier</button>
+	<Button variant="ghost" onclick={muat}>Muat</Button>
+	<div class="ml-auto"><Button onclick={bukaForm}>+ Retur Supplier</Button></div>
 </div>
 
 <!-- Tabel -->
@@ -234,7 +235,7 @@
 					{/if}
 				</td>
 				<td class="px-3 py-2 text-right">
-					<button onclick={() => bukaDetail(row.id)} class="text-xs px-2 py-1 rounded border" style="border-color:var(--border);color:var(--text-dim)">Detail</button>
+					<Button variant="ghost" size="xs" onclick={() => bukaDetail(row.id)}>Detail</Button>
 				</td>
 			</tr>
 		{/each}
@@ -384,9 +385,6 @@
 				class="border rounded px-2 py-2 resize-none" style="background:var(--surface);border-color:var(--border);color:var(--text)"></textarea>
 		</div>
 
-		<button onclick={simpan} disabled={formLoading}
-			class="w-full py-2 rounded font-bold text-sm" style="background:var(--accent);color:var(--bg);opacity:{formLoading ? 0.6 : 1}">
-			{formLoading ? 'Menyimpan...' : 'Simpan Retur'}
-		</button>
+		<Button onclick={simpan} loading={formLoading} size="lg">Simpan Retur</Button>
 	</div>
 </SlideOver>

@@ -6,6 +6,7 @@
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import { debounce } from '$lib/utils/async.js';
 	import { rupiah } from '$lib/utils/format'
+	import Button from '$lib/components/ui/Button.svelte';
 
 	const kolBarang: Column[] = [
 		{ key: 'pilih',            label: '',       width: 24,  sortable: false, hideable: false },
@@ -255,7 +256,7 @@
 			{#each antrianItems as item (item.barang.id)}
 				<div class="flex items-center gap-1 px-2 py-1.5 border-b text-xs" style="border-color:var(--border)">
 					<div class="flex-1 min-w-0 font-mono truncate" style="color:var(--text)">{item.barang.nama_barang}</div>
-					<button onclick={() => ubahQty(item.barang.id, -1)} class="w-5 h-5 flex items-center justify-center rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">−</button>
+					<Button variant="dim" size="xs" onclick={() => ubahQty(item.barang.id, -1)}>−</Button>
 					<input
 						type="number" min="1" max="99"
 						value={item.qty}
@@ -263,8 +264,8 @@
 						class="w-9 text-center rounded border outline-none text-xs font-mono"
 						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 					/>
-					<button onclick={() => ubahQty(item.barang.id, 1)} class="w-5 h-5 flex items-center justify-center rounded text-xs font-bold" style="background:var(--surface2);color:var(--accent)">+</button>
-					<button onclick={() => togglePilih(item.barang)} class="w-5 h-5 flex items-center justify-center text-sm" style="color:var(--danger)">×</button>
+					<Button variant="dim" size="xs" onclick={() => ubahQty(item.barang.id, 1)}>+</Button>
+					<Button variant="danger" size="xs" onclick={() => togglePilih(item.barang)}>×</Button>
 				</div>
 			{:else}
 				<div class="p-3 text-center text-xs" style="color:var(--text-dim)">Pilih barang dulu</div>
@@ -302,22 +303,11 @@
 
 		<!-- Tombol -->
 		<div class="flex flex-col gap-2 mt-auto pt-2">
-			<button
-				onclick={cetak}
-				disabled={antrian.size === 0}
-				class="py-2 rounded text-xs font-bold transition-colors"
-				style="background:{antrian.size > 0 ? 'var(--accent)' : 'var(--surface2)'};color:{antrian.size > 0 ? '#000' : 'var(--text-dim)'}"
-			>
-				{#if antrian.size > 0}
-					CETAK {totalLabel} LABEL
-				{:else}
-					CETAK
-				{/if}
-			</button>
+			<Button onclick={cetak} disabled={antrian.size === 0} size="sm">
+				{antrian.size > 0 ? `CETAK ${totalLabel} LABEL` : 'CETAK'}
+			</Button>
 			{#if antrian.size > 0}
-				<button onclick={bersihkan} class="py-1 text-xs rounded" style="color:var(--danger);background:transparent">
-					Bersihkan antrian
-				</button>
+				<Button variant="danger" size="xs" onclick={bersihkan}>Bersihkan antrian</Button>
 			{/if}
 		</div>
 	</div>

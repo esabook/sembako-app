@@ -7,6 +7,7 @@
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabPOGuide from './TabPOGuide.svelte';
 	import { rupiah } from '$lib/utils/format'
+	import Button from '$lib/components/ui/Button.svelte';
 
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean; };
 	type PORow = { id: number; no_po: string; tanggal_po: string; nama_supplier: string | null; kontak_supplier: string | null; status: string; total_nilai: number; };
@@ -105,7 +106,7 @@
 <div class="flex flex-col gap-4">
 	<div class="flex items-center gap-3">
 		<h3 class="font-bold text-sm">Purchase Order</h3>
-		<button onclick={() => { poShowForm = !poShowForm; error = ''; }} class="px-3 py-1 rounded text-sm font-bold" style="background:var(--accent);color:var(--bg)">{poShowForm ? '✕ Tutup' : '+ Buat PO'}</button>
+		<Button onclick={() => { poShowForm = !poShowForm; error = ''; }}>{poShowForm ? '✕ Tutup' : '+ Buat PO'}</Button>
 		{#if suggestList.length > 0}<span class="text-xs px-2 py-1 rounded" style="background:var(--surface);color:var(--warn)">⚠ {suggestList.length} stok kritis</span>{/if}
 	</div>
 	{#if poShowForm}
@@ -125,7 +126,7 @@
 			</div>
 			<div class="flex items-end">
 				{#if suggestList.length > 0}
-				<button onclick={isiDariSuggest} class="px-3 py-1.5 rounded text-xs border" style="border-color:var(--warn);color:var(--warn)">Isi dari Stok Kritis ({suggestList.length})</button>
+				<Button variant="ghost" size="sm" onclick={isiDariSuggest}>Isi dari Stok Kritis ({suggestList.length})</Button>
 				{/if}
 			</div>
 		</div>
@@ -144,7 +145,7 @@
 						<td class="px-3 py-2">{item.nama_barang}</td>
 						<td class="px-2 py-1 text-right"><input type="number" min="1" bind:value={item.jumlah} class="w-24 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
 						<td class="px-2 py-1 text-right"><input type="number" min="0" bind:value={item.harga_est} class="w-28 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
-						<td class="px-2 text-center"><button onclick={() => poItems = poItems.filter((_, i) => i !== idx)} class="text-xs" style="color:var(--danger)">✕</button></td>
+						<td class="px-2 text-center"><Button variant="danger" size="xs" onclick={() => poItems = poItems.filter((_, i) => i !== idx)}>✕</Button></td>
 					</tr>
 					{/each}
 				</tbody>
@@ -154,8 +155,8 @@
 		<p class="text-xs mb-3" style="color:var(--text-dim)">Klik "Isi dari Stok Kritis" atau tambah item manual.</p>
 		{/if}
 		<div class="flex justify-end gap-2">
-			<button onclick={() => poShowForm = false} class="px-3 py-1.5 rounded text-sm" style="color:var(--text-dim)">Batal</button>
-			<button onclick={simpanPO} disabled={poLoading} class="px-6 py-1.5 rounded text-sm font-bold disabled:opacity-40" style="background:var(--accent);color:var(--bg)">{poLoading ? 'Menyimpan...' : 'Buat PO'}</button>
+			<Button variant="dim" onclick={() => poShowForm = false}>Batal</Button>
+			<Button onclick={simpanPO} loading={poLoading}>Buat PO</Button>
 		</div>
 	</div>
 	{/if}
@@ -191,9 +192,9 @@
 				{/if}
 				{#if !hidden.has('aksi')}
 					<td class="px-3 py-2 text-right">
-						<button onclick={() => lihatPO(po.id)} class="text-xs mr-2" style="color:var(--info)">Detail</button>
-						{#if po.status === 'draft'}<button onclick={() => ubahStatusPO(po.id, 'dikirim')} class="text-xs mr-2" style="color:var(--warn)">Kirim</button>{/if}
-						<button onclick={() => kirimPOWA(po)} class="text-xs" style="color:var(--accent)" title="Kirim ke supplier via WhatsApp">WA</button>
+						<Button variant="ghost" size="xs" onclick={() => lihatPO(po.id)}>Detail</Button>
+						{#if po.status === 'draft'}<Button variant="ghost" size="xs" onclick={() => ubahStatusPO(po.id, 'dikirim')}>Kirim</Button>{/if}
+						<Button variant="ghost" size="xs" onclick={() => kirimPOWA(po)}>WA</Button>
 					</td>
 				{/if}
 			</tr>
@@ -203,7 +204,6 @@
 </div>
 
 <SlideOver bind:open={showPoDetail} title="Detail PO — {poDetail?.no_po ?? ''}">
-	{#snippet children()}
 	{#if poDetail}
 	<div class="text-sm flex flex-col gap-3">
 		<div class="grid grid-cols-2 gap-2 text-xs" style="color:var(--text-dim)">
@@ -215,14 +215,13 @@
 		<div class="flex gap-2 flex-wrap">
 			{#each ['draft', 'dikirim', 'sebagian', 'lunas', 'batal'] as s (s)}
 				{#if s !== poDetail.status}
-				<button onclick={() => ubahStatusPO(poDetail!.id, s)} class="px-2 py-1 rounded text-xs border" style="border-color:var(--border);color:{SPC[s]}">→ {s}</button>
+				<Button variant="ghost" size="xs" onclick={() => ubahStatusPO(poDetail!.id, s)}>→ {s}</Button>
 				{/if}
 			{/each}
-			<button onclick={() => kirimPOWA(poDetail!)} class="px-2 py-1 rounded text-xs border font-medium" style="border-color:var(--accent);color:var(--accent)">Kirim WA ke Supplier</button>
+			<Button variant="ghost" size="xs" onclick={() => kirimPOWA(poDetail!)}>Kirim WA ke Supplier</Button>
 		</div>
 	</div>
 	{/if}
-	{/snippet}
 </SlideOver>
 
 <TabPOGuide />

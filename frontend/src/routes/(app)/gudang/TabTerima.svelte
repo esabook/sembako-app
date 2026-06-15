@@ -7,6 +7,7 @@
 	import { imgUrl } from '$lib/utils/upload.js';
 	import TabTerimaGuide from './TabTerimaGuide.svelte';
 	import { rupiah } from '$lib/utils/format'
+	import Button from '$lib/components/ui/Button.svelte';
 
 	type Barang = { id: number; kode_barang: string; nama_barang: string; harga_beli_terakhir: number; stok_sekarang: number; };
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean; };
@@ -150,7 +151,7 @@
 						<td class="px-2 py-1 text-right"><input type="number" min="0.01" step="0.01" bind:value={item.jumlah} class="w-20 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
 						<td class="px-2 py-1 text-right"><input type="number" min="0" bind:value={item.harga} class="w-28 text-right px-2 py-0.5 rounded border text-sm outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
 						<td class="px-2 py-1"><input type="date" bind:value={item.exp} class="px-2 py-0.5 rounded border text-xs outline-none" style="background:var(--surface2);border-color:var(--border);color:var(--text)" /></td>
-						<td class="px-2 text-center"><button onclick={() => bmItems = bmItems.filter((_, i) => i !== idx)} class="text-xs" style="color:var(--danger)">✕</button></td>
+						<td class="px-2 text-center"><Button variant="danger" size="xs" onclick={() => bmItems = bmItems.filter((_, i) => i !== idx)}>✕</Button></td>
 					</tr>
 					{/each}
 					<tr class="border-t font-bold" style="border-color:var(--border);background:var(--surface2)">
@@ -161,7 +162,7 @@
 				</tbody>
 			</table>
 		</div>
-		<button onclick={simpanBM} disabled={bmLoading} class="self-end px-6 py-2 rounded font-bold text-sm disabled:opacity-40" style="background:var(--accent);color:var(--bg)">{bmLoading ? 'Menyimpan...' : 'Simpan & Tambah Stok'}</button>
+		<div class="self-end"><Button onclick={simpanBM} loading={bmLoading}>Simpan & Tambah Stok</Button></div>
 		{/if}
 	</div>
 	<div class="lg:w-64 lg:shrink-0">
