@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import type { createPengaturanStore } from '../pengaturan.store.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	let { store }: { store: ReturnType<typeof createPengaturanStore> } = $props();
 </script>
@@ -60,8 +61,9 @@
 			type="file"
 			accept=".db,.json.gz"
 			onchange={store.pilihFileRestore}
-			class="text-xs"
-			style="color:var(--text-dim)"
+			class="rounded border px-3 py-2 text-sm"
+			style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+			disabled={store.restoring}
 		/>
 
 		{#if store.restoreFile && !store.restoreConfirm}
@@ -76,23 +78,15 @@
 						1024
 					).toFixed(1)} MB)
 				</span>
-				<button
-					onclick={() => (store.restoreConfirm = true)}
-					class="rounded px-3 py-1 text-xs font-bold"
-					style="background:var(--danger);color:#fff;border:none;cursor:pointer"
-				>
-					Yakin? Restore Sekarang
-				</button>
-				<button
+				<Button onclick={() => (store.restoreConfirm = true)}>Yakin? Restore Sekarang</Button>
+				<Button
 					onclick={() => {
 						store.restoreFile = null;
 						store.restoreConfirm = false;
 					}}
-					class="text-xs"
-					style="background:none;border:none;color:var(--text-dim);cursor:pointer"
 				>
 					Batal
-				</button>
+				</Button>
 			</div>
 		{/if}
 
@@ -107,26 +101,17 @@
 					otomatis.
 				</p>
 				<div class="flex gap-2">
-					<button
-						onclick={store.jalankanRestore}
-						disabled={store.restoring}
-						class="rounded px-3 py-1 text-xs font-bold"
-						style="background:var(--danger);color:#fff;border:none;cursor:pointer;opacity:{store.restoring
-							? 0.6
-							: 1}"
-					>
+					<Button onclick={store.jalankanRestore} disabled={store.restoring}>
 						{store.restoring ? 'Memproses...' : 'Restore & Restart Server'}
-					</button>
-					<button
+					</Button>
+					<Button
 						onclick={() => {
 							store.restoreConfirm = false;
 							store.restoreFile = null;
 						}}
-						class="text-xs"
-						style="background:none;border:none;color:var(--text-dim);cursor:pointer"
 					>
 						Batal
-					</button>
+					</Button>
 				</div>
 			</div>
 		{/if}

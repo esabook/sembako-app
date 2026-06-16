@@ -57,6 +57,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
+	import Button from './Button.svelte';
 
 	type Tab = { key: string; label: string };
 
@@ -262,7 +264,7 @@
                transition:color .15s, border-color .15s"
 			>
 				{#if isFav}
-					<span style="color:var(--warn); font-size:.5rem;">★</span>
+					<span style="color:var(--warn); font-size:auto;">★</span>
 				{/if}
 				{t.label}
 			</button>

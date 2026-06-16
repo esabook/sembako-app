@@ -5,6 +5,46 @@
 	import { onMount } from 'svelte';
 	import { tinykeys } from 'tinykeys';
 	import { NAV } from './AppSidebar.nav';
+	import type { SubNavItem } from './AppSidebar.nav';
+	// Lucide icons
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import Banknote from '@lucide/svelte/icons/banknote';
+	import Users from '@lucide/svelte/icons/users';
+	import Route from '@lucide/svelte/icons/route';
+	import MessageCircleCode from '@lucide/svelte/icons/message-circle-code';
+	import Warehouse from '@lucide/svelte/icons/warehouse';
+	import UserRound from '@lucide/svelte/icons/user-round';
+	import Building2 from '@lucide/svelte/icons/building-2';
+	import ClipboardCheck from '@lucide/svelte/icons/clipboard-check';
+	import Calendar from '@lucide/svelte/icons/calendar';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
+	import UserCheck from '@lucide/svelte/icons/user-check';
+	import DollarSign from '@lucide/svelte/icons/dollar-sign';
+	import ChartBar from '@lucide/svelte/icons/chart-bar';
+	import Tag from '@lucide/svelte/icons/tag';
+	import BadgePercent from '@lucide/svelte/icons/badge-percent';
+	import Settings from '@lucide/svelte/icons/settings';
+	import type { Component } from 'svelte';
+
+	const ICONS: Record<string, Component> = {
+		LayoutGrid,
+		Banknote,
+		Users,
+		Route,
+		MessageCircleCode,
+		Warehouse,
+		UserRound,
+		Building2,
+		ClipboardCheck,
+		Calendar,
+		ShieldCheck,
+		UserCheck,
+		DollarSign,
+		ChartBar,
+		Tag,
+		BadgePercent,
+		Settings
+	};
 
 	let {
 		mobileOpen = $bindable(false),
@@ -109,8 +149,14 @@
 		isMobile ? 14 : (customWidth ?? (sidebarState === 'expanded' ? EXPANDED_W : ICON_W))
 	);
 
-	function handleSubClick(href: string, tab: string) {
-		goto(`${href}?tab=${tab}`, { replaceState: true, keepFocus: true, noScroll: true });
+	function handleSubClick(href: string, tab: SubNavItem) {
+		if (tab.href) {
+			// Jika sub-item punya href, langsung navigasi ke situ
+			goto(tab.href, { replaceState: true, keepFocus: true, noScroll: true });
+		} else {
+			// Kalau tidak, anggap klik ini untuk set tab aktif di parent
+			goto(`${href}?tab=${tab.key}`, { replaceState: true, keepFocus: true, noScroll: true });
+		}
 		if (isMobile) mobileOpen = false;
 	}
 </script>
@@ -220,15 +266,12 @@
 					style={isActive ? 'background:var(--accent)' : ''}
 				></span>
 
-				<svg
-					width="1.2em"
-					height="1.2em"
-					viewBox="0 0 24 24"
-					fill="currentColor"
-					class="ml-3 shrink-0 {isActive ? 'opacity-100' : 'opacity-70'}"
-				>
-					<path d={item.icon} />
-				</svg>
+				<span class="nav-icon-wrap ml-3 shrink-0 {isActive ? 'opacity-100' : 'opacity-70'}">
+					{#if ICONS[item.icon]}
+						{@const Icon = ICONS[item.icon]}
+						<Icon class="nav-icon" />
+					{/if}
+				</span>
 
 				{#if showLabels}
 					<span class="ml-2 truncate font-medium">{item.label}</span>
@@ -239,12 +282,12 @@
 			{#if hasSub}
 				<div class="sub-nav">
 					{#each item.sub! as sub (sub.key)}
-						{@const isTab = activeTab === sub.key}
+						{@const isTab = activeTab === sub.key || page.url.pathname === sub.href}
 						<button
-							onclick={() => handleSubClick(item.href, sub.key)}
+							onclick={() => handleSubClick(item.href, sub)}
 							class="sub-nav-item"
 							style={(isActive
-								? 'border-color:color-mix(in srgb, var(--border) 50%, transparent 50%)'
+								? 'border-color:color-mix(in srgb, var(--accent) 50%, transparent 50%)'
 								: '') + (isTab ? 'color:var(--accent);border-color:var(--accent)' : '')}
 							aria-current={isTab ? 'page' : undefined}
 						>
@@ -274,6 +317,40 @@
 		color: var(--text);
 	}
 
+	.nav-icon-wrap {
+		display: inline-flex;
+		align-items: center;
+		transition: opacity 200ms ease;
+	}
+
+	:global(.nav-icon) {
+		width: 1.2em;
+		height: 1.2em;
+		transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+	}
+
+	.hover-nav-item:hover :global(.nav-icon) {
+		animation: icon-wiggle 0.4s ease;
+	}
+
+	@keyframes icon-wiggle {
+		0% {
+			transform: scale(1) rotate(0deg);
+		}
+		25% {
+			transform: scale(1.2) rotate(-8deg);
+		}
+		50% {
+			transform: scale(1.15) rotate(6deg);
+		}
+		75% {
+			transform: scale(1.2) rotate(-3deg);
+		}
+		100% {
+			transform: scale(1) rotate(0deg);
+		}
+	}
+
 	.sub-nav {
 		display: flex;
 		flex-direction: column;
@@ -286,7 +363,7 @@
 		text-align: left;
 		padding: 0.25rem 0.5rem 0.25rem 2.25rem;
 		font-size: 0.75rem;
-		border-left: 3px solid transparent;
+		border-left: 2px solid transparent;
 		color: var(--text-dim);
 		background: none;
 		border-top: 0;

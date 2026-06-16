@@ -2,6 +2,7 @@
 	import { playKasirSound } from '$lib/utils/audio.js';
 	import type { createPengaturanStore } from '../pengaturan.store.svelte';
 	import { AUDIO_MODE_OPTS } from '../pengaturan.logic';
+	import Button from '$lib/components/ui/Button.svelte';
 
 	let { store }: { store: ReturnType<typeof createPengaturanStore> } = $props();
 </script>
@@ -60,14 +61,7 @@
 						<span class="max-w-48 truncate font-mono text-xs" style="color:var(--accent)">
 							{store.audioFileName}
 						</span>
-						<button
-							type="button"
-							onclick={store.hapusFileAudio}
-							class="shrink-0 text-xs"
-							style="color:var(--danger)"
-						>
-							✕ hapus
-						</button>
+						<Button onclick={store.hapusFileAudio} variant="danger">✕ hapus</Button>
 					{:else}
 						<span class="text-xs" style="color:var(--text-dim)">Belum ada file dipilih</span>
 					{/if}
@@ -82,13 +76,6 @@
 			</div>
 		{/if}
 
-		<button
-			type="button"
-			onclick={() => playKasirSound()}
-			class="inline-flex items-center gap-2 rounded border px-3 py-1.5 text-sm"
-			style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-		>
-			▶ Preview suara
-		</button>
+		<Button type="button" onclick={() => playKasirSound()}>▶ Preview suara</Button>
 	{/if}
 </section>

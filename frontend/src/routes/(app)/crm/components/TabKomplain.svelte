@@ -15,12 +15,12 @@
 	];
 </script>
 
-<div class="flex flex-wrap gap-2 items-end mb-2">
+<div class="mb-2 flex flex-wrap items-end gap-2">
 	<input
 		type="month"
 		bind:value={store.kBulan}
-		class="border rounded px-2 py-1 text-sm"
-		style="background:var(--surface);border-color:var(--border);color:var(--text)"
+		class="rounded border px-2 py-1 text-sm"
+		style="border-color:var(--border);color:var(--text)"
 	/>
 	<Select
 		bind:value={store.kStatus}
@@ -49,21 +49,27 @@
 							<div class="text-xs" style="color:var(--text-dim)">{row.nama_pelanggan}</div>
 						{/if}
 						{#if row.resolusi}
-							<div class="text-xs mt-0.5" style="color:var(--accent)">→ {row.resolusi}</div>
+							<div class="mt-0.5 text-xs" style="color:var(--accent)">→ {row.resolusi}</div>
 						{/if}
 					</td>
 				{/if}
 				{#if !hidden.has('kategori')}
-					<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{KATEGORI_LABEL[row.kategori] ?? row.kategori}</td>
+					<td class="px-3 py-2 text-xs" style="color:var(--text-dim)"
+						>{KATEGORI_LABEL[row.kategori] ?? row.kategori}</td
+					>
 				{/if}
 				{#if !hidden.has('status')}
 					<td class="px-3 py-2 text-center">
-						<span class="text-xs font-semibold" style="color:{STATUS_K_COLOR[row.status]}">{row.status}</span>
+						<span class="text-xs font-semibold" style="color:{STATUS_K_COLOR[row.status]}"
+							>{row.status}</span
+						>
 					</td>
 				{/if}
 				<td class="px-3 py-2 text-right whitespace-nowrap">
 					{#if row.status === 'masuk' || row.status === 'diproses'}
-						<Button variant="ghost" size="xs" onclick={() => store.bukaDetailKomplain(row)}>Proses</Button>
+						<Button variant="ghost" size="xs" onclick={() => store.bukaDetailKomplain(row)}
+							>Proses</Button
+						>
 					{/if}
 					<Button variant="ghost" size="xs" onclick={() => store.hapusK(row.id)}>×</Button>
 				</td>

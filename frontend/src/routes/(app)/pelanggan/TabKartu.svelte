@@ -257,7 +257,7 @@
 			bind:value={kartuQuery}
 			placeholder="Cari nomor kartu..."
 			class="min-w-0 flex-1 rounded border px-3 py-1.5 text-sm outline-none"
-			style="background:var(--surface);border-color:var(--border);color:var(--text)"
+			style="border-color:var(--border);color:var(--text)"
 		/>
 		<div class="flex shrink-0 items-center gap-1.5">
 			<Select
@@ -490,7 +490,7 @@
 					step="0.5"
 					placeholder="0"
 					class="w-full rounded border px-3 py-1.5 text-sm"
-					style="background:var(--surface);border-color:var(--border);color:var(--text)"
+					style="border-color:var(--border);color:var(--text)"
 				/>
 			</div>
 		</div>
@@ -506,7 +506,7 @@
 				max="50"
 				placeholder="1"
 				class="w-full rounded border px-3 py-1.5 text-sm"
-				style="background:var(--surface);border-color:var(--border);color:var(--text)"
+				style="border-color:var(--border);color:var(--text)"
 			/>
 		</div>
 		{#if errGenerate}<p class="text-xs" style="color:var(--danger)">{errGenerate}</p>{/if}
@@ -544,7 +544,7 @@
 					max="100"
 					step="0.5"
 					class="w-full rounded border px-3 py-1.5 text-sm"
-					style="background:var(--surface);border-color:var(--border);color:var(--text)"
+					style="border-color:var(--border);color:var(--text)"
 				/>
 			</div>
 		</div>
@@ -594,7 +594,7 @@
 					min="1"
 					placeholder="0"
 					class="w-full rounded border px-3 py-1.5 text-sm"
-					style="background:var(--surface);border-color:var(--border);color:var(--text)"
+					style="border-color:var(--border);color:var(--text)"
 				/>
 			</div>
 			{#if errPoin}<p class="text-xs" style="color:var(--danger)">{errPoin}</p>{/if}
@@ -641,7 +641,7 @@
 						oninput={cariPelanggan}
 						placeholder="Ketik min. 2 karakter..."
 						class="w-full rounded border px-3 py-1.5 text-sm"
-						style="background:var(--surface);border-color:var(--border);color:var(--text)"
+						style="border-color:var(--border);color:var(--text)"
 					/>
 					{#if plgSearchLoading}
 						<p class="mt-1 text-xs" style="color:var(--text-dim)">Mencari...</p>

@@ -45,7 +45,7 @@
 			type="month"
 			bind:value={store.filterBulan}
 			class="rounded border px-2 py-1 text-sm"
-			style="background:var(--surface);border-color:var(--border);color:var(--text)"
+			style="border-color:var(--border);color:var(--text)"
 		/>
 		<Select bind:value={store.filterStatus} options={statusOptions} />
 	</div>

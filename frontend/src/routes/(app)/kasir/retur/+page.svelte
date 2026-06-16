@@ -655,7 +655,7 @@
 											bind:value={itemsRetur[idx].jumlah_retur}
 											onclick={(e) => e.stopPropagation()}
 											class="w-16 rounded border px-1.5 py-1 text-center font-mono text-xs"
-											style="background:var(--surface);border-color:var(--border);color:var(--text)"
+											style="border-color:var(--border);color:var(--text)"
 										/>
 										<span class="text-[10px]" style="color:var(--text-dim)">/ {sisaQty}</span>
 									</div>
@@ -835,7 +835,7 @@
 													min="1"
 													bind:value={tukarItems[idx].jumlah}
 													class="w-12 rounded border px-1 py-0.5 text-center font-mono text-xs"
-													style="background:var(--surface);border-color:var(--border);color:var(--text)"
+													style="border-color:var(--border);color:var(--text)"
 												/>
 												<span class="text-[10px]" style="color:var(--text-dim)">× Rp</span>
 												<input
@@ -843,7 +843,7 @@
 													min="0"
 													bind:value={tukarItems[idx].harga_jual}
 													class="w-20 rounded border px-1 py-0.5 font-mono text-xs"
-													style="background:var(--surface);border-color:var(--border);color:var(--text)"
+													style="border-color:var(--border);color:var(--text)"
 												/>
 											</div>
 											<button

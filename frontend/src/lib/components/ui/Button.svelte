@@ -8,22 +8,25 @@
 		loading = false,
 		shortcut = null,
 		type = 'button',
+		title = '',
 		clasz = '',
 		onclick,
 		children
 	}: {
 		variant?: 'primary' | 'danger' | 'ghost' | 'dim' | 'info';
-		size?: 'xs' | 'sm' | 'md' | 'lg';
+		size?: 'xxs' | 'xs' | 'sm' | 'md' | 'lg';
 		disabled?: boolean;
 		loading?: boolean;
 		shortcut?: string | null;
 		type?: 'button' | 'submit';
+		title?: string;
 		clasz?: string;
 		onclick?: (e: MouseEvent) => void;
 		children: Snippet;
 	} = $props();
 
 	const sizeCls = {
+		xxs: 'px-1 py-[0px] text-[0.625rem] gap-1',
 		xs: 'px-1.5 py-0.5 text-xs gap-1',
 		sm: 'px-2 py-1 text-xs gap-1',
 		md: 'px-3 py-1.5 text-sm gap-1.5',
@@ -50,6 +53,7 @@
 	{type}
 	disabled={disabled || loading}
 	{onclick}
+	{title}
 	class="inline-flex items-center justify-center rounded border font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 {sizeCls[
 		size
 	]} {clasz}"

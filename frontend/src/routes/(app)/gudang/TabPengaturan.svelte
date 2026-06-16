@@ -348,20 +348,20 @@
 				placeholder="Nama kategori baru..."
 				required
 				class="rounded border px-2 py-1 text-sm outline-none"
-				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:160px;flex:1"
+				style="border-color:var(--border);color:var(--text);min-width:160px;flex:1"
 			/>
 			<input
 				bind:value={newKategoriKode}
 				placeholder="Kode (mis: BERAS)"
 				maxlength="8"
 				class="rounded border px-2 py-1 font-mono text-sm uppercase outline-none"
-				style="background:var(--surface);border-color:var(--border);color:var(--text);flex-shrink:0"
+				style="border-color:var(--border);color:var(--text);flex-shrink:0"
 			/>
 			<input
 				bind:value={newKategoriContoh}
 				placeholder="Contoh penggunaan (opsional)"
 				class="rounded border px-2 py-1 text-sm outline-none"
-				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:200px;flex:2"
+				style="border-color:var(--border);color:var(--text);min-width:200px;flex:2"
 			/>
 			<Button type="submit" size="sm">+ Tambah</Button>
 		</form>
@@ -514,20 +514,20 @@
 				placeholder="Nama satuan (mis: Karton)"
 				required
 				class="rounded border px-2 py-1 text-sm outline-none"
-				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:140px;flex:1"
+				style="border-color:var(--border);color:var(--text);min-width:140px;flex:1"
 			/>
 			<input
 				bind:value={newSatuanSingkatan}
 				placeholder="Singkatan"
 				required
 				class="rounded border px-2 py-1 font-mono text-sm uppercase outline-none"
-				style="background:var(--surface);border-color:var(--border);color:var(--text);width:150px;flex-shrink:0"
+				style="border-color:var(--border);color:var(--text);width:150px;flex-shrink:0"
 			/>
 			<input
 				bind:value={newSatuanContoh}
 				placeholder="Contoh penggunaan (opsional)"
 				class="rounded border px-2 py-1 text-sm outline-none"
-				style="background:var(--surface);border-color:var(--border);color:var(--text);min-width:200px;flex:2"
+				style="border-color:var(--border);color:var(--text);min-width:200px;flex:2"
 			/>
 			<Button type="submit" size="sm">+ Tambah</Button>
 		</form>

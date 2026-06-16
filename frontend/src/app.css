@@ -298,3 +298,7 @@ body {
   color: var(--text);
   min-height: 100vh;
 }
+
+.lucide {
+  stroke-width: 2.5px;
+}

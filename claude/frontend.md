@@ -1,5 +1,9 @@
 # Frontend — Konvensi Wajib
 
+frontend_stack: Svelte 5; withLoading; async utilities; responsive; anti-pattern rules ada di frontend.md
+frontend_refactor_steps: rules ada di frontend-refactor-step.md
+frontend_reused_components: frontend-component-bot.md
+
 ## Struktur file per modul
 
 ```text
