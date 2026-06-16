@@ -1,11 +1,14 @@
 <script lang="ts">
-	import Spinner from '$lib/components/ui/Spinner.svelte'
-	import type { createPengaturanStore } from '../pengaturan.store.svelte'
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import type { createPengaturanStore } from '../pengaturan.store.svelte';
 
-	let { store }: { store: ReturnType<typeof createPengaturanStore> } = $props()
+	let { store }: { store: ReturnType<typeof createPengaturanStore> } = $props();
 </script>
 
-<section class="space-y-4 rounded border p-4" style="background:var(--surface);border-color:var(--border)">
+<section
+	class="space-y-4 rounded border p-4"
+	style="background:var(--surface);border-color:var(--border)"
+>
 	<h2 class="text-sm font-bold tracking-widest uppercase" style="color:var(--text-dim)">
 		Backup & Restore Database
 	</h2>
@@ -17,7 +20,11 @@
 			Download salinan penuh database. Simpan di tempat aman sebagai cadangan sebelum update besar.
 		</p>
 		<label class="flex cursor-pointer items-center gap-2 text-xs" style="color:var(--text-dim)">
-			<input type="checkbox" bind:checked={store.backupIncludeMedia} />
+			<input
+				type="checkbox"
+				bind:checked={store.backupIncludeMedia}
+				style="accent-color:var(--accent);cursor:pointer;width:15px;height:15px;flex-shrink:0"
+			/>
 			Sertakan file gambar uploads/ (hanya untuk storage lokal)
 		</label>
 		<button
@@ -78,8 +85,8 @@
 				</button>
 				<button
 					onclick={() => {
-						store.restoreFile = null
-						store.restoreConfirm = false
+						store.restoreFile = null;
+						store.restoreConfirm = false;
 					}}
 					class="text-xs"
 					style="background:none;border:none;color:var(--text-dim);cursor:pointer"
@@ -96,7 +103,8 @@
 			>
 				<p class="text-xs font-bold" style="color:var(--danger)">⚠ Konfirmasi Restore</p>
 				<p class="text-xs" style="color:var(--text-dim)">
-					Data saat ini akan hilang dan diganti dengan isi file backup. Server akan restart otomatis.
+					Data saat ini akan hilang dan diganti dengan isi file backup. Server akan restart
+					otomatis.
 				</p>
 				<div class="flex gap-2">
 					<button
@@ -111,8 +119,8 @@
 					</button>
 					<button
 						onclick={() => {
-							store.restoreConfirm = false
-							store.restoreFile = null
+							store.restoreConfirm = false;
+							store.restoreFile = null;
 						}}
 						class="text-xs"
 						style="background:none;border:none;color:var(--text-dim);cursor:pointer"

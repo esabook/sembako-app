@@ -1,10 +1,19 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { api } from '$lib/utils/api.js'
+  import { debounce } from '$lib/utils/async'
   import Button from '$lib/components/ui/Button.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import Badge from '$lib/components/ui/Badge.svelte'
+  import EmptyState from '$lib/components/data/EmptyState.svelte'
+  import DateRangePicker from '$lib/components/form/DateRangePicker.svelte'
 
-  let { pelangganId, namaPelanggan }: { pelangganId: number; namaPelanggan: string } = $props()
+  let {
+    pelangganId = null,
+    namaPelanggan = null,
+  }: {
+    pelangganId?: number | null
+    namaPelanggan?: string | null
+  } = $props()
 
   type Trx = {
     id: number
@@ -33,6 +42,12 @@
     terakhir_belanja: string | null
   }
 
+  type PlgResult = { id: number; nama: string; kontak: string | null }
+
+  // ── State ──
+  let selectedId = $state(pelangganId)
+  let selectedNama = $state(namaPelanggan)
+
   let rows = $state<Trx[]>([])
   let total = $state(0)
   let summary = $state<Summary | null>(null)
@@ -41,13 +56,41 @@
 
   let dari = $state('')
   let sampai = $state('')
-  let limit = 20
+  const LIMIT = 20
   let offset = $state(0)
 
   let expandedId = $state<number | null>(null)
   let detailMap = $state<Record<number, DetailItem[]>>({})
   let detailLoading = $state<Record<number, boolean>>({})
 
+  // ── Pelanggan search ──
+  let plgQ = $state('')
+  let plgResults = $state<PlgResult[]>([])
+  let plgLoading = $state(false)
+  let plgDropdownBuka = $state(false)
+
+  const cariPlg = debounce(async (q: string) => {
+    if (q.length < 2) { plgResults = []; plgDropdownBuka = false; return }
+    plgLoading = true
+    const res = await api.get<PlgResult[]>(`/pelanggan?q=${encodeURIComponent(q)}&aktif=1`)
+    plgLoading = false
+    if (res.success) {
+      plgResults = res.data.slice(0, 8)
+      plgDropdownBuka = plgResults.length > 0
+    }
+  }, 200)
+
+  function pilihPlg(p: PlgResult) {
+    selectedId = p.id
+    selectedNama = p.nama
+    plgQ = ''
+    plgResults = []
+    plgDropdownBuka = false
+  }
+
+  $effect(() => { cariPlg(plgQ); return () => cariPlg.cancel() })
+
+  // ── Helpers ──
   function fmt(n: number) {
     return new Intl.NumberFormat('id-ID').format(Math.round(n))
   }
@@ -60,14 +103,20 @@
     return t.slice(11, 16)
   }
 
+  const METODE_LABEL: Record<string, string> = {
+    tunai: 'Tunai', transfer: 'Transfer', qris: 'QRIS', hutang: 'Hutang',
+  }
+
+  // ── Data loading ──
   async function muat(resetOffset = true) {
+    if (!selectedId) return
     if (resetOffset) offset = 0
     loading = true; error = ''
-    const q = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+    const q = new URLSearchParams({ limit: String(LIMIT), offset: String(offset) })
     if (dari) q.set('dari', dari)
     if (sampai) q.set('sampai', sampai)
     const res = await api.get<{ rows: Trx[]; total: number; summary: Summary }>(
-      `/pelanggan/${pelangganId}/riwayat?${q}`
+      `/pelanggan/${selectedId}/riwayat?${q}`
     )
     loading = false
     if (res.success) {
@@ -84,172 +133,200 @@
     expandedId = id
     if (detailMap[id]) return
     detailLoading = { ...detailLoading, [id]: true }
-    const res = await api.get<DetailItem[]>(`/pelanggan/${pelangganId}/riwayat/${id}/detail`)
+    const res = await api.get<DetailItem[]>(`/pelanggan/${selectedId}/riwayat/${id}/detail`)
     detailLoading = { ...detailLoading, [id]: false }
     if (res.success) detailMap = { ...detailMap, [id]: res.data }
   }
 
   function halamanSebelum() {
     if (offset === 0) return
-    offset = Math.max(0, offset - limit)
+    offset = Math.max(0, offset - LIMIT)
     muat(false)
   }
 
   function halamanBerikut() {
-    if (offset + limit >= total) return
-    offset += limit
+    if (offset + LIMIT >= total) return
+    offset += LIMIT
     muat(false)
   }
 
-  const METODE_LABEL: Record<string, string> = {
-    tunai: 'Tunai', transfer: 'Transfer', qris: 'QRIS', hutang: 'Hutang',
-  }
+  $effect(() => {
+    if (pelangganId !== selectedId) {
+      selectedId = pelangganId
+      selectedNama = namaPelanggan
+    }
+  })
 
-  onMount(() => muat())
+  $effect(() => {
+    if (selectedId) muat()
+  })
 </script>
 
 <div class="space-y-4">
-  <!-- Summary cards -->
-  {#if summary && summary.total_transaksi > 0}
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {#each [
-        { label: 'Total Transaksi', val: String(summary.total_transaksi), accent: false },
-        { label: 'Total Belanja', val: `Rp ${fmt(summary.total_belanja)}`, accent: true },
-        { label: 'Rata-rata/Transaksi', val: `Rp ${fmt(summary.rata_per_trx)}`, accent: false },
-        { label: 'Terakhir Belanja', val: summary.terakhir_belanja ? tglFmt(summary.terakhir_belanja) : '—', accent: false },
-      ] as card (card.label)}
-        <div class="rounded-lg border p-3" style="background:var(--surface);border-color:var(--border)">
-          <div class="text-xs mb-1" style="color:var(--text-dim)">{card.label}</div>
-          <div class="text-sm font-bold" style="color:{card.accent ? 'var(--accent)' : 'var(--text)'}">
-            {card.val}
-          </div>
+  {#if !selectedId}
+    <!-- Pelanggan search -->
+    <div class="relative">
+      <input
+        type="text"
+        bind:value={plgQ}
+        placeholder="Cari pelanggan..."
+        class="w-full rounded-lg border px-3 py-2 text-sm"
+        style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+        onfocus={() => { if (plgResults.length > 0) plgDropdownBuka = true }}
+        onblur={() => setTimeout(() => plgDropdownBuka = false, 150)}
+      />
+      {#if plgDropdownBuka && plgResults.length > 0}
+        <div class="absolute z-10 mt-1 w-full rounded-lg border shadow-lg"
+          style="background:var(--surface);border-color:var(--border)">
+          {#each plgResults as p (p.id)}
+            <button
+              class="w-full px-3 py-2 text-left text-sm hover:opacity-80"
+              style="color:var(--text)"
+              onmousedown={() => pilihPlg(p)}>
+              <div class="font-medium">{p.nama}</div>
+              {#if p.kontak}
+                <div class="text-xs" style="color:var(--text-dim)">{p.kontak}</div>
+              {/if}
+            </button>
+          {/each}
         </div>
-      {/each}
+      {/if}
+      {#if plgLoading}
+        <div class="absolute right-3 top-2"><Spinner size={14} /></div>
+      {/if}
     </div>
-  {/if}
-
-  <!-- Filter -->
-  <div class="flex flex-wrap gap-2 items-center">
-    <div class="flex gap-1 items-center">
-      <label for="rw-dari" class="text-xs" style="color:var(--text-dim)">Dari</label>
-      <input id="rw-dari" type="date" bind:value={dari}
-        class="rounded border px-2 py-1 text-xs"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text);font-family:inherit" />
-    </div>
-    <div class="flex gap-1 items-center">
-      <label for="rw-sampai" class="text-xs" style="color:var(--text-dim)">Sampai</label>
-      <input id="rw-sampai" type="date" bind:value={sampai}
-        class="rounded border px-2 py-1 text-xs"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text);font-family:inherit" />
-    </div>
-    <Button onclick={() => muat()} size="sm">Filter</Button>
-    {#if dari || sampai}
-      <Button variant="ghost" size="sm" onclick={() => { dari = ''; sampai = ''; muat() }}>Reset</Button>
-    {/if}
-    <span class="text-xs ml-auto" style="color:var(--text-dim)">{total} transaksi</span>
-  </div>
-
-  {#if error}
-    <div class="rounded border px-3 py-2 text-sm" style="background:rgba(255,82,82,.1);border-color:var(--danger);color:var(--danger)">
-      {error}
-    </div>
-  {/if}
-
-  {#if loading}
-    <div class="flex justify-center py-6"><Spinner /></div>
-  {:else if rows.length === 0}
-    <p class="text-sm py-4" style="color:var(--text-dim)">
-      {summary?.total_transaksi === 0 ? `${namaPelanggan} belum pernah bertransaksi.` : 'Tidak ada transaksi di periode ini.'}
-    </p>
   {:else}
-    <div class="overflow-x-auto">
-      <table class="min-w-full" style="border-collapse:collapse;font-size:.82rem">
-        <thead>
-          <tr style="background:var(--surface2)">
-            <th class="px-3 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">No. Transaksi</th>
-            <th class="px-3 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">Tanggal</th>
-            <th class="px-2 py-2 text-left text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Metode</th>
-            <th class="px-2 py-2 text-left text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Tipe</th>
-            <th class="px-3 py-2 text-right text-xs font-semibold" style="color:var(--text-dim)">Total</th>
-            <th class="px-3 py-2 text-center text-xs font-semibold" style="color:var(--text-dim)">Detail</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each rows as trx (trx.id)}
-            <tr style="border-top:1px solid var(--border)">
-              <td class="px-3 py-2" style="color:var(--text-dim);font-size:.75rem">{trx.no_transaksi}</td>
-              <td class="px-3 py-2" style="color:var(--text)">
-                <div>{tglFmt(trx.tanggal)}</div>
-                <div class="text-xs" style="color:var(--text-dim)">{jamFmt(trx.tanggal)}</div>
-              </td>
-              <td class="px-2 py-2 hidden sm:table-cell" style="color:var(--text-dim)">
-                {METODE_LABEL[trx.metode_bayar] ?? trx.metode_bayar}
-              </td>
-              <td class="px-2 py-2 hidden sm:table-cell">
-                <span class="text-xs px-1.5 py-0.5 rounded"
-                  style="background:{trx.tipe === 'grosir' ? 'rgba(99,102,241,.15)' : 'var(--surface2)'};color:{trx.tipe === 'grosir' ? '#818cf8' : 'var(--text-dim)'}">
-                  {trx.tipe}
-                </span>
-              </td>
-              <td class="px-3 py-2 text-right font-semibold" style="color:var(--text)">
-                Rp {fmt(trx.total)}
-                {#if trx.diskon_total > 0}
-                  <div class="text-xs font-normal" style="color:var(--warn)">hemat Rp {fmt(trx.diskon_total)}</div>
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-center">
-                <Button variant="ghost" size="xs" onclick={() => toggleDetail(trx.id)}>
-                  {expandedId === trx.id ? '▲' : '▼'}
-                </Button>
-              </td>
-            </tr>
+    <!-- Selected header -->
+    <div class="flex items-center gap-2">
+      <span class="font-semibold text-sm" style="color:var(--text)">{selectedNama}</span>
+      <Button variant="ghost" size="xs" onclick={() => { selectedId = null; selectedNama = null; rows = []; summary = null }}>✕</Button>
+    </div>
 
-            {#if expandedId === trx.id}
-              <tr style="border-top:1px solid var(--border);background:var(--surface)">
-                <td colspan="6" class="px-3 py-2">
-                  {#if detailLoading[trx.id]}
-                    <div class="flex justify-center py-1"><Spinner size={14} /></div>
-                  {:else if detailMap[trx.id]}
-                    <div class="overflow-x-auto">
-                      <table class="min-w-full" style="border-collapse:collapse;font-size:.78rem">
-                        <thead>
-                          <tr>
-                            <th class="pb-1 pr-4 text-left font-semibold" style="color:var(--text-dim)">Barang</th>
-                            <th class="pb-1 pr-3 text-right font-semibold" style="color:var(--text-dim)">Qty</th>
-                            <th class="pb-1 pr-3 text-right font-semibold" style="color:var(--text-dim)">Harga</th>
-                            <th class="pb-1 text-right font-semibold" style="color:var(--text-dim)">Subtotal</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {#each detailMap[trx.id] as item (item.id)}
-                            <tr>
-                              <td class="py-0.5 pr-4" style="color:var(--text)">{item.nama_barang}</td>
-                              <td class="py-0.5 pr-3 text-right" style="color:var(--text-dim)">{item.jumlah}</td>
-                              <td class="py-0.5 pr-3 text-right" style="color:var(--text-dim)">Rp {fmt(item.harga_jual)}</td>
-                              <td class="py-0.5 text-right font-medium" style="color:var(--text)">Rp {fmt(item.subtotal)}</td>
-                            </tr>
-                          {/each}
-                        </tbody>
-                      </table>
-                    </div>
+    <!-- Summary cards -->
+    {#if summary && summary.total_transaksi > 0}
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {#each [
+          { label: 'Total Transaksi', val: String(summary.total_transaksi), accent: false },
+          { label: 'Total Belanja', val: `Rp ${fmt(summary.total_belanja)}`, accent: true },
+          { label: 'Rata-rata/Transaksi', val: `Rp ${fmt(summary.rata_per_trx)}`, accent: false },
+          { label: 'Terakhir Belanja', val: summary.terakhir_belanja ? tglFmt(summary.terakhir_belanja) : '—', accent: false },
+        ] as card (card.label)}
+          <div class="rounded-lg border p-3" style="background:var(--surface);border-color:var(--border)">
+            <div class="text-xs mb-1" style="color:var(--text-dim)">{card.label}</div>
+            <div class="text-sm font-bold" style="color:{card.accent ? 'var(--accent)' : 'var(--text)'}">
+              {card.val}
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    <!-- Filter -->
+    <div class="flex flex-wrap gap-2 items-center">
+      <DateRangePicker bind:dari bind:sampai onchange={() => muat()} />
+      {#if dari || sampai}
+        <Button variant="ghost" size="sm" onclick={() => { dari = ''; sampai = ''; muat() }}>Reset</Button>
+      {/if}
+      <span class="text-xs ml-auto" style="color:var(--text-dim)">{total} transaksi</span>
+    </div>
+
+    {#if error}
+      <div class="rounded border px-3 py-2 text-sm" style="background:rgba(255,82,82,.1);border-color:var(--danger);color:var(--danger)">
+        {error}
+      </div>
+    {/if}
+
+    {#if loading}
+      <div class="flex justify-center py-6"><Spinner /></div>
+    {:else if rows.length === 0}
+      <EmptyState pesan={summary?.total_transaksi === 0 ? `${selectedNama} belum pernah bertransaksi.` : 'Tidak ada transaksi di periode ini.'} />
+    {:else}
+      <div class="overflow-x-auto">
+        <table class="min-w-full" style="border-collapse:collapse;font-size:.82rem">
+          <thead>
+            <tr style="background:var(--surface2)">
+              <th class="px-3 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">No. Transaksi</th>
+              <th class="px-3 py-2 text-left text-xs font-semibold" style="color:var(--text-dim)">Tanggal</th>
+              <th class="px-2 py-2 text-left text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Metode</th>
+              <th class="px-2 py-2 text-left text-xs font-semibold hidden sm:table-cell" style="color:var(--text-dim)">Tipe</th>
+              <th class="px-3 py-2 text-right text-xs font-semibold" style="color:var(--text-dim)">Total</th>
+              <th class="px-3 py-2 text-center text-xs font-semibold" style="color:var(--text-dim)">Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each rows as trx (trx.id)}
+              <tr style="border-top:1px solid var(--border)">
+                <td class="px-3 py-2" style="color:var(--text-dim);font-size:.75rem">{trx.no_transaksi}</td>
+                <td class="px-3 py-2" style="color:var(--text)">
+                  <div>{tglFmt(trx.tanggal)}</div>
+                  <div class="text-xs" style="color:var(--text-dim)">{jamFmt(trx.tanggal)}</div>
+                </td>
+                <td class="px-2 py-2 hidden sm:table-cell" style="color:var(--text-dim)">
+                  {METODE_LABEL[trx.metode_bayar] ?? trx.metode_bayar}
+                </td>
+                <td class="px-2 py-2 hidden sm:table-cell">
+                  <Badge tipe={trx.tipe === 'grosir' ? 'info' : 'netral'}>{trx.tipe}</Badge>
+                </td>
+                <td class="px-3 py-2 text-right font-semibold" style="color:var(--text)">
+                  Rp {fmt(trx.total)}
+                  {#if trx.diskon_total > 0}
+                    <div class="text-xs font-normal" style="color:var(--warn)">hemat Rp {fmt(trx.diskon_total)}</div>
                   {/if}
                 </td>
+                <td class="px-3 py-2 text-center">
+                  <Button variant="ghost" size="xs" onclick={() => toggleDetail(trx.id)}>
+                    {expandedId === trx.id ? '▲' : '▼'}
+                  </Button>
+                </td>
               </tr>
-            {/if}
-          {/each}
-        </tbody>
-      </table>
-    </div>
 
-    <!-- Pagination -->
-    {#if total > limit}
-      <div class="flex items-center gap-3 justify-between pt-1">
-        <Button variant="ghost" size="sm" disabled={offset === 0} onclick={halamanSebelum}>← Sebelum</Button>
-        <span class="text-xs" style="color:var(--text-dim)">
-          {offset + 1}–{Math.min(offset + limit, total)} dari {total}
-        </span>
-        <Button variant="ghost" size="sm" disabled={offset + limit >= total} onclick={halamanBerikut}>Berikut →</Button>
+              {#if expandedId === trx.id}
+                <tr style="border-top:1px solid var(--border);background:var(--surface)">
+                  <td colspan="6" class="px-3 py-2">
+                    {#if detailLoading[trx.id]}
+                      <div class="flex justify-center py-1"><Spinner size={14} /></div>
+                    {:else if detailMap[trx.id]}
+                      <div class="overflow-x-auto">
+                        <table class="min-w-full" style="border-collapse:collapse;font-size:.78rem">
+                          <thead>
+                            <tr>
+                              <th class="pb-1 pr-4 text-left font-semibold" style="color:var(--text-dim)">Barang</th>
+                              <th class="pb-1 pr-3 text-right font-semibold" style="color:var(--text-dim)">Qty</th>
+                              <th class="pb-1 pr-3 text-right font-semibold" style="color:var(--text-dim)">Harga</th>
+                              <th class="pb-1 text-right font-semibold" style="color:var(--text-dim)">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {#each detailMap[trx.id] as item (item.id)}
+                              <tr>
+                                <td class="py-0.5 pr-4" style="color:var(--text)">{item.nama_barang}</td>
+                                <td class="py-0.5 pr-3 text-right" style="color:var(--text-dim)">{item.jumlah}</td>
+                                <td class="py-0.5 pr-3 text-right" style="color:var(--text-dim)">Rp {fmt(item.harga_jual)}</td>
+                                <td class="py-0.5 text-right font-medium" style="color:var(--text)">Rp {fmt(item.subtotal)}</td>
+                              </tr>
+                            {/each}
+                          </tbody>
+                        </table>
+                      </div>
+                    {/if}
+                  </td>
+                </tr>
+              {/if}
+            {/each}
+          </tbody>
+        </table>
       </div>
+
+      <!-- Pagination -->
+      {#if total > LIMIT}
+        <div class="flex items-center gap-3 justify-between pt-1">
+          <Button variant="ghost" size="sm" disabled={offset === 0} onclick={halamanSebelum}>← Sebelum</Button>
+          <span class="text-xs" style="color:var(--text-dim)">
+            {offset + 1}–{Math.min(offset + LIMIT, total)} dari {total}
+          </span>
+          <Button variant="ghost" size="sm" disabled={offset + LIMIT >= total} onclick={halamanBerikut}>Berikut →</Button>
+        </div>
+      {/if}
     {/if}
   {/if}
 </div>

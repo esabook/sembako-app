@@ -230,7 +230,6 @@
 [data-theme='island'] .app-main,
 [data-theme='islandl'] .app-main {
   border-radius: 10px;
-  overflow: hidden;
 }
 
 /* ─── Tema Klasik POS ───────────────────────────── */

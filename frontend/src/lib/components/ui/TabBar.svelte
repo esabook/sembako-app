@@ -222,7 +222,7 @@
 
 <div
 	style="display:flex; gap:.5rem; border-bottom:1px solid var(--border);
-         overflow-x:auto; white-space:nowrap; padding-bottom:1px; scrollbar-width:none; -ms-overflow-style:none"
+         overflow-x:auto; white-space:nowrap; scrollbar-width:none; -ms-overflow-style:none"
 	class="tabbar-scroll"
 >
 	{#each orderedTabs() as t (t.key)}
@@ -250,7 +250,7 @@
 
 			<button
 				onclick={() => onchange?.(t.key)}
-				style="display:inline-flex; align-items:center; gap:.3rem; padding:.5rem .75rem;
+				style="display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .75rem;
                background:none; border:none; border-bottom:2px solid {isActive
 					? 'var(--accent)'
 					: 'transparent'};
@@ -262,7 +262,7 @@
                transition:color .15s, border-color .15s"
 			>
 				{#if isFav}
-					<span style="color:var(--warn); font-size:1rem">★</span>
+					<span style="color:var(--warn); font-size:.5rem;">★</span>
 				{/if}
 				{t.label}
 			</button>

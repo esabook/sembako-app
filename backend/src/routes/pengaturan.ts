@@ -186,7 +186,7 @@ pengaturanRouter.get('/preferensi/:modul', async (c) => {
       eq(preferensi_pengguna.modul, modul),
     ))
   )
-  const nilai = row ? (() => { try { return JSON.parse(row.nilai_json) } catch { return null } }) : null
+  const nilai = row ? (() => { try { return JSON.parse(row.nilai_json) } catch { return null } })() : null
   return c.json({ success: true, data: nilai })
 })
 

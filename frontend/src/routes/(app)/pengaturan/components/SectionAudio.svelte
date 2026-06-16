@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { playKasirSound } from '$lib/utils/audio.js'
-	import type { createPengaturanStore } from '../pengaturan.store.svelte'
-	import { AUDIO_MODE_OPTS } from '../pengaturan.logic'
+	import { playKasirSound } from '$lib/utils/audio.js';
+	import type { createPengaturanStore } from '../pengaturan.store.svelte';
+	import { AUDIO_MODE_OPTS } from '../pengaturan.logic';
 
-	let { store }: { store: ReturnType<typeof createPengaturanStore> } = $props()
+	let { store }: { store: ReturnType<typeof createPengaturanStore> } = $props();
 </script>
 
-<section class="space-y-4 rounded border p-4" style="background:var(--surface);border-color:var(--border)">
+<section
+	class="space-y-4 rounded border p-4"
+	style="background:var(--surface);border-color:var(--border)"
+>
 	<div class="flex items-center justify-between">
 		<h2 class="text-sm font-bold tracking-widest uppercase" style="color:var(--text-dim)">
 			Audio Kasir
@@ -19,7 +22,8 @@
 			type="checkbox"
 			bind:checked={store.audioOn}
 			onchange={store.simpanAudio}
-			class="h-4 w-4 shrink-0 accent-green-500"
+			class="h-4 w-4"
+			style="accent-color:var(--accent);cursor:pointer;width:15px;height:15px;flex-shrink:0"
 		/>
 		<span class="text-sm" style="color:var(--text)">
 			Aktifkan suara saat item ditambahkan ke keranjang
@@ -50,12 +54,7 @@
 						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 					>
 						📂 Pilih file...
-						<input
-							type="file"
-							accept="audio/*"
-							class="hidden"
-							onchange={store.pilihFileAudio}
-						/>
+						<input type="file" accept="audio/*" class="hidden" onchange={store.pilihFileAudio} />
 					</label>
 					{#if store.audioFileName}
 						<span class="max-w-48 truncate font-mono text-xs" style="color:var(--accent)">

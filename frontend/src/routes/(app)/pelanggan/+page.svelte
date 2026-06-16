@@ -22,9 +22,10 @@
 	const TABS = $derived([
 		{ key: 'pelanggan', label: 'Pelanggan' },
 		{ key: 'kartu', label: 'Kartu Anggota' },
-		...(tab === 'riwayat' && riwayatId
-			? [{ key: 'riwayat', label: `Riwayat — ${riwayatNama}` }]
-			: [])
+		{ key: 'riwayat', label: 'Riwayat Transaksi' }
+		// ...(tab === 'riwayat' && riwayatId
+		// 	? [{ key: 'riwayat', label: `Riwayat — ${riwayatNama}` }]
+		// 	: [])
 	]);
 
 	function gantiTab(t: Tab) {
@@ -55,7 +56,7 @@
 		<TabPelanggan onbukariwayat={bukaRiwayat} />
 	{:else if tab === 'kartu'}
 		<TabKartu bind:this={tabKartuRef} />
-	{:else if tab === 'riwayat' && riwayatId}
+	{:else if tab === 'riwayat'}
 		<TabRiwayat pelangganId={riwayatId} namaPelanggan={riwayatNama} />
 	{/if}
 </div>

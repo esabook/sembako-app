@@ -266,7 +266,13 @@
 
 						<div class="form-opts">
 							<label class="remember-lbl" for="remember">
-								<input type="checkbox" id="remember" bind:checked={rememberMe} class="sr-only" />
+								<input
+									type="checkbox"
+									id="remember"
+									bind:checked={rememberMe}
+									class="sr-only"
+									style="accent-color:var(--accent);cursor:pointer;width:15px;height:15px;flex-shrink:0"
+								/>
 								<span class="checkbox" aria-hidden="true">
 									{#if rememberMe}<span class="chk">✓</span>{/if}
 								</span>
