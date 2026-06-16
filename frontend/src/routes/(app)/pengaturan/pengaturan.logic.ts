@@ -38,8 +38,10 @@ export const TEMA_OPTS: [string, string][] = [
 	['light', 'Light'],
 	['bww', 'BW Putih'],
 	['bwb', 'BW Hitam'],
-	['island', 'Island'],
-	['klasik', 'Klasik']
+	['island', 'Island Gelap'],
+	['islandl', 'Island Terang'],
+	['klasik', 'Klasik Gelap'],
+	['klasikl', 'Klasik Terang']
 ]
 
 export const HARGA_OPTS: [string, string][] = [

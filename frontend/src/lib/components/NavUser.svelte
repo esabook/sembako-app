@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
-	import { tema, type Tema } from '$lib/stores/tema.js';
+	import { temaSkin, temaMode, type Skin, type Mode } from '$lib/stores/tema.js';
 	import { onMount } from 'svelte';
 
 	let buka = $state(false);
@@ -22,13 +22,17 @@
 		isFullscreen = !!document.fullscreenElement;
 	}
 
-	const TEMA_LIST: { nilai: Tema; label: string; deskripsi: string }[] = [
-		{ nilai: 'dark', label: 'DARK', deskripsi: 'Terminal gelap' },
-		{ nilai: 'light', label: 'LIGHT', deskripsi: 'Siang hari' },
-		{ nilai: 'bww', label: 'BW ☯', deskripsi: 'Hitam-putih terang' },
-		{ nilai: 'bwb', label: 'BW ☯', deskripsi: 'Hitam-putih gelap' },
-		{ nilai: 'island', label: 'ISLAND', deskripsi: 'Panel mengambang' },
-		{ nilai: 'klasik', label: 'KLASIK', deskripsi: 'Kasir terminal' }
+	const MODE_LIST: { nilai: Mode; label: string; ikon: string }[] = [
+		{ nilai: 'dark', label: 'Gelap', ikon: '🌙' },
+		{ nilai: 'light', label: 'Terang', ikon: '☀️' },
+		{ nilai: 'system', label: 'Sistem', ikon: '🖥️' }
+	];
+
+	const SKIN_LIST: { nilai: Skin; label: string; deskripsi: string }[] = [
+		{ nilai: 'normal', label: 'Normal', deskripsi: 'Default' },
+		{ nilai: 'bw', label: 'Hitam-Putih', deskripsi: 'Kontras tinggi' },
+		{ nilai: 'island', label: 'Island', deskripsi: 'Panel mengambang' },
+		{ nilai: 'klasik', label: 'Klasik', deskripsi: 'Kasir terminal' }
 	];
 
 	const ROLE_LABEL: Record<string, string> = {
@@ -99,20 +103,36 @@
 
 			<!-- Pilihan tema -->
 			<div class="border-b px-3 py-2" style="border-color:var(--border)">
-				<div class="mb-1.5 text-[0.7em] tracking-wider uppercase" style="color:var(--text-dim)">
-					Tema
+				<div class="mb-1.5 flex items-center justify-between">
+					<span class="text-[0.7em] tracking-wider uppercase" style="color:var(--text-dim)"
+						>Tema</span
+					>
+					<div class="flex gap-0.5">
+						{#each MODE_LIST as m (m.nilai)}
+							<button
+								onclick={() => temaMode.set(m.nilai)}
+								title={m.label}
+								class="rounded px-1.5 py-0.5 text-xs transition-colors"
+								style={$temaMode === m.nilai
+									? 'background:var(--surface2);color:var(--accent)'
+									: 'color:var(--text-dim)'}
+							>
+								{m.ikon}
+							</button>
+						{/each}
+					</div>
 				</div>
 				<div class="flex flex-col gap-0.5">
-					{#each TEMA_LIST as t (t.nilai)}
+					{#each SKIN_LIST as s (s.nilai)}
 						<button
-							onclick={() => tema.set(t.nilai)}
+							onclick={() => temaSkin.set(s.nilai)}
 							class="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors"
-							style={$tema === t.nilai
+							style={$temaSkin === s.nilai
 								? 'background:var(--surface2);color:var(--accent)'
 								: 'color:var(--text-dim)'}
 						>
-							<span>{t.label}</span>
-							<span class="text-[0.7em]" style="color:var(--text-dim)">{t.deskripsi}</span>
+							<span>{s.label}</span>
+							<span class="text-[0.7em]" style="color:var(--text-dim)">{s.deskripsi}</span>
 						</button>
 					{/each}
 				</div>

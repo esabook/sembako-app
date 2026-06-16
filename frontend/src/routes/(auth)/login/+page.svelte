@@ -21,7 +21,7 @@
 	let dateStr = $state('');
 
 	const IDLE_MS = 5000;
-	const themes = ['dark', 'light', 'bww', 'bwb', 'island', 'klasik'];
+	const themes = ['dark', 'light', 'bww', 'bwb', 'island', 'islandl', 'klasik', 'klasikl'];
 
 	function resetIdleTimer() {
 		if (idleTimer) clearTimeout(idleTimer);
