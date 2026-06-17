@@ -163,8 +163,6 @@
 		inset: 0;
 		z-index: 50;
 		display: flex;
-		align-items: center;
-		justify-content: center;
 		background: rgba(0, 0, 0, 0.45);
 		backdrop-filter: blur(3px);
 	}

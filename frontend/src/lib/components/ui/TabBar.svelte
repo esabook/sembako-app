@@ -57,8 +57,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api';
-	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
-	import Button from './Button.svelte';
 
 	type Tab = { key: string; label: string };
 
@@ -77,6 +75,9 @@
 	// ── State ─────────────────────────────────────────────────────────────────
 
 	let order = $state<string[]>([]);
+	const orderChanged = $derived(
+		order.length > 0 && !order.every((k, i) => k === tabKeys[i])
+	);
 	let favorites = $state<Set<string>>(new Set());
 	let dragKey = $state<string | null>(null);
 	let dragOver = $state<string | null>(null);
@@ -287,22 +288,24 @@
 	{/each}
 
 	<!-- Tombol reset setelah tab terakhir -->
-	<button
-		onclick={reset}
-		title="Reset urutan & favorit ke default"
-		style="flex-shrink:0; align-self:center; margin-left:.25rem; padding:.25rem .5rem;
+	{#if orderChanged || favorites.size > 0}
+		<button
+			onclick={reset}
+			title="Reset urutan & favorit ke default"
+			style="flex-shrink:0; align-self:center; margin-left:.25rem; padding:.25rem .5rem;
            background:none; border:1px solid var(--border); border-radius:4px;
            color:var(--text-dim); cursor:pointer; font-size:.7rem; line-height:1;
            white-space:nowrap; transition:color .15s, border-color .15s"
-		onmouseenter={(e) => {
-			(e.currentTarget as HTMLElement).style.color = 'var(--danger)';
-			(e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)';
-		}}
-		onmouseleave={(e) => {
-			(e.currentTarget as HTMLElement).style.color = 'var(--text-dim)';
-			(e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
-		}}>↺ Reset</button
-	>
+			onmouseenter={(e) => {
+				(e.currentTarget as HTMLElement).style.color = 'var(--danger)';
+				(e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)';
+			}}
+			onmouseleave={(e) => {
+				(e.currentTarget as HTMLElement).style.color = 'var(--text-dim)';
+				(e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+			}}>↺ Reset</button
+		>
+	{/if}
 </div>
 
 <!-- Context Menu -->

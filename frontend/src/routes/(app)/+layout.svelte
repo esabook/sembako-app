@@ -83,10 +83,18 @@
 	</nav>
 	<!-- Body: sidebar selalu tampil + konten -->
 	<div class="app-body relative flex min-h-0 flex-1">
-		<AppSidebar bind:mobileOpen={sidebarMobileOpen} bind:sidebarWidth bind:sidebarAbsolute {namaToko} />
+		<AppSidebar
+			bind:mobileOpen={sidebarMobileOpen}
+			bind:sidebarWidth
+			bind:sidebarAbsolute
+			{namaToko}
+		/>
 
 		<!-- Konten utama -->
-		<main class="app-main min-h-0 flex-1 overflow-auto p-4" style={sidebarAbsolute ? `margin-left:${sidebarWidth}rem` : ''}>
+		<main
+			class="app-main min-h-0 flex-1 overflow-auto p-2 sm:p-4 md:p-6"
+			style={sidebarAbsolute ? `margin-left:${sidebarWidth}rem` : ''}
+		>
 			{@render children()}
 		</main>
 	</div>
