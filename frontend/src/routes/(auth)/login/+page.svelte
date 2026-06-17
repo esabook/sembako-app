@@ -6,6 +6,7 @@
 
 	const store = createLoginStore();
 
+
 	let usernameInput!: HTMLInputElement;
 	let passwordInput!: HTMLInputElement;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
@@ -63,6 +64,11 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Login - Stokasir</title>
+	<meta name="description" content="Login to Stokasir - Aplikasi manajemen stok-kasir untuk toko grosir dan eceran. Kelola stok, kasir, gudang, dan keuangan dengan mudah." />
+</svelte:head>
+
 <div class="screen">
 	<!-- ── Status strip (full-width, top of screen) ───── -->
 	<div class="status-strip">
@@ -87,7 +93,7 @@
 				<div class="brand-panel" class:brand-vis={store.showBrand}>
 					<div class="brand-inner">
 						<div class="brand-head">
-							<enhanced:img src="$lib/assets/logo.webp" alt="" class="brand-logo" />
+							<enhanced:img src="$lib/assets/logo.webp" alt="" class="brand-logo" fetchpriority="high" />
 							<span class="brand-name">{store.namaToko}</span>
 						</div>
 						<div class="brand-tagline">POS · GUDANG · PELANGGAN · KEUANGAN · ALERT</div>

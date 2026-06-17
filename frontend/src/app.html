@@ -9,12 +9,21 @@
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 	<link rel="apple-touch-icon" href="/logo.webp" />
-	<link rel="preconnect" href="https://fonts.bunny.net" />
 	%sveltekit.head%
 </head>
 
 <body data-sveltekit-preload-data="hover">
 	<div style="display: contents">%sveltekit.body%</div>
+	<script>
+		// Defer non-critical CSS: swap media="print" to "all" after load
+		// Unblocks initial render while CSS loads; proven pattern in production
+		document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+			if (link.media === 'all' || !link.media) {
+				link.media = 'print';
+				link.onload = function() { this.media = 'all'; };
+			}
+		});
+	</script>
 </body>
 
 </html>
