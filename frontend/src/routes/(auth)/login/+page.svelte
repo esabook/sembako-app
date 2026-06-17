@@ -1,50 +1,30 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { api } from '$lib/utils/api.js';
-	import { user } from '$lib/stores/auth.js';
 	import { onMount } from 'svelte';
+	import { tema, nextTema } from '$lib/stores/tema';
+	import { createLoginStore } from './login.store.svelte';
 
-	let username = $state('');
-	let password = $state('');
-	let showPassword = $state(false);
-	let rememberMe = $state(false);
-	let loading = $state(false);
-	let error = $state('');
-	let attemptsLeft = $state(3);
-	let showBrand = $state(true);
+	const store = createLoginStore();
+
 	let usernameInput!: HTMLInputElement;
 	let passwordInput!: HTMLInputElement;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
-	let namaToko = $state('');
-	let serverIP = $state('');
-	let timeStr = $state('--:--:--');
-	let dateStr = $state('');
-
 	const IDLE_MS = 5000;
-	const themes = ['dark', 'light', 'bww', 'bwb', 'island', 'islandl', 'klasik', 'klasikl'];
+
+	const features: [string, string][] = [
+		['F1–F12', 'Shortcut'],
+		['USB/BT', 'Scanner'],
+		['System', 'Lokal'],
+		['4 Role', 'Jabatan']
+	];
 
 	function resetIdleTimer() {
 		if (idleTimer) clearTimeout(idleTimer);
 		idleTimer = setTimeout(() => {
-			if (password) {
-				password = '';
+			if (store.password) {
+				store.clearPassword();
 				usernameInput?.focus();
 			}
 		}, IDLE_MS);
-	}
-
-	function nextTheme() {
-		const html = document.documentElement;
-		const current = html.getAttribute('data-theme') ?? 'dark';
-		html.setAttribute('data-theme', themes[(themes.indexOf(current) + 1) % themes.length]);
-	}
-
-	function tick() {
-		const now = new Date();
-		const pad = (n: number) => String(n).padStart(2, '0');
-		timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-		const mo = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
-		dateStr = `${now.getDate()} ${mo[now.getMonth()]} ${now.getFullYear()}`;
 	}
 
 	function refocusIfNone() {
@@ -56,20 +36,14 @@
 
 	onMount(() => {
 		usernameInput?.focus();
-		tick();
-		serverIP = window.location.hostname;
-		const t = setInterval(tick, 1000);
-		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
-			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
-		});
-		api.get<{ lan_ips: string[] }>('/pengaturan/server-info').then((res) => {
-			if (res.success && res.data.lan_ips.length > 0) serverIP = res.data.lan_ips[0];
-		});
+		store.tick(new Date());
+		store.muatInfo(window.location.hostname);
+		const t = setInterval(() => store.tick(new Date()), 1000);
 
 		function onKeydown(e: KeyboardEvent) {
 			if (e.key === 'F2') {
 				e.preventDefault();
-				nextTheme();
+				nextTema($tema);
 			}
 			if (e.key === 'F12') {
 				e.preventDefault();
@@ -86,47 +60,6 @@
 			document.removeEventListener('click', refocusIfNone);
 		};
 	});
-
-	async function login(e: Event) {
-		e.preventDefault();
-		if (attemptsLeft <= 0) return;
-		loading = true;
-		error = '';
-
-		const res = await api.post<{ id: number; nama: string; role: string }>('/auth/login', {
-			username,
-			password
-		});
-
-		loading = false;
-
-		if (!res.success) {
-			attemptsLeft = Math.max(0, attemptsLeft - 1);
-			error = res.error;
-			return;
-		}
-
-		user.set(res.data as import('$lib/stores/auth.js').User);
-		goto('/dashboard');
-	}
-
-	const navItems = [
-		'Dashboard',
-		'Kasir',
-		'Pelanggan',
-		'Gudang',
-		'Karyawan',
-		'Keuangan',
-		'Laporan',
-		'Harga',
-		'Pengaturan'
-	];
-	const features: [string, string][] = [
-		['F1–F12', 'Shortcut'],
-		['USB/BT', 'Scanner'],
-		['System', 'Lokal'],
-		['4 Role', 'Jabatan']
-	];
 </script>
 
 <div class="screen">
@@ -134,14 +67,14 @@
 	<div class="status-strip">
 		<span class="s-item s-server">
 			<span class="s-dot">●</span>
-			SERVER <span class="s-val">{serverIP}</span>
+			SERVER <span class="s-val">{store.serverIP}</span>
 		</span>
 		<span class="s-sep s-server">│</span>
-		<span class="s-val tnum">{dateStr} · {timeStr}</span>
+		<span class="s-val tnum">{store.dateStr} · {store.timeStr}</span>
 		<span class="grow"></span>
 		<span class="s-item">VERSI <span class="s-val">1.0</span></span>
 		<span class="s-sep">│</span>
-		<span class="s-item">{namaToko}</span>
+		<span class="s-item">{store.namaToko}</span>
 	</div>
 
 	<!-- ── Modal layer ────────────────────────────────── -->
@@ -150,11 +83,11 @@
 			<!-- Body -->
 			<div class="modal-body">
 				<!-- TOP: brand panel -->
-				<div class="brand-panel" class:brand-vis={showBrand}>
+				<div class="brand-panel" class:brand-vis={store.showBrand}>
 					<div class="brand-inner">
 						<div class="brand-head">
 							<img src="logo.png" alt="" class="brand-logo" />
-							<span class="brand-name">{namaToko}</span>
+							<span class="brand-name">{store.namaToko}</span>
 						</div>
 						<div class="brand-tagline">POS · GUDANG · PELANGGAN · KEUANGAN · ALERT</div>
 						<p class="hl-desc">
@@ -184,9 +117,9 @@
 				<!-- Toggle between brand and form -->
 				<button
 					class="toggle-btn"
-					class:toggle-open={showBrand}
-					onclick={() => (showBrand = !showBrand)}
-					title={showBrand ? 'Sembunyikan info' : 'Tampilkan info'}
+					class:toggle-open={store.showBrand}
+					onclick={() => (store.showBrand = !store.showBrand)}
+					title={store.showBrand ? 'Sembunyikan info' : 'Tampilkan info'}
 				>
 					<span class="tgl-icon">
 						<svg
@@ -208,19 +141,19 @@
 					<div class="f-sub">MASUK / SIGN-IN</div>
 					<h2 class="f-title">Selamat datang kembali.</h2>
 
-					<form id="lf" onsubmit={login} autocomplete="off">
+					<form id="lf" onsubmit={store.login} autocomplete="off">
 						<div class="field">
 							<div class="field-lbl">USERNAME</div>
 							<div class="field-wrap accent-left">
 								<span class="field-caret">›</span>
 								<input
 									type="text"
-									bind:value={username}
+									bind:value={store.username}
 									bind:this={usernameInput}
 									autocomplete="off"
 									name="stokasir-user"
 									required
-									disabled={loading || attemptsLeft <= 0}
+									disabled={store.loading || store.attemptsLeft <= 0}
 									class="field-input"
 									placeholder="username"
 									oninput={resetIdleTimer}
@@ -238,13 +171,13 @@
 							<div class="field-lbl">PASSWORD</div>
 							<div class="field-wrap">
 								<input
-									type={showPassword ? 'text' : 'password'}
-									bind:value={password}
+									type={store.showPassword ? 'text' : 'password'}
+									bind:value={store.password}
 									bind:this={passwordInput}
 									autocomplete="new-password"
 									name="stokasir-pass"
 									required
-									disabled={loading || attemptsLeft <= 0}
+									disabled={store.loading || store.attemptsLeft <= 0}
 									class="field-input"
 									placeholder="••••••••"
 									oninput={resetIdleTimer}
@@ -258,8 +191,8 @@
 								<button
 									type="button"
 									class="pw-btn"
-									onclick={() => (showPassword = !showPassword)}
-									tabindex="-1">{showPassword ? 'HIDE' : 'SHOW'}</button
+									onclick={() => (store.showPassword = !store.showPassword)}
+									tabindex="-1">{store.showPassword ? 'HIDE' : 'SHOW'}</button
 								>
 							</div>
 						</div>
@@ -269,24 +202,17 @@
 								<input
 									type="checkbox"
 									id="remember"
-									bind:checked={rememberMe}
+									bind:checked={store.rememberMe}
 									class="sr-only"
 									style="accent-color:var(--accent);cursor:pointer;width:15px;height:15px;flex-shrink:0"
 								/>
 								<span class="checkbox" aria-hidden="true">
-									{#if rememberMe}<span class="chk">✓</span>{/if}
+									{#if store.rememberMe}<span class="chk">✓</span>{/if}
 								</span>
 								Ingat saya 8 jam
 							</label>
 							<button type="button" class="forgot-btn">Lupa password?</button>
 						</div>
-
-						{#if error}
-							<div class="err-row" role="alert">
-								<span class="err-tag">ERR</span>
-								{error}
-							</div>
-						{/if}
 					</form>
 
 					<span class="grow"></span>
@@ -295,23 +221,23 @@
 
 			<!-- Footer actions -->
 			<div class="modal-footer">
-				<button type="button" class="ghost-btn" onclick={nextTheme}>
+				<button type="button" class="ghost-btn" onclick={() => nextTema($tema)}>
 					TEMA <kbd class="kbd">F2</kbd>
 				</button>
 				<button type="button" class="ghost-btn">
 					SCAN KARTU <kbd class="kbd">F9</kbd>
 				</button>
 				<span class="grow"></span>
-				{#if attemptsLeft < 3}
-					<span class="attempts">{attemptsLeft} percobaan tersisa</span>
+				{#if store.attemptsLeft < 3}
+					<span class="attempts">{store.attemptsLeft} percobaan tersisa</span>
 				{/if}
 				<button
 					type="button"
 					class="primary-btn"
-					disabled={loading || attemptsLeft <= 0}
+					disabled={store.loading || store.attemptsLeft <= 0}
 					onclick={() => (document.getElementById('lf') as HTMLFormElement)?.requestSubmit()}
 				>
-					{loading ? 'MEMPROSES...' : 'MASUK'}
+					{store.loading ? 'MEMPROSES...' : 'MASUK'}
 					<kbd class="kbd-inv">F12</kbd>
 				</button>
 			</div>
@@ -489,7 +415,7 @@
 	.brand-inner {
 		width: 460px;
 		box-sizing: border-box;
-		padding: 32px 36px 28px;
+		padding: 16px 16px 16px 16px;
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -588,7 +514,7 @@
 		flex: 1;
 		min-width: 340px;
 		box-sizing: border-box;
-		padding: 32px 36px 28px;
+		padding: 16px 16px 16px 16px;
 		display: flex;
 		flex-direction: column;
 	}
@@ -726,23 +652,6 @@
 		padding: 0;
 	}
 
-	.err-row {
-		font-size: 11px;
-		color: var(--danger);
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		margin-top: 4px;
-	}
-	.err-tag {
-		font-size: 9px;
-		font-weight: 700;
-		border: 1px solid var(--danger);
-		padding: 0 4px;
-		letter-spacing: 0.06em;
-		flex-shrink: 0;
-	}
-
 	/* ── Footer ───────────────────────────────────────── */
 	.modal-footer {
 		border-top: 1px solid var(--border);
@@ -820,7 +729,11 @@
 	}
 
 	/* ── Responsive — Medium 601–860px (top-bottom, brand visible) ── */
-	@media (max-width: 860px) and (min-width: 601px) {
+	@media (max-width: 860px) {
+		/* ── Modal layer ──────────────────────────────────── */
+		.modal-layer {
+			padding: 16px;
+		}
 		.modal-body {
 			flex-direction: column;
 			min-height: auto;
@@ -901,62 +814,12 @@
 			flex: 1 1 auto;
 			min-width: 0;
 		}
-	}
 
-	/* ── Responsive — Mobile ≤600px ───────────────────── */
-	@media (max-width: 600px) {
-		.s-server {
+		.kbd-inv {
 			display: none;
 		}
 
-		.modal-layer {
-			padding: 0;
-			align-items: stretch;
-		}
-
-		.modal {
-			width: 100%;
-			border-left: none;
-			border-right: none;
-			border-bottom: none;
-			margin: 0;
-		}
-
-		.modal-body {
-			flex-direction: column;
-			min-height: auto;
-		}
-
-		.brand-panel {
-			display: none;
-		}
-		.toggle-btn {
-			display: none;
-		}
-
-		.form-panel {
-			flex: 1 1 auto;
-			min-width: 0;
-			padding: 24px 20px 20px;
-		}
-
-		.field-input {
-			font-size: 16px;
-		}
-		.field-wrap {
-			font-size: 16px;
-		}
-
-		.primary-btn {
-			flex: 1;
-			justify-content: center;
-			padding: 14px 18px;
-		}
-
-		.modal-footer {
-			flex-wrap: wrap;
-		}
-		.ghost-btn {
+		.kbd {
 			display: none;
 		}
 	}
