@@ -24,6 +24,11 @@
 	import Tag from '@lucide/svelte/icons/tag';
 	import BadgePercent from '@lucide/svelte/icons/badge-percent';
 	import Settings from '@lucide/svelte/icons/settings';
+	import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
+	import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
+	import PanelLeft from '@lucide/svelte/icons/panel-left';
+	import PanelLeftDashed from '@lucide/svelte/icons/panel-left-dashed';
+	import Check from '@lucide/svelte/icons/check';
 	import type { Component } from 'svelte';
 
 	const ICONS: Record<string, Component> = {
@@ -48,14 +53,24 @@
 
 	let {
 		mobileOpen = $bindable(false),
-		namaToko = ''
-	}: { mobileOpen?: boolean; namaToko?: string } = $props();
+		namaToko = '',
+		sidebarWidth: sidebarWidthOut = $bindable(0),
+		sidebarAbsolute: sidebarAbsoluteOut = $bindable(false)
+	}: {
+		mobileOpen?: boolean;
+		namaToko?: string;
+		sidebarWidth?: number;
+		sidebarAbsolute?: boolean;
+	} = $props();
 
-	type SidebarState = 'expanded' | 'icon';
+	type SidebarState = 'expanded' | 'icon' | 'hover';
 	const SIDEBAR_KEY = 'sidebar_state';
 	let sidebarState = $state<SidebarState>('icon');
 	let sidebarReady = $state(false);
 	let isMobile = $state(false);
+	let hoverExpanded = $state(false);
+	let showPopup = $state(false);
+	let navEl = $state<HTMLElement | null>(null);
 
 	// --- Resizable sidebar ---
 	const ICON_W = 2.75;
@@ -108,6 +123,14 @@
 		localStorage.setItem(SIDEBAR_KEY, sidebarState);
 	}
 
+	function setSidebarMode(mode: SidebarState) {
+		customWidth = null;
+		localStorage.removeItem(SIDEBAR_W_KEY);
+		sidebarState = mode;
+		localStorage.setItem(SIDEBAR_KEY, mode);
+		showPopup = false;
+	}
+
 	onMount(() => {
 		const mq = window.matchMedia('(max-width: 639px)');
 		isMobile = mq.matches;
@@ -118,7 +141,7 @@
 		mq.addEventListener('change', handleMq);
 
 		const saved = localStorage.getItem(SIDEBAR_KEY);
-		if (saved === 'expanded' || saved === 'icon') sidebarState = saved;
+		if (saved === 'expanded' || saved === 'icon' || saved === 'hover') sidebarState = saved;
 		const savedW = localStorage.getItem(SIDEBAR_W_KEY);
 		if (savedW) customWidth = clamp(parseFloat(savedW));
 		sidebarReady = true;
@@ -129,11 +152,25 @@
 				toggleSidebar();
 			},
 			Escape: () => {
-				if (mobileOpen) mobileOpen = false;
+				if (showPopup) showPopup = false;
+				else if (mobileOpen) mobileOpen = false;
 			}
 		});
+
+		const handleClickOutside = (e: MouseEvent) => {
+			if (
+				showPopup &&
+				!(e.target as HTMLElement).closest('.sidebar-popup') &&
+				!(e.target as HTMLElement).closest('[aria-label="Kontrol sidebar"]')
+			) {
+				showPopup = false;
+			}
+		};
+		document.addEventListener('click', handleClickOutside, true);
+
 		return () => {
 			mq.removeEventListener('change', handleMq);
+			document.removeEventListener('click', handleClickOutside, true);
 			cleanupKeys();
 		};
 	});
@@ -143,11 +180,24 @@
 	}
 
 	let visibleNav = $derived(NAV.filter((item) => bolehAkses(item.roles)));
-	const showLabels = $derived(isMobile || sidebarState === 'expanded');
+	const showLabels = $derived(
+		isMobile || sidebarState === 'expanded' || (sidebarState === 'hover' && hoverExpanded)
+	);
 	const activeTab = $derived(page.url.searchParams.get('tab'));
 	const sidebarWidth = $derived(
-		isMobile ? 14 : (customWidth ?? (sidebarState === 'expanded' ? EXPANDED_W : ICON_W))
+		isMobile
+			? 14
+			: sidebarState === 'hover'
+				? hoverExpanded
+					? EXPANDED_W
+					: ICON_W
+				: (customWidth ?? (sidebarState === 'expanded' ? EXPANDED_W : ICON_W))
 	);
+
+	$effect(() => {
+		sidebarWidthOut = ICON_W;
+		sidebarAbsoluteOut = sidebarState === 'hover';
+	});
 
 	function handleSubClick(href: string, tab: SubNavItem) {
 		if (tab.href) {
@@ -173,9 +223,16 @@
 
 <aside
 	class={isMobile
-		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r shadow-xl transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
-		: `app-sidebar relative flex shrink-0 flex-col border-r ${sidebarReady && !isDragging ? 'transition-all duration-200' : ''} ${isDragging ? 'is-dragging' : ''}`}
-	style="background:var(--surface);border-color:var(--border);width:{sidebarWidth}rem"
+		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r pt-2 shadow-xl transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
+		: `app-sidebar flex shrink-0 flex-col border-r pt-2 ${sidebarReady && !isDragging ? 'transition-all duration-200' : ''} ${isDragging ? 'is-dragging' : ''} ${sidebarState === 'hover' ? (hoverExpanded ? 'hover-mode hover-expanded' : 'hover-mode') : 'relative'}`}
+	style="background:var(--surface);border-color:var(--border);width:{sidebarWidth}rem "
+	onmouseenter={sidebarState === 'hover' && !isMobile
+		? () => {
+				hoverExpanded = true;
+				if (navEl) navEl.scrollTop = 0;
+			}
+		: undefined}
+	onmouseleave={sidebarState === 'hover' && !isMobile ? () => (hoverExpanded = false) : undefined}
 >
 	{#if isMobile}
 		<!-- Header: logo + nama toko | tombol dismiss -->
@@ -192,24 +249,10 @@
 			<button
 				onclick={() => (mobileOpen = false)}
 				aria-label="Tutup menu"
-				class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--surface2)]"
+				class="flex h-[1rem] w-[1rem] items-center justify-center rounded-full transition-colors hover:bg-[var(--surface2)]"
 				style="color:var(--text-dim)"
 			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					width="24"
-					height="24"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					class="lucide lucide-panel-left-close-icon lucide-panel-left-close"
-					><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M9 3v18" /><path
-						d="m16 15-3-3 3-3"
-					/></svg
-				>
+				<PanelLeftClose />
 			</button>
 		</header>
 	{/if}
@@ -245,7 +288,12 @@
 	{/if}
 
 	<!-- Nav links — hanya bagian ini yang scrollable -->
-	<nav class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto py-2">
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<nav
+		bind:this={navEl}
+		class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+		style="scrollbar-gutter: stable"
+	>
 		{#each visibleNav as item (item.href)}
 			{@const isActive = page.url.pathname.startsWith(item.href)}
 			{@const hasSub = isActive && showLabels && item.sub?.length}
@@ -262,7 +310,7 @@
 				aria-current={isActive ? 'page' : undefined}
 			>
 				<span
-					class="absolute top-0 bottom-0 left-0 shrink-0 {isActive ? 'w-0.5' : 'w-0'}"
+					class="absolute top-0 bottom-0 left-0 shrink-0 {isActive ? 'w-[2px]' : 'w-0'}"
 					style={isActive ? 'background:var(--accent)' : ''}
 				></span>
 
@@ -298,8 +346,59 @@
 			{/if}
 		{/each}
 	</nav>
-	<!-- Drag handle -->
+	<!-- Sidebar mode control -->
 	{#if !isMobile}
+		<div class="relative shrink-0 border-t px-2 py-1.5" style="border-color:var(--border)">
+			<!-- Popup menu -->
+			{#if showPopup}
+				<div
+					class="sidebar-popup absolute bottom-full left-0 z-20 mb-1 w-44 rounded-lg border py-1 shadow-lg"
+					style="background:var(--surface);border-color:var(--border);"
+				>
+					<button
+						onclick={() => setSidebarMode('expanded')}
+						class="popup-item"
+						style={sidebarState === 'expanded' ? 'color:var(--accent)' : 'color:var(--text-dim)'}
+					>
+						<PanelLeftOpen class="h-4 w-4 shrink-0" />
+						<span class="flex-1 text-left text-xs">Diperluas</span>
+						{#if sidebarState === 'expanded'}<Check class="h-3 w-3 shrink-0" />{/if}
+					</button>
+					<button
+						onclick={() => setSidebarMode('icon')}
+						class="popup-item"
+						style={sidebarState === 'icon' ? 'color:var(--accent)' : 'color:var(--text-dim)'}
+					>
+						<PanelLeftClose class="h-4 w-4 shrink-0" />
+						<span class="flex-1 text-left text-xs">Ikon</span>
+						{#if sidebarState === 'icon'}<Check class="h-3 w-3 shrink-0" />{/if}
+					</button>
+					<button
+						onclick={() => setSidebarMode('hover')}
+						class="popup-item"
+						style={sidebarState === 'hover' ? 'color:var(--accent)' : 'color:var(--text-dim)'}
+					>
+						<PanelLeftDashed class="h-4 w-4 shrink-0" />
+						<span class="flex-1 text-left text-xs">Melayang</span>
+						{#if sidebarState === 'hover'}<Check class="h-3 w-3 shrink-0" />{/if}
+					</button>
+				</div>
+			{/if}
+
+			<button
+				onclick={() => (showPopup = !showPopup)}
+				title="Kontrol sidebar"
+				aria-label="Kontrol sidebar"
+				class="flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-[var(--surface2)]"
+				style="color:var(--text-dim)"
+			>
+				<PanelLeft class="h-4 w-4" />
+			</button>
+		</div>
+	{/if}
+
+	<!-- Drag handle -->
+	{#if !isMobile && sidebarState !== 'hover'}
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 		<div
 			class="drag-handle"
@@ -408,5 +507,39 @@
 
 	:global(body.is-dragging-sidebar) {
 		user-select: none !important;
+	}
+
+	/* Hover mode: absolute overlay, z-index above navbar (z-50) */
+	.hover-mode {
+		position: absolute;
+		left: 0;
+		top: 0;
+		height: 100%;
+		z-index: 51;
+	}
+	.hover-mode.hover-expanded {
+		box-shadow: 4px 0 12px rgb(0 0 0 / 0.15);
+	}
+
+	/* In hover mode, nav needs explicit height to scroll (sidebar is out of flex flow) */
+	.hover-mode nav {
+		height: 100%;
+	}
+
+	/* Popup menu */
+	.popup-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.375rem 0.625rem;
+		background: none;
+		border: none;
+		cursor: pointer;
+		border-radius: 0.25rem;
+		transition: background-color 150ms;
+	}
+	.popup-item:hover {
+		background: var(--surface2);
 	}
 </style>

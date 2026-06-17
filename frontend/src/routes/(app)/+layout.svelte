@@ -18,6 +18,8 @@
 	let namaToko = $state('');
 	let namaCabang = $state('');
 	let sidebarMobileOpen = $state(false);
+	let sidebarWidth = $state(0);
+	let sidebarAbsolute = $state(false);
 
 	onMount(() => {
 		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
@@ -80,11 +82,11 @@
 		</div>
 	</nav>
 	<!-- Body: sidebar selalu tampil + konten -->
-	<div class="app-body flex min-h-0 flex-1">
-		<AppSidebar bind:mobileOpen={sidebarMobileOpen} {namaToko} />
+	<div class="app-body relative flex min-h-0 flex-1">
+		<AppSidebar bind:mobileOpen={sidebarMobileOpen} bind:sidebarWidth bind:sidebarAbsolute {namaToko} />
 
 		<!-- Konten utama -->
-		<main class="app-main min-h-0 flex-1 overflow-auto p-4">
+		<main class="app-main min-h-0 flex-1 overflow-auto p-4" style={sidebarAbsolute ? `margin-left:${sidebarWidth}rem` : ''}>
 			{@render children()}
 		</main>
 	</div>
