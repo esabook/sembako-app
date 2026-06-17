@@ -2,6 +2,7 @@
   import Modal from '$lib/components/ui/Modal.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Input from '$lib/components/ui/Input.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import type { createKeuanganStore } from '../keuangan.store.svelte'
 
   let { store }: { store: ReturnType<typeof createKeuanganStore> } = $props()
@@ -14,13 +15,8 @@
         bind:value={store.formKasBank.nama} />
       {#if !store.editKasBank}
         <div>
-          <span class="mb-1 block text-xs" style="color:var(--text-dim)">Tipe</span>
-          <select bind:value={store.formKasBank.tipe}
-            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
-            <option value="kas">Kas (uang tunai)</option>
-            <option value="bank">Bank (rekening)</option>
-          </select>
+          <Select label="Tipe" bind:value={store.formKasBank.tipe}
+            options={[{ value: 'kas', label: 'Kas (uang tunai)' }, { value: 'bank', label: 'Bank (rekening)' }]} />
         </div>
       {/if}
       <div>

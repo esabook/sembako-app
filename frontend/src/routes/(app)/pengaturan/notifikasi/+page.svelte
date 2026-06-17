@@ -15,6 +15,7 @@
 	import { api } from '$lib/utils/api.js';
 	import QRCode from 'qrcode';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	// Redirect non-pemilik — dibaca saat render (tidak butuh $effect)
 	const currentUser = $user;
@@ -251,21 +252,12 @@
 							>
 								<!-- Channel -->
 								<div class="space-y-1">
-									<label
-										for="channel-{cfg.jenis}"
-										class="text-xs font-medium"
-										style="color:var(--text-dim)">Kirim via</label
-									>
-									<select
+									<Select
 										id="channel-{cfg.jenis}"
+										label="Kirim via"
 										bind:value={editForm.channel}
-										class="w-full rounded border px-2 py-1.5 text-sm"
-										style="border-color:var(--border);color:var(--text)"
-									>
-										<option value="dashboard">Dashboard saja</option>
-										<option value="wa">WhatsApp saja</option>
-										<option value="keduanya">WA + Dashboard</option>
-									</select>
+										options={[{ value: 'dashboard', label: 'Dashboard saja' }, { value: 'wa', label: 'WhatsApp saja' }, { value: 'keduanya', label: 'WA + Dashboard' }]}
+									/>
 								</div>
 
 								<!-- Nomor WA -->
@@ -329,21 +321,12 @@
 								<!-- Hari kirim -->
 								{#if cfg.jenis === 'ringkasan_mingguan'}
 									<div class="space-y-1">
-										<label
-											for="hari-{cfg.jenis}"
-											class="text-xs font-medium"
-											style="color:var(--text-dim)">Hari pengiriman</label
-										>
-										<select
+										<Select
 											id="hari-{cfg.jenis}"
+											label="Hari pengiriman"
 											bind:value={editForm.hari_kirim}
-											class="w-full rounded border px-2 py-1.5 text-sm"
-											style="background:var(--surface);border-color:var(--border);color:var(--text)"
-										>
-											{#each HARI_OPTIONS as h (h)}
-												<option value={h}>{HARI_LABEL[h]}</option>
-											{/each}
-										</select>
+											options={HARI_OPTIONS.map(h => ({ value: h, label: HARI_LABEL[h] }))}
+										/>
 									</div>
 								{/if}
 

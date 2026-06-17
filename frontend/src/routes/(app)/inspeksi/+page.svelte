@@ -5,6 +5,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	type Inspeksi = {
 		id: number;
@@ -153,25 +154,16 @@
 			class="rounded border px-2 py-1 text-sm"
 			style="background:var(--bg);border-color:var(--border);color:var(--text)"
 		/>
-		<select
+		<Select
 			bind:value={filterJenis}
-			class="rounded border px-2 py-1 text-sm"
-			style="background:var(--bg);border-color:var(--border);color:var(--text)"
-		>
-			<option value="">Semua Jenis</option>
-			{#each Object.entries(JENIS_LABEL) as [k, v] (k)}
-				<option value={k}>{v}</option>
-			{/each}
-		</select>
-		<select
+			placeholder="Semua Jenis"
+			options={Object.entries(JENIS_LABEL).map(([k, v]) => ({ value: k, label: v }))}
+		/>
+		<Select
 			bind:value={filterStatus}
-			class="rounded border px-2 py-1 text-sm"
-			style="background:var(--bg);border-color:var(--border);color:var(--text)"
-		>
-			<option value="">Semua Status</option>
-			<option value="draft">Draft</option>
-			<option value="selesai">Selesai</option>
-		</select>
+			placeholder="Semua Status"
+			options={[{ value: 'draft', label: 'Draft' }, { value: 'selesai', label: 'Selesai' }]}
+		/>
 	</div>
 
 	<!-- Rata-rata nilai bulan ini -->

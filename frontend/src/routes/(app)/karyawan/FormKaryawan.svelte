@@ -1,5 +1,6 @@
 <script lang="ts">
   import SlideOver from '$lib/components/SlideOver.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import type { createKaryawanStore } from './karyawan.store.svelte.js'
 
   let { store }: { store: ReturnType<typeof createKaryawanStore> } = $props()
@@ -22,12 +23,8 @@
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-role" class="text-xs" style="color:var(--text-dim)">ROLE *</label>
-      <select id="f-role" bind:value={store.formKaryawan.role} class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-        {#each ['pemilik','manajer','kasir','gudang','sales','pelayanan'] as r (r)}
-          <option value={r}>{r}</option>
-        {/each}
-      </select>
+      <Select id="f-role" bind:value={store.formKaryawan.role}
+        options={['pemilik','manajer','kasir','gudang','sales','pelayanan']} />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-username" class="text-xs" style="color:var(--text-dim)">USERNAME *</label>
@@ -62,11 +59,11 @@
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-tipe" class="text-xs" style="color:var(--text-dim)">TIPE GAJI</label>
-      <select id="f-tipe" bind:value={store.formKaryawan.tipe_gaji} class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-        <option value="bulanan">Bulanan</option>
-        <option value="harian">Harian</option>
-      </select>
+      <Select id="f-tipe" bind:value={store.formKaryawan.tipe_gaji}
+        options={[
+          { value: 'bulanan', label: 'Bulanan' },
+          { value: 'harian', label: 'Harian' }
+        ]} />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-foto" class="text-xs" style="color:var(--text-dim)">FOTO</label>
@@ -86,14 +83,9 @@
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-cabang" class="text-xs" style="color:var(--text-dim)">CABANG (kosong = semua cabang)</label>
-      <select id="f-cabang" bind:value={store.formKaryawan.cabang_id}
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-        <option value={null}>— Semua Cabang —</option>
-        {#each store.cabangList as c (c.id)}
-          <option value={c.id}>{c.nama}</option>
-        {/each}
-      </select>
+      <Select id="f-cabang" bind:value={store.formKaryawan.cabang_id}
+        options={store.cabangList.map(c => ({ value: c.id, label: c.nama }))}
+        placeholder="— Semua Cabang —" />
     </div>
     <div class="flex justify-end gap-2 mt-1">
       <button type="button" onclick={() => store.modalKaryawanOpen = false} class="px-3 py-1 rounded text-sm"

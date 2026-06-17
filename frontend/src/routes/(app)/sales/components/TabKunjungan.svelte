@@ -123,16 +123,11 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="fk-tujuan" class="text-xs" style="color:var(--text-dim)">TUJUAN</label>
-					<select
+					<Select
 						id="fk-tujuan"
 						bind:value={store.fTujuan}
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					>
-						{#each Object.entries(TUJUAN_LABEL) as [v, lbl] (v)}
-							<option value={v}>{lbl}</option>
-						{/each}
-					</select>
+						options={Object.entries(TUJUAN_LABEL).map(([v, lbl]) => ({ value: v, label: lbl }))}
+					/>
 				</div>
 			</div>
 			<div class="flex flex-col gap-1">

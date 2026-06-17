@@ -6,6 +6,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	type ReturRow = {
 		id: number;
@@ -387,23 +388,12 @@
 			<label for="rs-bm" class="text-xs font-bold" style="color:var(--text-dim)"
 				>Dokumen Penerimaan *</label
 			>
-			<select
-				id="rs-bm"
+			<Select
 				bind:value={fBmId}
+				options={bmList.map(bm => ({ value: String(bm.id), label: bm.no_penerimaan + ' — ' + (bm.nama_supplier ?? '-') + ' (' + (bm.tanggal_terima?.slice(0, 10) ?? '') + ')' }))}
+				placeholder="-- Pilih --"
 				onchange={onBmChange}
-				class="rounded border px-2 py-2"
-				style="border-color:var(--border);color:var(--text)"
-			>
-				<option value="">-- Pilih --</option>
-				{#each bmList as bm (bm.id)}
-					<option value={String(bm.id)}
-						>{bm.no_penerimaan} — {bm.nama_supplier ?? '-'} ({bm.tanggal_terima?.slice(
-							0,
-							10
-						)})</option
-					>
-				{/each}
-			</select>
+			/>
 		</div>
 
 		<!-- Tabel item yang bisa diretur -->
@@ -464,34 +454,22 @@
 				<label for="rs-hutang" class="text-xs font-bold" style="color:var(--text-dim)"
 					>Hutang yang Dikurangi *</label
 				>
-				<select
-					id="rs-hutang"
+				<Select
 					bind:value={fHutangId}
-					class="rounded border px-2 py-2"
-					style="border-color:var(--border);color:var(--text)"
-				>
-					<option value="">-- Pilih hutang --</option>
-					{#each hutangList as h (h.id)}
-						<option value={String(h.id)}>#{h.id} — sisa {rupiah(h.sisa_hutang)}</option>
-					{/each}
-				</select>
+					options={hutangList.map(h => ({ value: String(h.id), label: '#' + h.id + ' — sisa ' + rupiah(h.sisa_hutang) }))}
+					placeholder="-- Pilih hutang --"
+				/>
 			</div>
 		{:else}
 			<div class="flex flex-col gap-1">
 				<label for="rs-kasbank" class="text-xs font-bold" style="color:var(--text-dim)"
 					>Kas/Bank Penerima *</label
 				>
-				<select
-					id="rs-kasbank"
+				<Select
 					bind:value={fKasBankId}
-					class="rounded border px-2 py-2"
-					style="border-color:var(--border);color:var(--text)"
-				>
-					<option value="">-- Pilih --</option>
-					{#each kasList as k (k.id)}
-						<option value={String(k.id)}>{k.nama} ({k.tipe})</option>
-					{/each}
-				</select>
+					options={kasList.map(k => ({ value: String(k.id), label: k.nama + ' (' + k.tipe + ')' }))}
+					placeholder="-- Pilih --"
+				/>
 			</div>
 		{/if}
 

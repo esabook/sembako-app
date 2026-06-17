@@ -1,5 +1,6 @@
 <script lang="ts">
   import SlideOver from '$lib/components/SlideOver.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import { JENIS_LABEL, JENIS_ICON } from './aset.logic.js'
   import type { AsetStore } from './aset.store.svelte.js'
   import type { TagihanRow } from './aset.types.js'
@@ -13,13 +14,9 @@
     <div class="grid grid-cols-2 gap-3">
       <div class="flex flex-col gap-1">
         <label for="fu-jenis" class="text-xs" style="color:var(--text-dim)">JENIS *</label>
-        <select id="fu-jenis" bind:value={store.fUtJenis}
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-          {#each Object.entries(JENIS_LABEL) as [v, lbl] (v)}
-            <option value={v}>{JENIS_ICON[v as TagihanRow['jenis']]} {lbl}</option>
-          {/each}
-        </select>
+        <Select id="fu-jenis" bind:value={store.fUtJenis}
+          options={Object.entries(JENIS_LABEL).map(([v, lbl]) => ({ value: v, label: (JENIS_ICON[v as TagihanRow['jenis']] ?? '') + ' ' + lbl }))}
+        />
       </div>
       <div class="flex flex-col gap-1">
         <label for="fu-bulan" class="text-xs" style="color:var(--text-dim)">PERIODE *</label>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import SlideOver from '$lib/components/SlideOver.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import { KONDISI_LABEL, KATEGORI_LIST } from './aset.logic.js'
   import type { AsetStore } from './aset.store.svelte.js'
 
@@ -18,23 +19,15 @@
     <div class="grid grid-cols-2 gap-3">
       <div class="flex flex-col gap-1">
         <label for="fa-kat" class="text-xs" style="color:var(--text-dim)">KATEGORI *</label>
-        <select id="fa-kat" bind:value={store.fAsetKategori}
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-          {#each KATEGORI_LIST as k (k)}
-            <option value={k}>{k}</option>
-          {/each}
-        </select>
+        <Select id="fa-kat" bind:value={store.fAsetKategori}
+          options={KATEGORI_LIST.map(k => ({ value: k, label: k }))}
+        />
       </div>
       <div class="flex flex-col gap-1">
         <label for="fa-kondisi" class="text-xs" style="color:var(--text-dim)">KONDISI *</label>
-        <select id="fa-kondisi" bind:value={store.fAsetKondisi}
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-          {#each Object.entries(KONDISI_LABEL) as [v, lbl] (v)}
-            <option value={v}>{lbl}</option>
-          {/each}
-        </select>
+        <Select id="fa-kondisi" bind:value={store.fAsetKondisi}
+          options={Object.entries(KONDISI_LABEL).map(([v, lbl]) => ({ value: v, label: lbl }))}
+        />
       </div>
       <div class="flex flex-col gap-1">
         <label for="fa-beli" class="text-xs" style="color:var(--text-dim)">NILAI BELI (Rp)</label>

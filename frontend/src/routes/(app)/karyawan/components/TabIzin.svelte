@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import { user } from '$lib/stores/auth.js';
 	import type { createKaryawanStore } from '../karyawan.store.svelte.js';
 
@@ -14,16 +15,12 @@
 </script>
 
 <div class="mb-3 flex flex-wrap items-end gap-2">
-	<select
+	<Select
 		bind:value={store.izinKaryawanId}
-		class="rounded border px-2 py-1 text-sm"
-		style="border-color:var(--border);color:var(--text)"
-	>
-		<option value="">Semua Karyawan</option>
-		{#each store.karyawanList as k (k.id)}
-			<option value={String(k.id)}>{k.nama}</option>
-		{/each}
-	</select>
+		options={store.karyawanList.map(k => ({ value: String(k.id), label: k.nama }))}
+		placeholder="Semua Karyawan"
+		standalone
+	/>
 	<input
 		type="month"
 		bind:value={store.izinBulan}
@@ -122,17 +119,12 @@
 			{#if $user && ['pemilik', 'manajer'].includes($user.role)}
 				<div class="flex flex-col gap-1">
 					<label for="fi-karyw" class="text-xs" style="color:var(--text-dim)">KARYAWAN *</label>
-					<select
+					<Select
 						id="fi-karyw"
 						bind:value={store.fIzinKaryawanId}
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					>
-						<option value="">-- Saya Sendiri --</option>
-						{#each store.karyawanList as k (k.id)}
-							<option value={String(k.id)}>{k.nama}</option>
-						{/each}
-					</select>
+						options={store.karyawanList.map(k => ({ value: String(k.id), label: k.nama }))}
+						placeholder="-- Saya Sendiri --"
+					/>
 				</div>
 			{/if}
 			<div class="flex flex-col gap-1">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DataTable from '$lib/components/DataTable.svelte';
 	import SlideOver from '$lib/components/SlideOver.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import type { createKaryawanStore } from '../karyawan.store.svelte.js';
 	import { STATUS_GAJI_COLOR, rp } from '../karyawan.logic.js';
 
@@ -195,16 +196,11 @@
 			<p style="color:var(--text-dim)">
 				Pilih akun kas/bank untuk mencatat pengeluaran gaji (opsional):
 			</p>
-			<select
+			<Select
 				bind:value={store.bayarKasBankId}
-				class="rounded border px-2 py-1 outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-			>
-				<option value="">-- Tidak catat ke jurnal --</option>
-				{#each store.kasBankList as kb (kb.id)}
-					<option value={String(kb.id)}>{kb.nama} ({kb.tipe})</option>
-				{/each}
-			</select>
+				options={store.kasBankList.map(kb => ({ value: String(kb.id), label: kb.nama + ' (' + kb.tipe + ')' }))}
+				placeholder="-- Tidak catat ke jurnal --"
+			/>
 			<p class="text-xs" style="color:var(--text-dim)">
 				Kasbon karyawan juga akan dipotong cicilan secara otomatis.
 			</p>

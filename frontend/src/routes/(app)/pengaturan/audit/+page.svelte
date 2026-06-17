@@ -9,6 +9,7 @@
 	import DataTable, { type Column } from '$lib/components/DataTable.svelte';
 	import { debounce } from '$lib/utils/async.js';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	type LogRow = {
 		id: number;
@@ -174,19 +175,12 @@
 	<!-- Filter -->
 	<div class="rounded border p-3 flex flex-wrap gap-2 items-end" style="background:var(--surface);border-color:var(--border)">
 		<div class="flex flex-col gap-1">
-			<label for="audit-modul" class="text-xs" style="color:var(--text-dim)">Modul</label>
-			<select
-				id="audit-modul"
+			<Select id="audit-modul" label="Modul"
 				bind:value={filterModul}
 				onchange={onFilterChange}
-				class="px-2 py-1 text-xs rounded border outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-			>
-				<option value="">Semua modul</option>
-				{#each modulList as m (m)}
-					<option value={m}>{labelModul(m)}</option>
-				{/each}
-			</select>
+				placeholder="Semua modul"
+				options={modulList.map(m => ({ value: m, label: labelModul(m) }))}
+			/>
 		</div>
 
 		<div class="flex flex-col gap-1">
@@ -203,19 +197,12 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<label for="audit-karyawan" class="text-xs" style="color:var(--text-dim)">Karyawan</label>
-			<select
-				id="audit-karyawan"
+			<Select id="audit-karyawan" label="Karyawan"
 				bind:value={filterKaryawanId}
 				onchange={onFilterChange}
-				class="px-2 py-1 text-xs rounded border outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-			>
-				<option value="">Semua karyawan</option>
-				{#each karyawanList as k (k.id)}
-					<option value={String(k.id)}>{k.nama} ({k.role})</option>
-				{/each}
-			</select>
+				placeholder="Semua karyawan"
+				options={karyawanList.map(k => ({ value: String(k.id), label: k.nama + ' (' + k.role + ')' }))}
+			/>
 		</div>
 
 		<div class="flex flex-col gap-1">

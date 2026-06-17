@@ -2,6 +2,7 @@
   import Modal from '$lib/components/ui/Modal.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Input from '$lib/components/ui/Input.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import type { createKeuanganStore } from '../keuangan.store.svelte'
 
   let { store }: { store: ReturnType<typeof createKeuanganStore> } = $props()
@@ -17,23 +18,12 @@
           style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
       </div>
       <div>
-        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Akun Kas/Bank</span>
-        <select bind:value={store.formJurnal.kas_bank_id}
-          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
-          {#each store.kasBankList as kb (kb.id)}
-            <option value={kb.id}>{kb.nama}</option>
-          {/each}
-        </select>
+        <Select label="Akun Kas/Bank" bind:value={store.formJurnal.kas_bank_id}
+          options={store.kasBankList.map(kb => ({ value: kb.id, label: kb.nama }))} />
       </div>
       <div>
-        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jenis</span>
-        <select bind:value={store.formJurnal.jenis}
-          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
-          <option value="masuk">Masuk</option>
-          <option value="keluar">Keluar</option>
-        </select>
+        <Select label="Jenis" bind:value={store.formJurnal.jenis}
+          options={[{ value: 'masuk', label: 'Masuk' }, { value: 'keluar', label: 'Keluar' }]} />
       </div>
       <Input label="Kategori" placeholder="contoh: operasional, gaji..." value={store.formJurnal.kategori}
         oninput={(v) => store.formJurnal.kategori = v} />

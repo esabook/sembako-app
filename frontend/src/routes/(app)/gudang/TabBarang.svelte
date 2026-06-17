@@ -18,6 +18,7 @@
 	import FotoThumb from '$lib/components/data/FotoThumb.svelte';
 	import SearchInput from '$lib/components/data/SearchInput.svelte';
 	import InputRupiah from '$lib/components/form/InputRupiah.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	type Barang = {
 		id: number;
@@ -312,12 +313,7 @@
 					<p class="text-xs px-2 py-1.5 rounded" style="background:var(--surface2);color:var(--warn)">Belum ada kategori — tambah di tab Pengaturan.</p>
 				{:else}
 					<input type="text" placeholder="Filter kategori..." bind:value={searchKategori} class="w-full rounded border px-2 py-1.5 text-xs outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text-dim);--tw-ring-color:var(--accent)" />
-					<select id="fb-kat" bind:value={fb.kategori_id} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
-						<option value={null}>— pilih —</option>
-						{#each filteredKategori as k (k.id)}
-							<option value={k.id}>{k.nama}{k.contoh ? ` — ${k.contoh}` : ''}</option>
-						{/each}
-					</select>
+					<Select bind:value={fb.kategori_id} options={filteredKategori.map(k => ({ value: k.id, label: k.nama + (k.contoh ? ` — ${k.contoh}` : '') }))} placeholder="— pilih —" />
 				{/if}
 			</div>
 
@@ -328,12 +324,7 @@
 					<p class="text-xs px-2 py-1.5 rounded" style="background:var(--surface2);color:var(--warn)">Belum ada satuan — tambah di tab Pengaturan.</p>
 				{:else}
 					<input type="text" placeholder="Filter satuan..." bind:value={searchSatuan} class="w-full rounded border px-2 py-1.5 text-xs outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text-dim);--tw-ring-color:var(--accent)" />
-					<select id="fb-sat" bind:value={fb.satuan_dasar_id} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
-						<option value={null}>— pilih —</option>
-						{#each filteredSatuan as s (s.id)}
-							<option value={s.id}>{s.nama} ({s.singkatan}){s.contoh ? ` — ${s.contoh}` : ''}</option>
-						{/each}
-					</select>
+					<Select bind:value={fb.satuan_dasar_id} options={filteredSatuan.map(s => ({ value: s.id, label: s.nama + ' (' + s.singkatan + ')' + (s.contoh ? ` — ${s.contoh}` : '') }))} placeholder="— pilih —" />
 				{/if}
 			</div>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import { KONDISI_LABEL, KONDISI_COLOR, KATEGORI_LIST, rp } from '../aset.logic.js';
 	import type { AsetStore } from '../aset.store.svelte.js';
 
@@ -7,26 +8,18 @@
 </script>
 
 <div class="mb-2 flex flex-wrap items-end gap-2">
-	<select
+	<Select
 		bind:value={store.asetKategoriFilter}
-		class="rounded border px-2 py-1 text-sm"
-		style="border-color:var(--border);color:var(--text)"
-	>
-		<option value="">Semua Kategori</option>
-		{#each KATEGORI_LIST as k (k)}
-			<option value={k}>{k}</option>
-		{/each}
-	</select>
-	<select
+		options={KATEGORI_LIST.map(k => ({ value: k, label: k }))}
+		placeholder="Semua Kategori"
+		standalone
+	/>
+	<Select
 		bind:value={store.asetKondisiFilter}
-		class="rounded border px-2 py-1 text-sm"
-		style="border-color:var(--border);color:var(--text)"
-	>
-		<option value="">Semua Kondisi</option>
-		{#each Object.entries(KONDISI_LABEL) as [v, lbl] (v)}
-			<option value={v}>{lbl}</option>
-		{/each}
-	</select>
+		options={Object.entries(KONDISI_LABEL).map(([v, lbl]) => ({ value: v, label: lbl }))}
+		placeholder="Semua Kondisi"
+		standalone
+	/>
 	<button
 		onclick={() => store.bukaFormAset()}
 		class="ml-auto rounded px-3 py-1 text-sm font-bold"

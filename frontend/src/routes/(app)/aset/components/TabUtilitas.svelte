@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import { JENIS_LABEL, JENIS_ICON, rp } from '../aset.logic.js';
 	import type { AsetStore } from '../aset.store.svelte.js';
 	import type { TagihanRow } from '../aset.types.js';
@@ -8,16 +9,12 @@
 </script>
 
 <div class="mb-2 flex flex-wrap items-end gap-2">
-	<select
+	<Select
 		bind:value={store.utJenisFilter}
-		class="rounded border px-2 py-1 text-sm"
-		style="border-color:var(--border);color:var(--text)"
-	>
-		<option value="">Semua Jenis</option>
-		{#each Object.entries(JENIS_LABEL) as [v, lbl] (v)}
-			<option value={v}>{JENIS_ICON[v as TagihanRow['jenis']]} {lbl}</option>
-		{/each}
-	</select>
+		options={Object.entries(JENIS_LABEL).map(([v, lbl]) => ({ value: v, label: (JENIS_ICON[v as TagihanRow['jenis']] ?? '') + ' ' + lbl }))}
+		placeholder="Semua Jenis"
+		standalone
+	/>
 	<input
 		type="month"
 		bind:value={store.utBulanFilter}

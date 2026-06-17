@@ -2,6 +2,7 @@
   import Modal from '$lib/components/ui/Modal.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Input from '$lib/components/ui/Input.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import { fmt } from '../keuangan.logic'
   import type { createKeuanganStore } from '../keuangan.store.svelte'
 
@@ -23,14 +24,8 @@
           style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
       </div>
       <div>
-        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Akun Kas/Bank</span>
-        <select bind:value={store.formBayarPiutang.kas_bank_id}
-          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
-          {#each store.kasBankList as kb (kb.id)}
-            <option value={kb.id}>{kb.nama}</option>
-          {/each}
-        </select>
+        <Select label="Akun Kas/Bank" bind:value={store.formBayarPiutang.kas_bank_id}
+          options={store.kasBankList.map(kb => ({ value: kb.id, label: kb.nama }))} />
       </div>
     </div>
     {#snippet footer()}

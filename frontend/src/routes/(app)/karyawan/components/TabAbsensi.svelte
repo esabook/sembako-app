@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DataTable from '$lib/components/DataTable.svelte';
 	import SlideOver from '$lib/components/SlideOver.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import type { createKaryawanStore } from '../karyawan.store.svelte.js';
 	import { STATUS_COLOR, hitungDurasi } from '../karyawan.logic.js';
 
@@ -78,16 +79,12 @@
 		style="border-color:var(--border);color:var(--text)"
 	/>
 	{#if store.isManager}
-		<select
+		<Select
 			bind:value={store.filterKaryawanId}
-			class="rounded border px-2 py-1 text-sm outline-none"
-			style="border-color:var(--border);color:var(--text)"
-		>
-			<option value="">Semua karyawan</option>
-			{#each store.karyawanList as k (k.id)}
-				<option value={k.id}>{k.nama}</option>
-			{/each}
-		</select>
+			options={store.karyawanList.map(k => ({ value: k.id, label: k.nama }))}
+			placeholder="Semua karyawan"
+			standalone
+		/>
 		<div class="flex gap-1 text-sm">
 			<button
 				onclick={() => (store.viewAbsensi = 'list')}
@@ -255,18 +252,12 @@
 				{#if store.isManager}
 					<div class="col-span-2 flex flex-col gap-1">
 						<label for="fa-karyw" class="text-xs" style="color:var(--text-dim)">KARYAWAN *</label>
-						<select
+						<Select
 							id="fa-karyw"
 							bind:value={store.formAbsensi.karyawan_id}
-							required
-							class="rounded border px-2 py-1 outline-none"
-							style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-						>
-							<option value="">-- Pilih --</option>
-							{#each store.karyawanList as k (k.id)}
-								<option value={String(k.id)}>{k.nama}</option>
-							{/each}
-						</select>
+							options={store.karyawanList.map(k => ({ value: String(k.id), label: k.nama }))}
+							placeholder="-- Pilih --"
+						/>
 					</div>
 				{/if}
 				<div class="flex flex-col gap-1">
@@ -282,17 +273,16 @@
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="fa-status" class="text-xs" style="color:var(--text-dim)">STATUS *</label>
-					<select
+					<Select
 						id="fa-status"
 						bind:value={store.formAbsensi.status}
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					>
-						<option value="hadir">Hadir</option>
-						<option value="izin">Izin</option>
-						<option value="sakit">Sakit</option>
-						<option value="alpa">Alpa</option>
-					</select>
+						options={[
+							{ value: 'hadir', label: 'Hadir' },
+							{ value: 'izin', label: 'Izin' },
+							{ value: 'sakit', label: 'Sakit' },
+							{ value: 'alpa', label: 'Alpa' },
+						]}
+					/>
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="fa-masuk" class="text-xs" style="color:var(--text-dim)">JAM MASUK</label>

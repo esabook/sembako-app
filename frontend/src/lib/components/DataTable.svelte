@@ -74,6 +74,7 @@
 	import { untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	export type Column = {
 		key: string;
@@ -520,15 +521,11 @@
 				{/if}
 			</span>
 			<div style="display:flex;align-items:center;gap:6px">
-				<select
+				<Select
 					bind:value={pageSize}
 					onchange={() => { currentPage = 1; }}
-					style="font-size:0.875em;padding:3px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;"
-				>
-					{#each PAGE_SIZES as sz (sz)}
-						<option value={sz}>{sz === 0 ? 'Semua' : sz} / hal</option>
-					{/each}
-				</select>
+					options={PAGE_SIZES.map(sz => ({ value: sz, label: sz === 0 ? 'Semua' : String(sz) + ' / hal' }))}
+				/>
 				<button
 					disabled={currentPage <= 1}
 					onclick={() => { currentPage--; }}

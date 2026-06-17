@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import { STATUS_P_COLOR } from '../crm.logic.js'
   import type { CrmStore } from '../crm.store.svelte.js'
   import type { PermintaanRow } from '../crm.types.js'
@@ -10,13 +11,15 @@
 <div class="flex flex-wrap gap-2 items-end mb-2">
   <input type="month" bind:value={store.pBulan}
     class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)">
-  <select bind:value={store.pStatus}
-    class="border rounded px-2 py-1 text-sm" style="background:var(--bg);border-color:var(--border);color:var(--text)">
-    <option value="">Semua Status</option>
-    <option value="menunggu">Menunggu</option>
-    <option value="tersedia">Tersedia</option>
-    <option value="tidak_tersedia">Tidak Tersedia</option>
-  </select>
+  <Select
+    bind:value={store.pStatus}
+    options={[
+      { value: '', label: 'Semua Status' },
+      { value: 'menunggu', label: 'Menunggu' },
+      { value: 'tersedia', label: 'Tersedia' },
+      { value: 'tidak_tersedia', label: 'Tidak Tersedia' }
+    ]}
+  />
   <div class="ml-auto">
     <Button onclick={() => store.bukaFormPermintaan()}>+ Catat Permintaan</Button>
   </div>

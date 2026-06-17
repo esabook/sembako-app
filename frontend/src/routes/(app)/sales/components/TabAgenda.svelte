@@ -103,16 +103,11 @@
 			<div class="grid grid-cols-2 gap-3">
 				<div class="flex flex-col gap-1">
 					<label for="fa-tipe" class="text-xs" style="color:var(--text-dim)">TIPE</label>
-					<select
+					<Select
 						id="fa-tipe"
 						bind:value={store.fTipe}
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					>
-						{#each ['kunjungan', 'negosiasi', 'pengiriman', 'lainnya'] as t (t)}
-							<option value={t} class="capitalize">{t}</option>
-						{/each}
-					</select>
+						options={['kunjungan', 'negosiasi', 'pengiriman', 'lainnya']}
+					/>
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="fa-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL *</label>

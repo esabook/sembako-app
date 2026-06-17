@@ -1,6 +1,7 @@
 <script lang="ts">
   import DataTable from '$lib/components/DataTable.svelte'
   import SlideOver from '$lib/components/SlideOver.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import type { createKaryawanStore } from '../karyawan.store.svelte.js'
   import { STATUS_KB, rp } from '../karyawan.logic.js'
 
@@ -104,14 +105,9 @@
     <div class="grid grid-cols-2 gap-3">
       <div class="flex flex-col gap-1 col-span-2">
         <label for="fk-karyw" class="text-xs" style="color:var(--text-dim)">KARYAWAN *</label>
-        <select id="fk-karyw" bind:value={store.formKasbon.karyawan_id} required
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-          <option value="">-- Pilih --</option>
-          {#each store.karyawanList as k (k.id)}
-            <option value={String(k.id)}>{k.nama}</option>
-          {/each}
-        </select>
+        <Select id="fk-karyw" bind:value={store.formKasbon.karyawan_id} required
+          options={store.karyawanList.map(k => ({ value: String(k.id), label: k.nama }))}
+          placeholder="-- Pilih --" />
       </div>
       <div class="flex flex-col gap-1">
         <label for="fk-tgl" class="text-xs" style="color:var(--text-dim)">TGL PINJAM *</label>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import SlideOver from '$lib/components/SlideOver.svelte'
   import Spinner from '$lib/components/ui/Spinner.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import type { createKaryawanStore } from '../karyawan.store.svelte.js'
   import { DAY_LABELS } from '../karyawan.logic.js'
 
@@ -198,28 +199,20 @@
   <form onsubmit={(e) => { e.preventDefault(); store.ajukanTukar() }} class="flex flex-col gap-3 text-sm">
     <div class="flex flex-col gap-1">
       <label for="ftu-jadwal" class="text-xs" style="color:var(--text-dim)">JADWAL SAYA (yang ingin ditukar) *</label>
-      <select id="ftu-jadwal" bind:value={store.formTukar.jadwal_id} required
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-        <option value="">-- Pilih Jadwal --</option>
-        {#each store.jadwalSendiri as j (j.id)}
-          <option value={String(j.id)}>{j.tanggal} — {j.nama_shift}</option>
-        {/each}
-      </select>
+      <Select id="ftu-jadwal" bind:value={store.formTukar.jadwal_id} required
+        options={store.jadwalSendiri.map(j => ({ value: String(j.id), label: j.tanggal + ' — ' + j.nama_shift }))}
+        placeholder="-- Pilih Jadwal --"
+      />
       {#if store.jadwalSendiri.length === 0}
         <p class="text-xs" style="color:var(--text-dim)">Tidak ada jadwal di minggu ini.</p>
       {/if}
     </div>
     <div class="flex flex-col gap-1">
       <label for="ftu-penerima" class="text-xs" style="color:var(--text-dim)">DITUKAR DENGAN *</label>
-      <select id="ftu-penerima" bind:value={store.formTukar.penerima_id} required
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)">
-        <option value="">-- Pilih Karyawan --</option>
-        {#each store.karyawanList.filter(k => k.id !== store.userId) as k (k.id)}
-          <option value={String(k.id)}>{k.nama}</option>
-        {/each}
-      </select>
+      <Select id="ftu-penerima" bind:value={store.formTukar.penerima_id} required
+        options={store.karyawanList.filter(k => k.id !== store.userId).map(k => ({ value: String(k.id), label: k.nama }))}
+        placeholder="-- Pilih Karyawan --"
+      />
     </div>
     <div class="flex flex-col gap-1">
       <label for="ftu-alasan" class="text-xs" style="color:var(--text-dim)">ALASAN</label>

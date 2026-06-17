@@ -8,6 +8,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import ReturDetailSlideOver from './ReturDetailSlideOver.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import type { ReturDetail } from './retur.types.js';
 
 	$effect(() => {
@@ -749,19 +750,8 @@
 					<!-- Pilih Kas/Bank (jika tunai) -->
 					{#if metodeRefund === 'tunai'}
 						<div>
-							<label for="kas-bank" class="mb-1 block text-xs" style="color:var(--text-dim)"
-								>Akun Kas / Bank</label
-							>
-							<select
-								id="kas-bank"
-								bind:value={kasBankId}
-								class="w-full rounded border px-3 py-2 text-xs"
-								style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-							>
-								{#each kasBankList as kb (kb.id)}
-									<option value={kb.id}>{kb.nama} ({kb.tipe})</option>
-								{/each}
-							</select>
+							<Select id="kas-bank" label="Akun Kas / Bank" bind:value={kasBankId}
+								options={kasBankList.map(kb => ({ value: kb.id, label: kb.nama + ' (' + kb.tipe + ')' }))} />
 						</div>
 					{/if}
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import SlideOver from '$lib/components/SlideOver.svelte'
   import Button from '$lib/components/ui/Button.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import { KATEGORI_LABEL } from './crm.logic.js'
   import type { CrmStore } from './crm.store.svelte.js'
 
@@ -11,14 +12,8 @@
   {#snippet children()}
   <form onsubmit={(e) => { e.preventDefault(); store.simpanKomplain() }} class="flex flex-col gap-3 text-sm">
     <div class="flex flex-col gap-1">
-      <label for="fk-kat" class="text-xs" style="color:var(--text-dim)">KATEGORI *</label>
-      <select id="fk-kat" bind:value={store.fKKategori}
-        class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-        style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
-        {#each Object.entries(KATEGORI_LABEL) as [v, lbl] (v)}
-          <option value={v}>{lbl}</option>
-        {/each}
-      </select>
+      <Select id="fk-kat" label="KATEGORI *" bind:value={store.fKKategori}
+        options={Object.entries(KATEGORI_LABEL).map(([v, lbl]) => ({ value: v, label: lbl }))} />
     </div>
     <div class="flex flex-col gap-1">
       <label for="fk-desk" class="text-xs" style="color:var(--text-dim)">DESKRIPSI KOMPLAIN *</label>

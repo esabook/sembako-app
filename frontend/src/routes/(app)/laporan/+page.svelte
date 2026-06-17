@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { user } from '$lib/stores/auth.js';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import { createLaporanStore } from './laporan.store.svelte';
 	import type { TabKey } from './laporan.types';
@@ -64,15 +65,11 @@
 			class="no-print"
 		>
 			<span style="font-size:.75rem; color:var(--text-dim)">Cabang:</span>
-			<select
+			<Select
 				bind:value={store.selectedCabang}
-				style="padding:.25rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem"
-			>
-				<option value="">Semua Cabang</option>
-				{#each store.cabangList as c (c.id)}
-					<option value={c.id}>{c.nama}</option>
-				{/each}
-			</select>
+				placeholder="Semua Cabang"
+				options={store.cabangList.map(c => ({ value: c.id, label: c.nama }))}
+			/>
 		</div>
 	{/if}
 

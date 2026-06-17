@@ -1,5 +1,6 @@
 <script lang="ts">
   import DataTable from '$lib/components/DataTable.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import { fmt, tglFmt, kolJurnal } from '../keuangan.logic'
   import type { createKeuanganStore } from '../keuangan.store.svelte'
 
@@ -20,13 +21,8 @@
   </div>
   <div>
     <div style="font-size:.68rem; color:var(--text-dim); margin-bottom:.2rem">Akun</div>
-    <select bind:value={store.filterKasBankId} onchange={() => store.muatJurnal()}
-      style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem">
-      <option value={0}>Semua Akun</option>
-      {#each store.kasBankList as kb (kb.id)}
-        <option value={kb.id}>{kb.nama}</option>
-      {/each}
-    </select>
+    <Select bind:value={store.filterKasBankId} onchange={() => store.muatJurnal()}
+      options={[{ value: 0, label: 'Semua Akun' }, ...store.kasBankList.map(kb => ({ value: kb.id, label: kb.nama }))]} />
   </div>
 </div>
 

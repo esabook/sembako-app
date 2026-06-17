@@ -1,24 +1,18 @@
 <script lang="ts">
   import { rupiah as rpFmt } from '../keuangan.logic'
+  import Select from '$lib/components/ui/Select.svelte'
   import type { createKeuanganStore } from '../keuangan.store.svelte'
 
   let { store }: { store: ReturnType<typeof createKeuanganStore> } = $props()
 </script>
 
 <div class="flex flex-wrap gap-2 items-end mb-3">
-  <select bind:value={store.piTipeFilter} onchange={() => store.muatPinjaman()}
-    class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
-    <option value="">Semua Tipe</option>
-    <option value="pinjaman">Pinjaman</option>
-    <option value="investasi">Investasi</option>
-  </select>
-  <select bind:value={store.piStatusFilter} onchange={() => store.muatPinjaman()}
-    class="border rounded px-2 py-1 text-sm" style="background:var(--surface);border-color:var(--border);color:var(--text)">
-    <option value="">Semua Status</option>
-    <option value="aktif">Aktif</option>
-    <option value="lunas">Lunas</option>
-    <option value="macet">Macet</option>
-  </select>
+  <Select bind:value={store.piTipeFilter} onchange={() => store.muatPinjaman()}
+    placeholder="Semua Tipe"
+    options={[{ value: 'pinjaman', label: 'Pinjaman' }, { value: 'investasi', label: 'Investasi' }]} />
+  <Select bind:value={store.piStatusFilter} onchange={() => store.muatPinjaman()}
+    placeholder="Semua Status"
+    options={[{ value: 'aktif', label: 'Aktif' }, { value: 'lunas', label: 'Lunas' }, { value: 'macet', label: 'Macet' }]} />
   <button onclick={() => store.bukaPiForm()}
     class="px-3 py-1 rounded text-sm font-bold ml-auto" style="background:var(--accent);color:var(--bg)">+ Tambah</button>
 </div>

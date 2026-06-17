@@ -8,6 +8,7 @@
 	import TabPOGuide from './TabPOGuide.svelte';
 	import { rupiah } from '$lib/utils/format';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean };
 	type PORow = {
@@ -194,15 +195,11 @@
 			<div class="mb-3 grid grid-cols-3 gap-3 text-sm">
 				<div class="flex flex-col gap-1">
 					<label for="po-sup" class="text-xs" style="color:var(--text-dim)">SUPPLIER *</label>
-					<select
-						id="po-sup"
+					<Select
 						bind:value={poSupplier}
-						class="rounded border px-2 py-1.5 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					>
-						<option value="">— pilih —</option>
-						{#each supplierList as s (s.id)}<option value={s.id}>{s.nama_supplier}</option>{/each}
-					</select>
+						options={supplierList.map(s => ({ value: s.id, label: s.nama_supplier }))}
+						placeholder="— pilih —"
+					/>
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="po-eta" class="text-xs" style="color:var(--text-dim)">EST. DATANG</label>

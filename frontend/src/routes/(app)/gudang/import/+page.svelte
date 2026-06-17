@@ -5,6 +5,7 @@
   import { api } from '$lib/utils/api.js'
   import { toast } from '$lib/stores/ui.store.js'
   import Papa from 'papaparse'
+  import Select from '$lib/components/ui/Select.svelte'
 
   // ── Types ──────────────────────────────────────────────────────────────
   type ParsedRow = Record<string, string>
@@ -366,13 +367,9 @@
                 </p>
               </div>
               <span class="text-xs" style="color:var(--text-dim)">→</span>
-              <select bind:value={columnMap[h]}
-                class="border rounded px-2 py-1 text-xs"
-                style="background:var(--surface2);border-color:var(--border);color:var(--text);min-width:160px">
-                {#each FIELDS as f (f.key)}
-                  <option value={f.key}>{f.label}</option>
-                {/each}
-              </select>
+              <Select bind:value={columnMap[h]}
+                options={FIELDS.map(f => ({ value: f.key, label: f.label }))}
+                standalone />
             </div>
           {/each}
         </div>

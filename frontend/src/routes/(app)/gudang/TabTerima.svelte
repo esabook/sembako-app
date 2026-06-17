@@ -8,6 +8,7 @@
 	import TabTerimaGuide from './TabTerimaGuide.svelte';
 	import { rupiah } from '$lib/utils/format';
 	import Button from '$lib/components/ui/Button.svelte';
+	import Select from '$lib/components/ui/Select.svelte';
 
 	type Barang = {
 		id: number;
@@ -160,15 +161,11 @@
 		<div class="grid grid-cols-3 gap-3 text-sm">
 			<div class="flex flex-col gap-1">
 				<label for="bm-sup" class="text-xs" style="color:var(--text-dim)">SUPPLIER *</label>
-				<select
-					id="bm-sup"
+				<Select
 					bind:value={bmSupplier}
-					class="rounded border px-2 py-1.5 outline-none"
-					style="border-color:var(--border);color:var(--text)"
-				>
-					<option value="">— pilih —</option>
-					{#each supplierList as s (s.id)}<option value={s.id}>{s.nama_supplier}</option>{/each}
-				</select>
+					options={supplierList.map(s => ({ value: s.id, label: s.nama_supplier }))}
+					placeholder="— pilih —"
+				/>
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="bm-faktur" class="text-xs" style="color:var(--text-dim)">NO FAKTUR</label>
