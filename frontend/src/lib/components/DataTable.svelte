@@ -75,6 +75,7 @@
 	import type { Snippet } from 'svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import Columns2 from '@lucide/svelte/icons/columns-2';
 
 	export type Column = {
 		key: string;
@@ -105,7 +106,7 @@
 		pageSize = $bindable(25),
 		currentPage = $bindable(1),
 		wrapMode = $bindable(false),
-		toolbarEnd = undefined as Snippet | undefined,
+		toolbarEnd = undefined as Snippet | undefined
 	}: {
 		columns: Column[];
 		sortKey?: string;
@@ -132,8 +133,12 @@
 		const mq1024 = window.matchMedia('(min-width: 1024px)');
 		isTablet = mq640.matches;
 		isDesktop = mq1024.matches;
-		const h640 = (e: MediaQueryListEvent) => { isTablet = e.matches; };
-		const h1024 = (e: MediaQueryListEvent) => { isDesktop = e.matches; };
+		const h640 = (e: MediaQueryListEvent) => {
+			isTablet = e.matches;
+		};
+		const h1024 = (e: MediaQueryListEvent) => {
+			isDesktop = e.matches;
+		};
 		mq640.addEventListener('change', h640);
 		mq1024.addEventListener('change', h1024);
 		return () => {
@@ -149,11 +154,13 @@
 	// Kolom yang user eksplisit paksa-tampil meski layar kecil (override auto-hide priority)
 	let userForceShow = $state<Set<string>>(new Set());
 
-	let autoHiddenKeys = $derived(new Set(
-		columns
-			.filter((c) => (c.priority === 2 && !isTablet) || (c.priority === 3 && !isDesktop))
-			.map((c) => c.key)
-	));
+	let autoHiddenKeys = $derived(
+		new Set(
+			columns
+				.filter((c) => (c.priority === 2 && !isTablet) || (c.priority === 3 && !isDesktop))
+				.map((c) => c.key)
+		)
+	);
 
 	let effectiveHidden = $derived.by(() => {
 		const result = new Set<string>();
@@ -176,13 +183,21 @@
 
 		if (isVisible) {
 			// user mau sembunyikan
-			const nh = new Set(hiddenKeys); nh.add(key); hiddenKeys = nh;
-			const nf = new Set(userForceShow); nf.delete(key); userForceShow = nf;
+			const nh = new Set(hiddenKeys);
+			nh.add(key);
+			hiddenKeys = nh;
+			const nf = new Set(userForceShow);
+			nf.delete(key);
+			userForceShow = nf;
 		} else {
 			// user mau tampilkan
-			const nh = new Set(hiddenKeys); nh.delete(key); hiddenKeys = nh;
+			const nh = new Set(hiddenKeys);
+			nh.delete(key);
+			hiddenKeys = nh;
 			if (isAutoHidden) {
-				const nf = new Set(userForceShow); nf.add(key); userForceShow = nf;
+				const nf = new Set(userForceShow);
+				nf.add(key);
+				userForceShow = nf;
 			}
 		}
 		currentPage = 1;
@@ -257,7 +272,10 @@
 
 	function openColDropdown(e: MouseEvent) {
 		e.stopPropagation();
-		if (showColDropdown) { showColDropdown = false; return; }
+		if (showColDropdown) {
+			showColDropdown = false;
+			return;
+		}
 		if (colBtnEl) {
 			const r = colBtnEl.getBoundingClientRect();
 			const dropW = 210;
@@ -268,7 +286,7 @@
 			dropdownPos = {
 				top: openUp ? r.top - Math.min(spaceAbove, 320) : r.bottom + 4,
 				left: Math.max(8, left),
-				maxH: openUp ? Math.min(spaceAbove, 320) : Math.min(spaceBelow, 320),
+				maxH: openUp ? Math.min(spaceAbove, 320) : Math.min(spaceBelow, 320)
 			};
 		}
 		showColDropdown = true;
@@ -288,7 +306,10 @@
 	let prefsLoaded = $state(false);
 
 	$effect(() => {
-		if (!tableId) { prefsLoaded = true; return; }
+		if (!tableId) {
+			prefsLoaded = true;
+			return;
+		}
 		try {
 			const raw = localStorage.getItem(`datatable_${tableId}`);
 			if (raw) {
@@ -301,7 +322,9 @@
 					colWidths = { ...untrack(() => colWidths), ...p.colWidths };
 				}
 			}
-		} catch { /* ignore */ }
+		} catch {
+			/* ignore */
+		}
 		prefsLoaded = true;
 	});
 
@@ -313,39 +336,28 @@
 		const cw = { ...colWidths };
 		if (!tableId || !prefsLoaded) return;
 		try {
-			localStorage.setItem(`datatable_${tableId}`, JSON.stringify({
-				hiddenKeys: [...hk],
-				userForceShow: [...fs],
-				wrapMode: wm,
-				pageSize: ps,
-				colWidths: cw,
-			}));
-		} catch { /* ignore */ }
+			localStorage.setItem(
+				`datatable_${tableId}`,
+				JSON.stringify({
+					hiddenKeys: [...hk],
+					userForceShow: [...fs],
+					wrapMode: wm,
+					pageSize: ps,
+					colWidths: cw
+				})
+			);
+		} catch {
+			/* ignore */
+		}
 	});
 </script>
 
 <svelte:window onmousemove={onMouseMove} onmouseup={onMouseUp} />
 
-<!--
-	FIX 3: CSS :global untuk apply white-space ke <td> dari caller's body snippet.
-	- wrap mode  → white-space: normal  + table-layout: fixed  (kolom lebar tetap)
-	- 1 baris    → white-space: nowrap  + table-layout: auto   (kolom ikut konten, scroll horizontal)
-	FIX 4: kolom terakhir tidak diberi width di colgroup → otomatis expand ke sisa ruang (wrap mode).
--->
-<style>
-	.dt-tbody-wrap :global(td) {
-		white-space: normal;
-		word-break: break-word;
-	}
-	.dt-tbody-nowrap :global(td) {
-		white-space: nowrap;
-	}
-</style>
-
 <div class="flex flex-col gap-2">
 	<!-- Toolbar -->
 	{#if hasToolbar}
-		<div class="flex items-center gap-2 flex-wrap">
+		<div class="flex flex-wrap items-center gap-2">
 			<!-- Tombol Kolom -->
 			{#if hideableColumns.length > 0}
 				<div data-col-dropdown>
@@ -358,9 +370,13 @@
 							background:var(--surface2);color:var(--text);font-size:0.875em;cursor:pointer;
 						"
 					>
-						<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" >
-							 <path d="M6.25 3C4.45507 3 3 4.45507 3 6.25V17.75C3 19.5449 4.45507 21 6.25 21H17.75C19.5449 21 21 19.5449 21 17.75V6.25C21 4.45507 19.5449 3 17.75 3H6.25ZM4.5 6.25C4.5 5.2835 5.2835 4.5 6.25 4.5H11.25V19.5H6.25C5.2835 19.5 4.5 18.7165 4.5 17.75V6.25ZM12.75 19.5V4.5H17.75C18.7165 4.5 19.5 5.2835 19.5 6.25V17.75C19.5 18.7165 18.7165 19.5 17.75 19.5H12.75Z" fill="#000000"/>
+						<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+							<path
+								d="M6.25 3C4.45507 3 3 4.45507 3 6.25V17.75C3 19.5449 4.45507 21 6.25 21H17.75C19.5449 21 21 19.5449 21 17.75V6.25C21 4.45507 19.5449 3 17.75 3H6.25ZM4.5 6.25C4.5 5.2835 5.2835 4.5 6.25 4.5H11.25V19.5H6.25C5.2835 19.5 4.5 18.7165 4.5 17.75V6.25ZM12.75 19.5V4.5H17.75C18.7165 4.5 19.5 5.2835 19.5 6.25V17.75C19.5 18.7165 18.7165 19.5 17.75 19.5H12.75Z"
+								fill="#000000"
+							/>
 						</svg>
+						<Columns2 size="1em" />
 						Kolom
 						<span style="color:var(--text-dim);font-size:0.8em">
 							{visibleColumns.length}/{columns.length}
@@ -371,24 +387,32 @@
 
 			<!-- Tombol Wrap Toggle -->
 			<button
-				onclick={() => { wrapMode = !wrapMode; }}
+				onclick={() => {
+					wrapMode = !wrapMode;
+				}}
 				title={wrapMode ? 'Mode: Wrap — klik untuk 1 baris' : 'Mode: 1 Baris — klik untuk wrap'}
 				style="
 					display:inline-flex;align-items:center;gap:5px;
 					padding:4px 10px;border-radius:6px;border:1px solid var(--border);
-					background:{wrapMode ? 'var(--accent)' : 'var(--surface2)'};
-					color:{wrapMode ? '#000' : 'var(--text)'};
+					background: var(--surface2);
+					color:var(--text);
 					font-size:0.875em;cursor:pointer;transition:background .15s,color .15s;
 				"
 			>
 				{#if wrapMode}
-					<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" >
-						 <path d="M2.75 5C2.33579 5 2 5.33579 2 5.75C2 6.16421 2.33579 6.5 2.75 6.5H21.25C21.6642 6.5 22 6.16421 22 5.75C22 5.33579 21.6642 5 21.25 5H2.75ZM2.75 11.5C2.33579 11.5 2 11.8358 2 12.25C2 12.6642 2.33579 13 2.75 13H19C20.3807 13 21.5 14.1193 21.5 15.5C21.5 16.8807 20.3807 18 19 18H14.5607L15.2803 17.2803C15.5732 16.9874 15.5732 16.5126 15.2803 16.2197C14.9874 15.9268 14.5126 15.9268 14.2197 16.2197L12.2197 18.2197C11.9268 18.5126 11.9268 18.9874 12.2197 19.2803L14.2197 21.2803C14.5126 21.5732 14.9874 21.5732 15.2803 21.2803C15.5732 20.9874 15.5732 20.5126 15.2803 20.2197L14.5607 19.5H19C21.2091 19.5 23 17.7091 23 15.5C23 13.2909 21.2091 11.5 19 11.5H2.75ZM2 18.75C2 18.3358 2.33579 18 2.75 18H9.25C9.66421 18 10 18.3358 10 18.75C10 19.1642 9.66421 19.5 9.25 19.5H2.75C2.33579 19.5 2 19.1642 2 18.75Z" fill="#000000"/>
+					<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+						<path
+							d="M2.75 5C2.33579 5 2 5.33579 2 5.75C2 6.16421 2.33579 6.5 2.75 6.5H21.25C21.6642 6.5 22 6.16421 22 5.75C22 5.33579 21.6642 5 21.25 5H2.75ZM2.75 11.5C2.33579 11.5 2 11.8358 2 12.25C2 12.6642 2.33579 13 2.75 13H19C20.3807 13 21.5 14.1193 21.5 15.5C21.5 16.8807 20.3807 18 19 18H14.5607L15.2803 17.2803C15.5732 16.9874 15.5732 16.5126 15.2803 16.2197C14.9874 15.9268 14.5126 15.9268 14.2197 16.2197L12.2197 18.2197C11.9268 18.5126 11.9268 18.9874 12.2197 19.2803L14.2197 21.2803C14.5126 21.5732 14.9874 21.5732 15.2803 21.2803C15.5732 20.9874 15.5732 20.5126 15.2803 20.2197L14.5607 19.5H19C21.2091 19.5 23 17.7091 23 15.5C23 13.2909 21.2091 11.5 19 11.5H2.75ZM2 18.75C2 18.3358 2.33579 18 2.75 18H9.25C9.66421 18 10 18.3358 10 18.75C10 19.1642 9.66421 19.5 9.25 19.5H2.75C2.33579 19.5 2 19.1642 2 18.75Z"
+							fill="#000000"
+						/>
 					</svg>
 					Wrap
 				{:else}
-					<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" >
-						 <path d="M2.75 3.5C2.33579 3.5 2 3.83579 2 4.25C2 4.66421 2.33579 5 2.75 5H21.25C21.6642 5 22 4.66421 22 4.25C22 3.83579 21.6642 3.5 21.25 3.5H2.75ZM2 10.75C2 10.0596 2.55964 9.5 3.25 9.5H20.75C21.4404 9.5 22 10.0596 22 10.75C22 11.4404 21.4404 12 20.75 12H3.25C2.55964 12 2 11.4404 2 10.75ZM2 18.25C2 17.2835 2.7835 16.5 3.75 16.5H20.25C21.2165 16.5 22 17.2835 22 18.25C22 19.2165 21.2165 20 20.25 20H3.75C2.7835 20 2 19.2165 2 18.25Z" fill="#000000"/>
+					<svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+						<path
+							d="M2.75 3.5C2.33579 3.5 2 3.83579 2 4.25C2 4.66421 2.33579 5 2.75 5H21.25C21.6642 5 22 4.66421 22 4.25C22 3.83579 21.6642 3.5 21.25 3.5H2.75ZM2 10.75C2 10.0596 2.55964 9.5 3.25 9.5H20.75C21.4404 9.5 22 10.0596 22 10.75C22 11.4404 21.4404 12 20.75 12H3.25C2.55964 12 2 11.4404 2 10.75ZM2 18.25C2 17.2835 2.7835 16.5 3.75 16.5H20.25C21.2165 16.5 22 17.2835 22 18.25C22 19.2165 21.2165 20 20.25 20H3.75C2.7835 20 2 19.2165 2 18.25Z"
+							fill="#000000"
+						/>
 					</svg>
 					1 Baris
 				{/if}
@@ -409,11 +433,13 @@
 			FIX 3: overflow-x hanya aktif di mode 1-baris.
 			Wrap mode: overflow hidden (teks wrap di dalam kolom).
 		-->
-		<div style="
+		<div
+			style="
 			max-height:{maxRows * ROW_HEIGHT}px;
 			overflow-y:auto;
 			overflow-x:{wrapMode ? 'hidden' : 'auto'};
-		">
+		"
+		>
 			<table
 				class="w-full text-sm"
 				style="
@@ -426,11 +452,11 @@
 				{#if wrapMode}
 					<colgroup>
 						{#each visibleColumns as col, i (col.key)}
-							<col style={
-								i < visibleColumns.length - 1 && colWidths[col.key] !== null
+							<col
+								style={i < visibleColumns.length - 1 && colWidths[col.key] !== null
 									? `width:${colWidths[col.key]}px`
-									: undefined
-							} />
+									: undefined}
+							/>
 						{/each}
 					</colgroup>
 				{/if}
@@ -456,7 +482,11 @@
 							>
 								{col.label}
 								{#if sortable}
-									<span style="margin-left:4px;font-size:0.7em;opacity:{sortKey === col.key ? 0.8 : 0.3}">
+									<span
+										style="margin-left:4px;font-size:0.7em;opacity:{sortKey === col.key
+											? 0.8
+											: 0.3}"
+									>
 										{sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
 									</span>
 								{/if}
@@ -486,7 +516,7 @@
 							<tr style="border-bottom:1px solid var(--border)">
 								{#each visibleColumns as col (col.key)}
 									<td class="px-3 py-2.5">
-										<Skeleton h="0.75rem" w="{60 + (i * 13 + col.key.length * 7) % 35}%" />
+										<Skeleton h="0.75rem" w="{60 + ((i * 13 + col.key.length * 7) % 35)}%" />
 									</td>
 								{/each}
 							</tr>
@@ -511,7 +541,9 @@
 
 	<!-- Pagination -->
 	{#if hasPagination}
-		<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:0.875em;color:var(--text-dim)">
+		<div
+			style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:0.875em;color:var(--text-dim)"
+		>
 			<span>
 				{#if totalRows === 0}
 					Tidak ada data
@@ -523,38 +555,57 @@
 			<div style="display:flex;align-items:center;gap:6px">
 				<Select
 					bind:value={pageSize}
-					onchange={() => { currentPage = 1; }}
-					options={PAGE_SIZES.map(sz => ({ value: sz, label: sz === 0 ? 'Semua' : String(sz) + ' / hal' }))}
+					onchange={() => {
+						currentPage = 1;
+					}}
+					options={PAGE_SIZES.map((sz) => ({
+						value: sz,
+						label: sz === 0 ? 'Semua' : String(sz) + ' / hal'
+					}))}
 				/>
 				<button
 					disabled={currentPage <= 1}
-					onclick={() => { currentPage--; }}
-					style="padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;opacity:{currentPage <= 1 ? 0.35 : 1};"
-				>‹</button>
+					onclick={() => {
+						currentPage--;
+					}}
+					style="padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;opacity:{currentPage <=
+					1
+						? 0.35
+						: 1};">‹</button
+				>
 				<div class="hidden sm:flex" style="align-items:center;gap:3px">
 					{#each pageNumbers as p, i (i)}
 						{#if p === '...'}
 							<span style="padding:0 4px;color:var(--text-dim)">…</span>
 						{:else}
 							<button
-								onclick={() => { currentPage = Number(p); }}
+								onclick={() => {
+									currentPage = Number(p);
+								}}
 								style="
 									min-width:28px;height:28px;border-radius:5px;
 									border:1px solid {currentPage === Number(p) ? 'var(--accent)' : 'var(--border)'};
 									background:{currentPage === Number(p) ? 'var(--accent)' : 'var(--surface2)'};
 									color:{currentPage === Number(p) ? '#000' : 'var(--text)'};
 									font-size:0.875em;cursor:pointer;font-weight:{currentPage === Number(p) ? '600' : '400'};
-								"
-							>{p}</button>
+								">{p}</button
+							>
 						{/if}
 					{/each}
 				</div>
-				<span class="sm:hidden" style="font-size:0.875em;color:var(--text)">{currentPage}/{totalPages}</span>
+				<span class="sm:hidden" style="font-size:0.875em;color:var(--text)"
+					>{currentPage}/{totalPages}</span
+				>
 				<button
 					disabled={currentPage >= totalPages}
-					onclick={() => { currentPage++; }}
-					style="padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;opacity:{currentPage >= totalPages ? 0.35 : 1};"
-				>›</button>
+					onclick={() => {
+						currentPage++;
+					}}
+					style="padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;opacity:{currentPage >=
+					totalPages
+						? 0.35
+						: 1};">›</button
+				>
 			</div>
 		</div>
 	{/if}
@@ -591,7 +642,8 @@
 					display:flex;align-items:center;gap:8px;
 					padding:7px 8px;border-radius:5px;cursor:pointer;
 				"
-				onmouseenter={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--surface2)')}
+				onmouseenter={(e) =>
+					((e.currentTarget as HTMLElement).style.background = 'var(--surface2)')}
 				onmouseleave={(e) => ((e.currentTarget as HTMLElement).style.background = '')}
 			>
 				<input
@@ -600,7 +652,9 @@
 					onchange={() => toggleColumn(col.key)}
 					style="accent-color:var(--accent);cursor:pointer;width:15px;height:15px;flex-shrink:0"
 				/>
-				<span style="font-size:0.95em;color:var(--text);flex:1;line-height:1.3">{col.label || '(kolom)'}</span>
+				<span style="font-size:0.95em;color:var(--text);flex:1;line-height:1.3"
+					>{col.label || '(kolom)'}</span
+				>
 				{#if autoHidden && !forceShown}
 					<span style="font-size:0.7em;color:var(--text-dim);flex-shrink:0">
 						{col.priority === 2 ? 'tablet+' : 'desktop'}
@@ -612,3 +666,19 @@
 		{/each}
 	</div>
 {/if}
+
+<!--
+	FIX 3: CSS :global untuk apply white-space ke <td> dari caller's body snippet.
+	- wrap mode  → white-space: normal  + table-layout: fixed  (kolom lebar tetap)
+	- 1 baris    → white-space: nowrap  + table-layout: auto   (kolom ikut konten, scroll horizontal)
+	FIX 4: kolom terakhir tidak diberi width di colgroup → otomatis expand ke sisa ruang (wrap mode).
+-->
+<style>
+	.dt-tbody-wrap :global(td) {
+		white-space: normal;
+		word-break: break-word;
+	}
+	.dt-tbody-nowrap :global(td) {
+		white-space: nowrap;
+	}
+</style>

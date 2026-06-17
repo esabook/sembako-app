@@ -375,7 +375,7 @@
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-base font-bold" style="color:var(--text)">Retur Penjualan</h1>
+			<h1 class="font-bold" style="color:var(--text)">Retur Penjualan</h1>
 			<p class="text-xs" style="color:var(--text-dim)">
 				Kembalikan barang dari transaksi penjualan
 			</p>
@@ -750,8 +750,15 @@
 					<!-- Pilih Kas/Bank (jika tunai) -->
 					{#if metodeRefund === 'tunai'}
 						<div>
-							<Select id="kas-bank" label="Akun Kas / Bank" bind:value={kasBankId}
-								options={kasBankList.map(kb => ({ value: kb.id, label: kb.nama + ' (' + kb.tipe + ')' }))} />
+							<Select
+								id="kas-bank"
+								label="Akun Kas / Bank"
+								bind:value={kasBankId}
+								options={kasBankList.map((kb) => ({
+									value: kb.id,
+									label: kb.nama + ' (' + kb.tipe + ')'
+								}))}
+							/>
 						</div>
 					{/if}
 

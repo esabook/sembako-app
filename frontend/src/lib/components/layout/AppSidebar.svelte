@@ -67,7 +67,7 @@
 	const SIDEBAR_KEY = 'sidebar_state';
 	let sidebarState = $state<SidebarState>('icon');
 	let sidebarReady = $state(false);
-	let isMobile = $state(false);
+	let isMobile = $state(true);
 	let hoverExpanded = $state(false);
 	let showPopup = $state(false);
 	let navEl = $state<HTMLElement | null>(null);
@@ -223,8 +223,8 @@
 
 <aside
 	class={isMobile
-		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r pt-2 shadow-xl transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
-		: `app-sidebar flex shrink-0 flex-col border-r pt-2 ${sidebarReady && !isDragging ? 'transition-all duration-200' : ''} ${isDragging ? 'is-dragging' : ''} ${sidebarState === 'hover' ? (hoverExpanded ? 'hover-mode hover-expanded' : 'hover-mode') : 'relative'}`}
+		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r pt-2 shadow-xl transition-transform duration-50 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
+		: `app-sidebar flex shrink-0 flex-col border-r pt-2 ${sidebarReady && !isDragging ? 'transition-all duration-50' : ''} ${isDragging ? 'is-dragging' : ''} ${sidebarState === 'hover' ? (hoverExpanded ? 'hover-mode hover-expanded' : 'hover-mode') : 'relative'}`}
 	style="background:var(--surface);border-color:var(--border);width:{sidebarWidth}rem "
 	onmouseenter={sidebarState === 'hover' && !isMobile
 		? () => {

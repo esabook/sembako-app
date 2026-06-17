@@ -142,7 +142,7 @@
 
 <div class="space-y-4">
 	<div class="flex flex-wrap items-center justify-between gap-2">
-		<h1 class="text-base font-bold md:text-lg" style="color:var(--text)">Inspeksi Toko</h1>
+		<h1 class="font-bold" style="color:var(--text)">Inspeksi Toko</h1>
 		<Button onclick={bukaFormTambah}>+ Catat Inspeksi</Button>
 	</div>
 
@@ -162,7 +162,10 @@
 		<Select
 			bind:value={filterStatus}
 			placeholder="Semua Status"
-			options={[{ value: 'draft', label: 'Draft' }, { value: 'selesai', label: 'Selesai' }]}
+			options={[
+				{ value: 'draft', label: 'Draft' },
+				{ value: 'selesai', label: 'Selesai' }
+			]}
 		/>
 	</div>
 

@@ -75,9 +75,7 @@
 	// ── State ─────────────────────────────────────────────────────────────────
 
 	let order = $state<string[]>([]);
-	const orderChanged = $derived(
-		order.length > 0 && !order.every((k, i) => k === tabKeys[i])
-	);
+	const orderChanged = $derived(order.length > 0 && !order.every((k, i) => k === tabKeys[i]));
 	let favorites = $state<Set<string>>(new Set());
 	let dragKey = $state<string | null>(null);
 	let dragOver = $state<string | null>(null);
@@ -233,7 +231,7 @@
 		{@const isFav = favorites.has(t.key)}
 		{@const isDragTarget = dragOver === t.key && dragKey !== t.key}
 		<div
-			style="position:relative; display:inline-flex; align-items:center"
+			style="position:relative; display:inline-flex; align-items:center border:1px solid var(--border); border-radius:4px;"
 			role="none"
 			draggable="true"
 			ondragstart={() => onDragStart(t.key)}

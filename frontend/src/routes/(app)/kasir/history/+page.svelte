@@ -1,5 +1,3 @@
-<svelte:head><title>Riwayat Transaksi — Stokasir</title></svelte:head>
-
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -48,8 +46,12 @@
 	let returLoading = $state(false);
 	let returOpen = $state(false);
 
-	$effect(() => { if (!detailOpen) historiDetail = null; });
-	$effect(() => { if (!returOpen) returDetail = null; });
+	$effect(() => {
+		if (!detailOpen) historiDetail = null;
+	});
+	$effect(() => {
+		if (!returOpen) returDetail = null;
+	});
 
 	// ── DataTable ──────────────────────────────────────────────────────────
 	const ITEM_COLS: Column[] = [
@@ -106,30 +108,42 @@
 		historiLoading = true;
 		historiDetail = null;
 		detailOpen = false;
-		const hasil = await withLoading(
-			() => fetchHistoriPenjualan(historiDari, historiSampai),
-			{ loadingKey: 'history-muat', modul: 'kasir', aksi: 'lihat_history', errorPesan: 'Gagal memuat riwayat transaksi', bisaRetry: true }
-		);
+		const hasil = await withLoading(() => fetchHistoriPenjualan(historiDari, historiSampai), {
+			loadingKey: 'history-muat',
+			modul: 'kasir',
+			aksi: 'lihat_history',
+			errorPesan: 'Gagal memuat riwayat transaksi',
+			bisaRetry: true
+		});
 		if (hasil !== null) historiList = hasil;
 		historiLoading = false;
 	}
 
 	async function pilihHistori(id: number) {
-		const hasil = await withLoading(
-			() => fetchDetailPenjualan(id),
-			{ loadingKey: 'history-detail', modul: 'kasir', aksi: 'lihat_detail', errorPesan: 'Gagal memuat detail transaksi', bisaRetry: true }
-		);
-		if (hasil !== null) { historiDetail = hasil; detailOpen = true; }
+		const hasil = await withLoading(() => fetchDetailPenjualan(id), {
+			loadingKey: 'history-detail',
+			modul: 'kasir',
+			aksi: 'lihat_detail',
+			errorPesan: 'Gagal memuat detail transaksi',
+			bisaRetry: true
+		});
+		if (hasil !== null) {
+			historiDetail = hasil;
+			detailOpen = true;
+		}
 	}
 
 	async function bukaRetur(returId: number, e: MouseEvent) {
 		e.stopPropagation();
 		returLoading = true;
 		returOpen = true;
-		const res = await withLoading(
-			() => api.get<ReturDetail>(`/retur-penjualan/${returId}`),
-			{ loadingKey: 'retur-detail', modul: 'kasir', aksi: 'lihat_retur', errorPesan: 'Gagal memuat detail retur', bisaRetry: true }
-		);
+		const res = await withLoading(() => api.get<ReturDetail>(`/retur-penjualan/${returId}`), {
+			loadingKey: 'retur-detail',
+			modul: 'kasir',
+			aksi: 'lihat_retur',
+			errorPesan: 'Gagal memuat detail retur',
+			bisaRetry: true
+		});
 		if (res?.success) returDetail = res.data;
 		returLoading = false;
 	}
@@ -183,13 +197,19 @@
 	});
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape') history.back() }} />
+<svelte:head><title>Riwayat Transaksi — Stokasir</title></svelte:head>
+
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Escape') history.back();
+	}}
+/>
 
 <div class="flex h-full flex-col gap-0">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-base font-bold" style="color:var(--text)">Riwayat Transaksi</h1>
+			<h1 class="font-bold" style="color:var(--text)">Riwayat Transaksi</h1>
 		</div>
 		<div class="flex gap-2">
 			<Button variant="ghost" size="sm" onclick={() => goto('/kasir')}>← Kasir</Button>
@@ -259,8 +279,8 @@
 									<button
 										onclick={(e) => bukaRetur(trx.retur_id!, e)}
 										class="ml-1.5 rounded px-1.5 py-0.5 text-xs font-bold transition-all hover:opacity-80"
-										style="background:var(--warn);color:#000"
-									>RETUR</button>
+										style="background:var(--warn);color:#000">RETUR</button
+									>
 								{/if}
 							</td>
 							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)"

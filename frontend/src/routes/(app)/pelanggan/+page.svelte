@@ -45,6 +45,9 @@
 <svelte:head><title>Pelanggan — Stokasir</title></svelte:head>
 
 <div class="space-y-4">
+	<div class="flex items-center justify-between">
+		<h1 class="font-bold" style="color:var(--text)">Pelanggan</h1>
+	</div>
 	<TabBar
 		tabs={TABS}
 		active={tab}

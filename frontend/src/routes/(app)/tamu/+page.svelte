@@ -106,7 +106,7 @@
 
 <div class="flex flex-col gap-4">
 	<div class="flex flex-wrap items-center gap-2">
-		<h1 class="mr-2 text-base font-bold">Tamu Birokrasi</h1>
+		<h1 class="font-bold">Tamu Birokrasi</h1>
 		<input
 			type="month"
 			bind:value={dariBulan}

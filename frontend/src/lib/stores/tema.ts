@@ -14,8 +14,8 @@ function skinAwal(): Skin {
 }
 
 function modeAwal(): Mode {
-  if (!browser) return 'dark'
-  return (localStorage.getItem(MODE_KEY) as Mode) ?? 'dark'
+  if (!browser) return 'system'
+  return (localStorage.getItem(MODE_KEY) as Mode) ?? 'system'
 }
 
 export const temaSkin = writable<Skin>(skinAwal())
@@ -65,3 +65,25 @@ temaSkin.subscribe((val) => {
 temaMode.subscribe((val) => {
   if (browser) localStorage.setItem(MODE_KEY, val)
 })
+
+const SIKLUS: Array<{ skin: Skin; mode: Mode }> = [
+  { skin: 'normal', mode: 'dark' },
+  { skin: 'normal', mode: 'light' },
+  { skin: 'bw',     mode: 'dark' },
+  { skin: 'bw',     mode: 'light' },
+  { skin: 'island', mode: 'dark' },
+  { skin: 'island', mode: 'light' },
+  { skin: 'klasik', mode: 'dark' },
+  { skin: 'klasik', mode: 'light' },
+]
+
+const TEMA_KE_IDX: Record<Tema, number> = {
+  dark: 0, light: 1, bwb: 2, bww: 3, island: 4, islandl: 5, klasik: 6, klasikl: 7,
+}
+
+export function nextTema(temaSekarang: Tema): void {
+  const idx = TEMA_KE_IDX[temaSekarang] ?? 0
+  const next = SIKLUS[(idx + 1) % SIKLUS.length]
+  temaSkin.set(next.skin)
+  temaMode.set(next.mode)
+}
