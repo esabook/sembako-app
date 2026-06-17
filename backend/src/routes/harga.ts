@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, desc, and, like, or, sql } from 'drizzle-orm'
+import { eq, desc, and, like, or, sql, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
@@ -177,9 +177,8 @@ hargaRouter.post('/simulasi', requirePermission('harga_jual.lihat'), async (c) =
       harga_beli_terakhir: barang.harga_beli_terakhir,
     })
     .from(barang)
-    .where(and(eq(barang.tenant_id, tenantId), eq(barang.is_active, true)))
+    .where(and(eq(barang.tenant_id, tenantId), eq(barang.is_active, true), inArray(barang.id, body.barang_ids)))
     )
-    .filter((r) => body.barang_ids.includes(r.id))
 
   const preview = rows.map((r) => {
     let eceran_baru: number
