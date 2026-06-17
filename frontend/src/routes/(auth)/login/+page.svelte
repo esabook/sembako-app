@@ -86,7 +86,7 @@
 
 	<!-- ── Modal layer ────────────────────────────────── -->
 	<div class="modal-layer">
-		<div class="modal">
+		<div class="lcard">
 			<!-- Body -->
 			<div class="modal-body">
 				<!-- TOP: brand panel -->
@@ -292,7 +292,7 @@
 		overflow-y: auto;
 	}
 
-	.modal {
+	.lcard {
 		background: var(--surface);
 		border: 1px solid var(--border);
 		color: var(--text);

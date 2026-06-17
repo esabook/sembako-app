@@ -1,11 +1,12 @@
 @import 'tailwindcss';
+@plugin "daisyui";
 
-/* ─── Shared Theme Bridge (replaces per-tema duplication) ──── */
 :root {
+  /* shadcn-svelte vars */
   --background: var(--bg);
   --foreground: var(--text);
   --primary: var(--accent);
-  --primary-foreground: #000000;
+  --primary-foreground: var(--bg);
   --destructive: var(--danger);
   --muted: var(--surface);
   --muted-foreground: var(--text-dim);
@@ -13,256 +14,56 @@
   --card-foreground: var(--text);
   --popover: var(--surface2);
   --popover-foreground: var(--text);
-  --input: var(--border);
   --ring: var(--accent);
   --radius: 0.375rem;
-  /* shadcn-svelte legacy mapping */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-destructive: var(--destructive);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--bg);
+  --color-destructive: var(--danger);
+  --color-muted: var(--surface);
+  --color-muted-foreground: var(--text-dim);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface2);
+  --color-popover-foreground: var(--text);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
   --color-border: var(--border);
   --radius-md: var(--radius);
-  /* daisyui mapping */
-  --p: var(--accent);
-  --s: var(--info);
-  --a: var(--accent);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
-}
-
-/* Dark mode overrides */
-.dark {
-  --primary-foreground: #000000;
-  --pc: var(--bg);
-  --sc: var(--bg);
-  --ac: var(--bg);
-}
-
-/* Light mode overrides */
-:root:not(.dark) {
-  --primary-foreground: #ffffff;
-  --pc: var(--surface);
-  --sc: var(--surface);
-  --ac: var(--surface);
-}
-
-/* ─── Font ─────────────────────────────────────── */
-:root {
+  /* daisyui v5 token mapping — resolved per-theme via [data-theme] vars */
+  --color-primary-content: var(--bg);
+  --color-secondary: var(--info);
+  --color-secondary-content: var(--bg);
+  --color-accent: var(--accent);
+  --color-accent-content: var(--bg);
+  --color-neutral: var(--surface);
+  --color-neutral-content: var(--text);
+  --color-base-100: var(--bg);
+  --color-base-200: var(--surface);
+  --color-base-300: var(--surface2);
+  --color-base-content: var(--text);
+  --color-info: var(--info);
+  --color-info-content: var(--bg);
+  --color-success: var(--accent);
+  --color-success-content: var(--bg);
+  --color-warning: var(--warn);
+  --color-warning-content: var(--bg);
+  --color-error: var(--danger);
+  --color-error-content: var(--bg);
   font-family: 'IBM Plex Sans', monospace;
 }
 
-/* ─── Tema Default: Normal ────────────────────────────── */
-[data-theme='dark'] {
-  --bg: #0a0a0a;
-  --surface: #111111;
-  --surface2: #1a1a1a;
-  --border: #2a2a2a;
-  --text: #d4d4d4;
-  --text-dim: #999999;
-  --accent: #00e676;
-  --warn: #ffb300;
-  --danger: #ff5252;
-  --info: #40c4ff;
-  --skeleton: #252525;
-}
-
-[data-theme='light'] {
-  --bg: #f0f0f0;
-  --surface: #ffffff;
-  --surface2: #e8e8e8;
-  --border: #cccccc;
-  --text: #222222;
-  --text-dim: #555555;
-  --accent: #007a3d;
-  --warn: #b37800;
-  --danger: #c62828;
-  --info: #0077aa;
-  --skeleton: #dcdcdc;
-}
-
-/* ─── Tema Black-White (BW) ────────────────────────── */
-[data-theme='bww'] {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface2: #eeeeee;
-  --border: #000000;
-  --text: #000000;
-  --text-dim: #333333;
-  --accent: #000000;
-  --warn: #333333;
-  --danger: #000000;
-  --info: #333333;
-  --skeleton: #dddddd;
-}
-
-[data-theme='bwb'] {
-  --bg: #000000;
-  --surface: #000000;
-  --surface2: #111111;
-  --border: #ffffff;
-  --text: #ffffff;
-  --text-dim: #cccccc;
-  --accent: #ffffff;
-  --warn: #cccccc;
-  --danger: #ffffff;
-  --info: #cccccc;
-  --skeleton: #1c1c1c;
-}
-
-/* ─── Tema Island (JetBrains-style floating panels) ── */
-[data-theme='island'] {
-  --bg: #1e1f22;
-  --surface: #2b2d30;
-  --surface2: #393b40;
-  --border: #1e1f22;
-  --text: #dce0e6;
-  --text-dim: #a0a4ab;
-  --accent: #4c9be8;
-  --warn: #e8b84c;
-  --danger: #f28b82;
-  --info: #6cbfe0;
-  --skeleton: #3d3f44;
-}
-
-[data-theme='islandl'] {
-  --bg: #ffffff;
-  --surface: #f2f2f2;
-  --surface2: #e8e8e8;
-  --border: #d0d0d0;
-  --text: #1e1f22;
-  --text-dim: #404550;
-  --accent: #1a73c0;
-  --warn: #b5860b;
-  --danger: #cc3d36;
-  --info: #1d7bb5;
-  --skeleton: #e4e4e6;
-}
-
-/* Island layout: panel mengambang dengan celah bg di antara panel (gelap + terang) */
-[data-theme='island'] .app-root,
-[data-theme='islandl'] .app-root {
-  padding: 6px;
-  gap: 6px;
-}
-
-[data-theme='island'] .app-body,
-[data-theme='islandl'] .app-body {
-  gap: 6px;
-}
-
-[data-theme='island'] .app-nav,
-[data-theme='islandl'] .app-nav {
-  border-radius: 10px;
-}
-
-[data-theme='island'] .app-sidebar,
-[data-theme='islandl'] .app-sidebar {
-  border-radius: 10px;
-}
-
-[data-theme='island'] .app-main,
-[data-theme='islandl'] .app-main {
-  border-radius: 10px;
-}
-
-/* ─── Tema Klasik POS ──────────────────────────── */
-[data-theme='klasik'] {
-  --bg: #000000;
-  --surface: #1a1a1a;
-  --surface2: #111111;
-  --border: #333333;
-  --text: #ffffff;
-  --text-dim: #bbbbbb;
-  --accent: #ffd700;
-  --warn: #ffd700;
-  --danger: #ff3d00;
-  --info: #2979ff;
-  --skeleton: #2d2d2d;
-}
-
-[data-theme='klasikl'] {
-  --bg: #f5f0e1;
-  --surface: #ffffff;
-  --surface2: #ece4d0;
-  --border: #c9bfa0;
-  --text: #2b2b2b;
-  --text-dim: #4a4540;
-  --accent: #b8860b;
-  --warn: #b8860b;
-  --danger: #c0392b;
-  --info: #1f6fb2;
-  --skeleton: #e6ddc4;
-}
-
-/* ─── Tema Lambo (Lamborghini) ────────────────────── */
-[data-theme='lambo'] {
-  --bg: #000000;
-  --surface: #202020;
-  --surface2: #181818;
-  --border: #1a1a1a;
-  --text: #ffffff;
-  --text-dim: #f5f5f5;
-  --accent: #ffc000;
-  --warn: #917300;
-  --danger: #ff3d00;
-  --info: #29abe2;
-  --skeleton: #2d2d2d;
-  --radius: 0px;
-}
-
-[data-theme='lambol'] {
-  --bg: #f8f8f8;
-  --surface: #ffffff;
-  --surface2: #e6e6e6;
-  --border: #e6e6e6;
-  --text: #000000;
-  --text-dim: #494949;
-  --accent: #917300;
-  --warn: #917300;
-  --danger: #ff3d00;
-  --info: #1eaedb;
-  --skeleton: #e4e4e6;
-  --radius: 0px;
-}
-
-/* Lambo: sharp corners, no shadows */
-[data-theme='lambo'] *,
-[data-theme='lambol'] * {
-  border-radius: 0 !important;
+/* ─── DaisyUI overrides ─────────────────────────── */
+.input {
+  --depth: 0;
+  border: 1px solid var(--border);
   box-shadow: none !important;
 }
 
-/* Lambo exceptions: radio & toggle keep their curves */
-[data-theme='lambo'] .radio,
-[data-theme='lambol'] .radio {
-  border-radius: 50% !important;
-}
-
-[data-theme='lambo'] .toggle,
-[data-theme='lambol'] .toggle {
-  border-radius: 20px !important;
+.input:focus, .input:focus-within {
+  border-color: var(--accent);
+  outline: none;
 }
 
 /* ─── Base ──────────────────────────────────────── */

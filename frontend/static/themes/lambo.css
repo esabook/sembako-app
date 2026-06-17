@@ -28,14 +28,12 @@
   --radius: 0px;
 }
 
-/* Lambo: sharp corners, no shadows */
 [data-theme='lambo'] *,
 [data-theme='lambol'] * {
   border-radius: 0 !important;
   box-shadow: none !important;
 }
 
-/* Lambo exceptions: radio & toggle keep their curves */
 [data-theme='lambo'] .radio,
 [data-theme='lambol'] .radio {
   border-radius: 50% !important;

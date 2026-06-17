@@ -10,4 +10,13 @@ declare global {
 	}
 }
 
+// cally web components
+declare namespace svelteHTML {
+	interface IntrinsicElements {
+		'calendar-date': Record<string, unknown>;
+		'calendar-month': Record<string, unknown>;
+		'calendar-range': Record<string, unknown>;
+	}
+}
+
 export {};

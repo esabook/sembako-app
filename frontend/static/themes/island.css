@@ -26,7 +26,6 @@
   --skeleton: #e4e4e6;
 }
 
-/* Island layout: floating panels with gaps */
 [data-theme='island'] .app-root,
 [data-theme='islandl'] .app-root {
   padding: 6px;
@@ -39,16 +38,10 @@
 }
 
 [data-theme='island'] .app-nav,
-[data-theme='islandl'] .app-nav {
-  border-radius: 10px;
-}
-
 [data-theme='island'] .app-sidebar,
-[data-theme='islandl'] .app-sidebar {
-  border-radius: 10px;
-}
-
 [data-theme='island'] .app-main,
+[data-theme='islandl'] .app-nav,
+[data-theme='islandl'] .app-sidebar,
 [data-theme='islandl'] .app-main {
   border-radius: 10px;
 }
