@@ -31,7 +31,7 @@
   --surface2: #1a1a1a;
   --border: #2a2a2a;
   --text: #d4d4d4;
-  --text-dim: #666666;
+  --text-dim: #999999;
   --accent: #00e676;
   --warn: #ffb300;
   --danger: #ff5252;
@@ -61,7 +61,7 @@
   --surface2: #e8e8e8;
   --border: #cccccc;
   --text: #222222;
-  --text-dim: #888888;
+  --text-dim: #555555;
   --accent: #007a3d;
   --warn: #b37800;
   --danger: #c62828;
@@ -91,7 +91,7 @@
   --surface2: #eeeeee;
   --border: #000000;
   --text: #000000;
-  --text-dim: #555555;
+  --text-dim: #333333;
   --accent: #000000;
   --warn: #333333;
   --danger: #000000;
@@ -121,7 +121,7 @@
   --surface2: #111111;
   --border: #ffffff;
   --text: #ffffff;
-  --text-dim: #aaaaaa;
+  --text-dim: #cccccc;
   --accent: #ffffff;
   --warn: #cccccc;
   --danger: #ffffff;
@@ -152,7 +152,7 @@
   --border: #1e1f22;
   /* = bg → border jadi gap, bukan garis */
   --text: #dce0e6;
-  --text-dim: #7a8089;
+  --text-dim: #a0a4ab;
   --accent: #4c9be8;
   --warn: #e8b84c;
   --danger: #f28b82;
@@ -182,7 +182,7 @@
   --surface2: #e8e8e8;
   --border: #d0d0d0;
   --text: #1e1f22;
-  --text-dim: #6b6f76;
+  --text-dim: #404550;
   --accent: #1a73c0;
   --warn: #b5860b;
   --danger: #cc3d36;
@@ -239,7 +239,7 @@
   --surface2: #111111;
   --border: #333333;
   --text: #ffffff;
-  --text-dim: #888888;
+  --text-dim: #bbbbbb;
   --accent: #ffd700;
   --warn: #ffd700;
   --danger: #ff3d00;
@@ -269,7 +269,7 @@
   --surface2: #ece4d0;
   --border: #c9bfa0;
   --text: #2b2b2b;
-  --text-dim: #6b6357;
+  --text-dim: #4a4540;
   --accent: #b8860b;
   --warn: #b8860b;
   --danger: #c0392b;
