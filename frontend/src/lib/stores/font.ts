@@ -33,6 +33,32 @@ export const FONT_CSS: Record<FontPilihan, string> = {
 	'montserrat': "'Montserrat', sans-serif",
 }
 
+// bunny.net family+weights per font (null = system font, no load needed)
+const FONT_BUNNY: Record<FontPilihan, string | null> = {
+	'jetbrains': 'jetbrains-mono:400,700',
+	'ibm-plex-mono': 'ibm-plex-mono:400,700',
+	'courier': null,
+	'inconsolata': 'inconsolata:400,700',
+	'space-mono': 'space-mono:400,700',
+	'vt323': 'vt323:400',
+	'ibm-plex-sans': 'ibm-plex-sans:400,700',
+	'montserrat': 'montserrat:400,700',
+}
+
+// 'jetbrains' loaded statically in app.html — skip dynamic inject
+const loaded = new Set<FontPilihan>(['jetbrains'])
+
+function loadFont(f: FontPilihan) {
+	if (!browser || loaded.has(f)) return
+	const family = FONT_BUNNY[f]
+	if (!family) return
+	const link = document.createElement('link')
+	link.rel = 'stylesheet'
+	link.href = `https://fonts.bunny.net/css?family=${family}&display=swap`
+	document.head.appendChild(link)
+	loaded.add(f)
+}
+
 const STORAGE_KEY = 'font'
 const DEFAULT: FontPilihan = 'jetbrains'
 
@@ -46,6 +72,7 @@ export const font = writable<FontPilihan>(fontAwal())
 
 font.subscribe((val) => {
 	if (!browser) return
+	loadFont(val)
 	localStorage.setItem(STORAGE_KEY, val)
 	document.documentElement.style.fontFamily = FONT_CSS[val]
 })
