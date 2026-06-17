@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
-	import { temaSkin, temaMode, type Skin, type Mode } from '$lib/stores/tema.js';
+	import { temaSkin, temaMode, MODE_LIST, SKIN_LIST } from '$lib/stores/tema.js';
 	import { onMount } from 'svelte';
 
 	let buka = $state(false);
@@ -21,19 +21,6 @@
 	function onFullscreenChange() {
 		isFullscreen = !!document.fullscreenElement;
 	}
-
-	const MODE_LIST: { nilai: Mode; label: string; ikon: string }[] = [
-		{ nilai: 'dark', label: 'Gelap', ikon: '🌙' },
-		{ nilai: 'light', label: 'Terang', ikon: '☀️' },
-		{ nilai: 'system', label: 'Sistem', ikon: '🖥️' }
-	];
-
-	const SKIN_LIST: { nilai: Skin; label: string; deskripsi: string }[] = [
-		{ nilai: 'normal', label: 'Normal', deskripsi: 'Default' },
-		{ nilai: 'bw', label: 'Hitam-Putih', deskripsi: 'Kontras tinggi' },
-		{ nilai: 'island', label: 'Island', deskripsi: 'Panel mengambang' },
-		{ nilai: 'klasik', label: 'Klasik', deskripsi: 'Kasir terminal' }
-	];
 
 	const ROLE_LABEL: Record<string, string> = {
 		pemilik: 'Pemilik',

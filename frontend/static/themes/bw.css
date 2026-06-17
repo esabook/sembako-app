@@ -1,0 +1,27 @@
+[data-theme='bww'] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface2: #eeeeee;
+  --border: #000000;
+  --text: #000000;
+  --text-dim: #333333;
+  --accent: #000000;
+  --warn: #333333;
+  --danger: #000000;
+  --info: #333333;
+  --skeleton: #dddddd;
+}
+
+[data-theme='bwb'] {
+  --bg: #000000;
+  --surface: #000000;
+  --surface2: #111111;
+  --border: #ffffff;
+  --text: #ffffff;
+  --text-dim: #cccccc;
+  --accent: #ffffff;
+  --warn: #cccccc;
+  --danger: #ffffff;
+  --info: #cccccc;
+  --skeleton: #1c1c1c;
+}

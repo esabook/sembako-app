@@ -1,9 +1,39 @@
 import { derived, writable } from 'svelte/store'
 import { browser } from '$app/environment'
 
-export type Skin = 'normal' | 'bw' | 'island' | 'klasik'
+export type Skin = 'normal' | 'bw' | 'island' | 'klasik' | 'lambo'
 export type Mode = 'dark' | 'light' | 'system'
-export type Tema = 'dark' | 'light' | 'bww' | 'bwb' | 'island' | 'islandl' | 'klasik' | 'klasikl'
+export type Tema = 'dark' | 'light' | 'bww' | 'bwb' | 'island' | 'islandl' | 'klasik' | 'klasikl' | 'lambo' | 'lambol'
+
+// ── Config: tema options untuk UI ──────────────────────────────────────────────
+
+export const MODE_LIST: { nilai: Mode; label: string; ikon: string }[] = [
+	{ nilai: 'dark', label: 'Gelap', ikon: '🌙' },
+	{ nilai: 'light', label: 'Terang', ikon: '☀️' },
+	{ nilai: 'system', label: 'Sistem', ikon: '🖥️' }
+];
+
+export const SKIN_LIST: { nilai: Skin; label: string; deskripsi: string }[] = [
+	{ nilai: 'normal', label: 'Normal', deskripsi: 'Default' },
+	{ nilai: 'bw', label: 'Hitam-Putih', deskripsi: 'Kontras tinggi' },
+	{ nilai: 'island', label: 'Island', deskripsi: 'Panel mengambang' },
+	{ nilai: 'klasik', label: 'Klasik', deskripsi: 'Kasir terminal' },
+	{ nilai: 'lambo', label: 'Lambo', deskripsi: 'Tema Lamborghini' }
+];
+
+// Untuk radio group / select dropdown
+export const TEMA_OPTS: [string, string][] = [
+	['dark', 'Dark'],
+	['light', 'Light'],
+	['bww', 'BW Putih'],
+	['bwb', 'BW Hitam'],
+	['island', 'Island Gelap'],
+	['islandl', 'Island Terang'],
+	['klasik', 'Klasik Gelap'],
+	['klasikl', 'Klasik Terang'],
+	['lambo', 'Lambo Gelap'],
+	['lambol', 'Lambo Terang']
+];
 
 const SKIN_KEY = 'tema_skin'
 const MODE_KEY = 'tema_mode'
@@ -40,6 +70,8 @@ function resolveTema(skin: Skin, mode: Mode, gelapSistem: boolean): Tema {
       return gelap ? 'island' : 'islandl'
     case 'klasik':
       return gelap ? 'klasik' : 'klasikl'
+    case 'lambo':
+      return gelap ? 'lambo' : 'lambol'
     default:
       return gelap ? 'dark' : 'light'
   }
@@ -50,7 +82,20 @@ export const tema = derived(
   ([$skin, $mode, $gelapSistem]) => resolveTema($skin, $mode, $gelapSistem)
 )
 
-const DARK_VARIANTS: Tema[] = ['dark', 'bwb', 'island', 'klasik']
+const DARK_VARIANTS: Tema[] = ['dark', 'bwb', 'island', 'klasik', 'lambo']
+
+// Swap skin CSS file on theme change
+function swapSkinCSS(skin: Skin) {
+  if (!browser) return
+  let link = document.getElementById('skin-css') as HTMLLinkElement | null
+  if (!link) {
+    link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.id = 'skin-css'
+    document.head.appendChild(link)
+  }
+  link.href = `/themes/${skin}.css`
+}
 
 tema.subscribe((val) => {
   if (!browser) return
@@ -59,7 +104,10 @@ tema.subscribe((val) => {
 })
 
 temaSkin.subscribe((val) => {
-  if (browser) localStorage.setItem(SKIN_KEY, val)
+  if (browser) {
+    localStorage.setItem(SKIN_KEY, val)
+    swapSkinCSS(val)
+  }
 })
 
 temaMode.subscribe((val) => {
@@ -75,10 +123,12 @@ const SIKLUS: Array<{ skin: Skin; mode: Mode }> = [
   { skin: 'island', mode: 'light' },
   { skin: 'klasik', mode: 'dark' },
   { skin: 'klasik', mode: 'light' },
+  { skin: 'lambo',  mode: 'dark' },
+  { skin: 'lambo',  mode: 'light' },
 ]
 
 const TEMA_KE_IDX: Record<Tema, number> = {
-  dark: 0, light: 1, bwb: 2, bww: 3, island: 4, islandl: 5, klasik: 6, klasikl: 7,
+  dark: 0, light: 1, bwb: 2, bww: 3, island: 4, islandl: 5, klasik: 6, klasikl: 7, lambo: 8, lambol: 9,
 }
 
 export function nextTema(temaSekarang: Tema): void {

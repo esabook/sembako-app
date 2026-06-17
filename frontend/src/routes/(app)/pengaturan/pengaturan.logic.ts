@@ -1,5 +1,7 @@
 // Pure helpers & constants untuk modul pengaturan — tanpa fetch/store/DOM-state.
 
+import { TEMA_OPTS as TEMA_OPTS_BASE } from '$lib/stores/tema.js'
+
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024 // 2MB
 
 /** Validasi file audio kasir. Return pesan error, atau null jika valid. */
@@ -33,16 +35,7 @@ export const COPY_OPTS: [string, string][] = [
 	['2', '2 copy']
 ]
 
-export const TEMA_OPTS: [string, string][] = [
-	['dark', 'Dark'],
-	['light', 'Light'],
-	['bww', 'BW Putih'],
-	['bwb', 'BW Hitam'],
-	['island', 'Island Gelap'],
-	['islandl', 'Island Terang'],
-	['klasik', 'Klasik Gelap'],
-	['klasikl', 'Klasik Terang']
-]
+export const TEMA_OPTS = TEMA_OPTS_BASE
 
 export const HARGA_OPTS: [string, string][] = [
 	['eceran', 'Eceran'],

@@ -1,7 +1,22 @@
 @import 'tailwindcss';
 
-/* ─── shadcn-svelte theme mapping untuk Tailwind v4 ── */
+/* ─── Shared Theme Bridge (replaces per-tema duplication) ──── */
 :root {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: #000000;
+  --destructive: var(--danger);
+  --muted: var(--surface);
+  --muted-foreground: var(--text-dim);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface2);
+  --popover-foreground: var(--text);
+  --input: var(--border);
+  --ring: var(--accent);
+  --radius: 0.375rem;
+  /* shadcn-svelte legacy mapping */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
@@ -17,6 +32,40 @@
   --color-ring: var(--ring);
   --color-border: var(--border);
   --radius-md: var(--radius);
+  /* daisyui mapping */
+  --p: var(--accent);
+  --s: var(--info);
+  --a: var(--accent);
+  --n: var(--surface);
+  --nc: var(--text);
+  --b1: var(--bg);
+  --b2: var(--surface);
+  --b3: var(--surface2);
+  --bc: var(--text);
+  --in: var(--info);
+  --inc: var(--bg);
+  --su: var(--accent);
+  --suc: var(--bg);
+  --wa: var(--warn);
+  --wac: var(--bg);
+  --e: var(--danger);
+  --ec: var(--bg);
+}
+
+/* Dark mode overrides */
+.dark {
+  --primary-foreground: #000000;
+  --pc: var(--bg);
+  --sc: var(--bg);
+  --ac: var(--bg);
+}
+
+/* Light mode overrides */
+:root:not(.dark) {
+  --primary-foreground: #ffffff;
+  --pc: var(--surface);
+  --sc: var(--surface);
+  --ac: var(--surface);
 }
 
 /* ─── Font ─────────────────────────────────────── */
@@ -24,7 +73,7 @@
   font-family: 'IBM Plex Sans', monospace;
 }
 
-/* ─── Tema Dark) ───────────────────────── */
+/* ─── Tema Default: Normal ────────────────────────────── */
 [data-theme='dark'] {
   --bg: #0a0a0a;
   --surface: #111111;
@@ -37,45 +86,8 @@
   --danger: #ff5252;
   --info: #40c4ff;
   --skeleton: #252525;
-  /* shadcn bridge */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: #000000;
-  --destructive: var(--danger);
-  --muted: var(--surface);
-  --muted-foreground: var(--text-dim);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface2);
-  --popover-foreground: var(--text);
-  --input: var(--border);
-  --ring: var(--accent);
-  --radius: 0.375rem;
-  /* daisyui mapping */
-  --p: var(--accent);
-  --pc: var(--bg);
-  --s: var(--info);
-  --sc: var(--bg);
-  --a: var(--accent);
-  --ac: var(--bg);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
 }
 
-/* ─── Tema Light ────────────────────────────────── */
 [data-theme='light'] {
   --bg: #f0f0f0;
   --surface: #ffffff;
@@ -88,45 +100,9 @@
   --danger: #c62828;
   --info: #0077aa;
   --skeleton: #dcdcdc;
-  /* shadcn bridge */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: #ffffff;
-  --destructive: var(--danger);
-  --muted: var(--surface);
-  --muted-foreground: var(--text-dim);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface2);
-  --popover-foreground: var(--text);
-  --input: var(--border);
-  --ring: var(--accent);
-  --radius: 0.375rem;
-  /* daisyui mapping */
-  --p: var(--accent);
-  --pc: var(--surface);
-  --s: var(--info);
-  --sc: var(--surface);
-  --a: var(--accent);
-  --ac: var(--surface);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
 }
 
-/* ─── Tema BW on White ──────────────────────────── */
+/* ─── Tema Black-White (BW) ────────────────────────── */
 [data-theme='bww'] {
   --bg: #ffffff;
   --surface: #ffffff;
@@ -139,45 +115,8 @@
   --danger: #000000;
   --info: #333333;
   --skeleton: #dddddd;
-  /* shadcn bridge */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: #ffffff;
-  --destructive: var(--danger);
-  --muted: var(--surface);
-  --muted-foreground: var(--text-dim);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface2);
-  --popover-foreground: var(--text);
-  --input: var(--border);
-  --ring: var(--accent);
-  --radius: 0.375rem;
-  /* daisyui mapping */
-  --p: var(--accent);
-  --pc: var(--surface);
-  --s: var(--info);
-  --sc: var(--surface);
-  --a: var(--accent);
-  --ac: var(--surface);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
 }
 
-/* ─── Tema BW on Black ──────────────────────────── */
 [data-theme='bwb'] {
   --bg: #000000;
   --surface: #000000;
@@ -190,42 +129,6 @@
   --danger: #ffffff;
   --info: #cccccc;
   --skeleton: #1c1c1c;
-  /* shadcn bridge */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: #000000;
-  --destructive: var(--danger);
-  --muted: var(--surface);
-  --muted-foreground: var(--text-dim);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface2);
-  --popover-foreground: var(--text);
-  --input: var(--border);
-  --ring: var(--accent);
-  --radius: 0.375rem;
-  /* daisyui mapping */
-  --p: var(--accent);
-  --pc: var(--bg);
-  --s: var(--info);
-  --sc: var(--bg);
-  --a: var(--accent);
-  --ac: var(--bg);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
 }
 
 /* ─── Tema Island (JetBrains-style floating panels) ── */
@@ -234,7 +137,6 @@
   --surface: #2b2d30;
   --surface2: #393b40;
   --border: #1e1f22;
-  /* = bg → border jadi gap, bukan garis */
   --text: #dce0e6;
   --text-dim: #a0a4ab;
   --accent: #4c9be8;
@@ -242,45 +144,8 @@
   --danger: #f28b82;
   --info: #6cbfe0;
   --skeleton: #3d3f44;
-  /* shadcn bridge */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: #ffffff;
-  --destructive: var(--danger);
-  --muted: var(--surface);
-  --muted-foreground: var(--text-dim);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface2);
-  --popover-foreground: var(--text);
-  --input: var(--border);
-  --ring: var(--accent);
-  --radius: 0.375rem;
-  /* daisyui mapping */
-  --p: var(--accent);
-  --pc: var(--bg);
-  --s: var(--info);
-  --sc: var(--bg);
-  --a: var(--accent);
-  --ac: var(--bg);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
 }
 
-/* ─── Tema Island Terang ─────────────────────────── */
 [data-theme='islandl'] {
   --bg: #ffffff;
   --surface: #f2f2f2;
@@ -293,42 +158,6 @@
   --danger: #cc3d36;
   --info: #1d7bb5;
   --skeleton: #e4e4e6;
-  /* shadcn bridge */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: #ffffff;
-  --destructive: var(--danger);
-  --muted: var(--surface);
-  --muted-foreground: var(--text-dim);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface2);
-  --popover-foreground: var(--text);
-  --input: var(--border);
-  --ring: var(--accent);
-  --radius: 0.375rem;
-  /* daisyui mapping */
-  --p: var(--accent);
-  --pc: var(--surface);
-  --s: var(--info);
-  --sc: var(--surface);
-  --a: var(--accent);
-  --ac: var(--surface);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
 }
 
 /* Island layout: panel mengambang dengan celah bg di antara panel (gelap + terang) */
@@ -358,7 +187,7 @@
   border-radius: 10px;
 }
 
-/* ─── Tema Klasik POS ───────────────────────────── */
+/* ─── Tema Klasik POS ──────────────────────────── */
 [data-theme='klasik'] {
   --bg: #000000;
   --surface: #1a1a1a;
@@ -371,45 +200,8 @@
   --danger: #ff3d00;
   --info: #2979ff;
   --skeleton: #2d2d2d;
-  /* shadcn bridge */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: #000000;
-  --destructive: var(--danger);
-  --muted: var(--surface);
-  --muted-foreground: var(--text-dim);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface2);
-  --popover-foreground: var(--text);
-  --input: var(--border);
-  --ring: var(--accent);
-  --radius: 0.375rem;
-  /* daisyui mapping */
-  --p: var(--accent);
-  --pc: var(--bg);
-  --s: var(--info);
-  --sc: var(--bg);
-  --a: var(--accent);
-  --ac: var(--bg);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
 }
 
-/* ─── Tema Klasik POS Terang ──────────────────────── */
 [data-theme='klasikl'] {
   --bg: #f5f0e1;
   --surface: #ffffff;
@@ -422,42 +214,55 @@
   --danger: #c0392b;
   --info: #1f6fb2;
   --skeleton: #e6ddc4;
-  /* shadcn bridge */
-  --background: var(--bg);
-  --foreground: var(--text);
-  --primary: var(--accent);
-  --primary-foreground: #ffffff;
-  --destructive: var(--danger);
-  --muted: var(--surface);
-  --muted-foreground: var(--text-dim);
-  --card: var(--surface);
-  --card-foreground: var(--text);
-  --popover: var(--surface2);
-  --popover-foreground: var(--text);
-  --input: var(--border);
-  --ring: var(--accent);
-  --radius: 0.375rem;
-  /* daisyui mapping */
-  --p: var(--accent);
-  --pc: var(--surface);
-  --s: var(--info);
-  --sc: var(--surface);
-  --a: var(--accent);
-  --ac: var(--surface);
-  --n: var(--surface);
-  --nc: var(--text);
-  --b1: var(--bg);
-  --b2: var(--surface);
-  --b3: var(--surface2);
-  --bc: var(--text);
-  --in: var(--info);
-  --inc: var(--bg);
-  --su: var(--accent);
-  --suc: var(--bg);
-  --wa: var(--warn);
-  --wac: var(--bg);
-  --e: var(--danger);
-  --ec: var(--bg);
+}
+
+/* ─── Tema Lambo (Lamborghini) ────────────────────── */
+[data-theme='lambo'] {
+  --bg: #000000;
+  --surface: #202020;
+  --surface2: #181818;
+  --border: #1a1a1a;
+  --text: #ffffff;
+  --text-dim: #f5f5f5;
+  --accent: #ffc000;
+  --warn: #917300;
+  --danger: #ff3d00;
+  --info: #29abe2;
+  --skeleton: #2d2d2d;
+  --radius: 0px;
+}
+
+[data-theme='lambol'] {
+  --bg: #f8f8f8;
+  --surface: #ffffff;
+  --surface2: #e6e6e6;
+  --border: #e6e6e6;
+  --text: #000000;
+  --text-dim: #494949;
+  --accent: #917300;
+  --warn: #917300;
+  --danger: #ff3d00;
+  --info: #1eaedb;
+  --skeleton: #e4e4e6;
+  --radius: 0px;
+}
+
+/* Lambo: sharp corners, no shadows */
+[data-theme='lambo'] *,
+[data-theme='lambol'] * {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Lambo exceptions: radio & toggle keep their curves */
+[data-theme='lambo'] .radio,
+[data-theme='lambol'] .radio {
+  border-radius: 50% !important;
+}
+
+[data-theme='lambo'] .toggle,
+[data-theme='lambol'] .toggle {
+  border-radius: 20px !important;
 }
 
 /* ─── Base ──────────────────────────────────────── */

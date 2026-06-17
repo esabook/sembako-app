@@ -9,6 +9,17 @@
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 	<link rel="apple-touch-icon" href="/logo.webp" />
+	<!-- Skin theme loader: inject before paint to avoid FOUC -->
+	<script>
+		(function(){
+			var s = localStorage.getItem('tema_skin') || 'normal';
+			var l = document.createElement('link');
+			l.rel = 'stylesheet';
+			l.id = 'skin-css';
+			l.href = '/themes/' + s + '.css';
+			document.head.appendChild(l);
+		})();
+	</script>
 	%sveltekit.head%
 </head>
 

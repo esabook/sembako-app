@@ -1,0 +1,47 @@
+[data-theme='lambo'] {
+  --bg: #000000;
+  --surface: #202020;
+  --surface2: #181818;
+  --border: #1a1a1a;
+  --text: #ffffff;
+  --text-dim: #f5f5f5;
+  --accent: #ffc000;
+  --warn: #917300;
+  --danger: #ff3d00;
+  --info: #29abe2;
+  --skeleton: #2d2d2d;
+  --radius: 0px;
+}
+
+[data-theme='lambol'] {
+  --bg: #f8f8f8;
+  --surface: #ffffff;
+  --surface2: #e6e6e6;
+  --border: #e6e6e6;
+  --text: #000000;
+  --text-dim: #494949;
+  --accent: #917300;
+  --warn: #917300;
+  --danger: #ff3d00;
+  --info: #1eaedb;
+  --skeleton: #e4e4e6;
+  --radius: 0px;
+}
+
+/* Lambo: sharp corners, no shadows */
+[data-theme='lambo'] *,
+[data-theme='lambol'] * {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Lambo exceptions: radio & toggle keep their curves */
+[data-theme='lambo'] .radio,
+[data-theme='lambol'] .radio {
+  border-radius: 50% !important;
+}
+
+[data-theme='lambo'] .toggle,
+[data-theme='lambol'] .toggle {
+  border-radius: 20px !important;
+}
