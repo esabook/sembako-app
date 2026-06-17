@@ -45,8 +45,8 @@
 	type PlgResult = { id: number; nama: string; kontak: string | null };
 
 	// ── State ──
-	let selectedId = $state<number | null>(pelangganId);
-	let selectedNama = $state<string | null>(namaPelanggan);
+	let selectedId = $state<number | null>(null);
+	let selectedNama = $state<string | null>(null);
 
 	let rows = $state<Trx[]>([]);
 	let total = $state(0);
@@ -168,15 +168,9 @@
 		muat(false);
 	}
 
-	let _prevPlgId = $state(pelangganId);
-
 	$effect(() => {
-		const pid = pelangganId; // track pelangganId only
-		if (pid !== _prevPlgId) {
-			_prevPlgId = pid;
-			selectedId = pid;
-			selectedNama = namaPelanggan;
-		}
+		selectedId = pelangganId ?? null;
+		selectedNama = namaPelanggan ?? null;
 	});
 
 	$effect(() => {

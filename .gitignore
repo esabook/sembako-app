@@ -33,3 +33,4 @@ data/
 .claude/
 .gemini/
 .agents/
+.vscode/

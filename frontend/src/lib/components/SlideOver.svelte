@@ -250,6 +250,7 @@
 		position: fixed;
 		inset: 0;
 		z-index: 40;
+		margin: 0;
 		background: rgba(0, 0, 0, 0);
 		pointer-events: none;
 		transition: background 0.25s;
@@ -258,6 +259,10 @@
 		background: rgba(0, 0, 0, 0.45);
 		backdrop-filter: blur(3px);
 		pointer-events: auto;
+	}
+
+	.so-panel {
+		margin: 0;
 	}
 
 	/* Desktop: remove max-height constraint */

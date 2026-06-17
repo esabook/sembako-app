@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { tema, nextTema } from '$lib/stores/tema';
 	import { createLoginStore } from './login.store.svelte';
+	import CircleArrowRight from '@lucide/svelte/icons/circle-arrow-right';
 
 	const store = createLoginStore();
 
@@ -121,18 +122,8 @@
 					onclick={() => (store.showBrand = !store.showBrand)}
 					title={store.showBrand ? 'Sembunyikan info' : 'Tampilkan info'}
 				>
-					<span class="tgl-icon">
-						<svg
-							width="24"
-							height="24"
-							fill="none"
-							viewBox="0 0 24 24"
-							xmlns="http://www.w3.org/2000/svg"
-							><path
-								d="m12.28 16.532.073-.084a.75.75 0 0 0-.073-.977l-2.72-2.72h6.69l.102-.006A.75.75 0 0 0 17 12l-.006-.101a.75.75 0 0 0-.744-.649H9.56l2.722-2.72.072-.084a.75.75 0 0 0-1.133-.977l-4.001 4-.073.084a.75.75 0 0 0 .073.977l4 4 .085.073a.75.75 0 0 0 .976-.072ZM12 2c-5.523 0-10 4.477-10 10s4.477 10 10 10 10-4.477 10-10-4.477-10-10-10Zm0 18.5a8.5 8.5 0 1 1 0-17 8.5 8.5 0 0 1 0 17Z"
-								fill="#fff"
-							/></svg
-						>
+					<span class="tgl-icon" style="background:var(--surface2);border-radius:50%">
+						<CircleArrowRight size="24px" />
 					</span>
 				</button>
 
