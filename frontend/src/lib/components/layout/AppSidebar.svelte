@@ -241,7 +241,7 @@
 			style="border-color:var(--border)"
 		>
 			<div class="flex min-w-0 items-center gap-2">
-				<img src="/logo.png" alt="Logo" class="h-7 w-7 shrink-0" />
+				<enhanced:img src="$lib/assets/logo.webp" alt="Logo" class="h-7 w-7 shrink-0" />
 				<span class="truncate text-sm font-bold" style="color:var(--accent)">{namaToko}</span>
 			</div>
 

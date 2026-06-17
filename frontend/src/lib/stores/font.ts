@@ -45,8 +45,7 @@ const FONT_BUNNY: Record<FontPilihan, string | null> = {
 	'montserrat': 'montserrat:400,700',
 }
 
-// 'jetbrains' loaded statically in app.html — skip dynamic inject
-const loaded = new Set<FontPilihan>(['jetbrains'])
+const loaded = new Set<FontPilihan>()
 
 function loadFont(f: FontPilihan) {
 	if (!browser || loaded.has(f)) return

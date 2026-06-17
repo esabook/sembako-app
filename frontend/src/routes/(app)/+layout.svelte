@@ -59,7 +59,7 @@
 		</button>
 		<!-- Desktop: logo + nama toko -->
 		<div class="hidden shrink-0 items-center gap-1.5 sm:flex">
-			<img src="/logo.png" alt="Logo Stokasir" class="h-[32px] w-[32px]" />
+			<enhanced:img src="$lib/assets/logo.webp" alt="Logo Stokasir" class="h-[32px] w-[32px]" />
 			<span class="font-bold" style="color:var(--accent)">{namaToko}</span>
 			{#if namaCabang}
 				<span class="text-xs" style="color:var(--text-dim)">· {namaCabang}</span>

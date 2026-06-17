@@ -66,7 +66,7 @@
 	style="background:var(--surface);border-color:var(--border)"
 >
 	<div class="flex items-center gap-3">
-		<img src="/logo.png" alt="Logo" class="h-7 w-7" />
+		<img src="/logo.webp" alt="Logo" class="h-7 w-7" />
 		<div>
 			<div class="text-sm font-bold" style="color:var(--accent)">Panduan Penggunaan</div>
 			<div class="text-[10px]" style="color:var(--text-dim)">Stokasir — Petunjuk Lengkap</div>

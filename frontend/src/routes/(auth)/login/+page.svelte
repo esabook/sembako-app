@@ -87,7 +87,7 @@
 				<div class="brand-panel" class:brand-vis={store.showBrand}>
 					<div class="brand-inner">
 						<div class="brand-head">
-							<img src="logo.png" alt="" class="brand-logo" />
+							<enhanced:img src="$lib/assets/logo.webp" alt="" class="brand-logo" />
 							<span class="brand-name">{store.namaToko}</span>
 						</div>
 						<div class="brand-tagline">POS · GUDANG · PELANGGAN · KEUANGAN · ALERT</div>
