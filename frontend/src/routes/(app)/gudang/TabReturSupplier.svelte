@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import SlideOver from '$lib/components/SlideOver.svelte';
-	import DateRangePicker from '$lib/components/ui/DateRangePicker2.svelte';
+	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import Button from '$lib/components/ui/Button.svelte';

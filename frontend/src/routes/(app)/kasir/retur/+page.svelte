@@ -5,7 +5,7 @@
 	import { api } from '$lib/utils/api';
 	import { user } from '$lib/stores/auth.js';
 	import Button from '$lib/components/ui/Button.svelte';
-	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
+	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import ReturDetailSlideOver from './ReturDetailSlideOver.svelte';
@@ -392,7 +392,7 @@
 		class="flex flex-wrap items-center gap-2 rounded border p-3 text-sm"
 		style="background:var(--surface);border-color:var(--border)"
 	>
-		<DateRangePicker2 bind:from={filterDari} bind:to={filterSampai} />
+		<DateRangePicker bind:from={filterDari} bind:to={filterSampai} />
 		<Button variant="ghost" size="sm" onclick={loadRetur}>Tampilkan</Button>
 	</div>
 

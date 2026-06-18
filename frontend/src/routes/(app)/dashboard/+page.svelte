@@ -74,7 +74,7 @@
 			</div>
 			<button
 				onclick={() => store.muat()}
-				class="rounded border px-2 py-1 text-xs"
+				class="hidden rounded border px-2 py-1 text-xs sm:inline-block"
 				style="border-color:var(--border);color:var(--text-dim)">Refresh</button
 			>
 		</div>

@@ -1,5 +1,3 @@
-<svelte:head><title>Audit Log — Stokasir</title></svelte:head>
-
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -10,7 +8,7 @@
 	import { debounce } from '$lib/utils/async.js';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
-	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
+	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 
 	type LogRow = {
 		id: number;
@@ -27,7 +25,14 @@
 	type KaryawanItem = { id: number; nama: string; role: string };
 
 	// Aksi yang dianggap berisiko — highlight merah
-	const AKSI_RISIKO = new Set(['void', 'koreksi_stok', 'nonaktifkan', 'hapus', 'diskon_tinggi', 'reset_password']);
+	const AKSI_RISIKO = new Set([
+		'void',
+		'koreksi_stok',
+		'nonaktifkan',
+		'hapus',
+		'diskon_tinggi',
+		'reset_password'
+	]);
 
 	$effect(() => {
 		if ($user && $user.role !== 'pemilik' && $user.role !== 'manajer') goto('/dashboard');
@@ -56,18 +61,20 @@
 		const params = new URLSearchParams();
 		params.set('page', String(p));
 		params.set('per_page', String(PER_PAGE));
-		if (filterModul)      params.set('modul', filterModul);
-		if (filterAksi)       params.set('aksi', filterAksi);
+		if (filterModul) params.set('modul', filterModul);
+		if (filterAksi) params.set('aksi', filterAksi);
 		if (filterKaryawanId) params.set('karyawan_id', filterKaryawanId);
-		if (filterDari)       params.set('dari', filterDari);
-		if (filterSampai)     params.set('sampai', filterSampai);
+		if (filterDari) params.set('dari', filterDari);
+		if (filterSampai) params.set('sampai', filterSampai);
 		return params.toString();
 	}
 
 	async function muat(p = 1) {
 		loading = true;
 		page = p;
-		const r = await api.get<{ rows: LogRow[]; total: number; page: number }>(`/audit?${buildQuery(p)}`);
+		const r = await api.get<{ rows: LogRow[]; total: number; page: number }>(
+			`/audit?${buildQuery(p)}`
+		);
 		if (r.success) {
 			rows = r.data.rows;
 			total = r.data.total;
@@ -80,7 +87,7 @@
 	async function muatMeta() {
 		const [k, m] = await Promise.all([
 			api.get<KaryawanItem[]>('/audit/karyawan-list'),
-			api.get<string[]>('/audit/modul-list'),
+			api.get<string[]>('/audit/modul-list')
 		]);
 		if (k.success) karyawanList = k.data;
 		if (m.success) modulList = m.data;
@@ -97,11 +104,11 @@
 
 	function exportCsv() {
 		const params = new URLSearchParams();
-		if (filterModul)      params.set('modul', filterModul);
-		if (filterAksi)       params.set('aksi', filterAksi);
+		if (filterModul) params.set('modul', filterModul);
+		if (filterAksi) params.set('aksi', filterAksi);
 		if (filterKaryawanId) params.set('karyawan_id', filterKaryawanId);
-		if (filterDari)       params.set('dari', filterDari);
-		if (filterSampai)     params.set('sampai', filterSampai);
+		if (filterDari) params.set('dari', filterDari);
+		if (filterSampai) params.set('sampai', filterSampai);
 		window.open(`/api/audit/export?${params}`, '_blank');
 	}
 
@@ -121,15 +128,19 @@
 			nonaktifkan: 'NONAKTIFKAN',
 			hapus: 'HAPUS',
 			diskon_tinggi: 'DISKON TINGGI',
-			reset_password: 'RESET PASSWORD',
+			reset_password: 'RESET PASSWORD'
 		};
 		return map[aksi] ?? aksi.toUpperCase().replace(/_/g, ' ');
 	}
 
 	function labelModul(m: string): string {
 		const map: Record<string, string> = {
-			penjualan: 'Penjualan', stok: 'Stok', barang: 'Barang',
-			keuangan: 'Keuangan', karyawan: 'Karyawan', laporan: 'Laporan',
+			penjualan: 'Penjualan',
+			stok: 'Stok',
+			barang: 'Barang',
+			keuangan: 'Keuangan',
+			karyawan: 'Karyawan',
+			laporan: 'Laporan'
 		};
 		return map[m] ?? m;
 	}
@@ -140,8 +151,8 @@
 		{ key: 'modul', label: 'Modul', sortable: false, priority: 2 },
 		{ key: 'aksi_col', label: 'Aksi', sortable: false },
 		{ key: 'detail', label: 'Detail', sortable: false, priority: 3 },
-		{ key: 'ip_address', label: 'IP', sortable: false, priority: 3 },
-	]
+		{ key: 'ip_address', label: 'IP', sortable: false, priority: 3 }
+	];
 
 	const onFilterChange = debounce(() => muat(1), 400);
 
@@ -152,35 +163,45 @@
 	});
 </script>
 
-<div class="space-y-4">
+<svelte:head><title>Audit Log — Stokasir</title></svelte:head>
 
+<div class="space-y-4">
 	<!-- Header -->
-	<div class="flex items-center justify-between flex-wrap gap-2">
+	<div class="flex flex-wrap items-center justify-between gap-2">
 		<div>
 			<p class="text-xs" style="color:var(--text-dim)">Riwayat aktivitas kritis sistem</p>
 		</div>
 		<div class="flex gap-2">
 			<button
 				onclick={exportCsv}
-				class="px-3 py-1.5 rounded border text-xs font-mono"
+				class="rounded border px-3 py-1.5 font-mono text-xs"
 				style="border-color:var(--border);color:var(--text);background:var(--surface)"
 			>
 				Export CSV
 			</button>
-			<a href="/pengaturan" class="px-3 py-1.5 rounded border text-xs font-mono" style="border-color:var(--border);color:var(--text-dim)">
+			<a
+				href="/pengaturan"
+				class="rounded border px-3 py-1.5 font-mono text-xs"
+				style="border-color:var(--border);color:var(--text-dim)"
+			>
 				← Kembali
 			</a>
 		</div>
 	</div>
 
 	<!-- Filter -->
-	<div class="rounded border p-3 flex flex-wrap gap-2 items-end" style="background:var(--surface);border-color:var(--border)">
+	<div
+		class="flex flex-wrap items-end gap-2 rounded border p-3"
+		style="background:var(--surface);border-color:var(--border)"
+	>
 		<div class="flex flex-col gap-1">
-			<Select id="audit-modul" label="Modul"
+			<Select
+				id="audit-modul"
+				label="Modul"
 				bind:value={filterModul}
 				onchange={onFilterChange}
 				placeholder="Semua modul"
-				options={modulList.map(m => ({ value: m, label: labelModul(m) }))}
+				options={modulList.map((m) => ({ value: m, label: labelModul(m) }))}
 			/>
 		</div>
 
@@ -192,31 +213,36 @@
 				bind:value={filterAksi}
 				oninput={onFilterChange}
 				placeholder="cari aksi..."
-				class="px-2 py-1 text-xs rounded border outline-none w-32"
+				class="w-32 rounded border px-2 py-1 text-xs outline-none"
 				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 			/>
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<Select id="audit-karyawan" label="Karyawan"
+			<Select
+				id="audit-karyawan"
+				label="Karyawan"
 				bind:value={filterKaryawanId}
 				onchange={onFilterChange}
 				placeholder="Semua karyawan"
-				options={karyawanList.map(k => ({ value: String(k.id), label: k.nama + ' (' + k.role + ')' }))}
+				options={karyawanList.map((k) => ({
+					value: String(k.id),
+					label: k.nama + ' (' + k.role + ')'
+				}))}
 			/>
 		</div>
 
-		<DateRangePicker2 bind:from={filterDari} bind:to={filterSampai} onchange={onFilterChange} />
+		<DateRangePicker bind:from={filterDari} bind:to={filterSampai} onchange={onFilterChange} />
 
 		<button
 			onclick={reset}
-			class="px-3 py-1 text-xs rounded border"
+			class="rounded border px-3 py-1 text-xs"
 			style="border-color:var(--border);color:var(--text-dim)"
 		>
 			Reset
 		</button>
 
-		<span class="text-xs ml-auto" style="color:var(--text-dim)">
+		<span class="ml-auto text-xs" style="color:var(--text-dim)">
 			{total} entri
 		</span>
 	</div>
@@ -240,18 +266,24 @@
 				{#each rows as row (row.id)}
 					{@const risiko = badgeRisiko(row.aksi)}
 					<tr
-						onclick={() => detailItem = row}
-						class="border-b cursor-pointer font-mono text-xs"
-						style="border-color:var(--border);background:{risiko ? 'color-mix(in srgb,var(--danger) 6%,transparent)' : 'transparent'}"
+						onclick={() => (detailItem = row)}
+						class="cursor-pointer border-b font-mono text-xs"
+						style="border-color:var(--border);background:{risiko
+							? 'color-mix(in srgb,var(--danger) 6%,transparent)'
+							: 'transparent'}"
 					>
 						{#if !hidden.has('waktu')}
-							<td class="px-3 py-2 whitespace-nowrap" style="color:var(--text-dim)">{fmtWaktu(row.waktu)}</td>
+							<td class="px-3 py-2 whitespace-nowrap" style="color:var(--text-dim)"
+								>{fmtWaktu(row.waktu)}</td
+							>
 						{/if}
 						{#if !hidden.has('nama_karyawan')}
 							<td class="px-3 py-2">
 								{#if row.nama_karyawan}
 									<span style="color:var(--text)">{row.nama_karyawan}</span>
-									<span class="ml-1" style="color:var(--text-dim);font-size:10px">[{row.role_karyawan}]</span>
+									<span class="ml-1" style="color:var(--text-dim);font-size:10px"
+										>[{row.role_karyawan}]</span
+									>
 								{:else}
 									<span style="color:var(--text-dim)">—</span>
 								{/if}
@@ -259,7 +291,10 @@
 						{/if}
 						{#if !hidden.has('modul')}
 							<td class="px-3 py-2">
-								<span class="px-1.5 py-0.5 rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">
+								<span
+									class="rounded px-1.5 py-0.5 text-xs"
+									style="background:var(--surface2);color:var(--text-dim)"
+								>
 									{labelModul(row.modul)}
 								</span>
 							</td>
@@ -267,7 +302,10 @@
 						{#if !hidden.has('aksi_col')}
 							<td class="px-3 py-2">
 								{#if risiko}
-									<span class="px-1.5 py-0.5 rounded font-bold text-xs" style="background:color-mix(in srgb,var(--danger) 20%,transparent);color:var(--danger)">
+									<span
+										class="rounded px-1.5 py-0.5 text-xs font-bold"
+										style="background:color-mix(in srgb,var(--danger) 20%,transparent);color:var(--danger)"
+									>
 										⚠ {labelAksi(row.aksi)}
 									</span>
 								{:else}
@@ -276,9 +314,11 @@
 							</td>
 						{/if}
 						{#if !hidden.has('detail')}
-							<td class="px-3 py-2 max-w-xs truncate" style="color:var(--text-dim)">
+							<td class="max-w-xs truncate px-3 py-2" style="color:var(--text-dim)">
 								{#if row.detail_json}
-									{Object.entries(row.detail_json).map(([k, v]) => `${k}: ${v}`).join(' · ')}
+									{Object.entries(row.detail_json)
+										.map(([k, v]) => `${k}: ${v}`)
+										.join(' · ')}
 								{:else if row.referensi_id}
 									ID #{row.referensi_id}
 								{:else}
@@ -301,7 +341,7 @@
 			<button
 				onclick={() => muat(page - 1)}
 				disabled={page <= 1}
-				class="px-3 py-1 rounded border"
+				class="rounded border px-3 py-1"
 				style="border-color:var(--border);color:{page <= 1 ? 'var(--text-dim)' : 'var(--text)'}"
 			>
 				← Prev
@@ -310,8 +350,10 @@
 			<button
 				onclick={() => muat(page + 1)}
 				disabled={page >= totalPages}
-				class="px-3 py-1 rounded border"
-				style="border-color:var(--border);color:{page >= totalPages ? 'var(--text-dim)' : 'var(--text)'}"
+				class="rounded border px-3 py-1"
+				style="border-color:var(--border);color:{page >= totalPages
+					? 'var(--text-dim)'
+					: 'var(--text)'}"
 			>
 				Next →
 			</button>
@@ -323,26 +365,33 @@
 {#if detailItem}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="fixed inset-0 flex items-center justify-center z-50"
+		class="fixed inset-0 z-50 flex items-center justify-center"
 		style="background:rgba(0,0,0,0.6)"
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"
-		onclick={() => detailItem = null}
+		onclick={() => (detailItem = null)}
 		onkeydown={(e) => e.key === 'Escape' && (detailItem = null)}
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="rounded border max-w-lg w-full mx-4 overflow-hidden"
+			class="mx-4 w-full max-w-lg overflow-hidden rounded border"
 			style="background:var(--surface);border-color:var(--border)"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 		>
-			<div class="flex items-center justify-between px-4 py-3 border-b" style="border-color:var(--border)">
+			<div
+				class="flex items-center justify-between border-b px-4 py-3"
+				style="border-color:var(--border)"
+			>
 				<span class="text-sm font-bold" style="color:var(--text)">Detail Log #{detailItem.id}</span>
-				<button onclick={() => detailItem = null} class="text-lg leading-none" style="color:var(--text-dim)">×</button>
+				<button
+					onclick={() => (detailItem = null)}
+					class="text-lg leading-none"
+					style="color:var(--text-dim)">×</button
+				>
 			</div>
-			<div class="p-4 space-y-3 text-xs font-mono">
+			<div class="space-y-3 p-4 font-mono text-xs">
 				<div class="grid grid-cols-2 gap-2">
 					<div>
 						<div style="color:var(--text-dim)">Waktu</div>
@@ -350,7 +399,10 @@
 					</div>
 					<div>
 						<div style="color:var(--text-dim)">Karyawan</div>
-						<div style="color:var(--text)">{detailItem.nama_karyawan ?? '—'} {detailItem.role_karyawan ? `[${detailItem.role_karyawan}]` : ''}</div>
+						<div style="color:var(--text)">
+							{detailItem.nama_karyawan ?? '—'}
+							{detailItem.role_karyawan ? `[${detailItem.role_karyawan}]` : ''}
+						</div>
 					</div>
 					<div>
 						<div style="color:var(--text-dim)">Modul</div>
@@ -358,7 +410,11 @@
 					</div>
 					<div>
 						<div style="color:var(--text-dim)">Aksi</div>
-						<div style="color:{badgeRisiko(detailItem.aksi) ? 'var(--danger)' : 'var(--text)'};font-weight:700">
+						<div
+							style="color:{badgeRisiko(detailItem.aksi)
+								? 'var(--danger)'
+								: 'var(--text)'};font-weight:700"
+						>
 							{badgeRisiko(detailItem.aksi) ? '⚠ ' : ''}{labelAksi(detailItem.aksi)}
 						</div>
 					</div>
@@ -379,7 +435,7 @@
 				{#if detailItem.detail_json}
 					<div>
 						<div class="mb-1" style="color:var(--text-dim)">Detail Perubahan</div>
-						<div class="p-3 rounded" style="background:var(--surface2);color:var(--text)">
+						<div class="rounded p-3" style="background:var(--surface2);color:var(--text)">
 							{#each Object.entries(detailItem.detail_json) as [k, v] (k)}
 								<div class="flex gap-2">
 									<span style="color:var(--text-dim);min-width:120px">{k}:</span>

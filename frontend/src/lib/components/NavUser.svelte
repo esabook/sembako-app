@@ -5,6 +5,10 @@
 	import { user } from '$lib/stores/auth.js';
 	import { temaSkin, temaMode, MODE_LIST, SKIN_LIST } from '$lib/stores/tema.js';
 	import { onMount } from 'svelte';
+	import Fullscreen from '@lucide/svelte/icons/fullscreen';
+	import Shrink from '@lucide/svelte/icons/shrink';
+	import ScanBarcode from '@lucide/svelte/icons/scan-barcode';
+	import Lightbulb from '@lucide/svelte/icons/lightbulb';
 
 	let buka = $state(false);
 	let ref: HTMLDivElement;
@@ -132,10 +136,10 @@
 						href="/scanner"
 						onclick={() => (buka = false)}
 						class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors"
-						style="color:var(--accent)"
+						style="color:var(--text-dim)"
 					>
 						<span>Mode Scanner</span>
-						<span>📷</span>
+						<ScanBarcode size="1rem" />
 					</a>
 				{/if}
 				<button
@@ -144,7 +148,11 @@
 					style="color:var(--text-dim)"
 				>
 					<span>{isFullscreen ? 'Keluar Fullscreen' : 'Fullscreen'}</span>
-					<span>{isFullscreen ? '⊠' : '⊡'}</span>
+					{#if isFullscreen}
+						<Shrink size="1rem" />
+					{:else}
+						<Fullscreen size="1rem" />
+					{/if}
 				</button>
 
 				<!-- Tombol panduan -->
@@ -155,7 +163,7 @@
 					style="color:var(--text-dim)"
 				>
 					<span>Panduan Penggunaan</span>
-					<span>❓</span>
+					<Lightbulb size="1rem" />
 				</a>
 
 				<button

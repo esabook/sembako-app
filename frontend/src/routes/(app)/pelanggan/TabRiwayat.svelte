@@ -5,7 +5,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Badge from '$lib/components/ui/Badge.svelte';
 	import EmptyState from '$lib/components/data/EmptyState.svelte';
-	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
+	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 
 	let {
 		pelangganId = null,
@@ -254,7 +254,7 @@
 
 		<!-- Filter -->
 		<div class="flex flex-wrap items-center gap-2">
-			<DateRangePicker2 bind:from={dari} bind:to={sampai} onchange={() => muat()} />
+			<DateRangePicker bind:from={dari} bind:to={sampai} onchange={() => muat()} />
 			{#if dari || sampai}
 				<Button
 					variant="ghost"

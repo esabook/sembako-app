@@ -2,7 +2,7 @@
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
-	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
+	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import { user } from '$lib/stores/auth.js';
 	import type { createKaryawanStore } from '../karyawan.store.svelte.js';
 
@@ -18,7 +18,7 @@
 <div class="mb-3 flex flex-wrap items-end gap-2">
 	<Select
 		bind:value={store.izinKaryawanId}
-		options={store.karyawanList.map(k => ({ value: String(k.id), label: k.nama }))}
+		options={store.karyawanList.map((k) => ({ value: String(k.id), label: k.nama }))}
 		placeholder="Semua Karyawan"
 		standalone
 	/>
@@ -123,7 +123,7 @@
 					<Select
 						id="fi-karyw"
 						bind:value={store.fIzinKaryawanId}
-						options={store.karyawanList.map(k => ({ value: String(k.id), label: k.nama }))}
+						options={store.karyawanList.map((k) => ({ value: String(k.id), label: k.nama }))}
 						placeholder="-- Saya Sendiri --"
 					/>
 				</div>
@@ -144,7 +144,11 @@
 					{/each}
 				</div>
 			</div>
-			<DateRangePicker2 label="Periode Izin" bind:from={store.fIzinMulai} bind:to={store.fIzinSelesai} />
+			<DateRangePicker
+				label="Periode Izin"
+				bind:from={store.fIzinMulai}
+				bind:to={store.fIzinSelesai}
+			/>
 			<div class="flex flex-col gap-1">
 				<label for="fi-alasan" class="text-xs" style="color:var(--text-dim)">ALASAN</label>
 				<textarea

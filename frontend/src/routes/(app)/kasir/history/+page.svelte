@@ -11,7 +11,7 @@
 	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
 	import { rupiah } from '../kasir.logic';
 	import Button from '$lib/components/ui/Button.svelte';
-	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
+	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		fetchHistoriPenjualan,
@@ -222,7 +222,7 @@
 		class="flex shrink-0 flex-wrap items-center gap-3 border-b py-3"
 		style="border-color:var(--border)"
 	>
-		<DateRangePicker2 bind:from={historiDari} bind:to={historiSampai} />
+		<DateRangePicker bind:from={historiDari} bind:to={historiSampai} />
 		<button
 			onclick={muatHistori}
 			disabled={historiLoading}
