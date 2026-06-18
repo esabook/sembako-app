@@ -67,6 +67,12 @@
   outline: none;
 }
 
+.btn {
+  --depth: 0;
+  border: none;
+  box-shadow: none !important;
+}
+
 /* ─── Base ──────────────────────────────────────── */
 body {
   background-color: var(--bg);

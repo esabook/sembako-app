@@ -409,20 +409,21 @@ disabled     boolean        // default false
 
 ---
 
-## ui/DateRangePicker.svelte
+## ui/daterangepicker/daterangepicker.svelte
 
-Picker berbasis bits-ui RangeCalendar + Popover. Format nilai: `YYYY-MM-DD`.
+Picker dengan template preset + custom range. Full custom calendar grid (tanpa cally/bits-ui). Format nilai: `YYYY-MM-DD`.
 
 ```ts
 from         $bindable('')
 to           $bindable('')
-label        string | null  // default null
-placeholder  string         // default 'Pilih rentang tanggal'
-disabled     boolean        // default false
+onchange     () => void  // optional
 ```
 
+Templates: `Last 90 days`, `Last 30 days`, `Last 7 days`, `Last 24 hours`, `Last 12 hours`, `Last 60 minutes`.
+Template preset langsung apply dan tutup popup. Custom range perlu klik Apply.
+
 ```svelte
-<DateRangePicker bind:from bind:to label="Periode" />
+<DateRangePicker3 bind:from bind:to onchange={() => muat()} />
 ```
 
 ---
