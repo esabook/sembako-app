@@ -2,6 +2,7 @@
   import DataTable from '$lib/components/DataTable.svelte'
   import Select from '$lib/components/ui/Select.svelte'
   import { fmt, tglFmt, kolJurnal } from '../keuangan.logic'
+  import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte'
   import type { createKeuanganStore } from '../keuangan.store.svelte'
 
   let { store }: { store: ReturnType<typeof createKeuanganStore> } = $props()
@@ -9,16 +10,7 @@
 
 <!-- Filter -->
 <div style="display:flex; gap:.6rem; margin-bottom:.75rem; flex-wrap:wrap; align-items:flex-end">
-  <div>
-    <div style="font-size:.68rem; color:var(--text-dim); margin-bottom:.2rem">Dari</div>
-    <input type="date" bind:value={store.filterDari} onchange={() => store.muatJurnal()}
-      style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem" />
-  </div>
-  <div>
-    <div style="font-size:.68rem; color:var(--text-dim); margin-bottom:.2rem">Sampai</div>
-    <input type="date" bind:value={store.filterSampai} onchange={() => store.muatJurnal()}
-      style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.8rem" />
-  </div>
+  <DateRangePicker2 bind:from={store.filterDari} bind:to={store.filterSampai} onchange={() => store.muatJurnal()} />
   <div>
     <div style="font-size:.68rem; color:var(--text-dim); margin-bottom:.2rem">Akun</div>
     <Select bind:value={store.filterKasBankId} onchange={() => store.muatJurnal()}

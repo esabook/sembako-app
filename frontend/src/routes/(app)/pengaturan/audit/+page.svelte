@@ -10,6 +10,7 @@
 	import { debounce } from '$lib/utils/async.js';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
 
 	type LogRow = {
 		id: number;
@@ -205,29 +206,7 @@
 			/>
 		</div>
 
-		<div class="flex flex-col gap-1">
-			<label for="audit-dari" class="text-xs" style="color:var(--text-dim)">Dari</label>
-			<input
-				id="audit-dari"
-				type="date"
-				bind:value={filterDari}
-				onchange={onFilterChange}
-				class="px-2 py-1 text-xs rounded border outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-			/>
-		</div>
-
-		<div class="flex flex-col gap-1">
-			<label for="audit-sampai" class="text-xs" style="color:var(--text-dim)">Sampai</label>
-			<input
-				id="audit-sampai"
-				type="date"
-				bind:value={filterSampai}
-				onchange={onFilterChange}
-				class="px-2 py-1 text-xs rounded border outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-			/>
-		</div>
+		<DateRangePicker2 bind:from={filterDari} bind:to={filterSampai} onchange={onFilterChange} />
 
 		<button
 			onclick={reset}

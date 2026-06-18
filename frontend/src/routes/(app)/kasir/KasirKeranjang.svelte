@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition'
+	import { slide } from 'svelte/transition';
 	import {
 		keranjang,
 		itemAktifIdx,
@@ -110,7 +110,7 @@
 				</button>
 			</div>
 		{:else}
-			<div class="overflow-x-auto">
+			<div class="h-full overflow-x-auto">
 				<table class="min-w-full text-sm">
 					<thead
 						class="sticky top-0 border-b"
@@ -290,7 +290,7 @@
 
 	<!-- Bottom bar -->
 	<div
-		class="flex shrink-0 flex-col gap-2 border-t px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-4"
+		class="flex shrink-0 flex-col gap-2 px-4 py-3 md:flex-row md:items-center md:justify-between md:gap-4"
 		style="border-color:var(--border)"
 	>
 		<!-- Totals: tampil di atas di HP, kanan di desktop -->

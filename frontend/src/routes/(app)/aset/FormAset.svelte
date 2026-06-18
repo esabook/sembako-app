@@ -1,6 +1,7 @@
 <script lang="ts">
   import SlideOver from '$lib/components/SlideOver.svelte'
   import Select from '$lib/components/ui/Select.svelte'
+  import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
   import { KONDISI_LABEL, KATEGORI_LIST } from './aset.logic.js'
   import type { AsetStore } from './aset.store.svelte.js'
 
@@ -41,12 +42,7 @@
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>
-      <div class="flex flex-col gap-1">
-        <label for="fa-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL BELI</label>
-        <input id="fa-tgl" type="date" bind:value={store.fAsetTanggal}
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
+      <DatePicker2 label="TANGGAL BELI" bind:value={store.fAsetTanggal} />
       <div class="flex flex-col gap-1">
         <label for="fa-lokasi" class="text-xs" style="color:var(--text-dim)">LOKASI</label>
         <input id="fa-lokasi" bind:value={store.fAsetLokasi} placeholder="mis. Kasir, Gudang"

@@ -3,6 +3,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { createKunjunganStore } from '../sales.store.svelte.js';
 	import { TUJUAN_LABEL, STATUS_K_COLOR } from '../sales.logic.js';
@@ -110,17 +111,7 @@
 				/>
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				<div class="flex flex-col gap-1">
-					<label for="fk-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL *</label>
-					<input
-						id="fk-tgl"
-						type="date"
-						bind:value={store.fTanggal}
-						required
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
-				</div>
+				<DatePicker2 label="TANGGAL *" bind:value={store.fTanggal} />
 				<div class="flex flex-col gap-1">
 					<label for="fk-tujuan" class="text-xs" style="color:var(--text-dim)">TUJUAN</label>
 					<Select

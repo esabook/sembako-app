@@ -2,6 +2,7 @@
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 	import { user } from '$lib/stores/auth.js';
 	import type { createKaryawanStore } from '../karyawan.store.svelte.js';
 	import { rp } from '../karyawan.logic.js';
@@ -165,17 +166,7 @@
 						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 					/>
 				</div>
-				<div class="flex flex-col gap-1">
-					<label for="fsi-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL *</label>
-					<input
-						id="fsi-tgl"
-						type="date"
-						bind:value={store.fSiTanggal}
-						required
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
-				</div>
+				<DatePicker2 label="TANGGAL *" bind:value={store.fSiTanggal} />
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="fsi-bulan" class="text-xs" style="color:var(--text-dim)">PERIODE BULAN *</label>

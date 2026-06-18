@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { user } from '$lib/stores/auth.js';
 	import { createTugasStore } from './tugas.store.svelte';
 	import { page } from '$app/state';
@@ -17,7 +16,7 @@
 	const isManager = $derived($user?.role === 'pemilik' || $user?.role === 'manajer');
 
 	const tab = $derived<'harian' | 'template'>(
-		(page.url.searchParams.get('tab') as any) ?? 'harian'
+		(page.url.searchParams.get('tab') as any) ?? store.tab ?? 'harian'
 	);
 
 	const TABS = [

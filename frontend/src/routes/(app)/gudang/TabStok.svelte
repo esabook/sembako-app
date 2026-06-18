@@ -10,6 +10,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import SearchInput from '$lib/components/data/SearchInput.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
 
 	type StokItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; lokasi_rak: string | null; nama_kategori: string | null; singkatan_satuan: string | null; };
 	type MutasiItem = {
@@ -181,13 +182,7 @@
 	<div class="space-y-3">
 		<!-- Filter tanggal -->
 		<div class="flex flex-wrap gap-2 items-center">
-			<input type="date" bind:value={mutasiDari}
-				class="rounded border px-2 py-1 text-xs outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-			<span class="text-xs" style="color:var(--text-dim)">s/d</span>
-			<input type="date" bind:value={mutasiSampai}
-				class="rounded border px-2 py-1 text-xs outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+			<DateRangePicker2 bind:from={mutasiDari} bind:to={mutasiSampai} />
 			<Button size="sm" onclick={filterMutasi}>Filter</Button>
 			{#if mutasiDari || mutasiSampai}
 				<Button variant="dim" size="xs" onclick={() => { mutasiDari = ''; mutasiSampai = ''; filterMutasi(); }}>Reset</Button>

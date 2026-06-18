@@ -2,6 +2,7 @@
   import SlideOver from '$lib/components/SlideOver.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Select from '$lib/components/ui/Select.svelte'
+  import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
   import { KATEGORI_LABEL } from './crm.logic.js'
   import type { CrmStore } from './crm.store.svelte.js'
 
@@ -28,12 +29,7 @@
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>
-      <div class="flex flex-col gap-1">
-        <label for="fk-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL *</label>
-        <input id="fk-tgl" type="date" bind:value={store.fKTanggal} required
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
+      <DatePicker2 label="TANGGAL *" bind:value={store.fKTanggal} />
     </div>
     {#if store.kError}<p class="text-xs" style="color:var(--danger)">{store.kError}</p>{/if}
     <div class="flex justify-end gap-2 mt-1">

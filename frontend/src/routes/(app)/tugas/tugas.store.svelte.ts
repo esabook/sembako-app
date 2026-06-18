@@ -11,6 +11,7 @@ export function createTugasStore() {
 	const loading = $state(false)
 
 	// form template
+	let tab = $state('harian') // 'harian' | 'template'	
 	let formOpen = $state(false)
 	let editItem = $state<Item | null>(null)
 	let form = $state<TemplateForm>({ nama: '', kategori: 'kebersihan', urutan: '0' })

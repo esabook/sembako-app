@@ -1,6 +1,7 @@
 <script lang="ts">
   import SlideOver from '$lib/components/SlideOver.svelte'
   import Button from '$lib/components/ui/Button.svelte'
+  import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
   import type { CrmStore } from './crm.store.svelte.js'
 
   let { store }: { store: CrmStore } = $props()
@@ -28,11 +29,8 @@
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>
-      <div class="flex flex-col gap-1 col-span-2">
-        <label for="fp-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL *</label>
-        <input id="fp-tgl" type="date" bind:value={store.fPTanggal} required
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      <div class="col-span-2">
+        <DatePicker2 label="TANGGAL *" bind:value={store.fPTanggal} />
       </div>
     </div>
     <div class="flex flex-col gap-1">

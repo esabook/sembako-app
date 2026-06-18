@@ -1,12 +1,13 @@
 <script lang="ts">
-	import type { createTugasStore } from '../tugas.store.svelte'
-	import DatePicker from '$lib/components/ui/DatePicker.svelte'
-	import Button from '$lib/components/ui/Button.svelte'
-	import EmptyState from '$lib/components/data/EmptyState.svelte'
-	import Spinner from '$lib/components/ui/Spinner.svelte'
+	import type { createTugasStore } from '../tugas.store.svelte';
+	import { goto } from '$app/navigation';
+	import DatePicker from '$lib/components/ui/DatePicker2.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	let { store, isManager }: { store: ReturnType<typeof createTugasStore>; isManager: boolean } =
-		$props()
+		$props();
 </script>
 
 <!-- Header: tanggal + progress -->
@@ -31,7 +32,12 @@
 	<EmptyState pesan="Belum ada item tugas.">
 		{#snippet aksi()}
 			{#if isManager}
-				<Button variant="ghost" size="sm" onclick={() => (store.tab = 'template')}>
+				<Button
+					variant="ghost"
+					size="sm"
+					onclick={() =>
+						goto('?tab=template', { replaceState: true, keepFocus: true, noScroll: true })}
+				>
 					Tambah item di tab Kelola Item
 				</Button>
 			{/if}
@@ -56,13 +62,7 @@
 							: 'background:transparent;border-color:var(--border)'}
 					>
 						{#if row.selesai}
-							<svg
-								class="h-4 w-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="white"
-								stroke-width="3"
-							>
+							<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="3">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 							</svg>
 						{/if}

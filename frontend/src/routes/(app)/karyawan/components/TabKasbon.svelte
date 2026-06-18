@@ -2,6 +2,7 @@
   import DataTable from '$lib/components/DataTable.svelte'
   import SlideOver from '$lib/components/SlideOver.svelte'
   import Select from '$lib/components/ui/Select.svelte'
+  import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
   import type { createKaryawanStore } from '../karyawan.store.svelte.js'
   import { STATUS_KB, rp } from '../karyawan.logic.js'
 
@@ -109,12 +110,7 @@
           options={store.karyawanList.map(k => ({ value: String(k.id), label: k.nama }))}
           placeholder="-- Pilih --" />
       </div>
-      <div class="flex flex-col gap-1">
-        <label for="fk-tgl" class="text-xs" style="color:var(--text-dim)">TGL PINJAM *</label>
-        <input id="fk-tgl" type="date" bind:value={store.formKasbon.tanggal_pinjam} required
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
-      </div>
+      <DatePicker2 label="TGL PINJAM *" bind:value={store.formKasbon.tanggal_pinjam} />
       <div class="flex flex-col gap-1">
         <label for="fk-jml" class="text-xs" style="color:var(--text-dim)">JUMLAH *</label>
         <input id="fk-jml" type="number" min="1" bind:value={store.formKasbon.jumlah} required

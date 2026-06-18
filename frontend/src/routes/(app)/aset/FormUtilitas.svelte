@@ -1,6 +1,7 @@
 <script lang="ts">
   import SlideOver from '$lib/components/SlideOver.svelte'
   import Select from '$lib/components/ui/Select.svelte'
+  import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
   import { JENIS_LABEL, JENIS_ICON } from './aset.logic.js'
   import type { AsetStore } from './aset.store.svelte.js'
   import type { TagihanRow } from './aset.types.js'
@@ -30,11 +31,8 @@
           class="px-2 py-1 rounded border outline-none"
           style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
       </div>
-      <div class="flex flex-col gap-1 col-span-2">
-        <label for="fu-bayar" class="text-xs" style="color:var(--text-dim)">TANGGAL BAYAR</label>
-        <input id="fu-bayar" type="date" bind:value={store.fUtTanggalBayar}
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      <div class="col-span-2">
+        <DatePicker2 label="TANGGAL BAYAR" bind:value={store.fUtTanggalBayar} />
       </div>
     </div>
     {#if store.fUtJenis === 'listrik' || store.fUtJenis === 'air'}

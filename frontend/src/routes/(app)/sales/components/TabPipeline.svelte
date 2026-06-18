@@ -3,6 +3,7 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 	import type { createPipelineStore } from '../sales.store.svelte.js';
 	import { TAHAP_ORDER, TAHAP_COLOR } from '../sales.logic.js';
 
@@ -141,17 +142,7 @@
 					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 				/>
 			</div>
-			<div class="flex flex-col gap-1">
-				<label for="fp-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL MASUK *</label>
-				<input
-					id="fp-tgl"
-					type="date"
-					bind:value={store.fTanggal}
-					required
-					class="rounded border px-2 py-1 outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-				/>
-			</div>
+			<DatePicker2 label="TANGGAL MASUK *" bind:value={store.fTanggal} />
 			<div class="flex flex-col gap-1">
 				<span class="text-xs" style="color:var(--text-dim)">TAHAP</span>
 				<div class="flex flex-wrap gap-1">

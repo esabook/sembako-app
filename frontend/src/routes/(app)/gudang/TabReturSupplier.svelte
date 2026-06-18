@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api.js';
 	import SlideOver from '$lib/components/SlideOver.svelte';
-	import DateRangePicker from '$lib/components/ui/DateRangePicker.svelte';
+	import DateRangePicker from '$lib/components/ui/DateRangePicker2.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -390,7 +390,16 @@
 			>
 			<Select
 				bind:value={fBmId}
-				options={bmList.map(bm => ({ value: String(bm.id), label: bm.no_penerimaan + ' — ' + (bm.nama_supplier ?? '-') + ' (' + (bm.tanggal_terima?.slice(0, 10) ?? '') + ')' }))}
+				options={bmList.map((bm) => ({
+					value: String(bm.id),
+					label:
+						bm.no_penerimaan +
+						' — ' +
+						(bm.nama_supplier ?? '-') +
+						' (' +
+						(bm.tanggal_terima?.slice(0, 10) ?? '') +
+						')'
+				}))}
 				placeholder="-- Pilih --"
 				onchange={onBmChange}
 			/>
@@ -456,7 +465,10 @@
 				>
 				<Select
 					bind:value={fHutangId}
-					options={hutangList.map(h => ({ value: String(h.id), label: '#' + h.id + ' — sisa ' + rupiah(h.sisa_hutang) }))}
+					options={hutangList.map((h) => ({
+						value: String(h.id),
+						label: '#' + h.id + ' — sisa ' + rupiah(h.sisa_hutang)
+					}))}
 					placeholder="-- Pilih hutang --"
 				/>
 			</div>
@@ -467,7 +479,10 @@
 				>
 				<Select
 					bind:value={fKasBankId}
-					options={kasList.map(k => ({ value: String(k.id), label: k.nama + ' (' + k.tipe + ')' }))}
+					options={kasList.map((k) => ({
+						value: String(k.id),
+						label: k.nama + ' (' + k.tipe + ')'
+					}))}
 					placeholder="-- Pilih --"
 				/>
 			</div>

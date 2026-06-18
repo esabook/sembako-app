@@ -9,6 +9,7 @@
 	import { rupiah } from '$lib/utils/format';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 
 	type Supplier = { id: number; nama_supplier: string; is_active: boolean };
 	type PORow = {
@@ -201,16 +202,7 @@
 						placeholder="— pilih —"
 					/>
 				</div>
-				<div class="flex flex-col gap-1">
-					<label for="po-eta" class="text-xs" style="color:var(--text-dim)">EST. DATANG</label>
-					<input
-						id="po-eta"
-						type="date"
-						bind:value={poEta}
-						class="rounded border px-2 py-1.5 text-sm outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
-				</div>
+				<DatePicker2 label="EST. DATANG" bind:value={poEta} />
 				<div class="flex items-end">
 					{#if suggestList.length > 0}
 						<Button variant="ghost" size="sm" onclick={isiDariSuggest}

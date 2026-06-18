@@ -1,14 +1,8 @@
-<svelte:head><title>Kasir — Stokasir</title></svelte:head>
-
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		keranjang,
-		itemAktifIdx,
-		initKasirMode
-	} from '$lib/stores/kasir';
+	import { keranjang, itemAktifIdx, initKasirMode } from '$lib/stores/kasir';
 	import {
 		// state
 		searchVal,
@@ -44,24 +38,21 @@
 	import { toast } from '$lib/stores/ui.store';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { tinykeys } from 'tinykeys';
-	import {
-		fetchStokMenipis,
-		type StokMenipis
-	} from './kasir.api';
+	import { fetchStokMenipis, type StokMenipis } from './kasir.api';
 	import type { ShiftAktif } from './kasir.types';
 
 	// ── ConfirmDialog hapus item keranjang ────────────────────────────────────
 	let konfirmasiHapusOpen = $derived($konfirmasiHapusIdx !== null);
 
 	// ── Pengaturan toko (dipakai cetakStrukHistori + KasirCheckout) ───────────
-	let namaToko  = $state('Stokasir');
+	let namaToko = $state('Stokasir');
 	let alamatToko = $state('');
-	let strHeader  = $state('');
-	let strFooter  = $state('Terima kasih sudah berbelanja!');
-	let strUkuran  = $state('80');
-	let strCopy         = $state('1');
-	let autoCetak       = $state(false);
-	let printerMode     = $state('browser');
+	let strHeader = $state('');
+	let strFooter = $state('Terima kasih sudah berbelanja!');
+	let strUkuran = $state('80');
+	let strCopy = $state('1');
+	let autoCetak = $state(false);
+	let printerMode = $state('browser');
 	let printerBridgePort = $state('9999');
 
 	// Reset confirm
@@ -73,7 +64,6 @@
 	// ── DOM refs ──────────────────────────────────────────────────────────────
 	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
 
-
 	// ── Stok menipis ─────────────────────────────────────────────────────────
 	let stokMenipis = $state<StokMenipis[]>([]);
 	let stokAlertDismissed = $state(false);
@@ -83,7 +73,11 @@
 	$effect(() => {
 		if ($snap) {
 			stokAlertDismissed = false;
-			fetchStokMenipis().then((d) => { stokMenipis = d; }).catch(() => {});
+			fetchStokMenipis()
+				.then((d) => {
+					stokMenipis = d;
+				})
+				.catch(() => {});
 		}
 	});
 
@@ -96,9 +90,8 @@
 		showHelp = false;
 	}
 
-	const inInput = () => ['INPUT', 'TEXTAREA'].includes(
-		(document.activeElement as HTMLElement)?.tagName ?? ''
-	);
+	const inInput = () =>
+		['INPUT', 'TEXTAREA'].includes((document.activeElement as HTMLElement)?.tagName ?? '');
 
 	// Barcode scanner: timing < 50ms antar karakter — tidak bisa pakai tinykeys
 	function setupBarcodeDetector(): () => void {
@@ -140,12 +133,18 @@
 
 	async function bukaBukaShift() {
 		await muatShiftAktif();
-		if (shiftAktif) { toast.warn('Shift hari ini sudah dibuka'); return; }
+		if (shiftAktif) {
+			toast.warn('Shift hari ini sudah dibuka');
+			return;
+		}
 		modalBukaShift = true;
 	}
 
 	function bukaTutupShift() {
-		if (!shiftAktif) { toast.warn('Buka shift terlebih dahulu'); return; }
+		if (!shiftAktif) {
+			toast.warn('Buka shift terlebih dahulu');
+			return;
+		}
 		modalTutupShift = true;
 	}
 
@@ -165,58 +164,73 @@
 		void loadPromoAktif();
 		void restoreDraft();
 		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
-		muatShiftAktif().then(() => { if (!shiftAktif) modalBukaShift = true });
-		fetchStokMenipis().then((d) => { stokMenipis = d; }).catch(() => {});
+		muatShiftAktif().then(() => {
+			if (!shiftAktif) modalBukaShift = true;
+		});
+		fetchStokMenipis()
+			.then((d) => {
+				stokMenipis = d;
+			})
+			.catch(() => {});
 		void api.get<Record<string, string>>('/pengaturan').then((res) => {
 			if (!res.success) return;
 			const s = res.data;
-			if (s.nama_toko)    namaToko   = s.nama_toko;
-			if (s.alamat)       alamatToko = s.alamat;
-			if (s.struk_header) strHeader  = s.struk_header;
-			if (s.struk_footer) strFooter  = s.struk_footer;
-			if (s.struk_ukuran) strUkuran  = s.struk_ukuran;
-			if (s.struk_copy)         strCopy           = s.struk_copy;
-			autoCetak                                   = s.auto_cetak === 'true';
-			if (s.printer_mode)       printerMode       = s.printer_mode;
+			if (s.nama_toko) namaToko = s.nama_toko;
+			if (s.alamat) alamatToko = s.alamat;
+			if (s.struk_header) strHeader = s.struk_header;
+			if (s.struk_footer) strFooter = s.struk_footer;
+			if (s.struk_ukuran) strUkuran = s.struk_ukuran;
+			if (s.struk_copy) strCopy = s.struk_copy;
+			autoCetak = s.auto_cetak === 'true';
+			if (s.printer_mode) printerMode = s.printer_mode;
 			if (s.printer_bridge_port) printerBridgePort = s.printer_bridge_port;
 		});
 		const cleanupDraft = initDraftSync();
 		// barcode detector harus didaftarkan SEBELUM tinykeys agar stopImmediatePropagation bekerja
 		const cleanupBarcode = setupBarcodeDetector();
 		const cleanupKeys = tinykeys(window, {
-			'F1': (e) => {
+			F1: (e) => {
 				e.preventDefault();
-				if (showHelp) { showHelp = false; return; }
+				if (showHelp) {
+					showHelp = false;
+					return;
+				}
 				closeAll();
 				showHelp = true;
 			},
-			'F3': (e) => {
+			F3: (e) => {
 				e.preventDefault();
 				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
-				if ($popupSearch) { closeSearch(); return; }
+				if ($popupSearch) {
+					closeSearch();
+					return;
+				}
 				closeAll();
 				openSearch();
 			},
-			'F7': (e) => {
+			F7: (e) => {
 				e.preventDefault();
 				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
 				closeAll();
 				void goto('/kasir/history');
 			},
-			'F8': (e) => {
+			F8: (e) => {
 				e.preventDefault();
 				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
 				closeAll();
 				void goto('/kasir/retur');
 			},
-			'F10': (e) => {
+			F10: (e) => {
 				e.preventDefault();
 				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
 				if ($keranjang.length === 0) return;
-				if ($popupCheckout) { tutupCheckout(); return; }
+				if ($popupCheckout) {
+					tutupCheckout();
+					return;
+				}
 				handleProsesBayar();
 			},
-			'F11': (e) => {
+			F11: (e) => {
 				e.preventDefault();
 				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
 				if (modalBukaShift || modalTutupShift) {
@@ -228,71 +242,98 @@
 				if (shiftAktif) bukaTutupShift();
 				else void bukaBukaShift();
 			},
-			'F12': (e) => {
+			F12: (e) => {
 				e.preventDefault();
 				if (konfirmasiReset || $konfirmasiHapusIdx !== null) return;
 				if ($keranjang.length === 0) return;
 				closeAll();
 				konfirmasiReset = true;
 			},
-			'Escape': (e) => {
+			Escape: (e) => {
 				e.preventDefault();
-				if (showHelp) { showHelp = false; return; }
-				if ($qrLarge) { qrLarge.set(false); return; }
-				if ($popupCheckout) { tutupCheckout(); return; }
-				if ($popupSearch) { closeSearch(); return; }
-				if (modalBukaShift) { modalBukaShift = false; return; }
-				if (modalTutupShift) { modalTutupShift = false; return; }
+				if (showHelp) {
+					showHelp = false;
+					return;
+				}
+				if ($qrLarge) {
+					qrLarge.set(false);
+					return;
+				}
+				if ($popupCheckout) {
+					tutupCheckout();
+					return;
+				}
+				if ($popupSearch) {
+					closeSearch();
+					return;
+				}
+				if (modalBukaShift) {
+					modalBukaShift = false;
+					return;
+				}
+				if (modalTutupShift) {
+					modalTutupShift = false;
+					return;
+				}
 			},
-			'ArrowUp': (e) => {
+			ArrowUp: (e) => {
 				if (inInput() || $popupSearch || $popupCheckout) return;
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0) return;
 				e.preventDefault();
 				itemAktifIdx.update((i) => Math.max(i - 1, 0));
 			},
-			'ArrowDown': (e) => {
+			ArrowDown: (e) => {
 				if (inInput() || $popupSearch || $popupCheckout) return;
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0) return;
 				e.preventDefault();
 				itemAktifIdx.update((i) => Math.min(i < 0 ? 0 : i + 1, $keranjang.length));
 			},
-			'ArrowLeft': (e) => {
+			ArrowLeft: (e) => {
 				if (inInput() || $popupSearch || $popupCheckout) return;
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
 				e.preventDefault();
-				if ($itemAktifIdx === $keranjang.length) { dummyJumlah.update((n: number) => Math.max(1, n - 1)); return; }
+				if ($itemAktifIdx === $keranjang.length) {
+					dummyJumlah.update((n: number) => Math.max(1, n - 1));
+					return;
+				}
 				const cur = $keranjang[$itemAktifIdx];
 				if (cur && cur.jumlah <= 1) konfirmasiHapusIdx.set($itemAktifIdx);
 				else ubahJumlah($itemAktifIdx, -1);
 			},
-			'ArrowRight': (e) => {
+			ArrowRight: (e) => {
 				if (inInput() || $popupSearch || $popupCheckout) return;
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
 				e.preventDefault();
-				if ($itemAktifIdx === $keranjang.length) { dummyJumlah.update((n: number) => n + 1); return; }
+				if ($itemAktifIdx === $keranjang.length) {
+					dummyJumlah.update((n: number) => n + 1);
+					return;
+				}
 				ubahJumlah($itemAktifIdx, 1);
 			},
-			'Enter': (e) => {
+			Enter: (e) => {
 				if (inInput() || $popupSearch || $popupCheckout) return;
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0 || $itemAktifIdx < 0) return;
 				e.preventDefault();
-				if ($itemAktifIdx === $keranjang.length) { openSearch(); return; }
+				if ($itemAktifIdx === $keranjang.length) {
+					openSearch();
+					return;
+				}
 				const el = diskonInputRefs[$itemAktifIdx];
 				el?.focus();
 				el?.select();
 			},
-			'Delete': (e) => {
+			Delete: (e) => {
 				if (inInput() || $popupSearch || $popupCheckout) return;
 				if ($konfirmasiHapusIdx !== null || konfirmasiReset) return;
 				if ($keranjang.length === 0) return;
 				e.stopPropagation();
 				konfirmasiHapusIdx.set($itemAktifIdx);
-			},
+			}
 		});
 		return () => {
 			cleanupKasirScan();
@@ -303,36 +344,44 @@
 	});
 </script>
 
-<div class="flex h-full flex-col">
-<!-- ─── Alert stok menipis ────────────────────────────────────────────────── -->
-{#if stokMenipis.length > 0 && !stokAlertDismissed}
-	<div
-		class="flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2 text-sm"
-		style="background:color-mix(in srgb,var(--warn) 12%,var(--surface));border-color:var(--warn);color:var(--text)"
-	>
-		<div class="flex min-w-0 items-center gap-2">
-			<span class="shrink-0 font-bold" style="color:var(--warn)">⚠ Stok menipis</span>
-			<span class="truncate" style="color:var(--text-dim)">
-				{stokMenipis.slice(0, 3).map((b) => `${b.nama_barang} (${b.stok_sekarang}/${b.stok_minimum}${b.satuan ? ' ' + b.satuan : ''})`).join(' · ')}
-				{#if stokMenipis.length > 3}<span>+{stokMenipis.length - 3} lainnya</span>{/if}
-			</span>
-		</div>
-		<button
-			onclick={() => (stokAlertDismissed = true)}
-			class="shrink-0 rounded px-2 py-0.5 text-xs"
-			style="color:var(--text-dim)"
-		>✕</button>
-	</div>
-{/if}
+<svelte:head><title>Kasir — Stokasir</title></svelte:head>
 
-<!-- ─── Main: Keranjang + Bottom Bar ─────────────────────────────────────── -->
-<KasirKeranjang
-	bind:diskonInputRefs
-	{shiftAktif}
-	onbukaTutupShift={bukaTutupShift}
-	onbukaBukaShift={() => void bukaBukaShift()}
-	onprocesBayar={handleProsesBayar}
-/>
+<div class="flex h-full flex-col">
+	<!-- ─── Alert stok menipis ────────────────────────────────────────────────── -->
+	{#if stokMenipis.length > 0 && !stokAlertDismissed}
+		<div
+			class="mb-2 flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2 text-sm"
+			style="background:color-mix(in srgb,var(--warn) 12%,var(--surface));border-color:var(--warn);color:var(--text)"
+		>
+			<div class="flex min-w-0 items-center gap-2">
+				<span class="shrink-0 font-bold" style="color:var(--warn)">⚠ Stok menipis</span>
+				<span class="truncate" style="color:var(--text-dim)">
+					{stokMenipis
+						.slice(0, 3)
+						.map(
+							(b) =>
+								`${b.nama_barang} (${b.stok_sekarang}/${b.stok_minimum}${b.satuan ? ' ' + b.satuan : ''})`
+						)
+						.join(' · ')}
+					{#if stokMenipis.length > 3}<span>+{stokMenipis.length - 3} lainnya</span>{/if}
+				</span>
+			</div>
+			<button
+				onclick={() => (stokAlertDismissed = true)}
+				class="shrink-0 rounded px-2 py-0.5 text-xs"
+				style="color:var(--text-dim)">✕</button
+			>
+		</div>
+	{/if}
+
+	<!-- ─── Main: Keranjang + Bottom Bar ─────────────────────────────────────── -->
+	<KasirKeranjang
+		bind:diskonInputRefs
+		{shiftAktif}
+		onbukaTutupShift={bukaTutupShift}
+		onbukaBukaShift={() => void bukaBukaShift()}
+		onprocesBayar={handleProsesBayar}
+	/>
 </div>
 
 <!-- ─── Spotlight Search ──────────────────────────────────────────────────── -->
@@ -359,17 +408,31 @@
 {/if}
 
 <!-- ─── Checkout Popup ────────────────────────────────────────────────────── -->
-<KasirCheckout {namaToko} {alamatToko} {strHeader} {strFooter} {strUkuran} {strCopy} {autoCetak} {printerMode} {printerBridgePort} />
+<KasirCheckout
+	{namaToko}
+	{alamatToko}
+	{strHeader}
+	{strFooter}
+	{strUkuran}
+	{strCopy}
+	{autoCetak}
+	{printerMode}
+	{printerBridgePort}
+/>
 
 <!-- ─── Shift Buka / Tutup ────────────────────────────────────────────────────── -->
 <ShiftBuka
 	bind:open={modalBukaShift}
-	onberhasil={(shift) => { shiftAktif = shift }}
+	onberhasil={(shift) => {
+		shiftAktif = shift;
+	}}
 />
 <ShiftTutup
 	bind:open={modalTutupShift}
 	{shiftAktif}
-	onberhasil={() => { shiftAktif = null }}
+	onberhasil={() => {
+		shiftAktif = null;
+	}}
 />
 
 <!-- ─── Modal konfirmasi reset (GUIDED mode) ────────────────────────────────── -->
@@ -398,5 +461,3 @@
 
 <!-- ─── Modal panduan shortcut keyboard ─────────────────────────────────────── -->
 <KasirHelp bind:open={showHelp} oncariBara={openSearch} />
-
-

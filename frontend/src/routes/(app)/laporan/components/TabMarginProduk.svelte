@@ -1,22 +1,14 @@
 <script lang="ts">
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, fmtRp, tglFmt } from '../laporan.logic'
+  import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
 
 <!-- Filter Margin -->
 <div style="display:flex; gap:.75rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap">
-  <div style="display:flex; gap:.4rem; align-items:center">
-    <label for="mp-dari" style="font-size:.75rem; color:var(--text-dim)">Dari</label>
-    <input id="mp-dari" type="date" bind:value={store.periodeMargin.dari}
-      style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem" />
-  </div>
-  <div style="display:flex; gap:.4rem; align-items:center">
-    <label for="mp-sampai" style="font-size:.75rem; color:var(--text-dim)">Sampai</label>
-    <input id="mp-sampai" type="date" bind:value={store.periodeMargin.sampai}
-      style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem" />
-  </div>
+  <DateRangePicker2 bind:from={store.periodeMargin.dari} bind:to={store.periodeMargin.sampai} />
   <button
     onclick={() => store.muatMarginProduk()}
     style="padding:.35rem .8rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"

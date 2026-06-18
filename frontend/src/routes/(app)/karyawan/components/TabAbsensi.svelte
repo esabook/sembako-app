@@ -2,6 +2,7 @@
 	import DataTable from '$lib/components/DataTable.svelte';
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 	import type { createKaryawanStore } from '../karyawan.store.svelte.js';
 	import { STATUS_COLOR, hitungDurasi } from '../karyawan.logic.js';
 
@@ -260,17 +261,7 @@
 						/>
 					</div>
 				{/if}
-				<div class="flex flex-col gap-1">
-					<label for="fa-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL *</label>
-					<input
-						id="fa-tgl"
-						type="date"
-						bind:value={store.formAbsensi.tanggal}
-						required
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
-				</div>
+				<DatePicker2 label="TANGGAL *" bind:value={store.formAbsensi.tanggal} />
 				<div class="flex flex-col gap-1">
 					<label for="fa-status" class="text-xs" style="color:var(--text-dim)">STATUS *</label>
 					<Select

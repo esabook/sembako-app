@@ -1,17 +1,14 @@
 <script lang="ts">
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, tglFmt } from '../laporan.logic'
+  import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
 
 <!-- Filter Neraca & Aging -->
 <div style="display:flex; gap:.75rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap">
-  <div style="display:flex; gap:.4rem; align-items:center">
-    <label for="neraca-tgl" style="font-size:.75rem; color:var(--text-dim)">Per Tanggal</label>
-    <input id="neraca-tgl" type="date" bind:value={store.neracaTanggal}
-      style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem" />
-  </div>
+  <DatePicker2 label="Per Tanggal" bind:value={store.neracaTanggal} />
   <button
     onclick={() => store.muatNeraca()}
     style="padding:.35rem .8rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer"

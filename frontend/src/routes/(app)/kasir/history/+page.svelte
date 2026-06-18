@@ -11,6 +11,7 @@
 	import { renderStrukHtml, cetakStrukPopup, type StrukData } from '$lib/utils/struk';
 	import { rupiah } from '../kasir.logic';
 	import Button from '$lib/components/ui/Button.svelte';
+	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import {
 		fetchHistoriPenjualan,
@@ -221,26 +222,7 @@
 		class="flex shrink-0 flex-wrap items-center gap-3 border-b py-3"
 		style="border-color:var(--border)"
 	>
-		<div class="flex items-center gap-2 text-sm">
-			<label for="histori-dari" style="color:var(--text-dim)">Dari</label>
-			<input
-				id="histori-dari"
-				type="date"
-				bind:value={historiDari}
-				class="rounded border px-2 py-1 text-sm outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-			/>
-		</div>
-		<div class="flex items-center gap-2 text-sm">
-			<label for="histori-sampai" style="color:var(--text-dim)">Sampai</label>
-			<input
-				id="histori-sampai"
-				type="date"
-				bind:value={historiSampai}
-				class="rounded border px-2 py-1 text-sm outline-none"
-				style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-			/>
-		</div>
+		<DateRangePicker2 bind:from={historiDari} bind:to={historiSampai} />
 		<button
 			onclick={muatHistori}
 			disabled={historiLoading}

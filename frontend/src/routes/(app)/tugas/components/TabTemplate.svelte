@@ -1,10 +1,11 @@
 <script lang="ts">
-	import type { createTugasStore } from '../tugas.store.svelte'
-	import Button from '$lib/components/ui/Button.svelte'
-	import EmptyState from '$lib/components/data/EmptyState.svelte'
+	import type { createTugasStore } from '../tugas.store.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import EmptyState from '$lib/components/data/EmptyState.svelte';
+	import PencilLine from '@lucide/svelte/icons/pencil-line';
 
 	let { store, isManager }: { store: ReturnType<typeof createTugasStore>; isManager: boolean } =
-		$props()
+		$props();
 </script>
 
 {#if !isManager}
@@ -47,16 +48,13 @@
 							</td>
 							<td class="px-3 py-2">
 								<div class="flex justify-end gap-2">
-									<Button
-										variant="ghost"
-										size="sm"
-										onclick={() => store.bukaFormEdit(item)}>Edit</Button
-									>
+									<Button variant="ghost" size="sm" onclick={() => store.bukaFormEdit(item)}>
+										<PencilLine />
+									</Button>
 									<Button
 										variant="danger"
 										size="sm"
-										onclick={() => (store.konfirmHapus = { buka: true, id: item.id })}
-										>Hapus</Button
+										onclick={() => (store.konfirmHapus = { buka: true, id: item.id })}>Hapus</Button
 									>
 								</div>
 							</td>

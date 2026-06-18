@@ -2,6 +2,7 @@
   import Modal from '$lib/components/ui/Modal.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Input from '$lib/components/ui/Input.svelte'
+  import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
   import type { createKeuanganStore } from '../keuangan.store.svelte'
 
   let { store }: { store: ReturnType<typeof createKeuanganStore> } = $props()
@@ -39,17 +40,9 @@
             class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
             style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
         </div>
-        <div>
-          <span class="mb-1 block text-xs" style="color:var(--text-dim)">TANGGAL MULAI *</span>
-          <input type="date" bind:value={store.fPiMulai}
-            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
-        </div>
+        <DatePicker2 label="TANGGAL MULAI *" bind:value={store.fPiMulai} />
         <div class="col-span-2">
-          <span class="mb-1 block text-xs" style="color:var(--text-dim)">JATUH TEMPO</span>
-          <input type="date" bind:value={store.fPiJatuh}
-            class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-            style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
+          <DatePicker2 label="JATUH TEMPO" bind:value={store.fPiJatuh} />
         </div>
       </div>
       <Input label="CATATAN" placeholder="Opsional" bind:value={store.fPiCatatan} />

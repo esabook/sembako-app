@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SlideOver from '$lib/components/SlideOver.svelte';
-	import DatePicker from '$lib/components/ui/DatePicker.svelte';
+	import DatePicker from '$lib/components/ui/DatePicker2.svelte';
 	import type { createPromoStore } from '../promo.store.svelte';
 
 	let { store }: { store: ReturnType<typeof createPromoStore> } = $props();

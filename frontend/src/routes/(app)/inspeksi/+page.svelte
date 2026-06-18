@@ -6,6 +6,7 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 
 	type Inspeksi = {
 		id: number;
@@ -294,18 +295,7 @@
 <SlideOver bind:open={formOpen} title={editRow ? 'Edit Inspeksi' : 'Catat Inspeksi'}>
 	{#snippet children()}
 		<div class="space-y-4">
-			<div>
-				<label for="fi-tgl" class="mb-1 block text-sm font-medium" style="color:var(--text-dim)"
-					>Tanggal *</label
-				>
-				<input
-					id="fi-tgl"
-					bind:value={fTanggal}
-					type="date"
-					class="w-full rounded border px-3 py-2 text-sm"
-					style="background:var(--bg);border-color:var(--border);color:var(--text)"
-				/>
-			</div>
+			<DatePicker2 label="Tanggal *" bind:value={fTanggal} />
 			<div>
 				<p class="mb-2 block text-sm font-medium" style="color:var(--text-dim)">Jenis Inspeksi</p>
 				<div class="flex flex-wrap gap-2">

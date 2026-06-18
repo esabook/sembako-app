@@ -6,6 +6,12 @@
 	import Select from '$lib/components/ui/Select.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
+	import PencilLine from '@lucide/svelte/icons/pencil-line';
+	import Unlink from '@lucide/svelte/icons/unlink';
+	import Link from '@lucide/svelte/icons/link';
+	import Award from '@lucide/svelte/icons/award';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import Rows3 from '@lucide/svelte/icons/rows-3';
 
 	type Kartu = {
 		id: number;
@@ -276,22 +282,7 @@
 					: 'border-color:var(--border);color:var(--text-dim)'}
 				onclick={() => (viewMode = 'grid')}
 			>
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-					<rect x="0" y="0" width="6" height="6" rx="1" /><rect
-						x="8"
-						y="0"
-						width="6"
-						height="6"
-						rx="1"
-					/>
-					<rect x="0" y="8" width="6" height="6" rx="1" /><rect
-						x="8"
-						y="8"
-						width="6"
-						height="6"
-						rx="1"
-					/>
-				</svg>
+				<LayoutGrid size="1rem" />
 			</button>
 			<button
 				title="Tampilan list"
@@ -301,16 +292,7 @@
 					: 'border-color:var(--border);color:var(--text-dim)'}
 				onclick={() => (viewMode = 'list')}
 			>
-				<svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-					<rect x="0" y="1" width="14" height="2" rx="1" /><rect
-						x="0"
-						y="6"
-						width="14"
-						height="2"
-						rx="1"
-					/>
-					<rect x="0" y="11" width="14" height="2" rx="1" />
-				</svg>
+				<Rows3 size="1rem" />
 			</button>
 			<Button onclick={bukaGenerate}>+ Generate</Button>
 		</div>
@@ -355,28 +337,46 @@
 								<div class="truncate font-medium" style="color:var(--text)">{k.pelanggan_nama}</div>
 								<div class="font-mono" style="color:var(--text-dim)">{k.pelanggan_kode}</div>
 							</div>
-							<Button variant="ghost" size="xs" onclick={() => bukaKonfirmKartu(k, 'unassign')}
-								>Lepas</Button
+							<Button
+								variant="ghost"
+								size="xs"
+								onclick={() => bukaKonfirmKartu(k, 'unassign')}
+								title="Lepas kartu"
 							>
+								<Unlink size="1rem" />
+							</Button>
 						{:else}
 							<span
 								class="rounded px-1.5 py-0.5"
 								style="background:var(--surface2);color:var(--accent)">Tersedia</span
 							>
-							<Button variant="ghost" size="xs" onclick={() => bukaAssignKartu(k)}>Assign</Button>
+							<Button
+								variant="ghost"
+								size="xs"
+								onclick={() => bukaAssignKartu(k)}
+								title="Assign kartu"
+							>
+								<Link size="1rem" />
+							</Button>
 						{/if}
 					</div>
 
 					<!-- Aksi bawah -->
 					<div class="flex items-center gap-1.5 border-t pt-2" style="border-color:var(--border)">
-						<Button variant="ghost" size="xs" onclick={() => bukaEditKartu(k)}>Edit</Button>
-						<Button variant="ghost" size="xs" onclick={() => bukaPoin(k)}>Poin</Button>
+						<Button variant="ghost" size="xs" onclick={() => bukaEditKartu(k)} title="Edit kartu">
+							<PencilLine size="1rem" />
+						</Button>
+						<Button variant="ghost" size="xs" onclick={() => bukaPoin(k)} title="Lihat poin">
+							<Award size="1rem" />
+						</Button>
 						<Button
 							variant="danger"
 							size="xs"
 							onclick={() => bukaKonfirmKartu(k, 'nonaktif')}
-							clasz="ml-auto">Nonaktif</Button
+							title="Nonaktifkan kartu"
 						>
+							Nonaktif
+						</Button>
 					</div>
 				</div>
 			{/each}
@@ -433,18 +433,35 @@
 						{#if !hidden.has('aksi')}
 							<td class="px-3 py-2">
 								<div class="flex flex-wrap items-center justify-end gap-1">
-									<Button variant="ghost" size="xs" onclick={() => bukaEditKartu(k)}>Edit</Button>
-									<Button variant="ghost" size="xs" onclick={() => bukaPoin(k)}>Poin</Button>
+									<Button
+										variant="ghost"
+										size="xs"
+										onclick={() => bukaEditKartu(k)}
+										title="Edit kartu"
+									>
+										<PencilLine size="1rem" />
+									</Button>
+									<Button variant="ghost" size="xs" onclick={() => bukaPoin(k)} title="Lihat poin">
+										<Award size="1rem" />
+									</Button>
 									{#if k.pelanggan_nama}
 										<Button
 											variant="ghost"
 											size="xs"
-											onclick={() => bukaKonfirmKartu(k, 'unassign')}>Lepas</Button
+											onclick={() => bukaKonfirmKartu(k, 'unassign')}
+											title="Lepas kartu"
 										>
+											<Unlink size="1rem" />
+										</Button>
 									{:else}
-										<Button variant="ghost" size="xs" onclick={() => bukaAssignKartu(k)}
-											>Assign</Button
+										<Button
+											variant="ghost"
+											size="xs"
+											onclick={() => bukaAssignKartu(k)}
+											title="Assign kartu"
 										>
+											<Link size="1rem" />
+										</Button>
 									{/if}
 									<Button variant="danger" size="xs" onclick={() => bukaKonfirmKartu(k, 'nonaktif')}
 										>Nonaktif</Button

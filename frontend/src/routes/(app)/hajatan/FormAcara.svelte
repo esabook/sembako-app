@@ -2,7 +2,7 @@
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
-	import DatePicker from '$lib/components/ui/DatePicker.svelte';
+	import DatePicker from '$lib/components/ui/DatePicker2.svelte';
 	import InputRupiah from '$lib/components/form/InputRupiah.svelte';
 	import { STATUS_COLOR, STATUS_LABEL, STATUS_LIST } from './hajatan.logic.js';
 	import type { HajatanStore } from './hajatan.store.svelte.js';

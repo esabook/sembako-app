@@ -5,6 +5,7 @@
 	import { api } from '$lib/utils/api.js';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
+	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 
 	$effect(() => {
 		if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir');
@@ -222,16 +223,8 @@
 				/>
 			</div>
 			<div class="grid grid-cols-2 gap-3">
-				<div class="col-span-2 flex flex-col gap-1">
-					<label for="ft-tgl" class="text-xs" style="color:var(--text-dim)">TANGGAL *</label>
-					<input
-						id="ft-tgl"
-						type="date"
-						bind:value={fTanggal}
-						required
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
+				<div class="col-span-2">
+					<DatePicker2 label="TANGGAL *" bind:value={fTanggal} />
 				</div>
 				<div class="flex flex-col gap-1">
 					<label for="ft-masuk" class="text-xs" style="color:var(--text-dim)">JAM MASUK</label>

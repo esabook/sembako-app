@@ -39,7 +39,7 @@
 </script>
 
 <div
-	class="app-root flex h-screen flex-col overflow-hidden"
+	class="app-root h-dvh flex flex-col overflow-hidden"
 	style="background:var(--bg);color:var(--text);font-family:{FONT_CSS[
 		$font
 	]};font-size:{$ukuranFont}px"

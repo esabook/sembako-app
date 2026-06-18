@@ -2,6 +2,7 @@
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
+	import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte';
 	import { user } from '$lib/stores/auth.js';
 	import type { createKaryawanStore } from '../karyawan.store.svelte.js';
 
@@ -143,33 +144,7 @@
 					{/each}
 				</div>
 			</div>
-			<div class="grid grid-cols-2 gap-3">
-				<div class="flex flex-col gap-1">
-					<label for="fi-mulai" class="text-xs" style="color:var(--text-dim)">TANGGAL MULAI *</label
-					>
-					<input
-						id="fi-mulai"
-						type="date"
-						bind:value={store.fIzinMulai}
-						required
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
-				</div>
-				<div class="flex flex-col gap-1">
-					<label for="fi-selesai" class="text-xs" style="color:var(--text-dim)"
-						>TANGGAL SELESAI *</label
-					>
-					<input
-						id="fi-selesai"
-						type="date"
-						bind:value={store.fIzinSelesai}
-						required
-						class="rounded border px-2 py-1 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
-					/>
-				</div>
-			</div>
+			<DateRangePicker2 label="Periode Izin" bind:from={store.fIzinMulai} bind:to={store.fIzinSelesai} />
 			<div class="flex flex-col gap-1">
 				<label for="fi-alasan" class="text-xs" style="color:var(--text-dim)">ALASAN</label>
 				<textarea

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, tglFmt } from '../laporan.logic'
+  import DateRangePicker2 from '$lib/components/ui/DateRangePicker2.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 
@@ -13,23 +14,11 @@
 <div style="display:flex; gap:.75rem; align-items:flex-end; margin-bottom:1rem; flex-wrap:wrap">
   <div style="display:flex; flex-direction:column; gap:.3rem">
     <div style="font-size:.72rem; color:var(--text-dim); font-weight:600">Periode 1</div>
-    <div style="display:flex; gap:.4rem; align-items:center">
-      <input type="date" bind:value={store.periodeP1.dari}
-        style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem" />
-      <span style="font-size:.75rem; color:var(--text-dim)">—</span>
-      <input type="date" bind:value={store.periodeP1.sampai}
-        style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem" />
-    </div>
+    <DateRangePicker2 bind:from={store.periodeP1.dari} bind:to={store.periodeP1.sampai} />
   </div>
   <div style="display:flex; flex-direction:column; gap:.3rem">
     <div style="font-size:.72rem; color:var(--text-dim); font-weight:600">Periode 2</div>
-    <div style="display:flex; gap:.4rem; align-items:center">
-      <input type="date" bind:value={store.periodeP2.dari}
-        style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem" />
-      <span style="font-size:.75rem; color:var(--text-dim)">—</span>
-      <input type="date" bind:value={store.periodeP2.sampai}
-        style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem" />
-    </div>
+    <DateRangePicker2 bind:from={store.periodeP2.dari} bind:to={store.periodeP2.sampai} />
   </div>
   <button
     onclick={() => store.muatPerbandingan()}
