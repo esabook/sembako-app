@@ -14,32 +14,6 @@
 10. requirePermission('*') dilarang — selalu pakai string semantik (pengaturan.kelola, laporan.lihat, dll.)
 ```
 
-## DatePicker (shadcn Calendar)
-
-Pakai `DatePicker.svelte` — wrapper siap pakai di `$lib/components/ui/DatePicker.svelte`.
-Value selalu ISO string `"YYYY-MM-DD"` atau `""`. Tidak perlu tahu `DateValue` / bits-ui.
-
-```svelte
-<DatePicker
-  label="BERLAKU MULAI"
-  bind:value={fb.berlaku_mulai}
-  placeholder="Pilih tanggal"
-  disabled={false}
-/>
-```
-
-**Range picker** — dua tanggal (from/to):
-```svelte
-<DateRangePicker
-  label="PERIODE"
-  bind:from={fb.berlaku_mulai}
-  bind:to={fb.berlaku_sampai}
-  placeholder="Pilih rentang tanggal"
-/>
-```
-Value `from` dan `to` masing-masing ISO string `"YYYY-MM-DD"` atau `""`.
-Popover tutup otomatis setelah tanggal akhir dipilih.
-
 **Gotcha:**
 - `PopoverTrigger` sudah render `<button>` — jangan wrap dengan `<button>` lagi (nested button invalid)
 - Komponen baru butuh `bits-ui` + `@internationalized/date` di `vite.config.ts → ssr.noExternal`

@@ -4,7 +4,28 @@ import { enhancedImages } from '@sveltejs/enhanced-img';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-    plugins: [tailwindcss(), enhancedImages(), sveltekit()],
+    plugins: [
+        tailwindcss(),
+        enhancedImages(),
+        sveltekit(),
+        {
+            name: 'cache-headers',
+            enforce: 'pre',
+            configureServer(server) {
+                server.middlewares.use((req, res, next) => {
+                    const url = req.url ?? '';
+                    if (url.includes('/_app/immutable/')) {
+                        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+                    } else if (/\.(png|jpe?g|webp|avif|svg|gif|ico|woff2?)(\?.*)?$/i.test(url)) {
+                        res.setHeader('Cache-Control', 'public, max-age=604800');
+                    } else if (url.startsWith('/themes/') && url.endsWith('.css')) {
+                        res.setHeader('Cache-Control', 'public, max-age=86400');
+                    }
+                    next();
+                });
+            },
+        },
+    ],
     ssr: {
         noExternal: ['bits-ui', '@internationalized/date'],
     },

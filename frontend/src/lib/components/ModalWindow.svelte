@@ -70,6 +70,30 @@
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') tutup();
 	}
+
+	let vvHeight = $state(0);
+	let vvTop = $state(0);
+
+	$effect(() => {
+		const vv = window.visualViewport;
+		if (!vv) {
+			vvHeight = window.innerHeight;
+			vvTop = 0;
+			return;
+		}
+		vvHeight = vv.height;
+		vvTop = vv.offsetTop;
+		const update = () => {
+			vvHeight = vv.height;
+			vvTop = vv.offsetTop;
+		};
+		vv.addEventListener('resize', update);
+		vv.addEventListener('scroll', update);
+		return () => {
+			vv.removeEventListener('resize', update);
+			vv.removeEventListener('scroll', update);
+		};
+	});
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -78,10 +102,10 @@
 	<!-- Backdrop -->
 	<div
 		transition:fade={{ duration: 150 }}
-		class="ui-backdrop fixed inset-0 z-50 flex justify-center {fullscreen
+		class="ui-backdrop z-50 flex justify-center {fullscreen
 			? 'items-center p-2'
 			: 'items-end px-2 pt-4 sm:items-center sm:px-0'}"
-		// style="background:rgba(0,0,0,0.5)"
+		style="position:fixed;top:{vvTop}px;left:0;right:0;height:{vvHeight}px"
 		role="dialog"
 		aria-modal="true"
 		tabindex="-1"
@@ -96,7 +120,7 @@
 			transition:fly={{ duration: 200, y: 24, opacity: 0 }}
 			class="relative flex w-full flex-col overflow-hidden border
              {fullscreen
-				? 'h-full rounded-2xl'
+				? 'h-dvh rounded-2xl'
 				: 'rounded-t-2xl sm:rounded-2xl ' +
 					(maxWidth === 'sm'
 						? 'sm:max-w-sm'
@@ -111,7 +135,7 @@
 										: 'sm:max-w-md')}"
 			style="background:var(--surface);border-color:var(--border);{fullscreen
 				? ''
-				: 'max-height:100svh'}"
+				: 'max-height:100dvh'}"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => {
 				if (e.key === 'Escape') {

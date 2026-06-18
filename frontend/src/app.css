@@ -61,7 +61,8 @@
   box-shadow: none !important;
 }
 
-.input:focus, .input:focus-within {
+.input:focus,
+.input:focus-within {
   border-color: var(--accent);
   outline: none;
 }
@@ -75,4 +76,11 @@ body {
 
 .lucide {
   stroke-width: 2px;
+}
+
+/* ─── Cally overrides ───────────────────────────── */
+::part(button) {
+  height: 1.8rem;
+  font-family: inherit;
+  font-size: 0.875rem;
 }

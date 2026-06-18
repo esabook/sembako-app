@@ -1,10 +1,15 @@
 <script lang="ts">
 	import type { ToastTipe } from '$lib/types/error.types';
+	import CircleCheck from '@lucide/svelte/icons/circle-check';
+	import AlertTriangle from '@lucide/svelte/icons/alert-triangle';
+	import Info from '@lucide/svelte/icons/info';
+	import CircleOff from '@lucide/svelte/icons/circle-off';
+	import Button from './Button.svelte';
 
 	let {
 		tipe = 'info',
 		pesan,
-		onhapus,
+		onhapus
 	}: {
 		tipe?: ToastTipe;
 		pesan: string;
@@ -15,34 +20,34 @@
 		sukses: 'var(--accent)',
 		error: 'var(--danger)',
 		warn: 'var(--warn)',
-		info: 'var(--info)',
+		info: 'var(--info)'
 	};
 
-	const ikon: Record<ToastTipe, string> = {
-		sukses: '✓',
-		error: '⦚',
-		warn: '!',
-		info: 'i',
+	const ikon: Record<ToastTipe, any> = {
+		sukses: CircleCheck,
+		error: CircleOff,
+		warn: AlertTriangle,
+		info: Info
 	};
 </script>
 
+{#snippet iconRender()}
+	{@const Ikon = ikon[tipe]}
+	<span class="font-bold" style="color:{warna[tipe]}"><Ikon size="1rem" /></span>
+{/snippet}
+
 <div
-	class="toast flex items-start gap-2 rounded border px-3 py-2 text-xs shadow-lg"
+	class="toast-my text-m flex items-center gap-2 rounded border px-3 py-2 shadow-lg"
 	style="background:var(--surface);border-color:{warna[tipe]};color:var(--text)"
 	role="status"
 >
-	<span class="font-bold" style="color:{warna[tipe]}">{ikon[tipe]}</span>
+	{@render iconRender()}
 	<span class="min-w-0 flex-1 break-words">{pesan}</span>
-	<button
-		onclick={onhapus}
-		class="shrink-0 leading-none"
-		style="color:var(--text-dim)"
-		aria-label="Tutup notifikasi">&times;</button
-	>
+	<Button onclick={onhapus} variant="ghost" size="sm" title="Tutup notifikasi">Tutup</Button>
 </div>
 
 <style>
-	.toast {
+	.toast-my {
 		animation: masuk 0.18s ease-out;
 		will-change: transform, opacity;
 	}

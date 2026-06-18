@@ -1,4 +1,6 @@
 <script lang="ts">
+	import CircleX from '@lucide/svelte/icons/x-circle';
+
 	let {
 		value = $bindable(''),
 		placeholder = '> cari...',
@@ -9,7 +11,7 @@
 		onescape,
 		onenter,
 		onarrowdown,
-		onarrowup,
+		onarrowup
 	}: {
 		value?: string;
 		placeholder?: string;
@@ -25,7 +27,9 @@
 
 	let timer: ReturnType<typeof setTimeout> | null = null;
 
-	$effect(() => () => { if (timer) clearTimeout(timer) });
+	$effect(() => () => {
+		if (timer) clearTimeout(timer);
+	});
 
 	function handleInput(e: Event) {
 		value = (e.target as HTMLInputElement).value;
@@ -59,11 +63,11 @@
 	class="flex items-center gap-2 rounded border px-2 py-1.5"
 	style="background:var(--bg);border-color:var(--border)"
 >
-	<span style="color:var(--text-dim)">{loading ? '⟳' : '>'}</span>
+	<span style="color:var(--text-dim)">{loading ? '⟳' : ''}</span>
 	<!-- svelte-ignore a11y_autofocus -->
 	<input
 		{placeholder}
-		value={value}
+		{value}
 		oninput={handleInput}
 		onkeydown={handleKey}
 		{autofocus}
@@ -71,8 +75,8 @@
 		style="color:var(--text)"
 	/>
 	{#if value}
-		<button onclick={kosongkan} style="color:var(--text-dim)" aria-label="Kosongkan"
-			>&times;</button
-		>
+		<button onclick={kosongkan} class="rounded text-sm" style="color:var(--text-dim)">
+			<CircleX size="1rem" color="var(--text-dim)" />
+		</button>
 	{/if}
 </div>

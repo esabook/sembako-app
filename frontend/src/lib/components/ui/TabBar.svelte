@@ -56,7 +56,15 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { api } from '$lib/utils/api';
+	import Star from '@lucide/svelte/icons/star';
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import ChevronsLeft from '@lucide/svelte/icons/chevrons-left';
+	import ChevronsRight from '@lucide/svelte/icons/chevrons-right';
+	import MoreVertical from '@lucide/svelte/icons/more-vertical';
+	import RotateCcw from '@lucide/svelte/icons/rotate-ccw';
 
 	type Tab = { key: string; label: string };
 
@@ -76,16 +84,16 @@
 
 	let order = $state<string[]>([]);
 	const orderChanged = $derived(order.length > 0 && !order.every((k, i) => k === tabKeys[i]));
-	let favorites = $state<Set<string>>(new Set());
+	let favorites = new SvelteSet<string>();
 	let dragKey = $state<string | null>(null);
 	let dragOver = $state<string | null>(null);
 	let hoverTab = $state<string | null>(null);
-	let ctx = $state<{ x: number; y: number; key: string } | null>(null);
+	let ctx = $state<{ x: number; y: number; key: string; mobile: boolean } | null>(null);
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Tab yang tampil = urutan dari order, hanya yang ada di tabs saat ini
 	const tabKeys = $derived(tabs.map((t) => t.key));
-	const orderedTabs = $derived(() => {
+	const orderedTabs = $derived.by(() => {
 		const known = new Set(tabKeys);
 		// Dari order: hanya yang masih ada
 		const fromOrder = order.filter((k) => known.has(k));
@@ -103,7 +111,8 @@
 		);
 		if (res.success && res.data) {
 			order = res.data.order ?? [];
-			favorites = new Set(res.data.favorites ?? []);
+			favorites.clear();
+			for (const f of res.data.favorites ?? []) favorites.add(f);
 		} else {
 			order = tabKeys.slice();
 		}
@@ -143,7 +152,7 @@
 			dragOver = null;
 			return;
 		}
-		const current = orderedTabs().map((t) => t.key);
+		const current = orderedTabs.map((t) => t.key);
 		const from = current.indexOf(dragKey);
 		const to = current.indexOf(targetKey);
 		current.splice(from, 1);
@@ -163,7 +172,12 @@
 
 	function openCtx(e: MouseEvent, key: string) {
 		e.preventDefault();
-		ctx = { x: e.clientX, y: e.clientY, key };
+		const MENU_W = 210,
+			MENU_H = 270;
+		const mobile = window.innerWidth < 640;
+		const x = Math.min(e.clientX, window.innerWidth - MENU_W);
+		const y = Math.min(e.clientY, window.innerHeight - MENU_H);
+		ctx = { x, y, key, mobile };
 	}
 
 	function closeCtx() {
@@ -171,7 +185,7 @@
 	}
 
 	function ctxPindah(key: string, posisi: 'awal' | 'akhir') {
-		const current = orderedTabs().map((t) => t.key);
+		const current = orderedTabs.map((t) => t.key);
 		const idx = current.indexOf(key);
 		current.splice(idx, 1);
 		if (posisi === 'awal') current.unshift(key);
@@ -182,7 +196,7 @@
 	}
 
 	function ctxGeser(key: string, arah: -1 | 1) {
-		const current = orderedTabs().map((t) => t.key);
+		const current = orderedTabs.map((t) => t.key);
 		const idx = current.indexOf(key);
 		const newIdx = idx + arah;
 		if (newIdx < 0 || newIdx >= current.length) {
@@ -196,10 +210,8 @@
 	}
 
 	function ctxFavorit(key: string) {
-		const next = new Set(favorites);
-		if (next.has(key)) next.delete(key);
-		else next.add(key);
-		favorites = next;
+		if (favorites.has(key)) favorites.delete(key);
+		else favorites.add(key);
 		simpanPreferensi();
 		closeCtx();
 	}
@@ -208,7 +220,7 @@
 
 	function reset() {
 		order = tabKeys.slice();
-		favorites = new Set();
+		favorites.clear();
 		simpanPreferensi();
 	}
 
@@ -222,11 +234,11 @@
 <svelte:window onclick={onWindowClick} />
 
 <div
-	style="display:flex; gap:.5rem; border-bottom:1px solid var(--border);
+	style="display:flex; gap:.5rem; border:1px solid var(--border);
          overflow-x:auto; white-space:nowrap; scrollbar-width:none; -ms-overflow-style:none"
-	class="tabbar-scroll"
+	class="tabbar-scroll rounded border"
 >
-	{#each orderedTabs() as t (t.key)}
+	{#each orderedTabs as t (t.key)}
 		{@const isActive = active === t.key}
 		{@const isFav = favorites.has(t.key)}
 		{@const isDragTarget = dragOver === t.key && dragKey !== t.key}
@@ -263,7 +275,7 @@
                transition:color .15s, border-color .15s"
 			>
 				{#if isFav}
-					<span style="color:var(--warn); font-size:auto;">★</span>
+					<Star size={12} style="fill:var(--warn); color:var(--warn); flex-shrink:0" />
 				{/if}
 				{t.label}
 			</button>
@@ -275,156 +287,216 @@
 						e.stopPropagation();
 						openCtx(e, t.key);
 					}}
-					style="position:absolute; ml-2; right:0; top:50%; transform:translateY(-50%);
-                 padding:.15rem; background:var(--surface2); border:1px solid var(--border);
-                 border-radius:50%; color:var(--text-dim); cursor:pointer; font-size:.7rem;
-                 line-height:1; z-index:1"
-					title="Opsi tab">⋮</button
+					class="tabbar-dot-btn"
+					title="Opsi tab"
 				>
+					<MoreVertical size={13} />
+				</button>
 			{/if}
 		</div>
 	{/each}
 
 	<!-- Tombol reset setelah tab terakhir -->
 	{#if orderChanged || favorites.size > 0}
-		<button
-			onclick={reset}
-			title="Reset urutan & favorit ke default"
-			style="flex-shrink:0; align-self:center; margin-left:.25rem; padding:.25rem .5rem;
-           background:none; border:1px solid var(--border); border-radius:4px;
-           color:var(--text-dim); cursor:pointer; font-size:.7rem; line-height:1;
-           white-space:nowrap; transition:color .15s, border-color .15s"
-			onmouseenter={(e) => {
-				(e.currentTarget as HTMLElement).style.color = 'var(--danger)';
-				(e.currentTarget as HTMLElement).style.borderColor = 'var(--danger)';
-			}}
-			onmouseleave={(e) => {
-				(e.currentTarget as HTMLElement).style.color = 'var(--text-dim)';
-				(e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
-			}}>↺ Reset</button
-		>
+		<button onclick={reset} title="Reset urutan & favorit ke default" class="tabbar-reset-btn mr-2">
+			<RotateCcw size={12} /> Reset
+		</button>
 	{/if}
 </div>
 
 <!-- Context Menu -->
 {#if ctx}
-	{@const ordered = orderedTabs()}
+	{@const ordered = orderedTabs}
 	{@const idx = ordered.findIndex((t) => t.key === ctx!.key)}
 	{@const label = ordered[idx]?.label ?? ''}
 	{@const isFav = favorites.has(ctx.key)}
-	<div
-		class="tabbar-ctx"
-		style="position:fixed; z-index:9999; top:{ctx.y}px; left:{ctx.x}px;
-           background:var(--surface); border:1px solid var(--border); border-radius:6px;
-           box-shadow:0 4px 16px rgba(0,0,0,.3); min-width:200px; padding:.25rem 0; font-size:.82rem"
-		role="menu"
-	>
-		<div
-			style="padding:.35rem .85rem .2rem; font-size:.72rem; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.04em"
-		>
-			{label}
-		</div>
-		<div style="height:1px; background:var(--border); margin:.2rem 0"></div>
 
-		<button
-			onclick={() => ctxFavorit(ctx!.key)}
-			style="display:flex; align-items:center; gap:.5rem; width:100%; padding:.45rem .85rem;
-             background:none; border:none; color:var(--text); cursor:pointer; text-align:left; font-family:inherit; font-size:.82rem"
-			onmouseenter={(e) => ((e.currentTarget as HTMLElement).style.background = 'var(--surface2)')}
-			onmouseleave={(e) => ((e.currentTarget as HTMLElement).style.background = 'none')}
-		>
-			<span style="color:var(--warn)">{isFav ? '★' : '☆'}</span>
+	{#snippet menuItems()}
+		<div class="ctx-header">{label}</div>
+		<div class="ctx-sep"></div>
+
+		<button class="ctx-item" onclick={() => ctxFavorit(ctx!.key)}>
+			<Star
+				size={14}
+				style={isFav
+					? 'fill:var(--warn); color:var(--warn); flex-shrink:0'
+					: 'color:var(--text-dim); flex-shrink:0'}
+			/>
 			{isFav ? 'Hapus favorit' : 'Tandai favorit'}
 		</button>
 
-		<div style="height:1px; background:var(--border); margin:.2rem 0"></div>
+		<div class="ctx-sep"></div>
 
-		<button
-			onclick={() => ctxGeser(ctx!.key, -1)}
-			disabled={idx === 0}
-			style="display:flex; align-items:center; gap:.5rem; width:100%; padding:.45rem .85rem;
-             background:none; border:none; color:{idx === 0
-				? 'var(--text-dim)'
-				: 'var(--text)'}; cursor:{idx === 0
-				? 'default'
-				: 'pointer'}; text-align:left; font-family:inherit; font-size:.82rem; opacity:{idx === 0
-				? 0.4
-				: 1}"
-			onmouseenter={(e) => {
-				if (idx > 0) (e.currentTarget as HTMLElement).style.background = 'var(--surface2)';
-			}}
-			onmouseleave={(e) => ((e.currentTarget as HTMLElement).style.background = 'none')}
-		>
-			← Geser kiri
+		<button class="ctx-item" onclick={() => ctxGeser(ctx!.key, -1)} disabled={idx === 0}>
+			<ChevronLeft size={14} style="flex-shrink:0" />
+			Geser kiri
 		</button>
 
 		<button
+			class="ctx-item"
 			onclick={() => ctxGeser(ctx!.key, 1)}
 			disabled={idx === ordered.length - 1}
-			style="display:flex; align-items:center; gap:.5rem; width:100%; padding:.45rem .85rem;
-             background:none; border:none; color:{idx === ordered.length - 1
-				? 'var(--text-dim)'
-				: 'var(--text)'}; cursor:{idx === ordered.length - 1
-				? 'default'
-				: 'pointer'}; text-align:left; font-family:inherit; font-size:.82rem; opacity:{idx ===
-			ordered.length - 1
-				? 0.4
-				: 1}"
-			onmouseenter={(e) => {
-				if (idx < ordered.length - 1)
-					(e.currentTarget as HTMLElement).style.background = 'var(--surface2)';
-			}}
-			onmouseleave={(e) => ((e.currentTarget as HTMLElement).style.background = 'none')}
 		>
-			→ Geser kanan
+			<ChevronRight size={14} style="flex-shrink:0" />
+			Geser kanan
 		</button>
 
-		<div style="height:1px; background:var(--border); margin:.2rem 0"></div>
+		<div class="ctx-sep"></div>
 
-		<button
-			onclick={() => ctxPindah(ctx!.key, 'awal')}
-			disabled={idx === 0}
-			style="display:flex; align-items:center; gap:.5rem; width:100%; padding:.45rem .85rem;
-             background:none; border:none; color:{idx === 0
-				? 'var(--text-dim)'
-				: 'var(--text)'}; cursor:{idx === 0
-				? 'default'
-				: 'pointer'}; text-align:left; font-family:inherit; font-size:.82rem; opacity:{idx === 0
-				? 0.4
-				: 1}"
-			onmouseenter={(e) => {
-				if (idx > 0) (e.currentTarget as HTMLElement).style.background = 'var(--surface2)';
-			}}
-			onmouseleave={(e) => ((e.currentTarget as HTMLElement).style.background = 'none')}
-		>
-			⇤ Pindah ke awal
+		<button class="ctx-item" onclick={() => ctxPindah(ctx!.key, 'awal')} disabled={idx === 0}>
+			<ChevronsLeft size={14} style="flex-shrink:0" />
+			Pindah ke awal
 		</button>
 
 		<button
+			class="ctx-item"
 			onclick={() => ctxPindah(ctx!.key, 'akhir')}
 			disabled={idx === ordered.length - 1}
-			style="display:flex; align-items:center; gap:.5rem; width:100%; padding:.45rem .85rem;
-             background:none; border:none; color:{idx === ordered.length - 1
-				? 'var(--text-dim)'
-				: 'var(--text)'}; cursor:{idx === ordered.length - 1
-				? 'default'
-				: 'pointer'}; text-align:left; font-family:inherit; font-size:.82rem; opacity:{idx ===
-			ordered.length - 1
-				? 0.4
-				: 1}"
-			onmouseenter={(e) => {
-				if (idx < ordered.length - 1)
-					(e.currentTarget as HTMLElement).style.background = 'var(--surface2)';
-			}}
-			onmouseleave={(e) => ((e.currentTarget as HTMLElement).style.background = 'none')}
 		>
-			⇥ Pindah ke akhir
+			<ChevronsRight size={14} style="flex-shrink:0" />
+			Pindah ke akhir
 		</button>
-	</div>
+	{/snippet}
+
+	{#if ctx.mobile}
+		<!-- Mobile: bottom sheet -->
+		<div class="tabbar-ctx ctx-backdrop" onclick={closeCtx} role="none"></div>
+		<div class="tabbar-ctx ctx-sheet" role="menu">
+			<div class="ctx-sheet-handle"></div>
+			{@render menuItems()}
+		</div>
+	{:else}
+		<!-- Desktop: fixed + clamped to viewport -->
+		<div class="tabbar-ctx ctx-popup" style="top:{ctx.y}px; left:{ctx.x}px" role="menu">
+			{@render menuItems()}
+		</div>
+	{/if}
 {/if}
 
 <style>
 	.tabbar-scroll::-webkit-scrollbar {
 		display: none;
+	}
+
+	.tabbar-dot-btn {
+		position: absolute;
+		right: 0;
+		top: 50%;
+		transform: translateY(-50%);
+		padding: 0.15rem;
+		background: var(--surface2);
+		border: 1px solid var(--border);
+		border-radius: 50%;
+		color: var(--text-dim);
+		cursor: pointer;
+		line-height: 0;
+		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.tabbar-reset-btn {
+		flex-shrink: 0;
+		align-self: center;
+		margin-left: 0.25rem;
+		padding: 0.25rem 0.5rem;
+		background: none;
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		color: var(--text-dim);
+		cursor: pointer;
+		font-size: 0.7rem;
+		line-height: 1;
+		white-space: nowrap;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		transition:
+			color 0.15s,
+			border-color 0.15s;
+	}
+	.tabbar-reset-btn:hover {
+		color: var(--danger);
+		border-color: var(--danger);
+	}
+
+	/* Context menu shared */
+	.ctx-header {
+		padding: 0.35rem 0.85rem 0.2rem;
+		font-size: 0.72rem;
+		color: var(--text-dim);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	.ctx-sep {
+		height: 1px;
+		background: var(--border);
+		margin: 0.2rem 0;
+	}
+	.ctx-item {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.45rem 0.85rem;
+		background: none;
+		border: none;
+		color: var(--text);
+		cursor: pointer;
+		text-align: left;
+		font-family: inherit;
+		font-size: 0.82rem;
+	}
+	.ctx-item:hover:not(:disabled) {
+		background: var(--surface2);
+	}
+	.ctx-item:disabled {
+		color: var(--text-dim);
+		cursor: default;
+		opacity: 0.4;
+	}
+
+	/* Desktop popup */
+	.ctx-popup {
+		position: fixed;
+		z-index: 9999;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+		min-width: 200px;
+		padding: 0.25rem 0;
+		font-size: 0.82rem;
+	}
+
+	/* Mobile backdrop */
+	.ctx-backdrop {
+		position: fixed;
+		inset: 0;
+		z-index: 9998;
+		background: rgba(0, 0, 0, 0.4);
+	}
+
+	/* Mobile bottom sheet */
+	.ctx-sheet {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		z-index: 9999;
+		background: var(--surface);
+		border-top: 1px solid var(--border);
+		border-radius: 16px 16px 0 0;
+		box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+		padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom));
+	}
+	.ctx-sheet-handle {
+		width: 40px;
+		height: 4px;
+		background: var(--border);
+		border-radius: 2px;
+		margin: 0.25rem auto 0.5rem;
 	}
 </style>
