@@ -79,6 +79,11 @@
 	import Rows3 from '@lucide/svelte/icons/rows-3';
 	import TextWrap from '@lucide/svelte/icons/text-wrap';
 
+	function portal(node: HTMLElement) {
+		document.body.appendChild(node);
+		return { destroy: () => node.remove() };
+	}
+
 	export type Column = {
 		key: string;
 		label: string;
@@ -271,6 +276,7 @@
 	let showColDropdown = $state(false);
 	let dropdownPos = $state({ top: 0, left: 0, maxH: 300 });
 	let colBtnEl = $state<HTMLButtonElement | undefined>(undefined);
+	let dropdownEl = $state<HTMLDivElement | undefined>(undefined);
 
 	function openColDropdown(e: MouseEvent) {
 		e.stopPropagation();
@@ -297,7 +303,8 @@
 	$effect(() => {
 		if (!showColDropdown) return;
 		const handler = (e: MouseEvent) => {
-			if (colBtnEl && !colBtnEl.closest('[data-col-dropdown]')?.contains(e.target as Node))
+			const t = e.target as Node;
+			if (!dropdownEl?.contains(t) && !colBtnEl?.contains(t) && t !== colBtnEl)
 				showColDropdown = false;
 		};
 		document.addEventListener('click', handler);
@@ -598,9 +605,12 @@
 </div>
 
 <!-- FIX 2: Dropdown kolom pakai position:fixed + koordinat JS agar tidak terpotong di layar kecil -->
+<!-- portal ke body supaya lepas dari transform context (SlideOver, modal, dsb) -->
 {#if showColDropdown}
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
+		bind:this={dropdownEl}
+		use:portal
 		data-col-dropdown
 		onclick={(e) => e.stopPropagation()}
 		onkeydown={() => {}}
