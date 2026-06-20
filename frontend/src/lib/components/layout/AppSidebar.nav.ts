@@ -22,17 +22,6 @@ export const NAV: NavItem[] = [
 		]
 	},
 	{
-		href: '/kasir',
-		label: 'Kasir',
-		roles: ['pemilik', 'manajer', 'kasir', 'gudang', 'sales', 'pelayanan'],
-		icon: 'Banknote',
-		sub: [
-			{ key: 'kasir', label: 'Kasir', href: '/kasir' },
-			{ key: 'history', label: 'Transaksi', href: '/kasir/history' },
-			{ key: 'retur', label: 'Retur', href: '/kasir/retur' },
-		]
-	},
-	{
 		href: '/pelanggan',
 		label: 'Pelanggan',
 		roles: ['pemilik', 'manajer', 'kasir', 'sales', 'pelayanan'],

@@ -8,7 +8,6 @@
 	import type { SubNavItem } from './AppSidebar.nav';
 	// Lucide icons
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
-	import Banknote from '@lucide/svelte/icons/banknote';
 	import Users from '@lucide/svelte/icons/users';
 	import Route from '@lucide/svelte/icons/route';
 	import MessageCircleCode from '@lucide/svelte/icons/message-circle-code';
@@ -33,7 +32,6 @@
 
 	const ICONS: Record<string, Component> = {
 		LayoutGrid,
-		Banknote,
 		Users,
 		Route,
 		MessageCircleCode,

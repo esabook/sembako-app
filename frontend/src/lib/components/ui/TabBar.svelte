@@ -317,7 +317,7 @@
 
 		<button class="ctx-item" onclick={() => ctxFavorit(ctx!.key)}>
 			<Star
-				size={14}
+				size="1rem"
 				style={isFav
 					? 'fill:var(--warn); color:var(--warn); flex-shrink:0'
 					: 'color:var(--text-dim); flex-shrink:0'}
@@ -328,7 +328,7 @@
 		<div class="ctx-sep"></div>
 
 		<button class="ctx-item" onclick={() => ctxGeser(ctx!.key, -1)} disabled={idx === 0}>
-			<ChevronLeft size={14} style="flex-shrink:0" />
+			<ChevronLeft size="1rem" style="flex-shrink:0" />
 			Geser kiri
 		</button>
 
@@ -337,14 +337,14 @@
 			onclick={() => ctxGeser(ctx!.key, 1)}
 			disabled={idx === ordered.length - 1}
 		>
-			<ChevronRight size={14} style="flex-shrink:0" />
+			<ChevronRight size="1rem" style="flex-shrink:0" />
 			Geser kanan
 		</button>
 
 		<div class="ctx-sep"></div>
 
 		<button class="ctx-item" onclick={() => ctxPindah(ctx!.key, 'awal')} disabled={idx === 0}>
-			<ChevronsLeft size={14} style="flex-shrink:0" />
+			<ChevronsLeft size="1rem" style="flex-shrink:0" />
 			Pindah ke awal
 		</button>
 
@@ -353,7 +353,7 @@
 			onclick={() => ctxPindah(ctx!.key, 'akhir')}
 			disabled={idx === ordered.length - 1}
 		>
-			<ChevronsRight size={14} style="flex-shrink:0" />
+			<ChevronsRight size="1rem" style="flex-shrink:0" />
 			Pindah ke akhir
 		</button>
 	{/snippet}
@@ -433,14 +433,13 @@
 	.ctx-sep {
 		height: 1px;
 		background: var(--border);
-		margin: 0.2rem 0;
 	}
 	.ctx-item {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
 		width: 100%;
-		padding: 0.45rem 0.85rem;
+		padding: 0.25rem 0.5rem;
 		background: none;
 		border: none;
 		color: var(--text);

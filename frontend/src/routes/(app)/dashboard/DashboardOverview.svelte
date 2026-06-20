@@ -99,7 +99,7 @@
 				{#if data.belum_absen.length > 0}
 					<div
 						class="rounded border p-3"
-						style="background:var(--surface);border-left:3px solid var(--border)"
+						style="background:var(--surface);border-left:3px solid var(--text)"
 					>
 						<p class="mb-2 text-xs font-bold" style="color:var(--text-dim)">
 							BELUM ABSEN — {data.belum_absen.length} karyawan

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import './layout.css';
+	import '$lib/stores/tema.js';
 	import LoadingBar from '$lib/components/LoadingBar.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import OfflineIndicator from '$lib/components/OfflineIndicator.svelte';
