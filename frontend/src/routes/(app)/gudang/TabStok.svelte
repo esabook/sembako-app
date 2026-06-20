@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { writable } from 'svelte/store';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
@@ -34,6 +35,39 @@
 		dicatat_oleh_nama: string | null;
 	};
 
+	type StokMenipis = {
+		id: number;
+		kode_barang: string;
+		nama_barang: string;
+		stok_sekarang: number;
+		stok_minimum: number;
+		satuan: string | null;
+	};
+	type PelangganResult = {
+		id: number;
+		nama: string;
+		kontak: string | null;
+		saldo_piutang: number;
+		gender: 'pria' | 'wanita' | null;
+		no_kartu: string | null;
+		tier: 'reguler' | 'silver' | 'gold' | null;
+		diskon_member: number | null;
+	};
+
+	type Snap = {
+		items: import('$lib/stores/kasir').ItemKeranjang[];
+		subtotal: number;
+		diskon: number;
+		total: number;
+		metode: import('$lib/stores/kasir').MetodeBayar;
+		nominal: number;
+		kembalian: number;
+		pelanggan: PelangganResult | null;
+		tipe: import('$lib/stores/kasir').TipeTransaksi;
+		noTransaksi: string;
+		waktu: Date;
+	};
+
 	const kolStok: Column[] = [
 		{ key: 'kode_barang', label: 'Kode', width: 100, priority: 2 },
 		{ key: 'nama_barang', label: 'Nama', minWidth: 120 },
@@ -44,6 +78,8 @@
 		{ key: 'status_stok', label: 'Status', width: 110 },
 		{ key: 'aksi', label: '', width: 80, sortable: false, hideable: false, align: 'right' }
 	];
+
+	const snap = writable<Snap | null>(null);
 
 	let pageStok = $state(1);
 	let pageSizeStok = $state(25);
@@ -60,6 +96,10 @@
 	let mutasiLoading = $state(false);
 	let query = $state('');
 	let loading = $state(false);
+
+	// ── Stok menipis ─────────────────────────────────────────────────────────
+	let stokMenipis = $state<StokMenipis[]>([]);
+	let stokAlertDismissed = $state(false);
 
 	function sortStok(list: StokItem[], key: string, dir: 'asc' | 'desc') {
 		if (!key) return list;
@@ -143,15 +183,65 @@
 		return { label: 'AMAN', color: 'var(--accent)' };
 	}
 
+	export async function fetchStokMenipis(): Promise<StokMenipis[]> {
+		const res = await api.get<StokMenipis[]>('/barang/stok-menipis');
+		if (!res.success) throw new Error(res.error);
+		return res.data;
+	}
+
 	onMount(() => {
 		muatStok();
+		fetchStokMenipis()
+			.then((d) => {
+				stokMenipis = d;
+			})
+			.catch(() => {});
 		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => {
 			query = kode;
 		});
 	});
+
+	// ── Refresh stok menipis setelah checkout berhasil ───────────────────────
+	$effect(() => {
+		if ($snap) {
+			stokAlertDismissed = false;
+			fetchStokMenipis()
+				.then((d) => {
+					stokMenipis = d;
+				})
+				.catch(() => {});
+		}
+	});
 </script>
 
 <div class="flex flex-col gap-3">
+	<!-- ─── Alert stok menipis ────────────────────────────────────────────────── -->
+	{#if stokMenipis.length > 0 && !stokAlertDismissed}
+		<div
+			class="mb-2 flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2 text-sm"
+			style="background:color-mix(in srgb,var(--warn) 12%,var(--surface));border-color:var(--warn);color:var(--text)"
+		>
+			<div class="flex min-w-0 items-center gap-2">
+				<span class="shrink-0 font-bold" style="color:var(--warn)">⚠ Stok menipis</span>
+				<span class="truncate" style="color:var(--text-dim)">
+					{stokMenipis
+						.slice(0, 3)
+						.map(
+							(b) =>
+								`${b.nama_barang} (${b.stok_sekarang}/${b.stok_minimum}${b.satuan ? ' ' + b.satuan : ''})`
+						)
+						.join(' · ')}
+					{#if stokMenipis.length > 3}<span>+{stokMenipis.length - 3} lainnya</span>{/if}
+				</span>
+			</div>
+			<button
+				onclick={() => (stokAlertDismissed = true)}
+				class="shrink-0 rounded px-2 py-0.5 text-xs"
+				style="color:var(--text-dim)">✕</button
+			>
+		</div>
+	{/if}
+
 	<div class="flex items-center gap-3">
 		<SearchInput
 			bind:value={query}
