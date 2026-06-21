@@ -59,6 +59,7 @@ import { printerRouter } from './routes/printer.ts'
 import { tokoRouter } from './routes/toko.ts'
 import { fnbRouter } from './routes/fnb.ts'
 import { jasaRouter } from './routes/jasa.ts'
+import { bomRouter } from './routes/bom.ts'
 import { initHooks } from './lib/hooks.ts'
 import { initScheduler } from './lib/scheduler.ts'
 import type { JWTPayload } from './routes/auth.ts'
@@ -160,6 +161,7 @@ app.route('/printer', printerRouter)
 app.route('/toko', tokoRouter)
 app.route('/fnb', fnbRouter)
 app.route('/jasa', jasaRouter)
+app.route('/bom', bomRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 if (dialect === 'sqlite') {

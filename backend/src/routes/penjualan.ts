@@ -5,7 +5,7 @@ import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { catatLog } from '../utils/log.ts'
 import {
   penjualan, penjualan_detail, penjualan_detail_modifier,
-  barang, mutasi_stok, meja, detail_layanan, komisi_staf,
+  barang, mutasi_stok, meja, detail_layanan, komisi_staf, resep, bahan_baku,
   piutang_pelanggan, jurnal_kas, kas_bank,
   pelanggan, karyawan,
 } from '../db/schema.ts'
@@ -279,6 +279,20 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
             tenant_id: tenantId,
           }))
         }
+      }
+
+      // Menu F&B: potong stok bahan baku sesuai resep (BoM) × jumlah porsi
+      if (item.tipe_produk === 'menu_item') {
+        const lines = await query.findAll(db.select({ bahan_baku_id: resep.bahan_baku_id, jumlah: resep.jumlah })
+          .from(resep).where(and(eq(resep.barang_id, item.barang_id), eq(resep.tenant_id, tenantId))))
+        for (const ln of lines) {
+          const bb = await query.find(db.select({ stok: bahan_baku.stok_sekarang })
+            .from(bahan_baku).where(eq(bahan_baku.id, ln.bahan_baku_id)))
+          if (!bb) continue
+          const sisa = Math.max(0, bb.stok - ln.jumlah * item.jumlah) // jangan langgar chk >= 0
+          await query.exec(db.update(bahan_baku).set({ stok_sekarang: sisa }).where(eq(bahan_baku.id, ln.bahan_baku_id)))
+        }
+        continue
       }
 
       // Kurangi stok hanya utk barang fisik
