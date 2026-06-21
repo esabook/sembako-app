@@ -233,7 +233,7 @@
 		onkeydown={(e) => e.key !== 'Escape' && e.stopPropagation()}
 	>
 		<!-- row1 -->
-		<div class="flex flex-col sm:flex-row">
+		<div class="flex flex-col min-[22rem]:flex-row">
 			<!-- col1: template list -->
 			<div class="flex min-w-30 flex-col border-r-0 border-b py-1 sm:border-r sm:border-b-0">
 				{#each TEMPLATES as t (t)}

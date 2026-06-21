@@ -31,6 +31,7 @@
 {#if open}
 	<div
 		class="fixed inset-0 z-[99] bg-black/50 sm:bg-transparent"
+		style="backdrop-filter:blur(3px);"
 		onclick={() => (open = false)}
 		aria-hidden="true"
 	></div>
@@ -47,7 +48,7 @@
 			<span class="truncate text-[0.7rem] leading-tight font-medium">
 				{selectedTemplate ?? 'Pilih rentang'}
 			</span>
-			<span class="truncate text-[0.5rem] leading-tight text-base-content/60"
+			<span class="truncate text-[0.6rem] leading-tight text-base-content/60"
 				>{from && to ? displayRange(from, to) : 'Tanggal'}</span
 			>
 		</div>

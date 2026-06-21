@@ -1,10 +1,10 @@
 export const TEMPLATES = [
-	'Last 90 days',
-	'Last 30 days',
-	'Last 7 days',
-	'Last 24 hours',
+	'Last 60 minutes',
 	'Last 12 hours',
-	'Last 60 minutes'
+	'Last 24 hours',
+	'Last 7 days',
+	'Last 30 days',
+	'Last 90 days',
 ];
 
 export const MONTH_NAMES = [
