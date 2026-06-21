@@ -11,6 +11,7 @@
 	import SectionPreferensi from './components/SectionPreferensi.svelte';
 	import SectionAudio from './components/SectionAudio.svelte';
 	import SectionBackupRestore from './components/SectionBackupRestore.svelte';
+	import SectionDemo from './components/SectionDemo.svelte';
 
 	// Hanya pemilik yang bisa akses
 	$effect(() => {
@@ -36,6 +37,7 @@
 		<SectionPreferensi {store} />
 		<SectionAudio {store} />
 		<SectionBackupRestore {store} />
+		<SectionDemo />
 
 		<div class="flex justify-end">
 			<Button onclick={() => store.simpan()} loading={store.saving}>Simpan Pengaturan</Button>
