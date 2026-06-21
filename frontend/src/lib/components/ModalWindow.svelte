@@ -48,6 +48,7 @@
 		maxWidth = 'md',
 		noPadding = false,
 		fullscreen = false,
+		fullHeight = false,
 		ontutup = undefined,
 		children
 	}: {
@@ -56,6 +57,7 @@
 		maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '3xl' | '4xl';
 		noPadding?: boolean;
 		fullscreen?: boolean;
+		fullHeight?: boolean;
 		ontutup?: () => void;
 		children: Snippet;
 	} = $props();
@@ -121,7 +123,8 @@
 			class="relative flex w-full flex-col overflow-hidden border
              {fullscreen
 				? 'h-dvh rounded-2xl'
-				: 'rounded-t-2xl sm:rounded-2xl ' +
+				: (fullHeight ? 'h-dvh ' : '') +
+					'rounded-t-2xl sm:rounded-2xl ' +
 					(maxWidth === 'sm'
 						? 'sm:max-w-sm'
 						: maxWidth === 'lg'

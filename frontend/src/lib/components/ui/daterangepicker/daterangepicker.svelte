@@ -6,10 +6,12 @@
 	let {
 		from = $bindable(''),
 		to = $bindable(''),
+		clasz = '',
 		onchange
 	}: {
 		from?: string;
 		to?: string;
+		clasz?: string;
 		onchange?: () => void;
 	} = $props();
 
@@ -34,10 +36,10 @@
 	></div>
 {/if}
 
-<div class="relative inline-block">
+<div class={'relative inline-block' + clasz}>
 	<button
 		type="button"
-		class="flex min-w-36 items-center gap-2 rounded border-base-300 bg-base-100 px-2 py-1 text-left transition-colors hover:bg-base-200"
+		class="flex w-full items-center gap-2 rounded border-base-300 bg-base-100 px-2 py-1 text-left transition-colors hover:bg-base-200"
 		onclick={toggle}
 	>
 		<Calendar size="1rem" class="shrink-0 text-base-content/60" aria-hidden="true" />
@@ -45,7 +47,7 @@
 			<span class="truncate text-[0.7rem] leading-tight font-medium">
 				{selectedTemplate ?? 'Pilih rentang'}
 			</span>
-			<span class="text-[0.5rem] leading-tight text-base-content/60"
+			<span class="truncate text-[0.5rem] leading-tight text-base-content/60"
 				>{from && to ? displayRange(from, to) : 'Tanggal'}</span
 			>
 		</div>
