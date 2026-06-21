@@ -102,7 +102,9 @@ export async function withLoading<T>(
 			return null;
 		}
 		const asli = e instanceof Error ? e.message : String(e);
-		const pesan = opts.errorPesan ?? petakanError(asli);
+		const pesan = typeof opts.errorPesan === 'function'
+			? opts.errorPesan(asli)
+			: (opts.errorPesan ?? petakanError(asli));
 		errors.tambah({
 			pesan,
 			asli,

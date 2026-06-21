@@ -4,7 +4,12 @@
 	import ModalWindow from '$lib/components/ModalWindow.svelte';
 	import StrukPreview from '$lib/components/ui/StrukPreview.svelte';
 	import { api } from '$lib/utils/api.js';
-	import { buildStrukHtmlCopies, cetakStrukPopup, cetakViaAgent, type StrukData } from '$lib/utils/struk';
+	import {
+		buildStrukHtmlCopies,
+		cetakStrukPopup,
+		cetakViaAgent,
+		type StrukData
+	} from '$lib/utils/struk';
 	import { rupiah, METODE, METODE_LABEL } from './kasir.logic';
 	import {
 		keranjang,
@@ -46,7 +51,7 @@
 		strCopy = '1',
 		autoCetak = false,
 		printerMode = 'browser',
-		printerBridgePort = '9999',
+		printerBridgePort = '9999'
 	}: {
 		namaToko?: string;
 		alamatToko?: string;
@@ -259,16 +264,16 @@
 	}
 
 	async function cetakStruk() {
-		const copies = Math.max(1, parseInt(strCopy) || 1)
+		const copies = Math.max(1, parseInt(strCopy) || 1);
 		// Coba via agent bridge jika mode bukan browser
 		if (printerMode === 'agent-local' || printerMode === 'agent-server') {
 			const ok = await cetakViaAgent(
 				liveStrukData,
 				copies,
 				printerMode as 'agent-local' | 'agent-server',
-				printerBridgePort,
-			)
-			if (ok) return
+				printerBridgePort
+			);
+			if (ok) return;
 			// Jika agent gagal (offline / error), lanjut ke fallback popup browser
 		}
 		cetakStrukPopup(buildStrukHtmlCopies(liveStrukData, copies), () =>
@@ -277,13 +282,13 @@
 	}
 
 	// Auto-cetak: trigger saat snap pertama kali muncul (setelah prosesBayar selesai)
-	let prevSnap: typeof $snap = null
+	let prevSnap: typeof $snap = null;
 	$effect(() => {
 		if ($snap && !prevSnap && autoCetak) {
-			void cetakStruk()
+			void cetakStruk();
 		}
-		prevSnap = $snap
-	})
+		prevSnap = $snap;
+	});
 
 	onMount(() => {
 		void api.get<{ id: number; nama: string; tipe: string }[]>('/keuangan/kas-bank').then((res) => {
@@ -300,11 +305,17 @@
 	>
 {/snippet}
 
-<ModalWindow open={$popupCheckout} ontutup={tutupCheckout} maxWidth="3xl" noPadding={true}>
+<ModalWindow
+	open={$popupCheckout}
+	ontutup={tutupCheckout}
+	maxWidth="3xl"
+	noPadding={true}
+	fullHeight={true}
+>
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="flex w-full flex-col overflow-y-auto sm:flex-row sm:overflow-hidden"
-		style="max-height:calc(90svh - 4rem)"
+		class="flex w-full flex-col overflow-y-auto sm:overflow-hidden md:flex-row"
+		style="height:100%"
 		bind:this={modalEl}
 		onkeydown={handleTabTrap}
 		onkeyup={(e) => {
@@ -312,7 +323,7 @@
 		}}
 	>
 		<!-- ── Kolom 1: Input / Sukses ── -->
-		<div class="flex min-w-0 flex-1 flex-col gap-4 p-6 sm:overflow-y-auto">
+		<div class="flex min-w-0 flex-1 flex-col gap-4 p-6 md:overflow-y-auto">
 			{#if $snap}
 				<!-- sukses state -->
 				<div class="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
@@ -538,6 +549,9 @@
 							max="999999999"
 							inputmode="numeric"
 							value={$nominalBayar || ''}
+							onkeydown={(e) => {
+								if (e.key.length === 1 && !/\d/.test(e.key)) e.preventDefault();
+							}}
 							oninput={(e) => {
 								const el = e.target as HTMLInputElement;
 								const angka = Math.min(999_999_999, Math.max(0, Number(el.value) || 0));
@@ -548,16 +562,49 @@
 							class="w-full [appearance:textfield] rounded border px-3 py-3 text-right font-mono text-xl font-bold outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 							style="background:var(--surface2);border-color:var(--border);color:var(--text)"
 						/>
+						<div class="grid grid-cols-2 gap-1">
+							<button
+								type="button"
+								onclick={() => nominalBayar.set($total)}
+								class="rounded px-1 py-1 text-xs font-bold transition-all active:scale-95"
+								style="background:var(--surface2);border:1px solid var(--border);color:var(--accent)"
+								>Pas</button
+							>
+							<button
+								type="button"
+								onclick={() => nominalBayar.set(0)}
+								class="rounded px-1 py-1 text-xs font-bold transition-all active:scale-95"
+								style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim)"
+								>Clear</button
+							>
+						</div>
+
+						<div class="-mt-0.5 grid grid-cols-4 gap-1">
+							{#each [500, 1000, 2000, 5000, 10000, 20000, 50000, 100000] as amt}
+								<button
+									type="button"
+									onclick={() => nominalBayar.set(Math.min(999_999_999, $nominalBayar + amt))}
+									class="rounded px-1 py-1 text-xs font-bold transition-all active:scale-95"
+									style="background:var(--surface2);border:1px solid var(--border);color:var(--text-dim)"
+									>+{amt >= 1000 ? amt / 1000 + 'k' : amt}</button
+								>
+							{/each}
+						</div>
+						<div class="flex justify-between px-1 text-sm">
+							<span style="color:var(--text-dim)">Kurang Bayar</span>
+							<span class="font-mono font-bold" style="color:var(--accent)"
+								>{rupiah($total - $nominalBayar)}</span
+							>
+						</div>
+
 						<div class="flex justify-between px-1 text-sm">
 							<span style="color:var(--text-dim)">Total</span>
-							<span class="font-mono font-bold" style="color:var(--accent)"
-								>Rp {rupiah($total)}</span
-							>
+							<span class="font-mono font-bold" style="color:var(--accent)">{rupiah($total)}</span>
 						</div>
 						<div class="flex justify-between px-1 text-sm">
 							<span style="color:var(--text-dim)">Kembalian</span>
 							<span class="font-mono font-bold" style="color:var(--accent)"
-								>Rp {rupiah($kembalian)}</span
+								>{rupiah($kembalian)}</span
 							>
 						</div>
 					</div>
@@ -603,12 +650,20 @@
 				<!-- GUIDED: step hint -->
 				{#if $kasirMode === 'guided'}
 					<div class="flex flex-wrap gap-1 text-xs" style="color:var(--text-dim)">
-						<span class="rounded px-1.5  whitespace-nowrap" style="background:var(--surface2)">Ctrl+Alt+?: </span>
-						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)">(m) Pilih metode</span>
+						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)"
+							>Ctrl+Alt+?:
+						</span>
+						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)"
+							>(m) Pilih metode</span
+						>
 						<span>→</span>
-						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)">(n) Input nominal</span>
+						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)"
+							>(n) Input nominal</span
+						>
 						<span>→</span>
-						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)">(s) Klik SELESAI</span>
+						<span class="rounded px-1.5 whitespace-nowrap" style="background:var(--surface2)"
+							>(s) Klik SELESAI</span
+						>
 					</div>
 				{/if}
 			{/if}

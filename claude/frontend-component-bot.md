@@ -61,7 +61,7 @@ toolbarEnd   Snippet | undefined
 
 ## LoadingBar.svelte
 
-No props. Reads `adaLoading` + `pesanLoading` dari `$lib/stores/ui.store`.
+No props. Reads `isLoading` + `pesanLoading` dari `$lib/stores/ui.store`.
 
 ```svelte
 import LoadingBar from '$lib/components/LoadingBar.svelte'

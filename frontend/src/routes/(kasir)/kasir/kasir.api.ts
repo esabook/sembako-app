@@ -44,7 +44,7 @@ export async function submitPenjualan(body: SubmitPenjualanBody): Promise<{ no_t
 
 // ── Draft keranjang ───────────────────────────────────────────────────────
 
-export type DraftItem = Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'> & {
+export type DraftItem = Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'harga_eceran' | 'harga_grosir' | 'diskon_item'> & {
 	kode_barang: string;
 	nama_barang: string;
 	stok_sekarang: number;
@@ -89,10 +89,6 @@ export async function fetchDetailPenjualan(id: number): Promise<HistoriDetail> {
 	return res.data;
 }
 
-export async function fetchStokMenipis(): Promise<StokMenipis[]> {
-	const res = await api.get<StokMenipis[]>('/barang/stok-menipis');
-	if (!res.success) throw new Error(res.error);
-	return res.data;
-}
+
 
 export type { HistoriPenjualan, HistoriDetail, StokMenipis };

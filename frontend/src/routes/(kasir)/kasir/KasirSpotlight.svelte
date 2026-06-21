@@ -14,9 +14,12 @@
 	} from './kasir.store';
 	import { rupiah } from './kasir.logic';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Scanner from '$lib/components/Scanner.svelte';
+	import ScanBarcode from '@lucide/svelte/icons/scan-barcode';
 	import { thumbUrl } from '$lib/utils/upload.js';
 
 	let inputEl: HTMLInputElement | undefined = $state();
+	let showScanner = $state(false);
 
 	let cariTimer: ReturnType<typeof setTimeout>;
 
@@ -49,13 +52,22 @@
 			if (sel) pilihBarang(sel);
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
-			if ($qrLarge) { qrLarge.set(false); return; }
+			if ($qrLarge) {
+				qrLarge.set(false);
+				return;
+			}
 			closeSearch();
 		}
 	}
 
 	function pilihBarang(br: (typeof $searchResults)[number]) {
 		tambahKeKeranjang(br, $dummyJumlah);
+	}
+
+	function handleScanDetect(kode: string) {
+		searchVal.set(kode);
+		cariBarang(kode);
+		showScanner = false;
 	}
 
 	onMount(() => {
@@ -71,7 +83,10 @@
 	role="none"
 >
 	<!-- input row -->
-	<div class="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:gap-3" style="border-color:var(--border)">
+	<div
+		class="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+		style="border-color:var(--border)"
+	>
 		<!-- tipe toggle -->
 		<div class="flex shrink-0 gap-1">
 			{#each ['eceran', 'grosir'] as const as t (t)}
@@ -100,6 +115,15 @@
 			{#if $cariLoading}
 				<Spinner size={14} />
 			{/if}
+			<button
+				type="button"
+				onclick={() => (showScanner = true)}
+				class="flex shrink-0 items-center justify-center rounded-lg p-1.5 transition-colors active:scale-95 sm:hidden"
+				style="color:var(--text-dim);background:var(--surface2)"
+				title="Scan barcode"
+			>
+				<ScanBarcode size={20} />
+			</button>
 		</div>
 	</div>
 
@@ -130,24 +154,38 @@
 							></div>
 						{/if}
 						<!-- info: flex-col mobile, grid 2-kol desktop -->
-						<div class="flex min-w-0 flex-1 flex-col gap-0.5 sm:grid sm:grid-cols-[1fr_auto] sm:gap-x-4">
+						<div
+							class="flex min-w-0 flex-1 flex-col gap-0.5 sm:grid sm:grid-cols-[1fr_auto] sm:gap-x-4"
+						>
 							<!-- nama (desktop: baris 1 kol 1) -->
-							<span class="min-w-0 truncate font-medium sm:col-start-1 sm:row-start-1">{br.nama_barang}</span>
+							<span class="min-w-0 truncate font-medium sm:col-start-1 sm:row-start-1"
+								>{br.nama_barang}</span
+							>
 							<!-- kode + stok (desktop: baris 2 kol 1) -->
 							<div class="flex items-center gap-3 sm:col-start-1 sm:row-start-2">
 								<span class="text-xs" style="color:var(--text-dim)">{br.kode_barang}</span>
-								<span class="text-xs" style="color:{br.stok_sekarang <= 0 ? 'var(--danger)' : 'var(--text-dim)'}">stok {br.stok_sekarang} {br.singkatan_satuan ?? ''}</span>
+								<span
+									class="text-xs"
+									style="color:{br.stok_sekarang <= 0 ? 'var(--danger)' : 'var(--text-dim)'}"
+									>stok {br.stok_sekarang} {br.singkatan_satuan ?? ''}</span
+								>
 							</div>
 							<!-- ECR (mobile: baris 3; desktop: baris 1 kol 2, angka-dulu) -->
 							<span
 								class="flex items-center gap-1 text-xs sm:col-start-2 sm:row-start-1 sm:flex-row-reverse"
 								style="color:{$tipeTransaksi === 'eceran' ? 'var(--accent)' : 'var(--text-dim)'}"
-							><span class="text-xs" style="color:var(--text-dim)">ECR</span>{rupiah(br.harga_jual_eceran)}</span>
+								><span class="text-xs" style="color:var(--text-dim)">ECR</span>{rupiah(
+									br.harga_jual_eceran
+								)}</span
+							>
 							<!-- GRS (mobile: baris 4; desktop: baris 2 kol 2, angka-dulu) -->
 							<span
 								class="flex items-center gap-1 text-xs sm:col-start-2 sm:row-start-2 sm:flex-row-reverse"
 								style="color:{$tipeTransaksi === 'grosir' ? 'var(--accent)' : 'var(--text-dim)'}"
-							><span class="text-xs" style="color:var(--text-dim)">GRS</span>{rupiah(br.harga_jual_grosir)}</span>
+								><span class="text-xs" style="color:var(--text-dim)">GRS</span>{rupiah(
+									br.harga_jual_grosir
+								)}</span
+							>
 						</div>
 					</div>
 				</button>
@@ -159,9 +197,12 @@
 		</p>
 	{:else}
 		<p class="px-4 py-4 text-center text-xs" style="color:var(--text-dim)">
-			Ketik nama, kode, atau scan barcode — harga aktif: <span style="color:var(--accent)"
-				>{$tipeTransaksi.toUpperCase()}</span
-			>
+			Ketik nama, kode, atau scan barcode <br />harga aktif:
+			<span style="color:var(--accent)">{$tipeTransaksi.toUpperCase()}</span>
 		</p>
 	{/if}
 </div>
+
+{#if showScanner}
+	<Scanner onDetect={handleScanDetect} onClose={() => (showScanner = false)} />
+{/if}

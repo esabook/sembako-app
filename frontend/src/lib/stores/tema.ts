@@ -1,4 +1,4 @@
-import { derived, writable } from 'svelte/store'
+import { derived, get, writable } from 'svelte/store'
 import { browser } from '$app/environment'
 
 export type Skin = 'normal' | 'bw' | 'island' | 'klasik' | 'lambo'
@@ -84,23 +84,43 @@ export const tema = derived(
 
 const DARK_VARIANTS: Tema[] = ['dark', 'bwb', 'island', 'klasik', 'lambo']
 
-// Swap skin CSS file on theme change
+function applyTema(val: Tema) {
+  document.documentElement.setAttribute('data-theme', val)
+  document.documentElement.classList.toggle('dark', DARK_VARIANTS.includes(val))
+}
+
+// true saat skin CSS baru sedang diunduh — tahan update data-theme
+let _skinSwapping = false
+// skip subscriber pertama (initial value) — skin CSS sudah diload via head script
+let _skipFirstSkin = true
+
 function swapSkinCSS(skin: Skin) {
   if (!browser) return
-  let link = document.getElementById('skin-css') as HTMLLinkElement | null
-  if (!link) {
-    link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.id = 'skin-css'
-    document.head.appendChild(link)
-  }
+  if (_skipFirstSkin) { _skipFirstSkin = false; return }
+
+  _skinSwapping = true
+  const el = document.documentElement
+  el.style.transition = 'opacity 0.1s'
+  el.style.opacity = '0'
+
+  const old = document.getElementById('skin-css') as HTMLLinkElement | null
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
   link.href = `/themes/${skin}.css`
+  link.onload = () => {
+    link.id = 'skin-css'
+    old?.remove()
+    applyTema(get(tema))
+    el.style.opacity = '1'
+    setTimeout(() => { el.style.transition = '' }, 150)
+    _skinSwapping = false
+  }
+  document.head.appendChild(link)
 }
 
 tema.subscribe((val) => {
-  if (!browser) return
-  document.documentElement.setAttribute('data-theme', val)
-  document.documentElement.classList.toggle('dark', DARK_VARIANTS.includes(val))
+  if (!browser || _skinSwapping) return
+  applyTema(val)
 })
 
 temaSkin.subscribe((val) => {

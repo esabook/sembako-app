@@ -34,7 +34,7 @@ const _loading = writable<LoadingState[]>([]);
 
 export const loading = {
 	subscribe: _loading.subscribe,
-	mulai: (key: string, pesan = 'Memuat...') =>
+	mulai: (key: string, pesan = '') =>
 		_loading.update((list) =>
 			list.some((l) => l.key === key) ? list : [...list, { key, pesan }]
 		),
@@ -43,7 +43,7 @@ export const loading = {
 };
 
 // true jika ada minimal 1 operasi loading berjalan
-export const adaLoading = derived(_loading, ($l) => $l.length > 0);
+export const isLoading = derived(_loading, ($l) => $l.length > 0);
 
 // pesan loading yang paling baru (untuk ditampilkan di LoadingBar)
 export const pesanLoading = derived(_loading, ($l) =>

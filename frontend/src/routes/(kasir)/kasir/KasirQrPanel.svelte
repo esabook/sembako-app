@@ -3,13 +3,18 @@
 	import { qrDataUrl, qrLarge, scannerStatus, scanSessionId, scanUrl } from './kasir.store';
 
 	let hostname = $state('');
-	onMount(() => { hostname = location.hostname; });
+	onMount(() => {
+		hostname = location.hostname;
+	});
 </script>
 
 <!-- QR panel: scan dari HP — disembunyikan di layar HP (< sm) -->
-<div class="hidden sm:flex shrink-0 cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 shadow-2xl select-none"
+<div
+	class="hidden shrink-0 cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 shadow-2xl select-none sm:flex"
 	style="background:var(--surface);border-color:var(--border)"
-	onclick={() => { if ($qrDataUrl) qrLarge.set(true); }}
+	onclick={() => {
+		if ($qrDataUrl) qrLarge.set(true);
+	}}
 	role="none"
 	title="Klik untuk perbesar QR"
 >
@@ -57,25 +62,24 @@
 		role="none"
 	>
 		<div
-			class="flex flex-col items-center gap-4"
+			class="flex w-full max-w-xs flex-col items-center gap-3 overflow-y-auto px-4 py-6 sm:max-w-sm sm:gap-4"
+			style="max-height:100dvh"
 			onclick={(e) => e.stopPropagation()}
 			role="none"
 		>
 			<img
 				src={$qrDataUrl}
 				alt="Scan dari HP"
-				class="h-80 w-80 rounded-xl"
-				style="image-rendering:pixelated"
+				class="w-full shrink-0 rounded-xl"
+				style="image-rendering:pixelated;max-width:min(20rem,55vh);aspect-ratio:1/1"
 			/>
-			<p class="text-sm" style="color:var(--text-dim)">
-				Arahkan HP ke QR · atau ketik manual:
-			</p>
+			<p class="text-sm" style="color:var(--text-dim)">Arahkan HP ke QR · atau ketik manual:</p>
 			<div
-				class="rounded-lg border px-4 py-3 text-center"
+				class="rounded-lg border px-2 py-1 text-center"
 				style="background:var(--surface);border-color:var(--border)"
 			>
 				<p class="mb-1 text-xs" style="color:var(--text-dim)">Buka di browser HP</p>
-				<p class="font-mono text-base tracking-wide" style="color:var(--accent)">
+				<p class="font-mono text-sm tracking-wide" style="color:var(--accent)">
 					{$scanUrl}
 				</p>
 			</div>

@@ -2,6 +2,7 @@
 	import { user } from '$lib/stores/auth.js';
 	import { api } from '$lib/utils/api.js';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { font, FONT_CSS } from '$lib/stores/font.js';
 	import { ukuranFont } from '$lib/stores/ukuran-font.js';
 	import NavClock from '$lib/components/NavClock.svelte';
@@ -9,6 +10,7 @@
 	import AppSidebar from '$lib/components/layout/AppSidebar.svelte';
 	import SyncIndicator from '$lib/components/SyncIndicator.svelte';
 	import PanelLeft from '@lucide/svelte/icons/panel-left';
+	import Banknote from '@lucide/svelte/icons/banknote';
 
 	let { children, data } = $props();
 
@@ -21,6 +23,14 @@
 	let sidebarMobileOpen = $state(false);
 	let sidebarWidth = $state(0);
 	let sidebarAbsolute = $state(false);
+
+	const KASIR_ROLES = ['pemilik', 'manajer', 'kasir', 'gudang', 'sales', 'pelayanan'];
+	const boleKasir = $derived(KASIR_ROLES.includes($user?.role ?? ''));
+
+	async function bukaKasirPOS() {
+		try { await document.documentElement.requestFullscreen(); } catch { /* ignored */ }
+		goto('/kasir');
+	}
 
 	onMount(() => {
 		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
@@ -69,6 +79,17 @@
 		<div class="ml-auto flex shrink-0 items-center gap-2">
 			<SyncIndicator />
 			<NavClock />
+			{#if boleKasir}
+				<button
+					onclick={bukaKasirPOS}
+					class="flex items-center gap-1 rounded px-2 py-1 text-xs active:opacity-70"
+					style="background:var(--accent);color:#fff"
+					title="Buka Kasir POS"
+				>
+					<Banknote size={14} />
+					<span class="hidden sm:inline">Kasir</span>
+				</button>
+			{/if}
 			<NavUser />
 		</div>
 	</nav>

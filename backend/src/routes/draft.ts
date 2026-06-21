@@ -21,7 +21,7 @@ draftRouter.get('/keranjang', async (c) => {
   const tenantId = user.tenant_id ?? 1
   const kasirId = user.id
 
-  const draft = await query.find(db
+  const draft = await query.find<typeof draft_keranjang.$inferSelect>(db
     .select()
     .from(draft_keranjang)
     .where(eq(draft_keranjang.kasir_id, kasirId))
@@ -40,12 +40,14 @@ draftRouter.get('/keranjang', async (c) => {
       kode_barang: barang.kode_barang,
       nama_barang: barang.nama_barang,
       stok_sekarang: barang.stok_sekarang,
+      harga_eceran: barang.harga_jual_eceran,
+      harga_grosir: barang.harga_jual_grosir,
       singkatan_satuan: satuan.singkatan,
     })
     .from(draft_keranjang_item)
     .leftJoin(barang, eq(draft_keranjang_item.barang_id, barang.id))
     .leftJoin(satuan, eq(draft_keranjang_item.satuan_id, satuan.id))
-    .where(eq(draft_keranjang_item.draft_id, draft.id))
+    .where(eq(draft_keranjang_item.draft_id, draft.id!))
     )
 
   return c.json({
@@ -79,7 +81,7 @@ draftRouter.put('/keranjang', async (c) => {
 
   await withTransaction(async (tx) => {
     // Upsert draft header
-    const existing = await query.find(db
+    const existing = await query.find<{ id: number }>(db
       .select({ id: draft_keranjang.id })
       .from(draft_keranjang)
       .where(eq(draft_keranjang.kasir_id, kasirId))
@@ -98,7 +100,7 @@ draftRouter.put('/keranjang', async (c) => {
         )
       draftId = existing.id
     } else {
-      const ins = await query.find(db
+      const ins = await query.find<{ id: number }>(db
         .insert(draft_keranjang)
         .values({
           kasir_id: kasirId,
@@ -107,7 +109,7 @@ draftRouter.put('/keranjang', async (c) => {
         })
         .returning({ id: draft_keranjang.id })
         )
-      draftId = ins.id
+      draftId = ins!.id
     }
 
     // Replace semua item
@@ -142,7 +144,7 @@ draftRouter.delete('/keranjang', async (c) => {
   const tenantId = user.tenant_id ?? 1
   const kasirId = user.id
 
-  const draft = await query.find(db
+  const draft = await query.find<{ id: number }>(db
     .select({ id: draft_keranjang.id })
     .from(draft_keranjang)
     .where(eq(draft_keranjang.kasir_id, kasirId))

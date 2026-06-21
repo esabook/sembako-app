@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import { keranjang, itemAktifIdx, initKasirMode } from '$lib/stores/kasir';
 	import {
 		// state
@@ -9,7 +8,6 @@
 		konfirmasiHapusIdx,
 		popupSearch,
 		popupCheckout,
-		snap,
 		qrLarge,
 		// actions
 		cariBarang,
@@ -20,9 +18,6 @@
 		hapusItem,
 		openCheckout,
 		tutupCheckout,
-		initKasirScan,
-		cleanupKasirScan,
-		loadPromoAktif,
 		initDraftSync,
 		restoreDraft,
 		resetKasirDenganDraft
@@ -38,7 +33,6 @@
 	import { toast } from '$lib/stores/ui.store';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { tinykeys } from 'tinykeys';
-	import { fetchStokMenipis, type StokMenipis } from './kasir.api';
 	import type { ShiftAktif } from './kasir.types';
 
 	// ── ConfirmDialog hapus item keranjang ────────────────────────────────────
@@ -63,23 +57,6 @@
 
 	// ── DOM refs ──────────────────────────────────────────────────────────────
 	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
-
-	// ── Stok menipis ─────────────────────────────────────────────────────────
-	let stokMenipis = $state<StokMenipis[]>([]);
-	let stokAlertDismissed = $state(false);
-
-	// ── History transaksi ─────────────────────────────────────────────────────
-	// ── Refresh stok menipis setelah checkout berhasil ───────────────────────
-	$effect(() => {
-		if ($snap) {
-			stokAlertDismissed = false;
-			fetchStokMenipis()
-				.then((d) => {
-					stokMenipis = d;
-				})
-				.catch(() => {});
-		}
-	});
 
 	// ── Keyboard: global ──────────────────────────────────────────────────────
 	function closeAll() {
@@ -161,17 +138,11 @@
 
 	onMount(() => {
 		initKasirMode();
-		void loadPromoAktif();
 		void restoreDraft();
-		void initKasirScan(page.data.user?.id ?? 0, location.host, location.protocol);
 		muatShiftAktif().then(() => {
 			if (!shiftAktif) modalBukaShift = true;
 		});
-		fetchStokMenipis()
-			.then((d) => {
-				stokMenipis = d;
-			})
-			.catch(() => {});
+
 		void api.get<Record<string, string>>('/pengaturan').then((res) => {
 			if (!res.success) return;
 			const s = res.data;
@@ -336,7 +307,6 @@
 			}
 		});
 		return () => {
-			cleanupKasirScan();
 			cleanupDraft();
 			cleanupBarcode();
 			cleanupKeys();
@@ -347,33 +317,6 @@
 <svelte:head><title>Kasir — Stokasir</title></svelte:head>
 
 <div class="flex h-full flex-col">
-	<!-- ─── Alert stok menipis ────────────────────────────────────────────────── -->
-	{#if stokMenipis.length > 0 && !stokAlertDismissed}
-		<div
-			class="mb-2 flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2 text-sm"
-			style="background:color-mix(in srgb,var(--warn) 12%,var(--surface));border-color:var(--warn);color:var(--text)"
-		>
-			<div class="flex min-w-0 items-center gap-2">
-				<span class="shrink-0 font-bold" style="color:var(--warn)">⚠ Stok menipis</span>
-				<span class="truncate" style="color:var(--text-dim)">
-					{stokMenipis
-						.slice(0, 3)
-						.map(
-							(b) =>
-								`${b.nama_barang} (${b.stok_sekarang}/${b.stok_minimum}${b.satuan ? ' ' + b.satuan : ''})`
-						)
-						.join(' · ')}
-					{#if stokMenipis.length > 3}<span>+{stokMenipis.length - 3} lainnya</span>{/if}
-				</span>
-			</div>
-			<button
-				onclick={() => (stokAlertDismissed = true)}
-				class="shrink-0 rounded px-2 py-0.5 text-xs"
-				style="color:var(--text-dim)">✕</button
-			>
-		</div>
-	{/if}
-
 	<!-- ─── Main: Keranjang + Bottom Bar ─────────────────────────────────────── -->
 	<KasirKeranjang
 		bind:diskonInputRefs

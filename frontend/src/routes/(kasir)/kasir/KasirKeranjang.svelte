@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
 	import {
 		keranjang,
 		itemAktifIdx,
@@ -14,12 +13,20 @@
 		dummyJumlah,
 		ubahJumlah,
 		ubahDiskon,
+		ubahTipeHarga,
 		openSearch,
 		totalAkhir,
 		draftStatus
 	} from './kasir.store';
 	import { rupiah } from './kasir.logic';
+	import { thumbUrl } from '$lib/utils/upload';
 	import type { ShiftAktif } from './kasir.types';
+	import Search from '@lucide/svelte/icons/search';
+	import ScanBarcode from '@lucide/svelte/icons/scan-barcode';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
+	import TicketPercent from '@lucide/svelte/icons/ticket-percent';
+	import ReceiptText from '@lucide/svelte/icons/receipt-text';
+	import BadgeDollarSign from '@lucide/svelte/icons/badge-dollar-sign';
 
 	let {
 		shiftAktif,
@@ -110,7 +117,209 @@
 				</button>
 			</div>
 		{:else}
-			<div class="h-full overflow-x-auto">
+			<!-- Mobile card layout -->
+			<div class="divide-y md:hidden" style="border-color:var(--border)">
+				{#each $keranjang as item, idx (`${item.barang_id}-${item.tipe_harga}`)}
+					{@const aktif = $itemAktifIdx === idx}
+					{@const visButtons = hoveredIdx === idx || (aktif && hoveredIdx === null)}
+					<div
+						role="button"
+						tabindex="0"
+						class="flex cursor-pointer gap-2 px-2 py-2 transition-colors"
+						style={aktif
+							? 'background:var(--surface2);border-left:3px solid var(--accent)'
+							: 'border-left:3px solid transparent'}
+						onclick={() => itemAktifIdx.set(idx)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') itemAktifIdx.set(idx);
+						}}
+					>
+						<!-- Col 1: foto -->
+						<div
+							class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded"
+							style="background:var(--surface2);border:1px solid var(--border)"
+						>
+							{#if item.foto_path}
+								<img
+									src={thumbUrl(item.foto_path) ?? ''}
+									alt={item.nama_barang}
+									class="h-full w-full object-cover"
+								/>
+							{:else}
+								<span class="text-xs font-bold" style="color:var(--text-dim)"
+									>{item.nama_barang.slice(0, 2).toUpperCase()}</span
+								>
+							{/if}
+						</div>
+
+						<!-- Col 2: detail -->
+						<div class="flex min-w-0 flex-1 flex-col gap-1">
+							<!-- Row 1: nama + tipe dropdown -->
+							<div class="flex items-start justify-between gap-1">
+								<span class="truncate text-sm leading-tight font-medium">{item.nama_barang}</span>
+								<select
+									value={item.tipe_harga}
+									onchange={(e) => {
+										e.stopPropagation();
+										ubahTipeHarga(
+											idx,
+											(e.target as HTMLSelectElement).value as 'eceran' | 'grosir'
+										);
+									}}
+									onclick={(e) => e.stopPropagation()}
+									class="shrink-0 cursor-pointer rounded border px-1 py-0 text-xs font-bold outline-none"
+									style="background:var(--surface2);border-color:var(--border);color:var(--accent)"
+								>
+									<option value="eceran">ECR</option>
+									<option value="grosir">GRS</option>
+								</select>
+							</div>
+
+							<!-- Row 2: kode_barang -->
+							<div class="flex items-center justify-between gap-1">
+								<div class="text-xs" style="color:var(--text-dim)">{item.kode_barang}</div>
+								<span class="flex items-center text-xs" style="color:var(--text-dim)"
+									>{rupiah(item.harga_jual)} <BadgeDollarSign size="0.8rem" class="ml-2" /></span
+								>
+							</div>
+
+							<!-- Row 3: harga + stepper -->
+							<div class="flex items-center justify-between gap-1">
+								<div></div>
+								<div class="flex w-fit items-center">
+									{#if aktif}
+										<input
+											bind:this={diskonInputRefs[idx]}
+											type="number"
+											min="0"
+											step="500"
+											value={item.diskon_item}
+											oninput={(e) => ubahDiskon(idx, (e.target as HTMLInputElement).value)}
+											onclick={(e) => e.stopPropagation()}
+											onkeydown={(e) => {
+												if (e.key === 'Enter' || e.key === 'Escape') {
+													e.preventDefault();
+													e.stopPropagation();
+													(e.target as HTMLInputElement).blur();
+												}
+											}}
+											size={Math.max(1, String(item.diskon_item || 0).length)}
+											class="item-center [field-sizing:content] h-[1.1rem] cursor-auto rounded border px-1 text-right text-xs outline-none"
+											style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										/>
+									{:else}
+										<span class="h-[1.1rem] text-xs" style="color:var(--text-dim)" title="Diskon"
+											>{rupiah(item.diskon_item)}</span
+										>
+									{/if}
+									<TicketPercent size="0.8rem" class="ml-2" title="Diskon" />
+								</div>
+							</div>
+
+							<!-- Row 4: diskon + subtotal -->
+							<div class="flex items-center justify-between gap-1">
+								<div class="flex items-center">
+									<span class="w-fit text-xs">{item.jumlah}</span>
+									<span class="ml-1 text-xs" style="color:var(--text-dim)"
+										>{item.singkatan_satuan}</span
+									>
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											if (item.jumlah <= 1) konfirmasiHapusIdx.set(idx);
+											else ubahJumlah(idx, -1);
+										}}
+										class={`ml-1 flex h-6 w-6 items-center justify-center rounded-l-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+										style="background:var(--surface);color:var(--text-dim)">−</button
+									>
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											ubahJumlah(idx, 1);
+										}}
+										class={`ml-[1px] flex h-6 w-6 items-center justify-center rounded-r-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+										style="background:var(--surface);color:var(--text-dim)">+</button
+									>
+
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											konfirmasiHapusIdx.set(idx);
+										}}
+										aria-label="Hapus item"
+										class={`ml-2 flex h-6 w-6 items-center justify-center rounded-full transition-opacity ${aktif ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+										style="background:var(--surface);color:var(--danger)"
+									>
+										<Trash2 size="0.9rem" />
+									</button>
+								</div>
+								<span class="flex items-center text-xs"
+									>{rupiah(item.harga_jual * item.jumlah - item.diskon_item)}
+									<ReceiptText size="0.8rem" class="ml-2" /></span
+								>
+							</div>
+
+							<!-- Row 5: info banner (slot untuk promo/notif per-item) -->
+							<div class="info-banner empty:hidden"></div>
+						</div>
+					</div>
+				{/each}
+
+				<!-- Dummy row: tambah barang baru -->
+				<div
+					role="button"
+					tabindex="0"
+					class="flex cursor-pointer gap-2 px-2 py-2 transition-colors"
+					style={$itemAktifIdx === $keranjang.length
+						? 'background:var(--surface2);border-left:3px solid var(--accent)'
+						: `border-left:3px solid transparent;opacity:0.4`}
+					onclick={() => itemAktifIdx.set($keranjang.length)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') itemAktifIdx.set($keranjang.length);
+					}}
+				>
+					<div
+						class="flex h-12 w-12 shrink-0 items-center justify-center rounded text-2xl"
+						style="color:var(--text-dim)"
+					>
+						+
+					</div>
+					<div class="flex flex-1 flex-col gap-1">
+						<button
+							class="flex items-center gap-1 text-left text-sm italic"
+							style="color:var(--text-dim)"
+							onclick={(e) => {
+								e.stopPropagation();
+								openSearch();
+							}}
+						>
+							Tambah barang... <Search size="1rem" /><ScanBarcode size="1rem" />
+						</button>
+						<div class="flex items-center gap-1">
+							<button
+								onclick={(e) => {
+									e.stopPropagation();
+									dummyJumlah.update((n: number) => Math.max(1, n - 1));
+								}}
+								class="flex h-6 w-6 items-center justify-center rounded-full text-xs leading-none font-bold"
+								style="background:var(--surface);color:var(--text-dim)">−</button
+							>
+							<span class="w-8 text-center font-mono text-sm tabular-nums">{$dummyJumlah}</span>
+							<button
+								onclick={(e) => {
+									e.stopPropagation();
+									dummyJumlah.update((n: number) => n + 1);
+								}}
+								class="flex h-6 w-6 items-center justify-center rounded-full text-xs leading-none font-bold"
+								style="background:var(--surface);color:var(--text-dim)">+</button
+							>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Desktop table layout -->
+			<div class="hidden h-full overflow-x-auto md:block">
 				<table class="min-w-full text-sm">
 					<thead
 						class="sticky top-0 border-b"
@@ -130,7 +339,6 @@
 							{@const aktif = $itemAktifIdx === idx}
 							{@const visButtons = hoveredIdx === idx || (aktif && hoveredIdx === null)}
 							<tr
-								transition:slide={{ duration: 150 }}
 								class="cursor-pointer border-t transition-colors"
 								style={aktif
 									? 'background:var(--surface2);border-color:var(--border);border-left:2px solid var(--accent)'
@@ -154,16 +362,7 @@
 											class="rounded opacity-50 transition-opacity hover:opacity-100"
 											style="color:var(--danger)"
 										>
-											<svg
-												width="1em"
-												height="1em"
-												viewBox="0 0 24 24"
-												fill="currentColor"
-												xmlns="http://www.w3.org/2000/svg"
-												><path
-													d="M10 5H14C14 3.89543 13.1046 3 12 3C10.8954 3 10 3.89543 10 5ZM8.5 5C8.5 3.067 10.067 1.5 12 1.5C13.933 1.5 15.5 3.067 15.5 5H21.25C21.6642 5 22 5.33579 22 5.75C22 6.16421 21.6642 6.5 21.25 6.5H19.9309L18.7589 18.6112C18.5729 20.5334 16.9575 22 15.0263 22H8.97369C7.04254 22 5.42715 20.5334 5.24113 18.6112L4.06908 6.5H2.75C2.33579 6.5 2 6.16421 2 5.75C2 5.33579 2.33579 5 2.75 5H8.5ZM10.5 9.75C10.5 9.33579 10.1642 9 9.75 9C9.33579 9 9 9.33579 9 9.75V17.25C9 17.6642 9.33579 18 9.75 18C10.1642 18 10.5 17.6642 10.5 17.25V9.75ZM14.25 9C13.8358 9 13.5 9.33579 13.5 9.75V17.25C13.5 17.6642 13.8358 18 14.25 18C14.6642 18 15 17.6642 15 17.25V9.75C15 9.33579 14.6642 9 14.25 9Z"
-												/></svg
-											>
+											<Trash2 size="1rem" color="currentColor" />
 										</button>
 									{:else}
 										{idx + 1}
@@ -172,11 +371,22 @@
 								<td class="px-1 py-2">
 									<div class="flex items-center gap-1.5">
 										<span class="truncate leading-tight">{item.nama_barang}</span>
-										<span
-											class="shrink-0 rounded px-1 text-xs font-bold"
-											style="background:var(--surface2);color:var(--accent)"
-											>{item.tipe_harga === 'grosir' ? 'GRS' : 'ECR'}</span
+										<select
+											value={item.tipe_harga}
+											onchange={(e) => {
+												e.stopPropagation();
+												ubahTipeHarga(
+													idx,
+													(e.target as HTMLSelectElement).value as 'eceran' | 'grosir'
+												);
+											}}
+											onclick={(e) => e.stopPropagation()}
+											class="shrink-0 cursor-pointer rounded border px-1 py-0 text-xs font-bold outline-none"
+											style="background:var(--surface2);border-color:var(--border);color:var(--accent)"
 										>
+											<option value="eceran">ECR</option>
+											<option value="grosir">GRS</option>
+										</select>
 									</div>
 									<div class="text-xs" style="color:var(--text-dim)">{item.kode_barang}</div>
 								</td>
@@ -192,7 +402,7 @@
 											if (item.jumlah <= 1) konfirmasiHapusIdx.set(idx);
 											else ubahJumlah(idx, -1);
 										}}
-										class={`absolute top-1/2 -left-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'sm:pointer-events-none sm:opacity-0'}`}
+										class={`absolute top-1/2 -left-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
 										style="background:var(--surface);color:var(--text-dim)">−</button
 									>
 									<button
@@ -200,7 +410,7 @@
 											e.stopPropagation();
 											ubahJumlah(idx, 1);
 										}}
-										class={`absolute top-1/2 -right-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'sm:pointer-events-none sm:opacity-0'}`}
+										class={`absolute top-1/2 -right-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
 										style="background:var(--surface);color:var(--text-dim)">+</button
 									>
 								</td>
@@ -248,16 +458,19 @@
 								dummyHovered = false;
 							}}
 						>
-							<td class="px-1 py-2 text-center text-xs" style="color:var(--text-dim)">+</td>
+							<td class="px-1 py-2 text-center text-lg" style="color:var(--text-dim)">+</td>
 							<td class="px-1 py-2">
 								<button
-									class="text-left text-sm italic"
+									class="flex items-center gap-1 text-left text-sm italic"
 									style="color:var(--text-dim)"
 									onclick={(e) => {
 										e.stopPropagation();
 										openSearch();
-									}}>Tambah barang...</button
+									}}
 								>
+									Tambah barang...
+									<Search size="1rem" /><ScanBarcode size="1rem" />
+								</button>
 							</td>
 							<td></td>
 							<td class="relative px-1 py-1.5 text-center">

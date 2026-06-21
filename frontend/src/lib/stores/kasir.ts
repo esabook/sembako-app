@@ -57,8 +57,11 @@ export type ItemKeranjang = {
   singkatan_satuan: string
   jumlah: number
   harga_jual: number
+  harga_eceran: number
+  harga_grosir: number
   diskon_item: number
   stok_sekarang: number
+  foto_path?: string | null
 }
 
 export type TipeTransaksi = 'eceran' | 'grosir'

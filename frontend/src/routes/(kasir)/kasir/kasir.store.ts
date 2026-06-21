@@ -128,6 +128,8 @@ export async function restoreDraft(): Promise<void> {
 				singkatan_satuan: i.singkatan_satuan ?? '',
 				jumlah: i.jumlah,
 				harga_jual: i.harga_jual,
+				harga_eceran: i.harga_eceran,
+				harga_grosir: i.harga_grosir,
 				diskon_item: i.diskon_item,
 				stok_sekarang: i.stok_sekarang,
 			}))
@@ -144,31 +146,31 @@ export async function restoreDraft(): Promise<void> {
 
 export const kasBankDipilih = writable<number | null>(null);
 
-export const searchVal         = writable('');
-export const searchResults     = writable<BarangResult[]>([]);
+export const searchVal = writable('');
+export const searchResults = writable<BarangResult[]>([]);
 export const searchSelectedIdx = writable(-1);
 
-export const pelangganQuery        = writable('');
-export const pelangganList         = writable<PelangganResult[]>([]);
-export const pelangganSelectedIdx  = writable(-1);
+export const pelangganQuery = writable('');
+export const pelangganList = writable<PelangganResult[]>([]);
+export const pelangganSelectedIdx = writable(-1);
 
 export const konfirmasiHapusIdx = writable<number | null>(null);
-export const popupSearch        = writable(false);
-export const popupCheckout      = writable(false);
-export const snap               = writable<Snap | null>(null);
-export const noTransaksi        = writable<string>('');   // no. trx terakhir selesai
-export const checkoutTime       = writable(new Date());
+export const popupSearch = writable(false);
+export const popupCheckout = writable(false);
+export const snap = writable<Snap | null>(null);
+export const noTransaksi = writable<string>('');   // no. trx terakhir selesai
+export const checkoutTime = writable(new Date());
 
-export const scanSessionId  = writable('');
-export const scanUrl        = writable('');
-export const qrDataUrl      = writable('');
-export const qrLarge        = writable(false);
-export const scannerStatus  = writable<ScannerStatus>('idle');
+export const scanSessionId = writable('');
+export const scanUrl = writable('');
+export const qrDataUrl = writable('');
+export const qrLarge = writable(false);
+export const scannerStatus = writable<ScannerStatus>('idle');
 
-export const dummyJumlah    = writable(1);
+export const dummyJumlah = writable(1);
 
 // Derived: apakah loading spesifik sedang berjalan
-export const cariLoading  = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-cari'));
+export const cariLoading = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-cari'));
 export const prosesLoading = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-bayar'));
 
 // ── Long-poll scanner + pre-qty sync (browser-only, tidak reaktif) ───────────
@@ -185,7 +187,7 @@ function postPreQty(sid: string, qty: number) {
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ qty }),
 		credentials: 'include',
-	}).catch(() => {});
+	}).catch(() => { });
 }
 
 function resetDummyJumlah(sid: string) {
@@ -221,7 +223,7 @@ async function preQtyPollLoop(sid: string, signal: AbortSignal) {
 
 export function resetKasirDenganDraft() {
 	if (_draftTimer) clearTimeout(_draftTimer);
-	void deleteDraft().catch(() => {});
+	void deleteDraft().catch(() => { });
 	draftStatus.set('idle');
 	resetKasir();
 	resetDummyJumlah(get(scanSessionId));
@@ -305,8 +307,11 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 				singkatan_satuan: br.singkatan_satuan ?? '',
 				jumlah: jumlahAktual,
 				harga_jual: harga,
+				harga_eceran: br.harga_jual_eceran,
+				harga_grosir: br.harga_jual_grosir,
 				diskon_item: diskonPromo,
 				stok_sekarang: br.stok_sekarang,
+				foto_path: br.foto_path,
 			},
 		];
 	});
@@ -346,6 +351,17 @@ export function ubahDiskon(idx: number, val: string) {
 	keranjang.update((k) => {
 		const u = [...k];
 		if (u[idx]) u[idx] = { ...u[idx]!, diskon_item: Number(val) || 0 };
+		return u;
+	});
+}
+
+export function ubahTipeHarga(idx: number, tipe: 'eceran' | 'grosir') {
+	keranjang.update((k) => {
+		const u = [...k];
+		const item = u[idx];
+		if (!item) return k;
+		const harga = tipe === 'grosir' ? item.harga_grosir : item.harga_eceran;
+		u[idx] = { ...item, tipe_harga: tipe, harga_jual: harga };
 		return u;
 	});
 }
@@ -392,13 +408,13 @@ export function tutupCheckout() {
 }
 
 export async function prosesBayar() {
-	const $metode  = get(metodeBayar);
+	const $metode = get(metodeBayar);
 	const $pelanggan = get(pelangganDipilih);
-	const $total   = get(totalAkhir);
+	const $total = get(totalAkhir);
 	const $nominal = get(nominalBayar);
 	const $keranjang = get(keranjang);
-	const $tipe    = get(tipeTransaksi);
-	const $waktu   = get(checkoutTime);
+	const $tipe = get(tipeTransaksi);
+	const $waktu = get(checkoutTime);
 
 	if ($metode === 'hutang' && !$pelanggan) {
 		toast.error('Pilih pelanggan untuk transaksi hutang');
@@ -410,7 +426,7 @@ export async function prosesBayar() {
 	}
 
 	const $diskonMember = get(diskonMember);
-	const $diskonPromo  = get(diskonPromoTotal);
+	const $diskonPromo = get(diskonPromoTotal);
 	const diskonTotalKirim = $diskonMember + $diskonPromo;
 
 	const hasil = await withLoading(
@@ -435,9 +451,9 @@ export async function prosesBayar() {
 			loadingPesan: 'Memproses transaksi...',
 			modul: 'kasir',
 			aksi: 'proses_bayar',
-			errorPesan: 'Transaksi gagal. Coba lagi.',
+			errorPesan: (asli) => asli || 'Transaksi gagal. Coba lagi.',
 			onAntri: () => {
-				void deleteDraft().catch(() => {});
+				void deleteDraft().catch(() => { });
 				draftStatus.set('idle');
 				resetKasir();
 			},
@@ -462,7 +478,7 @@ export async function prosesBayar() {
 	});
 	noTransaksi.set(noTrx);
 	incrementTrxCount();
-	void deleteDraft().catch(() => {});
+	void deleteDraft().catch(() => { });
 	draftStatus.set('idle');
 	resetKasir();
 	resetDummyJumlah(get(scanSessionId));
