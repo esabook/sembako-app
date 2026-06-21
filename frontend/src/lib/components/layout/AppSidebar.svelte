@@ -29,6 +29,7 @@
 	import PanelLeft from '@lucide/svelte/icons/panel-left';
 	import PanelLeftDashed from '@lucide/svelte/icons/panel-left-dashed';
 	import Check from '@lucide/svelte/icons/check';
+	import Utensils from '@lucide/svelte/icons/utensils';
 	import type { Component } from 'svelte';
 
 	const ICONS: Record<string, Component> = {
@@ -48,7 +49,8 @@
 		Tag,
 		BadgePercent,
 		Scissors,
-		Settings
+		Settings,
+		Utensils
 	};
 
 	let {

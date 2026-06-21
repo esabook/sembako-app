@@ -177,6 +177,17 @@ export const NAV: NavItem[] = [
 		icon: 'BadgePercent'
 	},
 	{
+		href: '/fnb',
+		label: 'Food & Beverages (FnB)',
+		roles: ['pemilik', 'manajer'],
+		icon: 'Utensils',
+		sub: [
+			{ key: 'meja', label: 'Meja' },
+			{ key: 'modifier', label: 'Modifier' },
+			{ key: 'bahan', label: 'Bahan & Resep' },
+		]
+	},
+	{
 		href: '/jasa',
 		label: 'Jasa & Booking',
 		roles: ['pemilik', 'manajer', 'kasir', 'pelayanan'],
