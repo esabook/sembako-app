@@ -260,6 +260,13 @@
       "when": 1781358807814,
       "tag": "0037_strong_wallop",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "6",
+      "when": 1782027642553,
+      "tag": "0038_aberrant_lily_hollister",
+      "breakpoints": true
     }
   ]
 }

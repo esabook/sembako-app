@@ -31,25 +31,34 @@
 
 <div class="flex min-h-[calc(100vh-44px)] flex-col gap-4">
 	<!-- Header -->
-	<div class="flex items-center justify-between">
+	<div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 		<div>
 			<h1 class="font-bold" style="color:var(--text)">Retur Penjualan</h1>
 			<p class="text-xs" style="color:var(--text-dim)">
 				Kembalikan barang dari transaksi penjualan
 			</p>
 		</div>
-		<div class="flex gap-2">
-			<Button variant="primary" size="sm" onclick={s.bukaBuat}>+ Buat Retur</Button>
+		<div class="flex">
+			<Button variant="primary" size="sm" onclick={s.bukaBuat} clasz="w-full md:w-auto"
+				>+ Buat Retur</Button
+			>
 		</div>
 	</div>
 
 	<!-- Filter -->
 	<div
-		class="flex flex-wrap items-center gap-2 rounded border p-3 text-sm"
+		class="flex flex-col gap-2 rounded border p-3 text-sm sm:flex-row sm:items-center"
 		style="background:var(--surface);border-color:var(--border)"
 	>
-		<DateRangePicker bind:from={s.filterDari} bind:to={s.filterSampai} />
-		<Button variant="ghost" size="sm" onclick={s.muat}>Tampilkan</Button>
+		<DateRangePicker clasz="w-full sm:w-auto" bind:from={s.filterDari} bind:to={s.filterSampai} />
+		<button
+			onclick={s.muat}
+			disabled={s.loading}
+			class="rounded px-3 py-1 text-sm font-bold disabled:opacity-60"
+			style="background:var(--accent);color:var(--bg)"
+		>
+			{#if s.loading}<Spinner size={14} warna="currentColor" />{:else}Cari{/if}
+		</button>
 	</div>
 
 	{#if s.returList.length > 0}

@@ -868,11 +868,17 @@ export const tukar_shift = table('tukar_shift', {
 
 export const draft_keranjang = table('draft_keranjang', {
   id: pkInt('id'),
-  kasir_id: int('kasir_id').notNull().unique().references(() => karyawan.id),
+  kasir_id: int('kasir_id').notNull().references(() => karyawan.id),
   pelanggan_id: int('pelanggan_id').references(() => pelanggan.id),
   tipe: txt('tipe', { enum: ['eceran', 'grosir'] }).notNull().default('eceran'),
+  label: txt('label'),
+  nomor_bill: int('nomor_bill').notNull().default(1),
+  subtotal: money('subtotal').notNull().default(0),
+  jumlah_item: int('jumlah_item').notNull().default(0),
   ...timestamps,
-})
+}, (t) => [
+  idx('idx_draft_kasir').on(t.kasir_id),
+])
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PREFERENSI PENGGUNA (tab order, favorit, dll per karyawan)

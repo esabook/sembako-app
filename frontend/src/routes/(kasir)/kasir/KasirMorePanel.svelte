@@ -138,10 +138,10 @@
 						aria-label={isFullscreen ? 'Keluar fullscreen' : 'Masuk fullscreen'}
 					>
 						{#if isFullscreen}
-							<Shrink size={15} style="color:var(--accent)" />
+							<Shrink size="0.8rem" />
 							<span>Keluar fullscreen</span>
 						{:else}
-							<Fullscreen size={15} style="color:var(--accent)" />
+							<Fullscreen size="0.8rem" />
 							<span>Masuk fullscreen</span>
 						{/if}
 					</button>
@@ -150,7 +150,7 @@
 						class="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"
 						style="background:var(--bg)"
 					>
-						<LogOut size={16} style="color:var(--text-dim)" />
+						<LogOut size="0.8rem" />
 						<span>Dashboard</span>
 					</button>
 				</div>

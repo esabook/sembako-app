@@ -4,6 +4,7 @@
 	import Sliders from '@lucide/svelte/icons/sliders';
 	import Receipt from '@lucide/svelte/icons/receipt';
 	import BellDot from '@lucide/svelte/icons/bell-dot';
+	import Menu from '@lucide/svelte/icons/menu';
 	import KasirMorePanel from './KasirMorePanel.svelte';
 
 	const TABS = [
@@ -33,7 +34,7 @@
 <KasirMorePanel bind:open={showPanel} />
 
 <div
-	class="flex h-[3rem] shrink-0 items-stretch border-t"
+	class="flex h-[3rem] shrink-0 items-stretch border-t sm:h-[2rem]"
 	style="background:var(--surface);border-color:var(--border)"
 >
 	<!-- Tab buttons -->
@@ -42,7 +43,7 @@
 			{@const active = isActive(tab)}
 			<a
 				href={tab.href}
-				class="flex flex-1 flex-col items-center justify-center gap-0.5 px-2 transition-colors"
+				class="flex flex-1 flex-col items-center justify-center gap-0.5 px-1 transition-colors sm:flex-row"
 				style={active
 					? `border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)`
 					: `border-color:transparent;color:var(--text-dim)`}
@@ -58,11 +59,12 @@
 	<!-- Notif & More (fixed square) -->
 	<button
 		onclick={() => (showPanel = !showPanel)}
-		class="flex w-14 shrink-0 items-center justify-center border-l transition-colors active:opacity-60 sm:w-16"
+		class="flex aspect-square shrink-0 items-center justify-center border-l transition-colors active:opacity-60"
 		style="border-color:var(--border);color:var(--text-dim)"
 		aria-label="Notifikasi dan menu"
 		title="Notifikasi & Menu"
 	>
-		<BellDot size={22} />
+		<!-- <BellDot size="1rem" /> -->
+		<Menu size="1rem" />
 	</button>
 </div>

@@ -42,7 +42,7 @@ export async function submitPenjualan(body: SubmitPenjualanBody): Promise<{ no_t
 	return res.data;
 }
 
-// ── Draft keranjang ───────────────────────────────────────────────────────
+// ── Multi Open Bill ───────────────────────────────────────────────────────
 
 export type DraftItem = Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'harga_eceran' | 'harga_grosir' | 'diskon_item'> & {
 	kode_barang: string;
@@ -51,28 +51,49 @@ export type DraftItem = Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan
 	singkatan_satuan: string | null;
 };
 
-export type DraftResponse = {
+export type BillSummary = {
+	id: number;
+	nomor_bill: number;
+	label: string | null;
 	tipe: TipeTransaksi;
 	pelanggan_id: number | null;
-	items: DraftItem[];
+	subtotal: number;
+	jumlah_item: number;
+	created_at: string;
+	updated_at: string;
 };
 
-export async function getDraft(): Promise<DraftResponse | null> {
-	const res = await api.get<DraftResponse | null>('/draft/keranjang');
+export type BillDetail = BillSummary & { items: DraftItem[] };
+
+export async function listBills(): Promise<BillSummary[]> {
+	const res = await api.get<BillSummary[]>('/draft/keranjang');
+	if (!res.success) return [];
+	return res.data ?? [];
+}
+
+export async function getBill(id: number): Promise<BillDetail | null> {
+	const res = await api.get<BillDetail | null>(`/draft/keranjang/${id}`);
 	if (!res.success) return null;
 	return res.data ?? null;
 }
 
-export async function saveDraft(payload: {
-	tipe: TipeTransaksi;
-	pelanggan_id?: number | null;
-	items: Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'>[];
-}): Promise<void> {
-	await api.put('/draft/keranjang', payload);
+export async function createBill(): Promise<{ id: number; nomor_bill: number }> {
+	const res = await api.post<{ id: number; nomor_bill: number }>('/draft/keranjang', {});
+	if (!res.success) throw new Error(res.error);
+	return res.data;
 }
 
-export async function deleteDraft(): Promise<void> {
-	await api.delete('/draft/keranjang');
+export async function saveBillItems(id: number, payload: {
+	tipe: TipeTransaksi;
+	pelanggan_id?: number | null;
+	label?: string | null;
+	items: Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'>[];
+}): Promise<void> {
+	await api.put(`/draft/keranjang/${id}`, payload);
+}
+
+export async function deleteBill(id: number): Promise<void> {
+	await api.delete(`/draft/keranjang/${id}`);
 }
 
 // ── History transaksi ─────────────────────────────────────────────────────

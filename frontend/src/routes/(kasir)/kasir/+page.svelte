@@ -19,7 +19,7 @@
 		openCheckout,
 		tutupCheckout,
 		initDraftSync,
-		restoreDraft,
+		loadOpenBills,
 		resetKasirDenganDraft
 	} from './kasir.store';
 	import ShiftBuka from './ShiftBuka.svelte';
@@ -138,7 +138,7 @@
 
 	onMount(() => {
 		initKasirMode();
-		void restoreDraft();
+		void loadOpenBills();
 		muatShiftAktif().then(() => {
 			if (!shiftAktif) modalBukaShift = true;
 		});

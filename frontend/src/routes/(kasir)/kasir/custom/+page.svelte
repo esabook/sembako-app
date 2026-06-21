@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation'
+	import { onMount } from 'svelte'
 	import { keranjang } from '$lib/stores/kasir'
-	import { restoreDraft, ubahDiskon } from '../kasir.store'
+	import { ubahDiskon, loadOpenBills, switchToBill, closeBill, newBill, openBills } from '../kasir.store'
 	import { rupiah } from '../kasir.logic'
 	import { toast } from '$lib/stores/ui.store'
 	import Percent from '@lucide/svelte/icons/percent'
@@ -67,11 +68,25 @@
 		goto('/kasir')
 	}
 
-	// ── Draft tertunda ────────────────────────────────────────────────
-	async function bukaDraft() {
-		await restoreDraft()
-		toast.sukses('Draft berhasil dimuat')
+	// ── Open bills ────────────────────────────────────────────────────
+	onMount(() => { void loadOpenBills() })
+
+	async function bukaBill(id: number) {
+		await switchToBill(id)
 		goto('/kasir')
+	}
+
+	async function hapusBill(id: number) {
+		await closeBill(id)
+	}
+
+	async function buatBillBaru() {
+		await newBill()
+		goto('/kasir')
+	}
+
+	function formatWaktu(iso: string): string {
+		return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 	}
 </script>
 
@@ -186,24 +201,71 @@
 			</button>
 		</div>
 
-		<!-- Buka Tagihan Tertunda -->
+		<!-- Tagihan Tertunda (Multi Open Bill) -->
 		<div
 			class="flex flex-col gap-3 rounded-2xl p-4 sm:p-5"
 			style="background:var(--surface);border:1px solid var(--border)"
 		>
-			<div class="flex items-center gap-2">
-				<FileText size={18} style="color:var(--accent)" />
-				<span class="text-sm font-semibold">Tagihan Tertunda</span>
+			<div class="flex items-center justify-between gap-2">
+				<div class="flex items-center gap-2">
+					<FileText size={18} style="color:var(--accent)" />
+					<span class="text-sm font-semibold">Tagihan Tertunda</span>
+				</div>
+				{#if $openBills.length > 0}
+					<span class="rounded-full px-2 py-0.5 text-xs font-medium text-white" style="background:var(--accent)">
+						{$openBills.length}
+					</span>
+				{/if}
 			</div>
-			<p class="text-xs" style="color:var(--text-dim)">
-				Muat draft tagihan yang belum selesai dari sesi sebelumnya.
-			</p>
+
+			{#if $openBills.length === 0}
+				<p class="text-xs" style="color:var(--text-dim)">Belum ada tagihan yang ditunda.</p>
+			{:else}
+				<div class="flex flex-col gap-2">
+					{#each $openBills as bill (bill.id)}
+						<div
+							class="flex items-center gap-2 rounded-xl p-2.5"
+							style="background:var(--bg);border:1px solid var(--border)"
+						>
+							<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+								<div class="flex items-center gap-1.5">
+									<span class="text-xs font-bold" style="color:var(--accent)">#{bill.nomor_bill}</span>
+									{#if bill.label}
+										<span class="truncate text-xs font-medium">{bill.label}</span>
+									{/if}
+									<span class="ml-auto shrink-0 text-xs" style="color:var(--text-dim)">{formatWaktu(bill.updated_at)}</span>
+								</div>
+								<div class="flex items-center gap-2 text-xs" style="color:var(--text-dim)">
+									<span>{bill.jumlah_item} item</span>
+									<span>·</span>
+									<span class="font-medium" style="color:var(--text)">Rp {rupiah(bill.subtotal)}</span>
+								</div>
+							</div>
+							<button
+								onclick={() => void bukaBill(bill.id)}
+								class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white"
+								style="background:var(--accent)"
+							>
+								Lanjutkan
+							</button>
+							<button
+								onclick={() => void hapusBill(bill.id)}
+								class="shrink-0 rounded-lg px-2 py-1.5 text-xs transition-opacity hover:opacity-70"
+								style="color:var(--text-dim)"
+							>
+								✕
+							</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
+
 			<button
-				onclick={bukaDraft}
-				class="mt-auto w-full rounded-lg py-2.5 text-sm font-medium text-white"
-				style="background:var(--accent)"
+				onclick={() => void buatBillBaru()}
+				class="mt-auto w-full rounded-lg border py-2.5 text-sm font-medium transition-colors"
+				style="border-color:var(--border);color:var(--text)"
 			>
-				Buka Draft Tersimpan
+				+ Bill Baru
 			</button>
 		</div>
 	</div>

@@ -39,7 +39,9 @@
 		noTransaksi,
 		checkoutTime,
 		kirimStrukWA,
-		kirimNotifHutangWA
+		kirimNotifHutangWA,
+		newBill,
+		activeBillId
 	} from './kasir.store';
 
 	let {
@@ -635,6 +637,13 @@
 						style="border-color:var(--border);color:var(--text-dim)"
 					>
 						Batal
+					</button>
+					<button
+						onclick={async () => { await newBill(); tutupCheckout(); }}
+						class="w-full rounded border py-2 text-sm transition-all sm:flex-1"
+						style="border-color:var(--border);color:var(--text-dim)"
+					>
+						Tunda
 					</button>
 					<button
 						bind:this={selesaiButtonEl}

@@ -250,7 +250,7 @@
 										class={`ml-2 flex h-6 w-6 items-center justify-center rounded-full transition-opacity ${aktif ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
 										style="background:var(--surface);color:var(--danger)"
 									>
-										<Trash2 size="0.9rem" />
+										<Trash2 size="0.8rem" />
 									</button>
 								</div>
 								<span class="flex items-center text-xs"
@@ -402,7 +402,7 @@
 											if (item.jumlah <= 1) konfirmasiHapusIdx.set(idx);
 											else ubahJumlah(idx, -1);
 										}}
-										class={`absolute top-1/2 -left-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+										class={`absolute top-1/2 -left-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-90' : 'pointer-events-none opacity-0'}`}
 										style="background:var(--surface);color:var(--text-dim)">−</button
 									>
 									<button
@@ -410,7 +410,7 @@
 											e.stopPropagation();
 											ubahJumlah(idx, 1);
 										}}
-										class={`absolute top-1/2 -right-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+										class={`absolute top-1/2 -right-3 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-xs leading-none font-bold transition-opacity ${visButtons ? 'opacity-90' : 'pointer-events-none opacity-0'}`}
 										style="background:var(--surface);color:var(--text-dim)">+</button
 									>
 								</td>
@@ -430,10 +430,9 @@
 												(e.target as HTMLInputElement).blur();
 											}
 										}}
-										minlength="2"
 										maxlength="8"
-										size="8"
-										class="fit-content [field-sizing:content] cursor-auto [appearance:textfield] rounded border px-1 py-0.5 text-right font-mono text-xs font-medium tabular-nums transition-colors outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+										size={Math.max(1, String(item.diskon_item || 0).length)}
+										class="item-center [field-sizing:content] h-[1.1rem] cursor-auto [appearance:textfield] rounded border px-1 text-right text-xs outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 										style={visButtons
 											? 'background:var(--surface2);border-color:var(--border);color:var(--text)'
 											: 'background:transparent;border-color:transparent;color:var(--text)'}

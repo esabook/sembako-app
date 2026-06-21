@@ -13,7 +13,8 @@ import {
 import { loading, toast } from '$lib/stores/ui.store';
 import { withLoading } from '$lib/utils/async';
 import { bukaWhatsApp } from '$lib/utils/wa';
-import { fetchBarang, fetchPelanggan, submitPenjualan, getDraft, saveDraft, deleteDraft } from './kasir.api';
+import { fetchBarang, fetchPelanggan, submitPenjualan, listBills, getBill, createBill, saveBillItems, deleteBill } from './kasir.api';
+import type { BillSummary } from './kasir.api';
 import type { BarangResult, PelangganResult, ScannerStatus, Snap, PromoAktif } from './kasir.types';
 import { api } from '$lib/utils/api';
 import { playKasirSound } from '$lib/utils/audio';
@@ -66,11 +67,34 @@ export const totalAkhir = derived(
 	([$t, $d]) => $t - $d
 );
 
-// ── Draft persistence ────────────────────────────────────────────────────────
+// ── Multi Open Bill ──────────────────────────────────────────────────────────
 
 export const draftStatus = writable<'idle' | 'saving' | 'saved' | 'error'>('idle');
+export const activeBillId = writable<number | null>(null);
+export const openBills = writable<BillSummary[]>([]);
 
 let _draftTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function _flushBillSave() {
+	if (_draftTimer) { clearTimeout(_draftTimer); _draftTimer = null; }
+	const items = get(keranjang);
+	const id = get(activeBillId);
+	if (items.length === 0 || id === null) return;
+	try {
+		await saveBillItems(id, {
+			tipe: get(tipeTransaksi),
+			pelanggan_id: get(pelangganDipilih)?.id ?? null,
+			items: items.map((i) => ({
+				barang_id: i.barang_id,
+				tipe_harga: i.tipe_harga,
+				satuan_id: i.satuan_id,
+				jumlah: i.jumlah,
+				harga_jual: i.harga_jual,
+				diskon_item: i.diskon_item,
+			})),
+		});
+	} catch { /* silent */ }
+}
 
 function scheduleDraftSave() {
 	if (_draftTimer) clearTimeout(_draftTimer);
@@ -79,10 +103,21 @@ function scheduleDraftSave() {
 		const items = get(keranjang);
 		try {
 			if (items.length === 0) {
-				await deleteDraft();
+				const id = get(activeBillId);
+				if (id !== null) {
+					await deleteBill(id);
+					activeBillId.set(null);
+					openBills.update((b) => b.filter((x) => x.id !== id));
+				}
 				draftStatus.set('idle');
 			} else {
-				await saveDraft({
+				let id = get(activeBillId);
+				if (id === null) {
+					const created = await createBill();
+					id = created.id;
+					activeBillId.set(id);
+				}
+				await saveBillItems(id, {
 					tipe: get(tipeTransaksi),
 					pelanggan_id: get(pelangganDipilih)?.id ?? null,
 					items: items.map((i) => ({
@@ -114,32 +149,60 @@ export function initDraftSync(): () => void {
 	};
 }
 
-export async function restoreDraft(): Promise<void> {
+export async function loadOpenBills(): Promise<void> {
 	try {
-		const draft = await getDraft();
-		if (!draft || draft.items.length === 0) return;
-		keranjang.set(
-			draft.items.map((i) => ({
-				barang_id: i.barang_id,
-				tipe_harga: i.tipe_harga,
-				kode_barang: i.kode_barang,
-				nama_barang: i.nama_barang,
-				satuan_id: i.satuan_id,
-				singkatan_satuan: i.singkatan_satuan ?? '',
-				jumlah: i.jumlah,
-				harga_jual: i.harga_jual,
-				harga_eceran: i.harga_eceran,
-				harga_grosir: i.harga_grosir,
-				diskon_item: i.diskon_item,
-				stok_sekarang: i.stok_sekarang,
-			}))
-		);
-		tipeTransaksi.set(draft.tipe);
+		const bills = await listBills();
+		openBills.set(bills);
+	} catch { /* silent */ }
+}
+
+export async function switchToBill(id: number): Promise<void> {
+	await _flushBillSave();
+	try {
+		const bill = await getBill(id);
+		if (!bill) return;
+		resetKasir();
+		if (bill.items.length > 0) {
+			keranjang.set(
+				bill.items.map((i) => ({
+					barang_id: i.barang_id,
+					tipe_harga: i.tipe_harga,
+					kode_barang: i.kode_barang,
+					nama_barang: i.nama_barang,
+					satuan_id: i.satuan_id,
+					singkatan_satuan: i.singkatan_satuan ?? '',
+					jumlah: i.jumlah,
+					harga_jual: i.harga_jual,
+					harga_eceran: i.harga_eceran,
+					harga_grosir: i.harga_grosir,
+					diskon_item: i.diskon_item,
+					stok_sekarang: i.stok_sekarang,
+				}))
+			);
+		}
+		tipeTransaksi.set(bill.tipe);
+		activeBillId.set(id);
 		draftStatus.set('saved');
-		toast.info('Keranjang dipulihkan');
-	} catch {
-		// silent — jangan ganggu kasir jika draft gagal dimuat
-	}
+	} catch { /* silent */ }
+}
+
+export async function newBill(): Promise<void> {
+	await _flushBillSave();
+	resetKasir();
+	activeBillId.set(null);
+	draftStatus.set('idle');
+}
+
+export async function closeBill(id: number): Promise<void> {
+	try {
+		await deleteBill(id);
+		openBills.update((b) => b.filter((x) => x.id !== id));
+		if (get(activeBillId) === id) {
+			activeBillId.set(null);
+			resetKasir();
+			draftStatus.set('idle');
+		}
+	} catch { /* silent */ }
 }
 
 // ── UI state ─────────────────────────────────────────────────────────────────
@@ -223,7 +286,9 @@ async function preQtyPollLoop(sid: string, signal: AbortSignal) {
 
 export function resetKasirDenganDraft() {
 	if (_draftTimer) clearTimeout(_draftTimer);
-	void deleteDraft().catch(() => { });
+	const id = get(activeBillId);
+	if (id !== null) void deleteBill(id).catch(() => { });
+	activeBillId.set(null);
 	draftStatus.set('idle');
 	resetKasir();
 	resetDummyJumlah(get(scanSessionId));
@@ -453,7 +518,9 @@ export async function prosesBayar() {
 			aksi: 'proses_bayar',
 			errorPesan: (asli) => asli || 'Transaksi gagal. Coba lagi.',
 			onAntri: () => {
-				void deleteDraft().catch(() => { });
+				const _id = get(activeBillId);
+				if (_id !== null) void deleteBill(_id).catch(() => { });
+				activeBillId.set(null);
 				draftStatus.set('idle');
 				resetKasir();
 			},
@@ -478,7 +545,9 @@ export async function prosesBayar() {
 	});
 	noTransaksi.set(noTrx);
 	incrementTrxCount();
-	void deleteDraft().catch(() => { });
+	const _billId = get(activeBillId);
+	if (_billId !== null) void deleteBill(_billId).catch(() => { });
+	activeBillId.set(null);
 	draftStatus.set('idle');
 	resetKasir();
 	resetDummyJumlah(get(scanSessionId));
