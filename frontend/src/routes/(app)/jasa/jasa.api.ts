@@ -38,6 +38,22 @@ export async function deleteBooking(id: number): Promise<void> {
 	if (!res.success) throw new Error(res.error);
 }
 
+export type CheckoutBookingBody = { metode_bayar?: 'tunai' | 'transfer' | 'qris'; pakai_kuota?: boolean };
+
+export async function checkoutBooking(id: number, body: CheckoutBookingBody): Promise<{ penjualan_id: number; no_transaksi: string; total: number }> {
+	const res = await api.post<{ penjualan_id: number; no_transaksi: string; total: number }>(`/jasa/booking/${id}/checkout`, body);
+	if (!res.success) throw new Error(res.error);
+	return res.data;
+}
+
+export type PelangganRingkas = { id: number; nama: string };
+
+export async function fetchPelangganRingkas(): Promise<PelangganRingkas[]> {
+	const res = await api.get<PelangganRingkas[]>('/pelanggan');
+	if (!res.success) return [];
+	return res.data ?? [];
+}
+
 // ── Jadwal Staf ───────────────────────────────────────────────────────────────
 
 export async function fetchJadwalStaf(): Promise<JadwalStaf[]> {

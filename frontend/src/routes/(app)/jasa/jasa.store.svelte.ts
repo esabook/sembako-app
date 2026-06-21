@@ -1,13 +1,15 @@
-import { withLoading, withIdle } from '$lib/utils/async';
+import { withLoading } from '$lib/utils/async';
 import * as api from './jasa.api';
+import type { PelangganRingkas } from './jasa.api';
 import { validasiBooking, hitungWaktuSelesai } from './jasa.logic';
-import type { Booking, JadwalStaf, PaketMembership, KreditMembership, KomisiStaf, LayananBarang, StafAktif, StatusBooking } from './jasa.types';
+import type { Booking, JadwalStaf, LayananBarang, StafAktif, StatusBooking } from './jasa.types';
 
 export function createBookingStore() {
 	let bookings = $state<Booking[]>([]);
 	let jadwal = $state<JadwalStaf[]>([]);
 	let layanan = $state<LayananBarang[]>([]);
 	let staf = $state<StafAktif[]>([]);
+	let pelanggan = $state<PelangganRingkas[]>([]);
 	let loading = $state(false);
 	let loadingGrid = $state(false);
 
@@ -40,9 +42,20 @@ export function createBookingStore() {
 	}
 
 	async function muatMaster() {
-		const [l, s] = await Promise.all([api.fetchLayanan(true), api.fetchStafAktif()]);
+		const [l, s, p] = await Promise.all([api.fetchLayanan(true), api.fetchStafAktif(), api.fetchPelangganRingkas()]);
 		layanan = l;
 		staf = s;
+		pelanggan = p;
+	}
+
+	async function checkout(id: number, pakaiKuota: boolean) {
+		const ok = await withLoading(() => api.checkoutBooking(id, { pakai_kuota: pakaiKuota }), {
+			loadingKey: `jasa-checkout-${id}`,
+			modul: 'jasa', aksi: 'checkout-booking',
+			errorPesan: 'Gagal checkout booking',
+		});
+		if (ok !== null) muat();
+		return ok;
 	}
 
 	function bukaForm(b?: Booking) {
@@ -117,6 +130,7 @@ export function createBookingStore() {
 		get loadingGrid() { return loadingGrid; },
 		get layanan() { return layanan; },
 		get staf() { return staf; },
+		get pelanggan() { return pelanggan; },
 		get formOpen() { return formOpen; }, set formOpen(v) { formOpen = v; },
 		get editId() { return editId; },
 		get fPelangganId() { return fPelangganId; }, set fPelangganId(v) { fPelangganId = v; },
@@ -129,6 +143,6 @@ export function createBookingStore() {
 		get dari() { return dari; }, set dari(v) { dari = v; },
 		get sampai() { return sampai; }, set sampai(v) { sampai = v; },
 		get viewMode() { return viewMode; }, set viewMode(v) { viewMode = v; },
-		muat, muatMaster, bukaForm, simpan, ubahStatus, hapus,
+		muat, muatMaster, bukaForm, simpan, ubahStatus, hapus, checkout,
 	};
 }

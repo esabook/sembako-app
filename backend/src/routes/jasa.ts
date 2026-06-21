@@ -5,7 +5,9 @@ import { db, query, isoNow } from '../db/index.ts'
 import {
   booking, jadwal_staf, paket_membership, kredit_membership, komisi_staf,
   detail_layanan, barang, karyawan, pelanggan,
+  penjualan, penjualan_detail, jurnal_kas, kas_bank,
 } from '../db/schema.ts'
+import { withTransaction } from '../db/index.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
@@ -236,6 +238,136 @@ jasaRouter.delete('/booking/:id', requirePermission('penjualan.buat'), async (c)
   await db.delete(booking).where(and(eq(booking.id, id), eq(booking.tenant_id, tenantId)))
 
   return c.json({ success: true })
+})
+
+// ── POST /jasa/booking/:id/checkout (selesai → buat penjualan + komisi) ────────
+
+jasaRouter.post('/booking/:id/checkout', requirePermission('penjualan.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json<{ metode_bayar?: 'tunai' | 'transfer' | 'qris'; pakai_kuota?: boolean; kas_bank_id?: number }>()
+    .catch(() => ({} as { metode_bayar?: 'tunai' | 'transfer' | 'qris'; pakai_kuota?: boolean; kas_bank_id?: number }))
+
+  const bk = await query.find(db.select().from(booking).where(and(eq(booking.id, id), eq(booking.tenant_id, tenantId))))
+  if (!bk) throw new HTTPException(404, { message: 'Booking tidak ditemukan' })
+  if (bk.penjualan_id) throw new HTTPException(400, { message: 'Booking ini sudah dibayar' })
+
+  const brg = await query.find(db.select({ nama: barang.nama_barang, harga: barang.harga_jual_eceran })
+    .from(barang).where(eq(barang.id, bk.barang_id)))
+  if (!brg) throw new HTTPException(400, { message: 'Layanan tidak ditemukan' })
+
+  const dl = await query.find(db.select({ komisi_persen: detail_layanan.komisi_persen, komisi_nominal: detail_layanan.komisi_nominal })
+    .from(detail_layanan).where(and(eq(detail_layanan.barang_id, bk.barang_id), eq(detail_layanan.tenant_id, tenantId))))
+
+  // Pakai kuota membership? cari kredit aktif (dari booking.kredit_id atau kredit aktif pelanggan utk paket layanan ini)
+  let kreditDipakai: { id: number; sisa_kuota: number } | null = null
+  if (body.pakai_kuota) {
+    if (bk.kredit_id) {
+      kreditDipakai = await query.find(db.select({ id: kredit_membership.id, sisa_kuota: kredit_membership.sisa_kuota })
+        .from(kredit_membership).where(and(eq(kredit_membership.id, bk.kredit_id), eq(kredit_membership.tenant_id, tenantId))))
+    } else if (bk.pelanggan_id) {
+      kreditDipakai = await query.find(db.select({ id: kredit_membership.id, sisa_kuota: kredit_membership.sisa_kuota })
+        .from(kredit_membership)
+        .innerJoin(paket_membership, eq(paket_membership.id, kredit_membership.paket_id))
+        .where(and(
+          eq(kredit_membership.pelanggan_id, bk.pelanggan_id),
+          eq(kredit_membership.tenant_id, tenantId),
+          eq(kredit_membership.status, 'aktif'),
+        )))
+    }
+    if (!kreditDipakai || kreditDipakai.sisa_kuota <= 0) {
+      throw new HTTPException(400, { message: 'Kuota membership tidak tersedia' })
+    }
+  }
+
+  const pakaiKuota = !!kreditDipakai
+  const total = pakaiKuota ? 0 : brg.harga
+  const metode = body.metode_bayar ?? 'tunai'
+  const tgl = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
+  const noTrx = `TRX-${tgl.slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 90000 + 10000)}`
+
+  const result = await withTransaction(async () => {
+    const trx = await query.ret(db.insert(penjualan).values({
+      no_transaksi: noTrx,
+      pelanggan_id: bk.pelanggan_id ?? undefined,
+      tanggal: tgl,
+      tipe: 'eceran',
+      tipe_layanan: 'jasa',
+      kasir_id: user.id,
+      subtotal: total,
+      diskon_total: 0,
+      total,
+      metode_bayar: metode,
+      bayar: total,
+      kembalian: 0,
+      status: 'lunas',
+      tenant_id: tenantId,
+      cabang_id: cabangId,
+    }).returning())
+
+    const det = await query.ret(db.insert(penjualan_detail).values({
+      penjualan_id: trx.id,
+      barang_id: bk.barang_id,
+      jumlah: 1,
+      harga_jual: total,
+      diskon_item: 0,
+      subtotal: total,
+      dilayani_oleh: bk.karyawan_id ?? null,
+      booking_id: bk.id,
+      tenant_id: tenantId,
+      cabang_id: cabangId,
+    }).returning())
+
+    // Komisi staf (dihitung dari harga normal layanan, bukan total setelah kuota)
+    if (bk.karyawan_id) {
+      const bruto = brg.harga
+      const nilaiKomisi = dl && dl.komisi_nominal > 0
+        ? dl.komisi_nominal
+        : Math.round(bruto * ((dl?.komisi_persen ?? 0) / 100))
+      if (nilaiKomisi > 0) {
+        await query.exec(db.insert(komisi_staf).values({
+          karyawan_id: bk.karyawan_id,
+          penjualan_id: trx.id,
+          penjualan_detail_id: det.id,
+          barang_id: bk.barang_id,
+          nilai_komisi: nilaiKomisi,
+          persen: dl?.komisi_persen ?? 0,
+          tanggal: tgl.slice(0, 10),
+          status: 'pending',
+          tenant_id: tenantId,
+        }))
+      }
+    }
+
+    // Potong kuota atau catat kas
+    if (pakaiKuota && kreditDipakai) {
+      const sisa = kreditDipakai.sisa_kuota - 1
+      await query.exec(db.update(kredit_membership)
+        .set({ sisa_kuota: sisa, status: sisa <= 0 ? 'habis' : 'aktif', updated_at: isoNow() })
+        .where(eq(kredit_membership.id, kreditDipakai.id)))
+    } else if (total > 0) {
+      const kas = body.kas_bank_id
+        ? await query.find(db.select().from(kas_bank).where(and(eq(kas_bank.id, body.kas_bank_id), eq(kas_bank.tenant_id, tenantId), eq(kas_bank.cabang_id, cabangId))))
+        : await query.find(db.select().from(kas_bank).where(and(eq(kas_bank.tipe, 'kas'), eq(kas_bank.tenant_id, tenantId), eq(kas_bank.cabang_id, cabangId))))
+      if (kas) {
+        await query.exec(db.insert(jurnal_kas).values({
+          tanggal: tgl, kas_bank_id: kas.id, jenis: 'masuk', kategori: 'penjualan',
+          referensi_tipe: 'penjualan', referensi_id: trx.id, keterangan: `Jasa ${noTrx}`,
+          jumlah: total, dicatat_oleh: user.id, tenant_id: tenantId, cabang_id: cabangId,
+        }))
+      }
+    }
+
+    await query.exec(db.update(booking)
+      .set({ penjualan_id: trx.id, kredit_id: kreditDipakai?.id ?? bk.kredit_id ?? null, status: 'selesai', updated_at: isoNow() })
+      .where(eq(booking.id, id)))
+
+    return trx
+  })
+
+  return c.json({ success: true, data: { penjualan_id: result.id, no_transaksi: noTrx, total } }, 201)
 })
 
 // ── GET /jasa/jadwal-staf ─────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { catatLog } from '../utils/log.ts'
 import {
   penjualan, penjualan_detail, penjualan_detail_modifier,
-  barang, mutasi_stok, meja,
+  barang, mutasi_stok, meja, detail_layanan, komisi_staf,
   piutang_pelanggan, jurnal_kas, kas_bank,
   pelanggan, karyawan,
 } from '../db/schema.ts'
@@ -254,6 +254,31 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
             tenant_id: tenantId,
           }))
         ))
+      }
+
+      // Komisi staf utk item layanan (service) yang punya pelaksana
+      if (item.tipe_produk === 'service' && item.dilayani_oleh) {
+        const dl = await query.find(db.select({
+          komisi_persen: detail_layanan.komisi_persen,
+          komisi_nominal: detail_layanan.komisi_nominal,
+        }).from(detail_layanan).where(and(eq(detail_layanan.barang_id, item.barang_id), eq(detail_layanan.tenant_id, tenantId))))
+        const bruto = item.harga_jual * item.jumlah
+        const nilaiKomisi = dl && dl.komisi_nominal > 0
+          ? dl.komisi_nominal * item.jumlah
+          : Math.round(bruto * ((dl?.komisi_persen ?? 0) / 100))
+        if (nilaiKomisi > 0) {
+          await query.exec(db.insert(komisi_staf).values({
+            karyawan_id: item.dilayani_oleh,
+            penjualan_id: trx.id,
+            penjualan_detail_id: det.id,
+            barang_id: item.barang_id,
+            nilai_komisi: nilaiKomisi,
+            persen: dl?.komisi_persen ?? 0,
+            tanggal: tgl.slice(0, 10),
+            status: 'pending',
+            tenant_id: tenantId,
+          }))
+        }
       }
 
       // Kurangi stok hanya utk barang fisik

@@ -43,6 +43,23 @@
 		in_progress: 'selesai',
 	};
 
+	// Checkout
+	let checkoutOpen = $state(false);
+	let checkoutBkg = $state<Booking | null>(null);
+	let pakaiKuota = $state(false);
+
+	function bukaCheckout(b: Booking) {
+		checkoutBkg = b;
+		pakaiKuota = false;
+		checkoutOpen = true;
+	}
+
+	async function prosesCheckout() {
+		if (!checkoutBkg) return;
+		const ok = await store.checkout(checkoutBkg.id, pakaiKuota);
+		if (ok !== null) { checkoutOpen = false; checkoutBkg = null; }
+	}
+
 	const columns = [
 		{ key: 'no_booking', label: 'No', width: 120 },
 		{ key: 'waktu_mulai', label: 'Waktu', width: 130 },
@@ -117,7 +134,9 @@
 						{/if}
 						{#if !hidden.has('aksi')}
 							<td class="px-3 py-2 text-right whitespace-nowrap">
-								{#if STATUS_FLOW[b.status]}
+								{#if b.status === 'selesai' && !b.penjualan_id}
+									<button class="btn btn-xs btn-primary mr-1" onclick={() => bukaCheckout(b)}>Bayar</button>
+								{:else if STATUS_FLOW[b.status]}
 									<button class="btn btn-xs btn-outline mr-1"
 										onclick={() => store.ubahStatus(b.id, STATUS_FLOW[b.status]!)}>
 										→ {LABEL_STATUS[STATUS_FLOW[b.status]!]}
@@ -181,6 +200,16 @@
 <ModalWindow bind:open={store.formOpen} title="{store.editId ? 'Edit' : 'Buat'} Booking" maxWidth="sm">
 	<div class="space-y-3">
 		<div>
+			<label class="label text-sm" for="b-pelanggan">Pelanggan</label>
+			<select id="b-pelanggan" class="select select-bordered w-full text-sm"
+				bind:value={store.fPelangganId}>
+				<option value={null}>— tanpa pelanggan —</option>
+				{#each store.pelanggan as p (p.id)}
+					<option value={p.id}>{p.nama}</option>
+				{/each}
+			</select>
+		</div>
+		<div>
 			<label class="label text-sm" for="b-layanan">Layanan</label>
 			<select id="b-layanan" class="select select-bordered w-full text-sm"
 				bind:value={store.fBarangId}>
@@ -216,6 +245,27 @@
 		<div class="flex gap-2 pt-1">
 			<button class="btn btn-ghost flex-1" onclick={() => (store.formOpen = false)}>Batal</button>
 			<button class="btn btn-primary flex-1" onclick={() => store.simpan()}>Simpan</button>
+		</div>
+	</div>
+</ModalWindow>
+
+<!-- ── CHECKOUT MODAL ── -->
+<ModalWindow bind:open={checkoutOpen} title="Bayar Booking" maxWidth="sm">
+	<div class="space-y-3">
+		<div class="rounded-lg border border-[var(--border)] p-3 text-sm">
+			<div class="flex justify-between"><span class="text-[var(--text-dim)]">Layanan</span><span>{checkoutBkg?.layanan_nama}</span></div>
+			<div class="flex justify-between"><span class="text-[var(--text-dim)]">Pelanggan</span><span>{checkoutBkg?.pelanggan_nama ?? '—'}</span></div>
+			<div class="flex justify-between"><span class="text-[var(--text-dim)]">Staf</span><span>{checkoutBkg?.karyawan_nama ?? '—'}</span></div>
+		</div>
+		{#if checkoutBkg?.pelanggan_id}
+			<label class="flex items-center gap-2 text-sm">
+				<input type="checkbox" class="checkbox checkbox-sm" bind:checked={pakaiKuota} />
+				Pakai kuota membership (jika tersedia)
+			</label>
+		{/if}
+		<div class="flex gap-2 pt-1">
+			<button class="btn btn-ghost flex-1" onclick={() => (checkoutOpen = false)}>Batal</button>
+			<button class="btn btn-primary flex-1" onclick={prosesCheckout}>Bayar & Selesai</button>
 		</div>
 	</div>
 </ModalWindow>
