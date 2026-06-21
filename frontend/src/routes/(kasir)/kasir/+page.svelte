@@ -20,6 +20,7 @@
 		tutupCheckout,
 		initDraftSync,
 		loadOpenBills,
+		mulaiBillMeja,
 		resetKasirDenganDraft
 	} from './kasir.store';
 	import ShiftBuka from './ShiftBuka.svelte';
@@ -138,7 +139,9 @@
 
 	onMount(() => {
 		initKasirMode();
-		void loadOpenBills();
+		const mejaParam = Number(new URLSearchParams(window.location.search).get('meja'));
+		if (mejaParam) void mulaiBillMeja(mejaParam);
+		else void loadOpenBills();
 		muatShiftAktif().then(() => {
 			if (!shiftAktif) modalBukaShift = true;
 		});

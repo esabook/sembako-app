@@ -5,7 +5,9 @@
 import { api } from '$lib/utils/api';
 import { enqueue, OfflineQueuedError } from '$lib/stores/offlineQueue';
 import type { BarangResult, PelangganResult, HistoriPenjualan, HistoriDetail, StokMenipis } from './kasir.types';
-import type { ItemKeranjang, MetodeBayar, TipeTransaksi } from '$lib/stores/kasir';
+import type { ItemKeranjang, MetodeBayar, TipeTransaksi, ModifierTerpilih } from '$lib/stores/kasir';
+
+export type TipeLayanan = 'retail' | 'dine_in' | 'take_away' | 'jasa';
 
 export async function fetchBarang(q: string): Promise<BarangResult[]> {
 	const res = await api.get<BarangResult[]>(`/barang?q=${encodeURIComponent(q)}`);
@@ -19,14 +21,23 @@ export async function fetchPelanggan(q: string): Promise<PelangganResult[]> {
 	return res.data;
 }
 
+export type SubmitItem = Pick<ItemKeranjang, 'barang_id' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'> & {
+	catatan?: string | null;
+	dilayani_oleh?: number | null;
+	booking_id?: number | null;
+	modifiers?: ModifierTerpilih[];
+};
+
 type SubmitPenjualanBody = {
 	pelanggan_id?: number;
 	tipe: TipeTransaksi;
+	tipe_layanan?: TipeLayanan;
+	meja_id?: number | null;
 	metode_bayar: MetodeBayar;
 	bayar: number;
 	diskon_total?: number;
 	kas_bank_id?: number;
-	items: Pick<ItemKeranjang, 'barang_id' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'>[];
+	items: SubmitItem[];
 };
 
 export async function submitPenjualan(body: SubmitPenjualanBody): Promise<{ no_transaksi: string }> {
@@ -57,6 +68,7 @@ export type BillSummary = {
 	label: string | null;
 	tipe: TipeTransaksi;
 	pelanggan_id: number | null;
+	meja_id: number | null;
 	subtotal: number;
 	jumlah_item: number;
 	created_at: string;
@@ -77,8 +89,8 @@ export async function getBill(id: number): Promise<BillDetail | null> {
 	return res.data ?? null;
 }
 
-export async function createBill(): Promise<{ id: number; nomor_bill: number }> {
-	const res = await api.post<{ id: number; nomor_bill: number }>('/draft/keranjang', {});
+export async function createBill(meja_id?: number | null): Promise<{ id: number; nomor_bill: number }> {
+	const res = await api.post<{ id: number; nomor_bill: number }>('/draft/keranjang', { meja_id: meja_id ?? null });
 	if (!res.success) throw new Error(res.error);
 	return res.data;
 }
@@ -86,6 +98,7 @@ export async function createBill(): Promise<{ id: number; nomor_bill: number }> 
 export async function saveBillItems(id: number, payload: {
 	tipe: TipeTransaksi;
 	pelanggan_id?: number | null;
+	meja_id?: number | null;
 	label?: string | null;
 	items: Pick<ItemKeranjang, 'barang_id' | 'tipe_harga' | 'satuan_id' | 'jumlah' | 'harga_jual' | 'diskon_item'>[];
 }): Promise<void> {

@@ -3,7 +3,7 @@ import { eq, sql } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   draft_keranjang, draft_keranjang_item,
-  barang, satuan,
+  barang, satuan, meja,
 } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
@@ -27,6 +27,7 @@ draftRouter.get('/keranjang', async (c) => {
       label: draft_keranjang.label,
       tipe: draft_keranjang.tipe,
       pelanggan_id: draft_keranjang.pelanggan_id,
+      meja_id: draft_keranjang.meja_id,
       subtotal: draft_keranjang.subtotal,
       jumlah_item: draft_keranjang.jumlah_item,
       created_at: draft_keranjang.created_at,
@@ -83,6 +84,7 @@ draftRouter.get('/keranjang/:id', async (c) => {
       label: draft.label,
       tipe: draft.tipe,
       pelanggan_id: draft.pelanggan_id,
+      meja_id: draft.meja_id,
       subtotal: draft.subtotal,
       jumlah_item: draft.jumlah_item,
       items,
@@ -95,6 +97,7 @@ draftRouter.get('/keranjang/:id', async (c) => {
 draftRouter.post('/keranjang', async (c) => {
   const user = c.get('user') as JWTPayload
   const kasirId = user.id
+  const body = await c.req.json<{ meja_id?: number | null }>().catch(() => ({} as { meja_id?: number | null }))
 
   const maxRow = await query.find<{ max_nomor: number | null }>(db
     .select({ max_nomor: sql<number>`MAX(${draft_keranjang.nomor_bill})` })
@@ -110,9 +113,16 @@ draftRouter.post('/keranjang', async (c) => {
       kasir_id: kasirId,
       tipe: 'eceran',
       nomor_bill: nomorBill,
+      meja_id: body.meja_id ?? null,
     })
     .returning({ id: draft_keranjang.id })
   )
+
+  // Tandai meja terisi saat bill dibuka
+  if (body.meja_id) {
+    await query.exec(db.update(meja).set({ status: 'terisi', updated_at: isoNow() })
+      .where(eq(meja.id, body.meja_id)))
+  }
 
   return c.json({ success: true, data: { id: ins!.id, nomor_bill: nomorBill } })
 })
@@ -126,6 +136,7 @@ draftRouter.put('/keranjang/:id', async (c) => {
   const body = await c.req.json<{
     tipe: 'eceran' | 'grosir'
     pelanggan_id?: number | null
+    meja_id?: number | null
     label?: string | null
     items: {
       barang_id: number
@@ -155,6 +166,7 @@ draftRouter.put('/keranjang/:id', async (c) => {
       .set({
         tipe: body.tipe,
         pelanggan_id: body.pelanggan_id ?? null,
+        meja_id: body.meja_id ?? null,
         label: body.label ?? null,
         subtotal,
         jumlah_item: body.items.length,

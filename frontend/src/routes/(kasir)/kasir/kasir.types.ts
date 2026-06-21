@@ -5,6 +5,7 @@ export type BarangResult = {
 	id: number;
 	kode_barang: string;
 	nama_barang: string;
+	tipe_produk?: 'physical_good' | 'menu_item' | 'service';
 	kategori_id: number | null;
 	harga_jual_eceran: number;
 	harga_jual_grosir: number;

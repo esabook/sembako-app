@@ -48,6 +48,12 @@ export function setModeOverride(mode: KasirMode | null) {
   } catch { /* ignore */ }
 }
 
+export type ModifierTerpilih = {
+  modifier_id: number
+  nama_snapshot: string
+  harga_snapshot: number
+}
+
 export type ItemKeranjang = {
   barang_id: number
   tipe_harga: 'eceran' | 'grosir'
@@ -62,6 +68,10 @@ export type ItemKeranjang = {
   diskon_item: number
   stok_sekarang: number
   foto_path?: string | null
+  // F&B / Jasa (opsional)
+  tipe_produk?: 'physical_good' | 'menu_item' | 'service'
+  modifiers?: ModifierTerpilih[]
+  catatan?: string | null
 }
 
 export type TipeTransaksi = 'eceran' | 'grosir'

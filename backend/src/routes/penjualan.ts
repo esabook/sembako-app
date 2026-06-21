@@ -4,8 +4,8 @@ import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { catatLog } from '../utils/log.ts'
 import {
-  penjualan, penjualan_detail,
-  barang, mutasi_stok,
+  penjualan, penjualan_detail, penjualan_detail_modifier,
+  barang, mutasi_stok, meja,
   piutang_pelanggan, jurnal_kas, kas_bank,
   pelanggan, karyawan,
 } from '../db/schema.ts'
@@ -126,12 +126,22 @@ penjualanRouter.get('/:id', requirePermission('penjualan.lihat'), async (c) => {
 
 // ── POST /penjualan — buat transaksi baru ─────────────────────────────────
 
+type ModifierInput = {
+  modifier_id: number
+  nama_snapshot: string
+  harga_snapshot: number
+}
+
 type ItemInput = {
   barang_id: number
   satuan_id?: number
   jumlah: number
   harga_jual: number
   diskon_item?: number
+  catatan?: string | null
+  dilayani_oleh?: number | null
+  booking_id?: number | null
+  modifiers?: ModifierInput[]
 }
 
 penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
@@ -141,12 +151,15 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   const body = await c.req.json<{
     pelanggan_id?: number
     tipe: 'eceran' | 'grosir'
+    tipe_layanan?: 'retail' | 'dine_in' | 'take_away' | 'jasa'
+    meja_id?: number | null
     metode_bayar: 'tunai' | 'transfer' | 'qris' | 'hutang'
     bayar: number
     kas_bank_id?: number
     diskon_total?: number
     items: ItemInput[]
   }>()
+  const tipeLayanan = body.tipe_layanan ?? 'retail'
 
   if (!body.items?.length) throw new HTTPException(400, { message: 'Keranjang kosong' })
   if (body.metode_bayar === 'hutang' && !body.pelanggan_id) {
@@ -155,7 +168,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
   // Hitung total
   let subtotal = 0
-  const itemsValidated: (ItemInput & { subtotal: number })[] = []
+  const itemsValidated: (ItemInput & { subtotal: number; tipe_produk: 'physical_good' | 'menu_item' | 'service' })[] = []
 
   for (const item of body.items) {
     if (!item.jumlah || item.jumlah <= 0) {
@@ -168,14 +181,15 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     if (!br || !br.is_active) {
       throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
     }
-    if (br.stok_sekarang < item.jumlah) {
+    // Hanya barang fisik yang dibatasi stok. menu_item & service tidak dikurangi stok di sini.
+    if (br.tipe_produk === 'physical_good' && br.stok_sekarang < item.jumlah) {
       throw new HTTPException(400, {
         message: `Stok ${br.nama_barang} tidak cukup (ada: ${br.stok_sekarang}, butuh: ${item.jumlah})`,
       })
     }
     const itemSubtotal = Math.round(item.harga_jual * item.jumlah - (item.diskon_item ?? 0))
     subtotal += itemSubtotal
-    itemsValidated.push({ ...item, subtotal: itemSubtotal })
+    itemsValidated.push({ ...item, subtotal: itemSubtotal, tipe_produk: br.tipe_produk })
   }
 
   const diskonTotal = Math.round(body.diskon_total ?? 0)
@@ -193,6 +207,8 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       pelanggan_id: body.pelanggan_id,
       tanggal: tgl,
       tipe: body.tipe,
+      tipe_layanan: tipeLayanan,
+      meja_id: body.meja_id ?? null,
       kasir_id: user.id,
       subtotal,
       diskon_total: diskonTotal,
@@ -205,9 +221,13 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       cabang_id: cabangId,
     }).returning())
 
-    // 2. Detail + mutasi stok
+    // 2. Detail + mutasi stok (stok hanya utk physical_good)
+    const dineIn = tipeLayanan === 'dine_in' || tipeLayanan === 'take_away'
     for (const item of itemsValidated) {
-      await query.exec(db.insert(penjualan_detail).values({
+      // KDS: menu_item pada layanan F&B masuk antrian dapur
+      const statusKds = item.tipe_produk === 'menu_item' && dineIn ? 'pending' as const : null
+
+      const det = await query.ret(db.insert(penjualan_detail).values({
         penjualan_id: trx.id,
         barang_id: item.barang_id,
         satuan_id: item.satuan_id,
@@ -215,9 +235,29 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         harga_jual: item.harga_jual,
         diskon_item: item.diskon_item ?? 0,
         subtotal: item.subtotal,
+        status_kds: statusKds,
+        dilayani_oleh: item.dilayani_oleh ?? null,
+        booking_id: item.booking_id ?? null,
+        catatan: item.catatan ?? null,
         tenant_id: tenantId,
         cabang_id: cabangId,
-      }))
+      }).returning())
+
+      // Modifier snapshot per item
+      if (item.modifiers?.length) {
+        await query.exec(db.insert(penjualan_detail_modifier).values(
+          item.modifiers.map((m) => ({
+            penjualan_detail_id: det.id,
+            modifier_id: m.modifier_id,
+            nama_snapshot: m.nama_snapshot,
+            harga_snapshot: m.harga_snapshot,
+            tenant_id: tenantId,
+          }))
+        ))
+      }
+
+      // Kurangi stok hanya utk barang fisik
+      if (item.tipe_produk !== 'physical_good') continue
 
       const br = await query.find(db.select({ stok: barang.stok_sekarang })
         .from(barang).where(eq(barang.id, item.barang_id)))
@@ -245,6 +285,14 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       await query.exec(db.update(barang)
         .set({ stok_sekarang: br.stok - item.jumlah })
         .where(eq(barang.id, item.barang_id))
+      )
+    }
+
+    // Bebaskan meja saat dine-in dibayar (kembali kosong)
+    if (body.meja_id && dineIn) {
+      await query.exec(db.update(meja)
+        .set({ status: 'kosong', updated_at: isoNow() })
+        .where(and(eq(meja.id, body.meja_id), eq(meja.tenant_id, tenantId)))
       )
     }
 

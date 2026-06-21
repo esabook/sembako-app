@@ -10,6 +10,7 @@ import {
 	subtotal, diskonMember, kembalian, total,
 	resetKasir, incrementTrxCount,
 } from '$lib/stores/kasir';
+import type { ModifierTerpilih } from '$lib/stores/kasir';
 import { loading, toast } from '$lib/stores/ui.store';
 import { withLoading } from '$lib/utils/async';
 import { bukaWhatsApp } from '$lib/utils/wa';
@@ -73,6 +74,12 @@ export const draftStatus = writable<'idle' | 'saving' | 'saved' | 'error'>('idle
 export const activeBillId = writable<number | null>(null);
 export const openBills = writable<BillSummary[]>([]);
 
+// ── Dine-in (F&B) ──────────────────────────────────────────────────────────────
+// meja aktif untuk bill ini (null = bukan dine-in). Diisi dari ?meja= di +page.
+export const mejaId = writable<number | null>(null);
+// tipe_layanan dikirim ke checkout: dine_in jika ada meja, selain itu retail
+export const tipeLayanan = derived(mejaId, ($m) => ($m ? 'dine_in' : 'retail') as 'dine_in' | 'retail');
+
 let _draftTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function _flushBillSave() {
@@ -84,6 +91,7 @@ async function _flushBillSave() {
 		await saveBillItems(id, {
 			tipe: get(tipeTransaksi),
 			pelanggan_id: get(pelangganDipilih)?.id ?? null,
+			meja_id: get(mejaId),
 			items: items.map((i) => ({
 				barang_id: i.barang_id,
 				tipe_harga: i.tipe_harga,
@@ -113,13 +121,14 @@ function scheduleDraftSave() {
 			} else {
 				let id = get(activeBillId);
 				if (id === null) {
-					const created = await createBill();
+					const created = await createBill(get(mejaId));
 					id = created.id;
 					activeBillId.set(id);
 				}
 				await saveBillItems(id, {
 					tipe: get(tipeTransaksi),
 					pelanggan_id: get(pelangganDipilih)?.id ?? null,
+					meja_id: get(mejaId),
 					items: items.map((i) => ({
 						barang_id: i.barang_id,
 						tipe_harga: i.tipe_harga,
@@ -181,14 +190,28 @@ export async function switchToBill(id: number): Promise<void> {
 			);
 		}
 		tipeTransaksi.set(bill.tipe);
+		mejaId.set(bill.meja_id ?? null);
 		activeBillId.set(id);
 		draftStatus.set('saved');
 	} catch { /* silent */ }
 }
 
+// Buka kasir untuk satu meja: resume bill meja itu kalau ada, kalau tidak mulai bill baru.
+export async function mulaiBillMeja(id: number): Promise<void> {
+	await loadOpenBills();
+	const existing = get(openBills).find((b) => b.meja_id === id);
+	if (existing) {
+		await switchToBill(existing.id);
+	} else {
+		await newBill();
+		mejaId.set(id);
+	}
+}
+
 export async function newBill(): Promise<void> {
 	await _flushBillSave();
 	resetKasir();
+	mejaId.set(null);
 	activeBillId.set(null);
 	draftStatus.set('idle');
 }
@@ -289,6 +312,7 @@ export function resetKasirDenganDraft() {
 	const id = get(activeBillId);
 	if (id !== null) void deleteBill(id).catch(() => { });
 	activeBillId.set(null);
+	mejaId.set(null);
 	draftStatus.set('idle');
 	resetKasir();
 	resetDummyJumlah(get(scanSessionId));
@@ -377,10 +401,52 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 				diskon_item: diskonPromo,
 				stok_sekarang: br.stok_sekarang,
 				foto_path: br.foto_path,
+				tipe_produk: br.tipe_produk ?? 'physical_good',
 			},
 		];
 	});
 	toast.info(isUpdate ? `+${qty} ${br.nama_barang}` : `✓ ${br.nama_barang}`);
+	closeSearch();
+	playKasirSound();
+	resetDummyJumlah(get(scanSessionId));
+}
+
+// Tambah menu_item dengan modifier terpilih + catatan.
+// Selalu jadi baris baru (modifier bisa beda tiap order); harga_jual = harga dasar + Σ modifier.
+export function tambahKeKeranjangModifier(
+	br: BarangResult,
+	qty: number,
+	modifiers: ModifierTerpilih[],
+	catatan: string,
+) {
+	const tipe = get(tipeTransaksi);
+	const hargaDasar = tipe === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
+	const tambahan = modifiers.reduce((s, m) => s + m.harga_snapshot, 0);
+	keranjang.update((k) => {
+		itemAktifIdx.set(k.length);
+		return [
+			...k,
+			{
+				barang_id: br.id,
+				tipe_harga: tipe,
+				kode_barang: br.kode_barang,
+				nama_barang: br.nama_barang,
+				satuan_id: br.satuan_dasar_id,
+				singkatan_satuan: br.singkatan_satuan ?? '',
+				jumlah: qty,
+				harga_jual: hargaDasar + tambahan,
+				harga_eceran: br.harga_jual_eceran,
+				harga_grosir: br.harga_jual_grosir,
+				diskon_item: 0,
+				stok_sekarang: br.stok_sekarang,
+				foto_path: br.foto_path,
+				tipe_produk: br.tipe_produk ?? 'menu_item',
+				modifiers,
+				catatan: catatan || null,
+			},
+		];
+	});
+	toast.info(`✓ ${br.nama_barang}`);
 	closeSearch();
 	playKasirSound();
 	resetDummyJumlah(get(scanSessionId));
@@ -499,6 +565,8 @@ export async function prosesBayar() {
 			submitPenjualan({
 				pelanggan_id: $pelanggan?.id,
 				tipe: $tipe,
+				tipe_layanan: get(tipeLayanan),
+				meja_id: get(mejaId),
 				metode_bayar: $metode,
 				bayar: Number($nominal) || $total,
 				diskon_total: diskonTotalKirim > 0 ? diskonTotalKirim : undefined,
@@ -509,6 +577,8 @@ export async function prosesBayar() {
 					jumlah: i.jumlah,
 					harga_jual: i.harga_jual,
 					diskon_item: i.diskon_item,
+					catatan: i.catatan ?? null,
+					modifiers: i.modifiers,
 				})),
 			}),
 		{
@@ -521,6 +591,7 @@ export async function prosesBayar() {
 				const _id = get(activeBillId);
 				if (_id !== null) void deleteBill(_id).catch(() => { });
 				activeBillId.set(null);
+				mejaId.set(null);
 				draftStatus.set('idle');
 				resetKasir();
 			},
@@ -548,6 +619,7 @@ export async function prosesBayar() {
 	const _billId = get(activeBillId);
 	if (_billId !== null) void deleteBill(_billId).catch(() => { });
 	activeBillId.set(null);
+	mejaId.set(null);
 	draftStatus.set('idle');
 	resetKasir();
 	resetDummyJumlah(get(scanSessionId));

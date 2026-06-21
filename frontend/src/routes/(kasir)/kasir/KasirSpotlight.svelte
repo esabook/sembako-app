@@ -9,6 +9,7 @@
 		qrLarge,
 		closeSearch,
 		tambahKeKeranjang,
+		tambahKeKeranjangModifier,
 		cariBarang,
 		dummyJumlah
 	} from './kasir.store';
@@ -17,9 +18,18 @@
 	import Scanner from '$lib/components/Scanner.svelte';
 	import ScanBarcode from '@lucide/svelte/icons/scan-barcode';
 	import { thumbUrl } from '$lib/utils/upload.js';
+	import ModifierPicker from '$lib/components/fnb/ModifierPicker.svelte';
+	import { fetchModifierGrup } from './fnb/fnb.api';
+	import type { GrupModifier, ModifierTerpilih } from './fnb/fnb.types';
+	import type { BarangResult } from './kasir.types';
 
 	let inputEl: HTMLInputElement | undefined = $state();
 	let showScanner = $state(false);
+
+	// Modifier picker (menu_item dgn grup modifier)
+	let modifierOpen = $state(false);
+	let modifierGrup = $state<GrupModifier[]>([]);
+	let modifierBarang = $state<BarangResult | null>(null);
 
 	let cariTimer: ReturnType<typeof setTimeout>;
 
@@ -60,8 +70,24 @@
 		}
 	}
 
-	function pilihBarang(br: (typeof $searchResults)[number]) {
+	async function pilihBarang(br: (typeof $searchResults)[number]) {
+		// Menu F&B: cek modifier dulu. Kalau ada grup → buka picker, kalau tidak → tambah langsung.
+		if (br.tipe_produk === 'menu_item') {
+			const grup = await fetchModifierGrup(br.id);
+			if (grup.length > 0) {
+				modifierBarang = br;
+				modifierGrup = grup;
+				modifierOpen = true;
+				return;
+			}
+		}
 		tambahKeKeranjang(br, $dummyJumlah);
+	}
+
+	function konfirmasiModifier(modifiers: ModifierTerpilih[], catatan: string) {
+		if (modifierBarang) tambahKeKeranjangModifier(modifierBarang, $dummyJumlah, modifiers, catatan);
+		modifierBarang = null;
+		modifierGrup = [];
 	}
 
 	function handleScanDetect(kode: string) {
@@ -206,3 +232,13 @@
 {#if showScanner}
 	<Scanner onDetect={handleScanDetect} onClose={() => (showScanner = false)} />
 {/if}
+
+<ModifierPicker
+	bind:open={modifierOpen}
+	nama_barang={modifierBarang?.nama_barang ?? ''}
+	harga_dasar={modifierBarang
+		? ($tipeTransaksi === 'grosir' ? modifierBarang.harga_jual_grosir : modifierBarang.harga_jual_eceran)
+		: 0}
+	grupList={modifierGrup}
+	onkonfirmasi={konfirmasiModifier}
+/>
