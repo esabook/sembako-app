@@ -184,6 +184,7 @@ export const NAV: NavItem[] = [
 		sub: [
 			{ key: 'booking', label: 'Booking', href: '/jasa/booking' },
 			{ key: 'jadwal', label: 'Jadwal Staf', href: '/jasa/jadwal' },
+			{ key: 'layanan', label: 'Master Layanan', href: '/jasa/layanan' },
 			{ key: 'membership', label: 'Membership', href: '/jasa/membership' },
 			{ key: 'komisi', label: 'Komisi', href: '/jasa/komisi' },
 		]
@@ -200,6 +201,8 @@ export const NAV: NavItem[] = [
 			{ key: 'audit', label: 'Audit Trail', href: '/pengaturan/audit' },
 			{ key: 'info-server', label: 'Info Server', href: '/pengaturan/info-server' },
 			{ key: 'toko', label: 'Toko & Cabang', href: '/pengaturan/toko' },
+			{ key: 'meja', label: 'Meja (F&B)', href: '/pengaturan/meja' },
+			{ key: 'modifier', label: 'Modifier (F&B)', href: '/pengaturan/modifier' },
 		]
 	}
 ]

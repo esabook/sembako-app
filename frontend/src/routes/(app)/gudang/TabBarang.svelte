@@ -24,6 +24,7 @@
 		id: number;
 		kode_barang: string;
 		nama_barang: string;
+		tipe_produk: 'physical_good' | 'menu_item' | 'service';
 		kategori_id: number | null;
 		satuan_dasar_id: number | null;
 		harga_jual_eceran: number;
@@ -68,6 +69,7 @@
 	let fb = $state({
 		kode_barang: '',
 		nama_barang: '',
+		tipe_produk: 'physical_good' as 'physical_good' | 'menu_item' | 'service',
 		kategori_id: null as number | null,
 		satuan_dasar_id: null as number | null,
 		harga_beli_terakhir: 0,
@@ -156,6 +158,7 @@
 		fb = {
 			kode_barang: item?.kode_barang ?? '',
 			nama_barang: item?.nama_barang ?? '',
+			tipe_produk: item?.tipe_produk ?? 'physical_good',
 			kategori_id: item?.kategori_id ?? null,
 			satuan_dasar_id: item?.satuan_dasar_id ?? null,
 			harga_beli_terakhir: item?.harga_beli_terakhir ?? 0,
@@ -172,6 +175,7 @@
 		const p = {
 			kode_barang: fb.kode_barang,
 			nama_barang: fb.nama_barang,
+			tipe_produk: fb.tipe_produk,
 			kategori_id: fb.kategori_id ?? undefined,
 			satuan_dasar_id: fb.satuan_dasar_id ?? undefined,
 			harga_beli_terakhir: fb.harga_beli_terakhir,
@@ -295,6 +299,15 @@
 			<div class="flex flex-col gap-1">
 				<label for="fb-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label>
 				<input id="fb-nama" bind:value={fb.nama_barang} required class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
+			</div>
+
+			<div class="col-span-2 flex flex-col gap-1">
+				<label for="fb-tipe" class="text-xs" style="color:var(--text-dim)">TIPE PRODUK</label>
+				<select id="fb-tipe" bind:value={fb.tipe_produk} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
+					<option value="physical_good">Barang Fisik (retail)</option>
+					<option value="menu_item">Menu (F&B / dapur)</option>
+					<option value="service">Layanan (jasa / booking)</option>
+				</select>
 			</div>
 
 			<InputRupiah bind:value={fb.harga_beli_terakhir} label="HARGA BELI" />

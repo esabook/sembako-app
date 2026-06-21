@@ -71,6 +71,29 @@ export async function fetchKreditMembership(pelanggan_id?: number): Promise<Kred
 	return res.data ?? [];
 }
 
+export type PaketBody = {
+	nama: string;
+	barang_id?: number | null;
+	jumlah_sesi: number;
+	harga: number;
+	masa_berlaku_hari: number;
+};
+
+export async function createPaket(body: PaketBody): Promise<void> {
+	const res = await api.post('/jasa/paket-membership', body);
+	if (!res.success) throw new Error(res.error);
+}
+
+export async function updatePaket(id: number, body: Partial<PaketBody> & { is_active?: boolean }): Promise<void> {
+	const res = await api.put(`/jasa/paket-membership/${id}`, body);
+	if (!res.success) throw new Error(res.error);
+}
+
+export async function jualPaket(pelanggan_id: number, paket_id: number): Promise<void> {
+	const res = await api.post('/jasa/kredit-membership', { pelanggan_id, paket_id });
+	if (!res.success) throw new Error(res.error);
+}
+
 // ── Komisi ────────────────────────────────────────────────────────────────────
 
 export async function fetchKomisi(dari: string, sampai: string): Promise<KomisiStaf[]> {
@@ -86,10 +109,24 @@ export async function bayarKomisi(ids: number[]): Promise<void> {
 
 // ── Master ────────────────────────────────────────────────────────────────────
 
-export async function fetchLayanan(): Promise<LayananBarang[]> {
-	const res = await api.get<LayananBarang[]>('/jasa/layanan');
+export async function fetchLayanan(bookableOnly = false): Promise<LayananBarang[]> {
+	const q = bookableOnly ? '?dapat_dibooking=1' : '';
+	const res = await api.get<LayananBarang[]>(`/jasa/layanan${q}`);
 	if (!res.success) throw new Error(res.error);
 	return res.data ?? [];
+}
+
+export type LayananBody = {
+	durasi_menit: number;
+	buffer_menit: number;
+	dapat_dibooking: boolean;
+	komisi_persen: number;
+	komisi_nominal: number;
+};
+
+export async function updateLayanan(barang_id: number, body: LayananBody): Promise<void> {
+	const res = await api.put(`/jasa/layanan/${barang_id}`, body);
+	if (!res.success) throw new Error(res.error);
 }
 
 export async function fetchStafAktif(): Promise<StafAktif[]> {

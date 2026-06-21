@@ -32,3 +32,14 @@ export type ModifierTerpilih = {
 	nama_snapshot: string;
 	harga_snapshot: number;
 };
+
+// Master (termasuk is_active) — dipakai halaman pengaturan modifier
+export type GrupModifierMaster = {
+	id: number;
+	nama: string;
+	wajib: boolean;
+	min_pilih: number;
+	max_pilih: number;
+	is_active: boolean;
+	modifiers: ModifierItem[];
+};

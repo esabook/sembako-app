@@ -40,7 +40,7 @@ export function createBookingStore() {
 	}
 
 	async function muatMaster() {
-		const [l, s] = await Promise.all([api.fetchLayanan(), api.fetchStafAktif()]);
+		const [l, s] = await Promise.all([api.fetchLayanan(true), api.fetchStafAktif()]);
 		layanan = l;
 		staf = s;
 	}

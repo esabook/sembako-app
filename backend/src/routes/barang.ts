@@ -144,6 +144,7 @@ barangRouter.get('/', async (c) => {
       id: barang.id,
       kode_barang: barang.kode_barang,
       nama_barang: barang.nama_barang,
+      tipe_produk: barang.tipe_produk,
       harga_jual_eceran: barang.harga_jual_eceran,
       harga_jual_grosir: barang.harga_jual_grosir,
       harga_beli_terakhir: barang.harga_beli_terakhir,
@@ -215,6 +216,7 @@ barangRouter.post('/', requirePermission('stok.edit'), async (c) => {
   const body = await c.req.json<{
     kode_barang: string
     nama_barang: string
+    tipe_produk?: 'physical_good' | 'menu_item' | 'service'
     kategori_id?: number
     satuan_dasar_id?: number
     harga_beli_terakhir?: number
@@ -235,6 +237,7 @@ barangRouter.post('/', requirePermission('stok.edit'), async (c) => {
   const row = await query.ret(db.insert(barang).values({
     kode_barang: body.kode_barang.trim(),
     nama_barang: body.nama_barang.trim(),
+    tipe_produk: body.tipe_produk ?? 'physical_good',
     kategori_id: body.kategori_id,
     satuan_dasar_id: body.satuan_dasar_id,
     harga_beli_terakhir: body.harga_beli_terakhir ?? 0,

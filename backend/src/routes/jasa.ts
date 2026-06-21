@@ -27,12 +27,15 @@ function noBooking(): string {
 jasaRouter.get('/layanan', requirePermission('penjualan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
+  // hanya yg sudah dikonfigurasi & dapat dibooking? param opsional
+  const bookableOnly = c.req.query('dapat_dibooking') === '1'
 
   const rows = await query.findAll(db
     .select({
       id: barang.id,
       nama_barang: barang.nama_barang,
-      harga_jual: barang.harga_jual,
+      harga_jual: barang.harga_jual_eceran,
+      diatur: detail_layanan.id,
       durasi_menit: detail_layanan.durasi_menit,
       buffer_menit: detail_layanan.buffer_menit,
       dapat_dibooking: detail_layanan.dapat_dibooking,
@@ -40,7 +43,10 @@ jasaRouter.get('/layanan', requirePermission('penjualan.lihat'), async (c) => {
       komisi_nominal: detail_layanan.komisi_nominal,
     })
     .from(barang)
-    .innerJoin(detail_layanan, eq(detail_layanan.barang_id, barang.id))
+    .leftJoin(detail_layanan, and(
+      eq(detail_layanan.barang_id, barang.id),
+      eq(detail_layanan.tenant_id, tenantId),
+    ))
     .where(
       and(
         eq(barang.tenant_id, tenantId),
@@ -51,7 +57,62 @@ jasaRouter.get('/layanan', requirePermission('penjualan.lihat'), async (c) => {
     .orderBy(barang.nama_barang)
   )
 
-  return c.json({ success: true, data: rows })
+  // Coalesce default utk layanan yg belum diatur; flag `diatur` jadi boolean
+  const data = rows
+    .map((r) => ({
+      id: r.id,
+      nama_barang: r.nama_barang,
+      harga_jual: r.harga_jual,
+      diatur: r.diatur != null,
+      durasi_menit: r.durasi_menit ?? 30,
+      buffer_menit: r.buffer_menit ?? 0,
+      dapat_dibooking: r.dapat_dibooking ?? true,
+      komisi_persen: r.komisi_persen ?? 0,
+      komisi_nominal: r.komisi_nominal ?? 0,
+    }))
+    .filter((r) => (bookableOnly ? r.dapat_dibooking : true))
+
+  return c.json({ success: true, data })
+})
+
+// ── PUT /jasa/layanan/:barang_id (upsert detail_layanan) ──────────────────────
+
+jasaRouter.put('/layanan/:barang_id', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const barangId = Number(c.req.param('barang_id'))
+  const body = await c.req.json<{
+    durasi_menit?: number
+    buffer_menit?: number
+    dapat_dibooking?: boolean
+    komisi_persen?: number
+    komisi_nominal?: number
+  }>()
+
+  // Pastikan barang ini milik tenant & tipe service
+  const brg = await query.find(db.select({ id: barang.id, tipe: barang.tipe_produk })
+    .from(barang).where(and(eq(barang.id, barangId), eq(barang.tenant_id, tenantId))))
+  if (!brg) throw new HTTPException(404, { message: 'Layanan tidak ditemukan' })
+  if (brg.tipe !== 'service') throw new HTTPException(400, { message: 'Barang ini bukan tipe layanan' })
+
+  const nilai = {
+    durasi_menit: body.durasi_menit ?? 30,
+    buffer_menit: body.buffer_menit ?? 0,
+    dapat_dibooking: body.dapat_dibooking ?? true,
+    komisi_persen: body.komisi_persen ?? 0,
+    komisi_nominal: body.komisi_nominal ?? 0,
+  }
+
+  const existing = await query.find(db.select({ id: detail_layanan.id })
+    .from(detail_layanan).where(and(eq(detail_layanan.barang_id, barangId), eq(detail_layanan.tenant_id, tenantId))))
+
+  if (existing) {
+    await db.update(detail_layanan).set(nilai).where(eq(detail_layanan.id, existing.id))
+  } else {
+    await db.insert(detail_layanan).values({ barang_id: barangId, tenant_id: tenantId, ...nilai })
+  }
+
+  return c.json({ success: true })
 })
 
 // ── GET /jasa/booking ─────────────────────────────────────────────────────────
@@ -281,6 +342,97 @@ jasaRouter.get('/paket-membership', requirePermission('penjualan.lihat'), async 
   )
 
   return c.json({ success: true, data: rows })
+})
+
+// ── POST /jasa/paket-membership ───────────────────────────────────────────────
+
+jasaRouter.post('/paket-membership', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const body = await c.req.json<{
+    kode_paket?: string
+    nama: string
+    barang_id?: number | null
+    jumlah_sesi: number
+    harga?: number
+    masa_berlaku_hari?: number
+  }>()
+
+  if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama paket wajib diisi' })
+  if (!body.jumlah_sesi || body.jumlah_sesi < 1) throw new HTTPException(400, { message: 'Jumlah sesi minimal 1' })
+
+  const kode = body.kode_paket?.trim() || `PKT-${Date.now().toString().slice(-6)}`
+  const [row] = await db.insert(paket_membership).values({
+    kode_paket: kode,
+    nama: body.nama.trim(),
+    barang_id: body.barang_id ?? null,
+    jumlah_sesi: body.jumlah_sesi,
+    harga: body.harga ?? 0,
+    masa_berlaku_hari: body.masa_berlaku_hari ?? 0,
+    created_by: user.id,
+    tenant_id: tenantId,
+  }).returning({ id: paket_membership.id })
+
+  return c.json({ success: true, data: { id: row.id } }, 201)
+})
+
+// ── PUT /jasa/paket-membership/:id ────────────────────────────────────────────
+
+jasaRouter.put('/paket-membership/:id', requirePermission('stok.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json<Partial<{
+    nama: string; barang_id: number | null; jumlah_sesi: number; harga: number; masa_berlaku_hari: number; is_active: boolean
+  }>>()
+
+  const set: Record<string, unknown> = { updated_at: isoNow() }
+  if (body.nama !== undefined) set.nama = body.nama.trim()
+  if (body.barang_id !== undefined) set.barang_id = body.barang_id
+  if (body.jumlah_sesi !== undefined) set.jumlah_sesi = body.jumlah_sesi
+  if (body.harga !== undefined) set.harga = body.harga
+  if (body.masa_berlaku_hari !== undefined) set.masa_berlaku_hari = body.masa_berlaku_hari
+  if (body.is_active !== undefined) set.is_active = body.is_active
+
+  await db.update(paket_membership).set(set).where(and(eq(paket_membership.id, id), eq(paket_membership.tenant_id, tenantId)))
+  return c.json({ success: true })
+})
+
+// ── POST /jasa/kredit-membership (jual paket ke pelanggan) ────────────────────
+
+jasaRouter.post('/kredit-membership', requirePermission('penjualan.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const body = await c.req.json<{ pelanggan_id: number; paket_id: number; penjualan_id?: number | null }>()
+
+  if (!body.pelanggan_id || !body.paket_id) {
+    throw new HTTPException(400, { message: 'pelanggan_id dan paket_id wajib diisi' })
+  }
+
+  const paket = await query.find(db.select({
+    jumlah_sesi: paket_membership.jumlah_sesi,
+    masa_berlaku_hari: paket_membership.masa_berlaku_hari,
+  }).from(paket_membership).where(and(eq(paket_membership.id, body.paket_id), eq(paket_membership.tenant_id, tenantId))))
+  if (!paket) throw new HTTPException(404, { message: 'Paket tidak ditemukan' })
+
+  const now = new Date()
+  const tanggalMulai = now.toISOString().slice(0, 10)
+  const tanggalExpired = paket.masa_berlaku_hari > 0
+    ? new Date(now.getTime() + paket.masa_berlaku_hari * 86_400_000).toISOString().slice(0, 10)
+    : null
+
+  const [row] = await db.insert(kredit_membership).values({
+    pelanggan_id: body.pelanggan_id,
+    paket_id: body.paket_id,
+    sisa_kuota: paket.jumlah_sesi,
+    tanggal_mulai: tanggalMulai,
+    tanggal_expired: tanggalExpired,
+    penjualan_id: body.penjualan_id ?? null,
+    status: 'aktif',
+    tenant_id: tenantId,
+  }).returning({ id: kredit_membership.id })
+
+  return c.json({ success: true, data: { id: row.id } }, 201)
 })
 
 // ── GET /jasa/kredit-membership ───────────────────────────────────────────────

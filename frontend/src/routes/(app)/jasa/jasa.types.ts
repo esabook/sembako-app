@@ -67,9 +67,12 @@ export type LayananBarang = {
 	id: number;
 	nama_barang: string;
 	harga_jual: number;
+	diatur: boolean;
 	durasi_menit: number;
 	buffer_menit: number;
 	dapat_dibooking: boolean;
+	komisi_persen: number;
+	komisi_nominal: number;
 };
 
 export type StafAktif = {
