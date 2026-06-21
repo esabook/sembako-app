@@ -177,7 +177,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     if (item.harga_jual < 0) {
       throw new HTTPException(400, { message: 'Harga jual tidak boleh negatif' })
     }
-    const br = await query.find(db.select().from(barang).where(eq(barang.id, item.barang_id)))
+    const br = await query.find(db.select().from(barang).where(and(eq(barang.id, item.barang_id), eq(barang.tenant_id, tenantId))))
     if (!br || !br.is_active) {
       throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
     }
@@ -364,7 +364,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     // 4. Piutang (jika hutang)
     if (body.metode_bayar === 'hutang' && body.pelanggan_id) {
       const plg = await query.find(db.select().from(pelanggan)
-        .where(eq(pelanggan.id, body.pelanggan_id)))
+        .where(and(eq(pelanggan.id, body.pelanggan_id), eq(pelanggan.tenant_id, tenantId))))
 
       if (plg && plg.limit_piutang > 0 && plg.saldo_piutang + total > plg.limit_piutang) {
         throw new HTTPException(422, { message: `Limit piutang ${plg.nama} terlampaui` })
@@ -377,6 +377,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         total_piutang: total,
         sisa_piutang: total,
         status: 'belum',
+        tenant_id: tenantId,
       }))
 
       if (plg) {
