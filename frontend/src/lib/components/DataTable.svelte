@@ -15,6 +15,7 @@
   pageSize     $bindable(25)     baris per halaman (5/10/25/50/100/Semua)
   currentPage  $bindable(1)      halaman aktif
   wrapMode     $bindable(false)  true = teks wrap; false = 1 baris + scroll horizontal
+  toolbarStart Snippet?          konten ekstra di sisi kiri toolbar (misal: search, filter)
   toolbarEnd   Snippet?          konten ekstra di ujung kanan toolbar (misal: tombol export)
 
   ── Column type ───────────────────────────────────────────────────────────────
@@ -68,7 +69,9 @@
     supaya <td> ikut tersembunyi saat kolom di-toggle.
   - tableId diisi string unik per halaman → prefs (kolom tersembunyi, lebar, wrapMode,
     pageSize) otomatis persist ke localStorage.
-  - toolbarEnd dirender di sisi kanan toolbar (margin-left:auto).
+  - toolbarStart dirender di sisi kiri toolbar (flex-1, misal: search, filter).
+  - toolbarEnd dirender bersama built-in controls (Kolom, Wrap) di sisi kanan.
+  - Mobile: toolbar stack 1-kolom (flex-col). Desktop: flex-row.
 -->
 <script lang="ts">
 	import { untrack } from 'svelte';
@@ -113,6 +116,7 @@
 		pageSize = $bindable(25),
 		currentPage = $bindable(1),
 		wrapMode = $bindable(false),
+		toolbarStart = undefined as Snippet | undefined,
 		toolbarEnd = undefined as Snippet | undefined
 	}: {
 		columns: Column[];
@@ -128,6 +132,7 @@
 		pageSize?: number;
 		currentPage?: number;
 		wrapMode?: boolean;
+		toolbarStart?: Snippet;
 		toolbarEnd?: Snippet;
 	} = $props();
 
@@ -182,7 +187,7 @@
 
 	let visibleColumns = $derived(columns.filter((c) => !effectiveHidden.has(c.key)));
 	let hideableColumns = $derived(columns.filter((c) => c.hideable !== false));
-	let hasToolbar = $derived(hideableColumns.length > 0 || !!toolbarEnd);
+	let hasToolbar = $derived(hideableColumns.length > 0 || !!toolbarEnd || !!toolbarStart);
 
 	function toggleColumn(key: string) {
 		const isVisible = !effectiveHidden.has(key);
@@ -366,57 +371,65 @@
 <div class="flex flex-col gap-2">
 	<!-- Toolbar -->
 	{#if hasToolbar}
-		<div class="flex flex-wrap items-center gap-2">
-			<!-- Tombol Kolom -->
-			{#if hideableColumns.length > 0}
-				<div data-col-dropdown>
-					<button
-						bind:this={colBtnEl}
-						onclick={openColDropdown}
-						style="
-							display:inline-flex;align-items:center;gap:5px;
-							padding:4px 10px;border-radius:6px;border:1px solid var(--border);
-							background:var(--surface2);color:var(--text);font-size:0.875em;cursor:pointer;
-						"
-					>
-						<Columns2 size="1em" />
-						Kolom
-						<span style="color:var(--text-dim);font-size:0.8em">
-							{visibleColumns.length}/{columns.length}
-						</span>
-					</button>
-				</div>
-			{/if}
-
-			<!-- Tombol Wrap Toggle -->
-			<button
-				onclick={() => {
-					wrapMode = !wrapMode;
-				}}
-				title={wrapMode ? 'Mode: Wrap — klik untuk 1 baris' : 'Mode: 1 Baris — klik untuk wrap'}
-				style="
-					display:inline-flex;align-items:center;gap:5px;
-					padding:4px 10px;border-radius:6px;border:1px solid var(--border);
-					background: var(--surface2);
-					color:var(--text);
-					font-size:0.875em;cursor:pointer;transition:background .15s,color .15s;
-				"
-			>
-				{#if wrapMode}
-					<TextWrap size="1em" />
-					Wrap
-				{:else}
-					<Rows3 size="1em" />
-					1 Baris
+		<div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+			<!-- Kiri: toolbarStart slot -->
+			<div class="flex-1">
+				{#if toolbarStart}
+					{@render toolbarStart()}
 				{/if}
-			</button>
+			</div>
 
-			<!-- Slot toolbar kanan -->
-			{#if toolbarEnd}
-				<div style="margin-left:auto">
+			<!-- Kanan: built-in controls + toolbarEnd -->
+			<div class="flex flex-wrap items-center gap-2">
+				<!-- Tombol Kolom -->
+				{#if hideableColumns.length > 0}
+					<div data-col-dropdown>
+						<button
+							bind:this={colBtnEl}
+							onclick={openColDropdown}
+							style="
+								display:inline-flex;align-items:center;gap:5px;
+								padding:4px 10px;border-radius:6px;border:1px solid var(--border);
+								background:var(--surface2);color:var(--text);font-size:0.875em;cursor:pointer;
+							"
+						>
+							<Columns2 size="1em" />
+							Kolom
+
+							<span style="color:var(--text-dim);font-size:0.6em">
+								{visibleColumns.length}/{columns.length}
+							</span>
+						</button>
+					</div>
+				{/if}
+
+				<!-- Tombol Wrap Toggle -->
+				<button
+					onclick={() => {
+						wrapMode = !wrapMode;
+					}}
+					title={wrapMode ? 'Mode: Wrap — klik untuk 1 baris' : 'Mode: 1 Baris — klik untuk wrap'}
+					style="
+						display:inline-flex;align-items:center;gap:5px;
+						padding:4px 10px;border-radius:6px;border:1px solid var(--border);
+						background: var(--surface2);
+						color:var(--text);
+						font-size:0.875em;cursor:pointer;transition:background .15s,color .15s;
+					"
+				>
+					{#if wrapMode}
+						<TextWrap size="1em" />
+					{:else}
+						<Rows3 size="1em" />
+					{/if}
+					<span>{wrapMode ? 'Wrap' : '1 Baris'}</span>
+				</button>
+
+				<!-- Slot toolbar kanan -->
+				{#if toolbarEnd}
 					{@render toolbarEnd()}
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 	{/if}
 

@@ -101,8 +101,9 @@ export function getMonthDays(viewDate: Date): { iso: string; current: boolean }[
 	for (let d = 1; d <= lastDate; d++) {
 		days.push({ iso: toISO(new Date(year, month, d)), current: true });
 	}
+	const total = firstDow + lastDate > 35 ? 42 : 35;
 	let next = 1;
-	while (days.length < 42) {
+	while (days.length < total) {
 		days.push({ iso: toISO(new Date(year, month + 1, next++)), current: false });
 	}
 	return days;

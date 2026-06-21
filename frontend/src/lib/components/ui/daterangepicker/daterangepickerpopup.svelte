@@ -179,26 +179,63 @@
 		requestAnimationFrame(() => {
 			if (window.innerWidth < 640) return;
 			const el = node as HTMLElement;
-			const rect = el.getBoundingClientRect();
-			if (rect.right > window.innerWidth) {
-				el.style.left = 'auto';
-				el.style.right = '0';
+			const parent = el.parentElement;
+			if (!parent) return;
+			const inner = el.firstElementChild as HTMLElement | null;
+
+			const pr = parent.getBoundingClientRect();
+			const er = el.getBoundingClientRect();
+			const gap = 4;
+			const edge = 8;
+
+			const spaceBelow = window.innerHeight - pr.bottom - gap - edge;
+			const spaceAbove = pr.top - gap - edge;
+			const goAbove = spaceAbove > spaceBelow && er.height > spaceBelow;
+
+			let top: number;
+			let maxH: number;
+			if (goAbove) {
+				maxH = spaceAbove;
+				top = pr.top - gap - Math.min(er.height, maxH);
+			} else {
+				maxH = spaceBelow;
+				top = pr.bottom + gap;
 			}
+
+			let left = pr.left;
+			if (left + er.width > window.innerWidth - edge) {
+				left = pr.right - er.width;
+			}
+			left = Math.max(edge, left);
+
+			el.style.inset = 'auto';
+			el.style.top = `${top}px`;
+			el.style.left = `${left}px`;
+			if (inner) inner.style.maxHeight = `${maxH}px`;
+			el.style.visibility = 'visible';
 		});
 	}
 </script>
 
 <div
-	class="pointer-events-none fixed inset-0 z-[100] flex items-center justify-center sm:pointer-events-auto sm:absolute sm:inset-auto sm:top-full sm:left-0 sm:mt-1 sm:items-start"
+	class="pointer-events-auto fixed inset-0 z-[100] flex items-start justify-center py-8 sm:invisible sm:inset-auto sm:py-0"
+	role="presentation"
+	onclick={onclose}
+	onkeydown={(e) => e.key === 'Escape' && onclose()}
 	{@attach autoPosition}
 >
 	<div
-		class="pointer-events-auto max-h-[90dvh] w-fit max-w-[95vw] overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl sm:max-h-none sm:max-w-none sm:overflow-hidden"
+		class="pointer-events-auto max-h-[85dvh] w-fit max-w-[95vw] overflow-y-auto rounded-box border border-base-300 bg-base-100 shadow-xl"
+		role="dialog"
+		aria-modal="true"
+		tabindex="-1"
+		onclick={(e) => e.stopPropagation()}
+		onkeydown={(e) => e.key !== 'Escape' && e.stopPropagation()}
 	>
 		<!-- row1 -->
 		<div class="flex flex-col sm:flex-row">
 			<!-- col1: template list -->
-			<div class="flex min-w-[130px] flex-col border-r border-base-300 py-1">
+			<div class="flex min-w-30 flex-col border-r-0 border-b py-1 sm:border-r sm:border-b-0">
 				{#each TEMPLATES as t (t)}
 					<button
 						type="button"
@@ -214,7 +251,7 @@
 			</div>
 
 			<!-- col2: calendar panel -->
-			<div class="flex min-w-0 flex-1 flex-col gap-2">
+			<div class="mt-2 flex min-w-0 flex-1 flex-col gap-2">
 				<!-- col2row1: caption + masked inputs + error -->
 				<div class="flex flex-col gap-1">
 					<span class="px-2 text-[.7rem] font-semibold tracking-wider text-accent">
@@ -326,7 +363,7 @@
 					</div>
 				{:else}
 					<!-- yearly grid 6×4 = 24 years -->
-					<div class="grid grid-cols-[repeat(4,3rem)] gap-1 px-2">
+					<div class="grid grid-cols-[repeat(4,3rem)] gap-1 p-2">
 						{#each yearGrid as year (year)}
 							{@const sel = isYearSelected(year)}
 							{@const bet = isYearBetween(year)}

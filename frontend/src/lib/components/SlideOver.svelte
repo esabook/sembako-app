@@ -42,7 +42,7 @@
 	const MIN_H = 32; // vh
 	const MAX_H = 93; // vh
 
-	let panelWidth = $state(384);
+	let panelWidth = $state(640);
 	let panelHeightVh = $state(88);
 	let isDesktop = $state(false);
 

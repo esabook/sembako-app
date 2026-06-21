@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { adaLoading, pesanLoading } from '$lib/stores/ui.store';
+	import { isLoading, pesanLoading } from '$lib/stores/ui.store';
 </script>
 
-{#if $adaLoading}
+{#if $isLoading}
 	<div class="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden" style="background:transparent">
 		<div class="bar h-full" style="background:var(--accent)"></div>
 	</div>
 	{#if $pesanLoading}
 		<div
-			class="fixed left-1/2 top-2 z-[60] -translate-x-1/2 rounded px-3 py-1 text-xs"
+			class="fixed top-8 left-1/2 z-[60] -translate-x-1/2 rounded px-3 py-1 text-xs"
 			style="background:var(--surface);color:var(--text-dim);border:1px solid var(--border)"
 		>
 			{$pesanLoading}

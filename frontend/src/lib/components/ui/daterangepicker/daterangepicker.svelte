@@ -37,7 +37,7 @@
 <div class="relative inline-block">
 	<button
 		type="button"
-		class="flex min-w-[150px] items-center gap-2 rounded border-base-300 bg-base-100 px-2 py-1 text-left transition-colors hover:bg-base-200"
+		class="flex min-w-36 items-center gap-2 rounded border-base-300 bg-base-100 px-2 py-1 text-left transition-colors hover:bg-base-200"
 		onclick={toggle}
 	>
 		<Calendar size="1rem" class="shrink-0 text-base-content/60" aria-hidden="true" />
@@ -45,11 +45,9 @@
 			<span class="truncate text-[0.7rem] leading-tight font-medium">
 				{selectedTemplate ?? 'Pilih rentang'}
 			</span>
-			{#if from && to}
-				<span class="text-[0.5rem] leading-tight text-base-content/60"
-					>{displayRange(from, to)}</span
-				>
-			{/if}
+			<span class="text-[0.5rem] leading-tight text-base-content/60"
+				>{from && to ? displayRange(from, to) : 'Tanggal'}</span
+			>
 		</div>
 		<ChevronDown
 			size="1rem"
