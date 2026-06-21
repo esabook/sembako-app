@@ -388,7 +388,7 @@ fnbRouter.get('/kds', requirePermission('penjualan.lihat'), async (c) => {
         inArray(penjualan_detail.status_kds, ['pending', 'cooking']),
       )
     )
-    .orderBy(penjualan_detail.created_at)
+    .orderBy(penjualan.created_at)
   )
 
   if (!rows.length) return c.json({ success: true, data: [] })
