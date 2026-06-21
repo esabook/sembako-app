@@ -25,18 +25,28 @@ demoRouter.get('/status', async (c) => {
 
 // ── POST /demo/generate ───────────────────────────────────────────────────────
 demoRouter.post('/generate', async (c) => {
-  const result = await generateDemoData()
-  return c.json({
-    success: true,
-    data: {
-      message: 'Data demo berhasil di-generate. Login demo: demo-admin / demo123',
-      toko_id: result.toko_id,
-    },
-  }, 201)
+  try {
+    const result = await generateDemoData()
+    return c.json({
+      success: true,
+      data: {
+        message: 'Data demo berhasil di-generate. Login demo: demo-admin / demo123',
+        toko_id: result.toko_id,
+      },
+    }, 201)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Gagal generate data demo'
+    throw new HTTPException(409, { message: msg })
+  }
 })
 
 // ── DELETE /demo ──────────────────────────────────────────────────────────────
 demoRouter.delete('/', async (c) => {
-  await deleteDemoData()
-  return c.json({ success: true, data: { message: 'Data demo berhasil dihapus' } })
+  try {
+    await deleteDemoData()
+    return c.json({ success: true, data: { message: 'Data demo berhasil dihapus' } })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Gagal menghapus data demo'
+    throw new HTTPException(404, { message: msg })
+  }
 })

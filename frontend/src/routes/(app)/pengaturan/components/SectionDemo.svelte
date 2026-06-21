@@ -19,6 +19,7 @@
 		loadingStatus = true;
 		const res = await api.get<DemoStatus>('/demo/status');
 		if (res.success) status = res.data;
+		else toast.error(res.error ?? 'Gagal memuat status demo');
 		loadingStatus = false;
 	}
 
