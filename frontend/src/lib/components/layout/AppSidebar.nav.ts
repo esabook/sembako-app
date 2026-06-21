@@ -177,6 +177,18 @@ export const NAV: NavItem[] = [
 		icon: 'BadgePercent'
 	},
 	{
+		href: '/jasa',
+		label: 'Jasa & Booking',
+		roles: ['pemilik', 'manajer', 'kasir', 'pelayanan'],
+		icon: 'Scissors',
+		sub: [
+			{ key: 'booking', label: 'Booking', href: '/jasa/booking' },
+			{ key: 'jadwal', label: 'Jadwal Staf', href: '/jasa/jadwal' },
+			{ key: 'membership', label: 'Membership', href: '/jasa/membership' },
+			{ key: 'komisi', label: 'Komisi', href: '/jasa/komisi' },
+		]
+	},
+	{
 		href: '/pengaturan',
 		label: 'Pengaturan',
 		roles: ['pemilik'],

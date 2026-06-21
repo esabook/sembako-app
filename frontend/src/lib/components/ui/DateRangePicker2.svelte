@@ -129,8 +129,8 @@
 					{@attach listenChange}
 					class="pointer-events-auto block cally rounded-box border border-base-300 bg-base-100 shadow-lg"
 				>
-					<ChevronLeft color="var(--text)" size="24px" aria-label="Previous" slot="previous" />
-					<ChevronRight color="var(--text)" size="24px" aria-label="Next" slot="next" />
+					<span slot="previous"><ChevronLeft color="var(--text)" size="24px" aria-label="Previous" /></span>
+					<span slot="next"><ChevronRight color="var(--text)" size="24px" aria-label="Next" /></span>
 					<calendar-month></calendar-month>
 				</calendar-range>
 			</div>

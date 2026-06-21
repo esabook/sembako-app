@@ -22,6 +22,7 @@
 	import ChartBar from '@lucide/svelte/icons/chart-bar';
 	import Tag from '@lucide/svelte/icons/tag';
 	import BadgePercent from '@lucide/svelte/icons/badge-percent';
+	import Scissors from '@lucide/svelte/icons/scissors';
 	import Settings from '@lucide/svelte/icons/settings';
 	import PanelLeftOpen from '@lucide/svelte/icons/panel-left-open';
 	import PanelLeftClose from '@lucide/svelte/icons/panel-left-close';
@@ -46,6 +47,7 @@
 		ChartBar,
 		Tag,
 		BadgePercent,
+		Scissors,
 		Settings
 	};
 

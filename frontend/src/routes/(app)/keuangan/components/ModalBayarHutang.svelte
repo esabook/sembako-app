@@ -16,7 +16,7 @@
         {store.hutangDipilih.nama_supplier} — Sisa <strong style="color:var(--danger)">Rp {fmt(store.hutangDipilih.sisa_hutang)}</strong>
       </p>
       <Input label="Tanggal Bayar" type="text" value={store.formBayarHutang.tanggal_bayar}
-        oninput={(v) => store.formBayarHutang.tanggal_bayar = v} />
+        oninput={(v) => store.formBayarHutang.tanggal_bayar = String(v)} />
       <div>
         <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jumlah Bayar</span>
         <input type="number" bind:value={store.formBayarHutang.jumlah_bayar} min="1"

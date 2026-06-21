@@ -7,6 +7,8 @@
 	import X from '@lucide/svelte/icons/x';
 	import Fullscreen from '@lucide/svelte/icons/fullscreen';
 	import Shrink from '@lucide/svelte/icons/shrink';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import ChefHat from '@lucide/svelte/icons/chef-hat';
 
 	type StokMenipis = {
 		id: number;
@@ -130,6 +132,22 @@
 					Menu
 				</p>
 				<div class="flex flex-col gap-1">
+					<button
+						onclick={() => nav('/kasir/fnb/meja')}
+						class="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"
+						style="background:var(--bg)"
+					>
+						<LayoutGrid size="0.8rem" />
+						<span>Meja / Floor Map</span>
+					</button>
+					<button
+						onclick={() => nav('/kds')}
+						class="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"
+						style="background:var(--bg)"
+					>
+						<ChefHat size="0.8rem" />
+						<span>Layar Dapur (KDS)</span>
+					</button>
 					<button
 						onclick={toggleFullscreen}
 						class="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"

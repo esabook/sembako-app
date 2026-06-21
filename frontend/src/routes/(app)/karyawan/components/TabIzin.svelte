@@ -145,7 +145,6 @@
 				</div>
 			</div>
 			<DateRangePicker
-				label="Periode Izin"
 				bind:from={store.fIzinMulai}
 				bind:to={store.fIzinSelesai}
 			/>

@@ -22,9 +22,9 @@
           options={[{ value: 'masuk', label: 'Masuk' }, { value: 'keluar', label: 'Keluar' }]} />
       </div>
       <Input label="Kategori" placeholder="contoh: operasional, gaji..." value={store.formJurnal.kategori}
-        oninput={(v) => store.formJurnal.kategori = v} />
+        oninput={(v) => store.formJurnal.kategori = String(v)} />
       <Input label="Keterangan" value={store.formJurnal.keterangan ?? ''}
-        oninput={(v) => store.formJurnal.keterangan = v} />
+        oninput={(v) => store.formJurnal.keterangan = String(v)} />
       <div>
         <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jumlah</span>
         <input type="number" bind:value={store.formJurnal.jumlah} min="1"

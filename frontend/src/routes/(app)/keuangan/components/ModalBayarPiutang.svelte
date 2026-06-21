@@ -16,7 +16,7 @@
         {store.piutangDipilih.nama_pelanggan} — Sisa <strong style="color:var(--warn)">Rp {fmt(store.piutangDipilih.sisa_piutang)}</strong>
       </p>
       <Input label="Tanggal Terima" type="text" value={store.formBayarPiutang.tanggal_bayar}
-        oninput={(v) => store.formBayarPiutang.tanggal_bayar = v} />
+        oninput={(v) => store.formBayarPiutang.tanggal_bayar = String(v)} />
       <div>
         <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jumlah Diterima</span>
         <input type="number" bind:value={store.formBayarPiutang.jumlah_bayar} min="1"

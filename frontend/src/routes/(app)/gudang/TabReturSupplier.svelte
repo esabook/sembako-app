@@ -259,7 +259,7 @@
 
 <!-- Toolbar -->
 <div class="mb-3 flex flex-wrap items-end gap-2">
-	<DateRangePicker label="Periode" bind:from={dari} bind:to={sampai} />
+	<DateRangePicker bind:from={dari} bind:to={sampai} />
 	<Button variant="ghost" onclick={muat}>Muat</Button>
 	<div class="ml-auto"><Button onclick={bukaForm}>+ Retur Supplier</Button></div>
 </div>
