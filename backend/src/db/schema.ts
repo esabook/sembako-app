@@ -127,6 +127,7 @@ export const barang = table('barang', {
   id: pkInt('id'),
   kode_barang: txt('kode_barang').notNull().unique(),
   nama_barang: txt('nama_barang').notNull(),
+  tipe_produk: txt('tipe_produk', { enum: ['physical_good', 'menu_item', 'service'] }).notNull().default('physical_good'),
   kategori_id: int('kategori_id').references(() => kategori.id),
   satuan_dasar_id: int('satuan_dasar_id').references(() => satuan.id),
   // JSON: [{ satuan_id, faktor }] misal 1 karton = 24 pcs
@@ -296,6 +297,8 @@ export const penjualan = table('penjualan', {
   bayar: money('bayar').notNull().default(0),
   kembalian: money('kembalian').notNull().default(0),
   status: txt('status', { enum: ['lunas', 'hutang', 'void'] }).notNull().default('lunas'),
+  tipe_layanan: txt('tipe_layanan', { enum: ['retail', 'dine_in', 'take_away', 'jasa'] }).notNull().default('retail'),
+  meja_id: int('meja_id').references(() => meja.id),
   ...tenantField,
   ...cabangField,
   ...timestamps,
@@ -304,6 +307,7 @@ export const penjualan = table('penjualan', {
   idx('idx_penjualan_status').on(t.status),
   idx('idx_penjualan_kasir').on(t.kasir_id),
   idx('idx_penjualan_cabang').on(t.cabang_id),
+  idx('idx_penjualan_meja').on(t.meja_id),
   chk('chk_penjualan_subtotal', sql`${t.subtotal} >= 0`),
   chk('chk_penjualan_total', sql`${t.total} >= 0`),
   chk('chk_penjualan_diskon', sql`${t.diskon_total} >= 0`),
@@ -320,10 +324,15 @@ export const penjualan_detail = table('penjualan_detail', {
   harga_jual: money('harga_jual').notNull(), // snapshot — jangan ambil dari master
   diskon_item: money('diskon_item').notNull().default(0),
   subtotal: money('subtotal').notNull(),
+  status_kds: txt('status_kds', { enum: ['pending', 'cooking', 'served', 'cancelled'] }),
+  dilayani_oleh: int('dilayani_oleh').references(() => karyawan.id),
+  booking_id: int('booking_id').references(() => booking.id),
+  catatan: txt('catatan'),
   ...tenantField,
   ...cabangField,
 }, (t) => [
   idx('idx_penjualan_detail_trx').on(t.penjualan_id),
+  idx('idx_pd_kds').on(t.status_kds),
   chk('chk_detail_jumlah_pos', sql`${t.jumlah} > 0`),
   chk('chk_detail_harga_pos', sql`${t.harga_jual} >= 0`),
   chk('chk_detail_diskon_pos', sql`${t.diskon_item} >= 0`),
@@ -875,6 +884,7 @@ export const draft_keranjang = table('draft_keranjang', {
   nomor_bill: int('nomor_bill').notNull().default(1),
   subtotal: money('subtotal').notNull().default(0),
   jumlah_item: int('jumlah_item').notNull().default(0),
+  meja_id: int('meja_id').references(() => meja.id),
   ...timestamps,
 }, (t) => [
   idx('idx_draft_kasir').on(t.kasir_id),
@@ -1216,6 +1226,218 @@ export const inspeksi_toko = table('inspeksi_toko', {
   ...auditFields,
   ...timestamps,
 })
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODUL F&B
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Meja / Table (dine-in) ──────────────────────────────────────────────────
+export const meja = table('meja', {
+  id: pkInt('id'),
+  kode_meja: txt('kode_meja').notNull(),
+  nama: txt('nama'),
+  kapasitas: int('kapasitas').notNull().default(2),
+  status: txt('status', { enum: ['kosong', 'terisi', 'reserved', 'dibersihkan'] }).notNull().default('kosong'),
+  is_active: bool('is_active').notNull().default(true),
+  ...tenantField,
+  ...cabangField,
+  ...timestamps,
+}, (t) => [
+  uidx('uidx_meja_kode').on(t.tenant_id, t.cabang_id, t.kode_meja),
+  idx('idx_meja_status').on(t.status),
+])
+
+// ─── Bahan Baku (raw materials) ──────────────────────────────────────────────
+export const bahan_baku = table('bahan_baku', {
+  id: pkInt('id'),
+  kode_bahan: txt('kode_bahan').notNull().unique(),
+  nama: txt('nama').notNull(),
+  satuan_id: int('satuan_id').references(() => satuan.id),
+  stok_sekarang: flt('stok_sekarang').notNull().default(0),
+  stok_minimum: flt('stok_minimum').notNull().default(0),
+  harga_beli_rata: money('harga_beli_rata').notNull().default(0),
+  is_active: bool('is_active').notNull().default(true),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+}, (t) => [
+  chk('chk_bahan_baku_stok', sql`${t.stok_sekarang} >= 0`),
+  idx('idx_bahan_baku_active').on(t.is_active),
+])
+
+// ─── Resep / Bill of Materials ───────────────────────────────────────────────
+export const resep = table('resep', {
+  id: pkInt('id'),
+  barang_id: int('barang_id').notNull().references(() => barang.id),       // menu_item
+  bahan_baku_id: int('bahan_baku_id').notNull().references(() => bahan_baku.id),
+  jumlah: flt('jumlah').notNull(),                                         // qty bahan per 1 porsi
+  satuan_id: int('satuan_id').references(() => satuan.id),
+  ...tenantField,
+}, (t) => [
+  uidx('uidx_resep_menu_bahan').on(t.barang_id, t.bahan_baku_id),
+  idx('idx_resep_barang').on(t.barang_id),
+  chk('chk_resep_jumlah', sql`${t.jumlah} > 0`),
+])
+
+// ─── Grup Modifier ───────────────────────────────────────────────────────────
+export const grup_modifier = table('grup_modifier', {
+  id: pkInt('id'),
+  nama: txt('nama').notNull(),
+  wajib: bool('wajib').notNull().default(false),
+  min_pilih: int('min_pilih').notNull().default(0),
+  max_pilih: int('max_pilih').notNull().default(1),
+  is_active: bool('is_active').notNull().default(true),
+  ...tenantField,
+  ...auditFields,
+})
+
+// ─── Modifier (opsi dalam grup) ──────────────────────────────────────────────
+export const modifier = table('modifier', {
+  id: pkInt('id'),
+  grup_modifier_id: int('grup_modifier_id').notNull().references(() => grup_modifier.id),
+  nama: txt('nama').notNull(),
+  harga_tambahan: money('harga_tambahan').notNull().default(0),
+  is_active: bool('is_active').notNull().default(true),
+  ...tenantField,
+}, (t) => [
+  idx('idx_modifier_grup').on(t.grup_modifier_id),
+  chk('chk_modifier_harga', sql`${t.harga_tambahan} >= 0`),
+])
+
+// ─── Junction: Barang ↔ Grup Modifier (M:N, reusable) ───────────────────────
+export const barang_modifier_grup = table('barang_modifier_grup', {
+  id: pkInt('id'),
+  barang_id: int('barang_id').notNull().references(() => barang.id),
+  grup_modifier_id: int('grup_modifier_id').notNull().references(() => grup_modifier.id),
+  urutan: int('urutan').notNull().default(0),
+  ...tenantField,
+}, (t) => [
+  uidx('uidx_barang_modifier').on(t.barang_id, t.grup_modifier_id),
+])
+
+// ─── Modifier terpasang di order_item ────────────────────────────────────────
+export const penjualan_detail_modifier = table('penjualan_detail_modifier', {
+  id: pkInt('id'),
+  penjualan_detail_id: int('penjualan_detail_id').notNull().references(() => penjualan_detail.id),
+  modifier_id: int('modifier_id').notNull().references(() => modifier.id),
+  nama_snapshot: txt('nama_snapshot').notNull(),        // snapshot saat transaksi
+  harga_snapshot: money('harga_snapshot').notNull().default(0),
+  ...tenantField,
+}, (t) => [
+  idx('idx_pdm_detail').on(t.penjualan_detail_id),
+])
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODUL JASA
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Detail Layanan (extend barang service, 1:1) ─────────────────────────────
+export const detail_layanan = table('detail_layanan', {
+  id: pkInt('id'),
+  barang_id: int('barang_id').notNull().references(() => barang.id),
+  durasi_menit: int('durasi_menit').notNull().default(30),
+  buffer_menit: int('buffer_menit').notNull().default(0),
+  dapat_dibooking: bool('dapat_dibooking').notNull().default(true),
+  komisi_persen: flt('komisi_persen').notNull().default(0),
+  komisi_nominal: money('komisi_nominal').notNull().default(0),
+  ...tenantField,
+}, (t) => [
+  uidx('uidx_detail_layanan_barang').on(t.barang_id),
+])
+
+// ─── Jadwal Staf (jam kerja rekuren mingguan) ────────────────────────────────
+export const jadwal_staf = table('jadwal_staf', {
+  id: pkInt('id'),
+  karyawan_id: int('karyawan_id').notNull().references(() => karyawan.id),
+  hari: int('hari').notNull(),          // 0=Minggu, 1=Senin, ..., 6=Sabtu
+  jam_mulai: txt('jam_mulai').notNull(),  // 'HH:MM'
+  jam_selesai: txt('jam_selesai').notNull(),
+  is_active: bool('is_active').notNull().default(true),
+  ...tenantField,
+  ...cabangField,
+}, (t) => [
+  idx('idx_jadwal_staf_karyawan').on(t.karyawan_id),
+])
+
+// ─── Paket Membership ────────────────────────────────────────────────────────
+export const paket_membership = table('paket_membership', {
+  id: pkInt('id'),
+  kode_paket: txt('kode_paket').notNull().unique(),
+  nama: txt('nama').notNull(),
+  barang_id: int('barang_id').references(() => barang.id), // null = multi-layanan
+  jumlah_sesi: int('jumlah_sesi').notNull(),
+  harga: money('harga').notNull().default(0),
+  masa_berlaku_hari: int('masa_berlaku_hari').notNull().default(0), // 0 = tanpa expired
+  is_active: bool('is_active').notNull().default(true),
+  ...tenantField,
+  ...auditFields,
+  ...timestamps,
+}, (t) => [
+  chk('chk_paket_sesi', sql`${t.jumlah_sesi} > 0`),
+  chk('chk_paket_harga', sql`${t.harga} >= 0`),
+])
+
+// ─── Kredit Membership (paket yg dibeli pelanggan) ───────────────────────────
+export const kredit_membership = table('kredit_membership', {
+  id: pkInt('id'),
+  pelanggan_id: int('pelanggan_id').notNull().references(() => pelanggan.id),
+  paket_id: int('paket_id').notNull().references(() => paket_membership.id),
+  sisa_kuota: int('sisa_kuota').notNull(),
+  tanggal_mulai: txt('tanggal_mulai').notNull(),
+  tanggal_expired: txt('tanggal_expired'),
+  penjualan_id: int('penjualan_id').references(() => penjualan.id),
+  status: txt('status', { enum: ['aktif', 'habis', 'expired'] }).notNull().default('aktif'),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  idx('idx_kredit_pelanggan').on(t.pelanggan_id),
+  idx('idx_kredit_status').on(t.status),
+  chk('chk_kredit_kuota', sql`${t.sisa_kuota} >= 0`),
+])
+
+// ─── Booking / Appointment ───────────────────────────────────────────────────
+export const booking = table('booking', {
+  id: pkInt('id'),
+  no_booking: txt('no_booking').notNull().unique(),
+  pelanggan_id: int('pelanggan_id').references(() => pelanggan.id),
+  karyawan_id: int('karyawan_id').references(() => karyawan.id),    // staf pelaksana
+  barang_id: int('barang_id').notNull().references(() => barang.id), // service
+  waktu_mulai: txt('waktu_mulai').notNull(),                         // ISO string
+  waktu_selesai: txt('waktu_selesai'),
+  status: txt('status', {
+    enum: ['booked', 'confirmed', 'in_progress', 'selesai', 'batal', 'no_show'],
+  }).notNull().default('booked'),
+  penjualan_id: int('penjualan_id').references(() => penjualan.id), // null sampai checkout
+  kredit_id: int('kredit_id').references(() => kredit_membership.id),
+  catatan: txt('catatan'),
+  ...tenantField,
+  ...cabangField,
+  ...auditFields,
+  ...timestamps,
+}, (t) => [
+  idx('idx_booking_waktu').on(t.waktu_mulai),
+  idx('idx_booking_status').on(t.status),
+  idx('idx_booking_karyawan').on(t.karyawan_id),
+])
+
+// ─── Komisi Staf ─────────────────────────────────────────────────────────────
+export const komisi_staf = table('komisi_staf', {
+  id: pkInt('id'),
+  karyawan_id: int('karyawan_id').notNull().references(() => karyawan.id),
+  penjualan_id: int('penjualan_id').references(() => penjualan.id),
+  penjualan_detail_id: int('penjualan_detail_id').references(() => penjualan_detail.id),
+  barang_id: int('barang_id').references(() => barang.id),
+  nilai_komisi: money('nilai_komisi').notNull().default(0),
+  persen: flt('persen').notNull().default(0),
+  tanggal: txt('tanggal').notNull(),
+  status: txt('status', { enum: ['pending', 'dibayar'] }).notNull().default('pending'),
+  ...tenantField,
+  ...timestamps,
+}, (t) => [
+  idx('idx_komisi_karyawan').on(t.karyawan_id),
+  idx('idx_komisi_status').on(t.status),
+  chk('chk_komisi_nilai', sql`${t.nilai_komisi} >= 0`),
+])
 
 // Jejak eksekusi tiap rule per transaksi/karyawan
 export const sop_instance = table('sop_instance', {
