@@ -281,6 +281,7 @@
 									type="number"
 									min="0"
 									step="0.01"
+									placeholder="0"
 									class="input-bordered input input-sm w-24 text-sm"
 									bind:value={line.jumlah}
 									oninput={hitungHpp}
@@ -371,6 +372,7 @@
 					type="number"
 					min="0"
 					step="0.01"
+					placeholder="0"
 					class="input-bordered input w-full text-sm"
 					bind:value={bStok}
 				/>
@@ -382,6 +384,7 @@
 					type="number"
 					min="0"
 					step="0.01"
+					placeholder="0"
 					class="input-bordered input w-full text-sm"
 					bind:value={bStokMin}
 				/>
@@ -393,6 +396,7 @@
 				id="b-harga"
 				type="number"
 				min="0"
+				placeholder="0"
 				class="input-bordered input w-full text-sm"
 				bind:value={bHarga}
 			/>

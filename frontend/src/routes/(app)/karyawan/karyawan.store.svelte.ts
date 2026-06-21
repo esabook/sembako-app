@@ -37,79 +37,79 @@ export function createKaryawanStore() {
 
   // ── Column definitions ────────────────────────────────────────────────────
   const kolKaryawan: Column[] = [
-    { key: 'kode_karyawan', label: 'Kode',       width: 90,  priority: 2 },
-    { key: 'nama',          label: 'Nama',        minWidth: 140 },
-    { key: 'role',          label: 'Role',        width: 90  },
-    { key: 'username',      label: 'Username',    width: 110, priority: 2 },
-    { key: 'gaji_pokok',    label: 'Gaji Pokok',  width: 120, align: 'right' },
-    { key: 'tipe_gaji',     label: 'Tipe',        width: 80,  priority: 3 },
-    { key: 'aksi',          label: '',            width: 120, sortable: false, hideable: false, align: 'right' },
+    { key: 'kode_karyawan', label: 'Kode', width: 90, priority: 2 },
+    { key: 'nama', label: 'Nama', minWidth: 140 },
+    { key: 'role', label: 'Role', width: 90 },
+    { key: 'username', label: 'Username', width: 110, priority: 2 },
+    { key: 'gaji_pokok', label: 'Gaji Pokok', width: 120, align: 'right' },
+    { key: 'tipe_gaji', label: 'Tipe', width: 80, priority: 3 },
+    { key: 'aksi', label: '', width: 120, sortable: false, hideable: false, align: 'right' },
   ]
 
   const kolAbsensiList: Column[] = [
     ...(isManager ? [{ key: 'nama_karyawan', label: 'Karyawan', minWidth: 120 }] : []),
-    { key: 'tanggal',        label: 'Tanggal',   width: 105 },
-    { key: 'jam_masuk',     label: 'Masuk',     width: 75 },
-    { key: 'jam_keluar',    label: 'Keluar',    width: 75 },
-    { key: 'durasi',        label: 'Durasi',    width: 80, sortable: false },
-    { key: 'status',        label: 'Status',    width: 90 },
+    { key: 'tanggal', label: 'Tanggal', width: 105 },
+    { key: 'jam_masuk', label: 'Masuk', width: 75 },
+    { key: 'jam_keluar', label: 'Keluar', width: 75 },
+    { key: 'durasi', label: 'Durasi', width: 80, sortable: false },
+    { key: 'status', label: 'Status', width: 90 },
     { key: 'terlambat_menit', label: 'Terlambat', width: 90, priority: 2 },
     ...(isManager ? [{ key: 'aksi', label: '', width: 110, sortable: false, hideable: false, align: 'right' as const }] : []),
   ]
 
   const kolAbsensiRekap: Column[] = [
-    { key: 'nama_karyawan', label: 'Karyawan',  minWidth: 130 },
-    { key: 'hadir',         label: 'Hadir',     width: 70, align: 'center' },
-    { key: 'izin',          label: 'Izin',      width: 60, align: 'center' },
-    { key: 'sakit',         label: 'Sakit',     width: 60, align: 'center' },
-    { key: 'alpa',          label: 'Alpa',      width: 60, align: 'center' },
-    { key: 'total',         label: 'Total',     width: 65, align: 'center' },
-    { key: 'pct',           label: '% Hadir',   width: 80, align: 'center', sortable: false },
+    { key: 'nama_karyawan', label: 'Karyawan', minWidth: 130 },
+    { key: 'hadir', label: 'Hadir', width: 70, align: 'center' },
+    { key: 'izin', label: 'Izin', width: 60, align: 'center' },
+    { key: 'sakit', label: 'Sakit', width: 60, align: 'center' },
+    { key: 'alpa', label: 'Alpa', width: 60, align: 'center' },
+    { key: 'total', label: 'Total', width: 65, align: 'center' },
+    { key: 'pct', label: '% Hadir', width: 80, align: 'center', sortable: false },
   ]
 
   const kolPenggajian: Column[] = [
-    { key: 'nama_karyawan',   label: 'Karyawan',    minWidth: 120 },
-    { key: 'periode_bulan',   label: 'Periode',      width: 90, priority: 3 },
-    { key: 'hadir_kerja',     label: 'Hadir/Kerja', width: 90, align: 'center', sortable: false, priority: 2 },
-    { key: 'gaji_pokok',      label: 'Gaji Pokok',  width: 110, align: 'right' },
-    { key: 'tunjangan',       label: 'Tunjangan',   width: 100, align: 'right', priority: 2 },
+    { key: 'nama_karyawan', label: 'Karyawan', minWidth: 120 },
+    { key: 'periode_bulan', label: 'Periode', width: 90, priority: 3 },
+    { key: 'hadir_kerja', label: 'Hadir/Kerja', width: 90, align: 'center', sortable: false, priority: 2 },
+    { key: 'gaji_pokok', label: 'Gaji Pokok', width: 110, align: 'right' },
+    { key: 'tunjangan', label: 'Tunjangan', width: 100, align: 'right', priority: 2 },
     { key: 'potongan_kasbon', label: 'Pot. Kasbon', width: 100, align: 'right', priority: 2 },
-    { key: 'potongan_lain',   label: 'Pot. Lain',   width: 90,  align: 'right', priority: 3 },
-    { key: 'total_gaji',      label: 'Total',       width: 110, align: 'right' },
-    { key: 'status',          label: 'Status',      width: 90 },
+    { key: 'potongan_lain', label: 'Pot. Lain', width: 90, align: 'right', priority: 3 },
+    { key: 'total_gaji', label: 'Total', width: 110, align: 'right' },
+    { key: 'status', label: 'Status', width: 90 },
     ...(isManager ? [{ key: 'aksi', label: '', width: 170, sortable: false, hideable: false, align: 'right' as const }] : []),
   ]
 
   const kolKasbon: Column[] = [
-    { key: 'nama_karyawan',    label: 'Karyawan',    minWidth: 120 },
-    { key: 'tanggal_pinjam',   label: 'Tgl Pinjam',  width: 100, priority: 2 },
-    { key: 'jumlah',           label: 'Jumlah',      width: 110, align: 'right' },
-    { key: 'cicilan_per_bulan',label: 'Cicilan/Bln', width: 100, align: 'right', priority: 2 },
-    { key: 'sisa_kasbon',      label: 'Sisa',        width: 100, align: 'right' },
-    { key: 'status',           label: 'Status',      width: 90 },
+    { key: 'nama_karyawan', label: 'Karyawan', minWidth: 120 },
+    { key: 'tanggal_pinjam', label: 'Tgl Pinjam', width: 100, priority: 2 },
+    { key: 'jumlah', label: 'Jumlah', width: 110, align: 'right' },
+    { key: 'cicilan_per_bulan', label: 'Cicilan/Bln', width: 100, align: 'right', priority: 2 },
+    { key: 'sisa_kasbon', label: 'Sisa', width: 100, align: 'right' },
+    { key: 'status', label: 'Status', width: 90 },
     ...(isManager ? [{ key: 'aksi', label: '', width: 160, sortable: false, hideable: false, align: 'right' as const }] : []),
   ]
 
   // ── Tab: Data Karyawan ────────────────────────────────────────────────────
-  let karyawanList    = $state<Karyawan[]>([])
-  let queryKaryawan   = $state('')
+  let karyawanList = $state<Karyawan[]>([])
+  let queryKaryawan = $state('')
   let loadingKaryawan = $state(false)
   let modalKaryawanOpen = $state(false)
-  let editKaryawan    = $state<Partial<Karyawan> | null>(null)
-  let formKaryawan    = $state({ kode_karyawan: '', nama: '', role: 'kasir', username: '', password: '', gaji_pokok: '', tipe_gaji: 'bulanan', kontak: '', pin_absensi: '', toko_id: _u?.tenant_id ?? 1, cabang_id: null as number | null })
-  let cabangList      = $state<{ id: number; nama: string }[]>([])
-  let fotoFile        = $state<File | null>(null)
-  let fotoPreview     = $state('')
-  let sortKeyKaryawan  = $state('nama')
-  let sortDirKaryawan  = $state<'asc' | 'desc'>('asc')
-  let pageKaryawan     = $state(1)
+  let editKaryawan = $state<Partial<Karyawan> | null>(null)
+  let formKaryawan = $state({ kode_karyawan: '', nama: '', role: 'kasir', username: '', password: '', gaji_pokok: '', tipe_gaji: 'bulanan', kontak: '', pin_absensi: '', toko_id: _u?.tenant_id ?? 1, cabang_id: null as number | null })
+  let cabangList = $state<{ id: number; nama: string }[]>([])
+  let fotoFile = $state<File | null>(null)
+  let fotoPreview = $state('')
+  let sortKeyKaryawan = $state('nama')
+  let sortDirKaryawan = $state<'asc' | 'desc'>('asc')
+  let pageKaryawan = $state(1)
   let pageSizeKaryawan = $state(25)
 
   const filteredKaryawan = $derived(
     queryKaryawan
       ? karyawanList.filter(k =>
-          k.nama.toLowerCase().includes(queryKaryawan.toLowerCase()) ||
-          k.username.toLowerCase().includes(queryKaryawan.toLowerCase()))
+        k.nama.toLowerCase().includes(queryKaryawan.toLowerCase()) ||
+        k.username.toLowerCase().includes(queryKaryawan.toLowerCase()))
       : karyawanList
   )
   const sortedKaryawan = $derived.by(() => {
@@ -197,21 +197,21 @@ export function createKaryawanStore() {
   }
 
   // ── Tab: Absensi ──────────────────────────────────────────────────────────
-  let realtimeList     = $state<RealtimeRow[]>([])
-  let loadingRealtime  = $state(false)
-  let filterBulan      = $state(bulanIni)
+  let realtimeList = $state<RealtimeRow[]>([])
+  let loadingRealtime = $state(false)
+  let filterBulan = $state(bulanIni)
   let filterKaryawanId = $state<number | ''>('')
-  let absensiList      = $state<AbsensiRow[]>([])
-  let rekapList        = $state<RekapRow[]>([])
-  let loadingAbsensi   = $state(false)
-  let viewAbsensi      = $state<'list' | 'rekap'>('list')
-  let sortKeyAbsensi   = $state('tanggal')
-  let sortDirAbsensi   = $state<'asc' | 'desc'>('desc')
-  let sortKeyRekap     = $state('nama_karyawan')
-  let sortDirRekap     = $state<'asc' | 'desc'>('asc')
+  let absensiList = $state<AbsensiRow[]>([])
+  let rekapList = $state<RekapRow[]>([])
+  let loadingAbsensi = $state(false)
+  let viewAbsensi = $state<'list' | 'rekap'>('list')
+  let sortKeyAbsensi = $state('tanggal')
+  let sortDirAbsensi = $state<'asc' | 'desc'>('desc')
+  let sortKeyRekap = $state('nama_karyawan')
+  let sortDirRekap = $state<'asc' | 'desc'>('asc')
   let modalAbsensiOpen = $state(false)
-  let editAbsensi      = $state<AbsensiRow | null>(null)
-  let formAbsensi      = $state({ karyawan_id: '', tanggal: hariIni, jam_masuk: '', jam_keluar: '', shift: '', status: 'hadir' as 'hadir' | 'izin' | 'sakit' | 'alpa' })
+  let editAbsensi = $state<AbsensiRow | null>(null)
+  let formAbsensi = $state({ karyawan_id: '', tanggal: hariIni, jam_masuk: '', jam_keluar: '', shift: '', status: 'hadir' as 'hadir' | 'izin' | 'sakit' | 'alpa' })
 
   const absensiHariIni = $derived(
     absensiList.find(a => a.karyawan_id === userId && a.tanggal === hariIni) ?? null
@@ -311,19 +311,19 @@ export function createKaryawanStore() {
   }
 
   // ── Tab: Penggajian ───────────────────────────────────────────────────────
-  let filterBulanGaji  = $state(bulanIni)
-  let penggajianList   = $state<PenggajianRow[]>([])
-  let kasBankList      = $state<KasBank[]>([])
-  let loadingGaji      = $state(false)
-  let loadingGenerate  = $state(false)
-  let modalGajiOpen    = $state(false)
-  let editGaji         = $state<PenggajianRow | null>(null)
-  let formGaji         = $state({ tunjangan: '', potongan_lain: '' })
-  let modalBayarOpen   = $state(false)
-  let bayarGajiId      = $state<number | null>(null)
-  let bayarKasBankId   = $state('')
-  let sortKeyGaji      = $state('nama_karyawan')
-  let sortDirGaji      = $state<'asc' | 'desc'>('asc')
+  let filterBulanGaji = $state(bulanIni)
+  let penggajianList = $state<PenggajianRow[]>([])
+  let kasBankList = $state<KasBank[]>([])
+  let loadingGaji = $state(false)
+  let loadingGenerate = $state(false)
+  let modalGajiOpen = $state(false)
+  let editGaji = $state<PenggajianRow | null>(null)
+  let formGaji = $state({ tunjangan: '', potongan_lain: '' })
+  let modalBayarOpen = $state(false)
+  let bayarGajiId = $state<number | null>(null)
+  let bayarKasBankId = $state('')
+  let sortKeyGaji = $state('nama_karyawan')
+  let sortDirGaji = $state<'asc' | 'desc'>('asc')
 
   const sortedGaji = $derived.by(() => {
     const key = sortKeyGaji as keyof PenggajianRow
@@ -396,18 +396,18 @@ export function createKaryawanStore() {
 
   // ── Tab: Kasbon ───────────────────────────────────────────────────────────
   let filterStatusKasbon = $state<KasbonStatus | ''>('pengajuan')
-  let kasbonList         = $state<KasbonRow[]>([])
-  let loadingKasbon      = $state(false)
-  let modalKasbonOpen    = $state(false)
-  let modalCicilOpen     = $state(false)
-  let modalJadwalOpen    = $state(false)
-  let jadwalCicilanList  = $state<JadwalCicilan[]>([])
-  let jadwalCicilanNama  = $state('')
-  let cicilKasbonId      = $state<number | null>(null)
-  let cicilJumlah        = $state('')
-  let formKasbon         = $state({ karyawan_id: '', tanggal_pinjam: hariIni, jumlah: '', cicilan_per_bulan: '', catatan: '' })
-  let sortKeyKasbon      = $state('tanggal_pinjam')
-  let sortDirKasbon      = $state<'asc' | 'desc'>('desc')
+  let kasbonList = $state<KasbonRow[]>([])
+  let loadingKasbon = $state(false)
+  let modalKasbonOpen = $state(false)
+  let modalCicilOpen = $state(false)
+  let modalJadwalOpen = $state(false)
+  let jadwalCicilanList = $state<JadwalCicilan[]>([])
+  let jadwalCicilanNama = $state('')
+  let cicilKasbonId = $state<number | null>(null)
+  let cicilJumlah = $state('')
+  let formKasbon = $state({ karyawan_id: '', tanggal_pinjam: hariIni, jumlah: '', cicilan_per_bulan: '', catatan: '' })
+  let sortKeyKasbon = $state('tanggal_pinjam')
+  let sortDirKasbon = $state<'asc' | 'desc'>('desc')
 
   const sortedKasbon = $derived.by(() => {
     const key = sortKeyKasbon as keyof KasbonRow
@@ -482,17 +482,17 @@ export function createKaryawanStore() {
   }
 
   // ── Tab: Jadwal Shift ─────────────────────────────────────────────────────
-  let tipeShiftList   = $state<TipeShift[]>([])
+  let tipeShiftList = $state<TipeShift[]>([])
   let jadwalKerjaList = $state<JadwalRow[]>([])
-  let tukarList       = $state<TukarRow[]>([])
-  let loadingJadwal   = $state(false)
-  let weekStart       = $state(getMondayOf(new Date()))
-  let assignCell      = $state<{ karyawan_id: number; tanggal: string } | null>(null)
-  let modalTipeOpen   = $state(false)
-  let editTipe        = $state<TipeShift | null>(null)
-  let formTipe        = $state({ nama: '', jam_mulai: '08:00', jam_selesai: '15:00', warna: '#00e676' })
-  let modalTukarOpen  = $state(false)
-  let formTukar       = $state({ jadwal_id: '', penerima_id: '', alasan: '' })
+  let tukarList = $state<TukarRow[]>([])
+  let loadingJadwal = $state(false)
+  let weekStart = $state(getMondayOf(new Date()))
+  let assignCell = $state<{ karyawan_id: number; tanggal: string } | null>(null)
+  let modalTipeOpen = $state(false)
+  let editTipe = $state<TipeShift | null>(null)
+  let formTipe = $state({ nama: '', jam_mulai: '08:00', jam_selesai: '15:00', warna: '#00e676' })
+  let modalTukarOpen = $state(false)
+  let formTukar = $state({ jadwal_id: '', penerima_id: '', alasan: '' })
 
   const weekDays = $derived(getWeekDays(weekStart))
   const jadwalSendiri = $derived(jadwalKerjaList.filter(j => j.karyawan_id === userId))
@@ -582,11 +582,11 @@ export function createKaryawanStore() {
   }
 
   // ── Tab: Performa ─────────────────────────────────────────────────────────
-  let bulanPerforma      = $state(bulanIni)
-  let performaList       = $state<PerformaRingkasan[]>([])
-  let performaDetail     = $state<PerformaDetail | null>(null)
-  let performaDetailId   = $state<number | null>(null)
-  let loadingPerforma    = $state(false)
+  let bulanPerforma = $state(bulanIni)
+  let performaList = $state<PerformaRingkasan[]>([])
+  let performaDetail = $state<PerformaDetail | null>(null)
+  let performaDetailId = $state<number | null>(null)
+  let loadingPerforma = $state(false)
 
   async function muatPerforma() {
     loadingPerforma = true
@@ -603,16 +603,16 @@ export function createKaryawanStore() {
   }
 
   // ── Tab: Cuti & Izin ──────────────────────────────────────────────────────
-  let izinRows       = $state<IzinRow[]>([])
-  let izinLoading    = $state(false)
-  let izinBulan      = $state('')
+  let izinRows = $state<IzinRow[]>([])
+  let izinLoading = $state(false)
+  let izinBulan = $state(new Date().toISOString().slice(0, 7))
   let izinKaryawanId = $state('')
-  let izinFormOpen   = $state(false)
-  let izinError      = $state('')
-  let fIzinJenis     = $state<'cuti' | 'izin' | 'sakit'>('izin')
-  let fIzinMulai     = $state('')
-  let fIzinSelesai   = $state('')
-  let fIzinAlasan    = $state('')
+  let izinFormOpen = $state(false)
+  let izinError = $state('')
+  let fIzinJenis = $state<'cuti' | 'izin' | 'sakit'>('izin')
+  let fIzinMulai = $state('')
+  let fIzinSelesai = $state('')
+  let fIzinAlasan = $state('')
   let fIzinKaryawanId = $state('')
 
   async function muatIzin() {
@@ -660,17 +660,17 @@ export function createKaryawanStore() {
   }
 
   // ── Tab: Evaluasi ─────────────────────────────────────────────────────────
-  let evalRows       = $state<EvaluasiRow[]>([])
+  let evalRows = $state<EvaluasiRow[]>([])
   let evalKaryawanId = $state('')
-  let evalPeriode    = $state('')
-  let evalFormOpen   = $state(false)
-  let evalError      = $state('')
-  let editEvalId     = $state<number | null>(null)
+  let evalPeriode = $state(new Date().toISOString().slice(0, 7))
+  let evalFormOpen = $state(false)
+  let evalError = $state('')
+  let editEvalId = $state<number | null>(null)
   let fEvalKaryawanId = $state('')
-  let fEvalPeriode   = $state('')
-  let fEvalNilai     = $state('3')
-  let fEvalCatatan   = $state('')
-  let konfirmEvalId  = $state<number | null>(null)
+  let fEvalPeriode = $state(new Date().toISOString().slice(0, 7))
+  let fEvalNilai = $state('3')
+  let fEvalCatatan = $state('')
+  let konfirmEvalId = $state<number | null>(null)
   let konfirmEvalBuka = $state(false)
 
   async function muatEval() {
@@ -720,20 +720,20 @@ export function createKaryawanStore() {
   }
 
   // ── Tab: Sanksi & Insentif ────────────────────────────────────────────────
-  let siRows       = $state<SanksiInsentifRow[]>([])
-  let siBulan      = $state('')
+  let siRows = $state<SanksiInsentifRow[]>([])
+  let siBulan = $state(new Date().toISOString().slice(0, 7))
   let siKaryawanId = $state('')
-  let siTipe       = $state('')
-  let siFormOpen   = $state(false)
-  let siError      = $state('')
+  let siTipe = $state('')
+  let siFormOpen = $state(false)
+  let siError = $state('')
   let fSiKaryawanId = $state('')
-  let fSiTipe      = $state<'sanksi' | 'insentif'>('insentif')
-  let fSiJenis     = $state('')
-  let fSiJumlah    = $state('')
-  let fSiTanggal   = $state('')
-  let fSiBulan     = $state('')
-  let fSiKet       = $state('')
-  let konfirmSIId  = $state<number | null>(null)
+  let fSiTipe = $state<'sanksi' | 'insentif'>('insentif')
+  let fSiJenis = $state('')
+  let fSiJumlah = $state('')
+  let fSiTanggal = $state('')
+  let fSiBulan = $state('')
+  let fSiKet = $state('')
+  let konfirmSIId = $state<number | null>(null)
   let konfirmSIBuka = $state(false)
 
   async function muatSI() {
@@ -793,204 +793,204 @@ export function createKaryawanStore() {
     kolKaryawan, kolAbsensiList, kolAbsensiRekap, kolPenggajian, kolKasbon,
 
     // ── Karyawan ──
-    get karyawanList()   { return karyawanList },
-    get queryKaryawan()  { return queryKaryawan },
+    get karyawanList() { return karyawanList },
+    get queryKaryawan() { return queryKaryawan },
     set queryKaryawan(v: string) { queryKaryawan = v },
     get loadingKaryawan() { return loadingKaryawan },
     get modalKaryawanOpen() { return modalKaryawanOpen },
     set modalKaryawanOpen(v: boolean) { modalKaryawanOpen = v },
-    get editKaryawan()   { return editKaryawan },
-    get formKaryawan()   { return formKaryawan },
-    get cabangList()     { return cabangList },
-    get fotoPreview()    { return fotoPreview },
-    get sortKeyKaryawan()  { return sortKeyKaryawan },
+    get editKaryawan() { return editKaryawan },
+    get formKaryawan() { return formKaryawan },
+    get cabangList() { return cabangList },
+    get fotoPreview() { return fotoPreview },
+    get sortKeyKaryawan() { return sortKeyKaryawan },
     set sortKeyKaryawan(v: string) { sortKeyKaryawan = v },
-    get sortDirKaryawan()  { return sortDirKaryawan },
+    get sortDirKaryawan() { return sortDirKaryawan },
     set sortDirKaryawan(v: 'asc' | 'desc') { sortDirKaryawan = v },
-    get pageKaryawan()   { return pageKaryawan },
+    get pageKaryawan() { return pageKaryawan },
     set pageKaryawan(v: number) { pageKaryawan = v },
     get pageSizeKaryawan() { return pageSizeKaryawan },
     set pageSizeKaryawan(v: number) { pageSizeKaryawan = v },
     get filteredKaryawan() { return filteredKaryawan },
-    get pagedKaryawan()  { return pagedKaryawan },
+    get pagedKaryawan() { return pagedKaryawan },
     muatKaryawan, bukaFormKaryawan, handleFotoKaryawanChange, simpanKaryawan, hapusKaryawan,
 
     // ── Absensi ──
-    get filterBulan()    { return filterBulan },
+    get filterBulan() { return filterBulan },
     set filterBulan(v: string) { filterBulan = v },
     get filterKaryawanId() { return filterKaryawanId },
     set filterKaryawanId(v: number | '') { filterKaryawanId = v },
-    get absensiList()    { return absensiList },
-    get rekapList()      { return rekapList },
+    get absensiList() { return absensiList },
+    get rekapList() { return rekapList },
     get loadingAbsensi() { return loadingAbsensi },
-    get viewAbsensi()    { return viewAbsensi },
+    get viewAbsensi() { return viewAbsensi },
     set viewAbsensi(v: 'list' | 'rekap') { viewAbsensi = v },
     get sortKeyAbsensi() { return sortKeyAbsensi },
     set sortKeyAbsensi(v: string) { sortKeyAbsensi = v },
     get sortDirAbsensi() { return sortDirAbsensi },
     set sortDirAbsensi(v: 'asc' | 'desc') { sortDirAbsensi = v },
-    get sortKeyRekap()   { return sortKeyRekap },
+    get sortKeyRekap() { return sortKeyRekap },
     set sortKeyRekap(v: string) { sortKeyRekap = v },
-    get sortDirRekap()   { return sortDirRekap },
+    get sortDirRekap() { return sortDirRekap },
     set sortDirRekap(v: 'asc' | 'desc') { sortDirRekap = v },
     get modalAbsensiOpen() { return modalAbsensiOpen },
     set modalAbsensiOpen(v: boolean) { modalAbsensiOpen = v },
-    get editAbsensi()    { return editAbsensi },
-    get formAbsensi()    { return formAbsensi },
+    get editAbsensi() { return editAbsensi },
+    get formAbsensi() { return formAbsensi },
     get absensiHariIni() { return absensiHariIni },
-    get sortedAbsensi()  { return sortedAbsensi },
-    get sortedRekap()    { return sortedRekap },
-    get realtimeList()   { return realtimeList },
-    get loadingRealtime(){ return loadingRealtime },
+    get sortedAbsensi() { return sortedAbsensi },
+    get sortedRekap() { return sortedRekap },
+    get realtimeList() { return realtimeList },
+    get loadingRealtime() { return loadingRealtime },
     muatAbsensi, muatRealtime, bukaFormAbsensi, simpanAbsensi, hapusAbsensi, clockIn, clockOut, exportRekapCsv,
 
     // ── Penggajian ──
     get filterBulanGaji() { return filterBulanGaji },
     set filterBulanGaji(v: string) { filterBulanGaji = v },
     get penggajianList() { return penggajianList },
-    get kasBankList()    { return kasBankList },
-    get loadingGaji()    { return loadingGaji },
-    get loadingGenerate(){ return loadingGenerate },
-    get modalGajiOpen()  { return modalGajiOpen },
+    get kasBankList() { return kasBankList },
+    get loadingGaji() { return loadingGaji },
+    get loadingGenerate() { return loadingGenerate },
+    get modalGajiOpen() { return modalGajiOpen },
     set modalGajiOpen(v: boolean) { modalGajiOpen = v },
-    get editGaji()       { return editGaji },
-    get formGaji()       { return formGaji },
+    get editGaji() { return editGaji },
+    get formGaji() { return formGaji },
     get modalBayarOpen() { return modalBayarOpen },
     set modalBayarOpen(v: boolean) { modalBayarOpen = v },
     get bayarKasBankId() { return bayarKasBankId },
     set bayarKasBankId(v: string) { bayarKasBankId = v },
-    get sortKeyGaji()    { return sortKeyGaji },
+    get sortKeyGaji() { return sortKeyGaji },
     set sortKeyGaji(v: string) { sortKeyGaji = v },
-    get sortDirGaji()    { return sortDirGaji },
+    get sortDirGaji() { return sortDirGaji },
     set sortDirGaji(v: 'asc' | 'desc') { sortDirGaji = v },
-    get sortedGaji()     { return sortedGaji },
+    get sortedGaji() { return sortedGaji },
     muatPenggajian, generateGaji, bukaEditGaji, simpanEditGaji, updateStatusGaji, bukaBayar, konfirmasBayar, hapusGaji,
 
     // ── Kasbon ──
     get filterStatusKasbon() { return filterStatusKasbon },
     set filterStatusKasbon(v: KasbonStatus | '') { filterStatusKasbon = v },
-    get kasbonList()     { return kasbonList },
-    get loadingKasbon()  { return loadingKasbon },
-    get modalKasbonOpen(){ return modalKasbonOpen },
+    get kasbonList() { return kasbonList },
+    get loadingKasbon() { return loadingKasbon },
+    get modalKasbonOpen() { return modalKasbonOpen },
     set modalKasbonOpen(v: boolean) { modalKasbonOpen = v },
     get modalCicilOpen() { return modalCicilOpen },
     set modalCicilOpen(v: boolean) { modalCicilOpen = v },
-    get modalJadwalOpen(){ return modalJadwalOpen },
+    get modalJadwalOpen() { return modalJadwalOpen },
     set modalJadwalOpen(v: boolean) { modalJadwalOpen = v },
     get jadwalCicilanList() { return jadwalCicilanList },
     get jadwalCicilanNama() { return jadwalCicilanNama },
-    get cicilJumlah()    { return cicilJumlah },
+    get cicilJumlah() { return cicilJumlah },
     set cicilJumlah(v: string) { cicilJumlah = v },
-    get formKasbon()     { return formKasbon },
-    get sortKeyKasbon()  { return sortKeyKasbon },
+    get formKasbon() { return formKasbon },
+    get sortKeyKasbon() { return sortKeyKasbon },
     set sortKeyKasbon(v: string) { sortKeyKasbon = v },
-    get sortDirKasbon()  { return sortDirKasbon },
+    get sortDirKasbon() { return sortDirKasbon },
     set sortDirKasbon(v: 'asc' | 'desc') { sortDirKasbon = v },
-    get sortedKasbon()   { return sortedKasbon },
+    get sortedKasbon() { return sortedKasbon },
     muatKasbon, bukaFormKasbon, simpanKasbon, setujuiKasbon, tolakKasbon, cairkanKasbon, bukaCicil, simpanCicil, lihatJadwal, hapusKasbon,
 
     // ── Jadwal ──
-    get tipeShiftList()  { return tipeShiftList },
-    get jadwalKerjaList(){ return jadwalKerjaList },
-    get tukarList()      { return tukarList },
-    get loadingJadwal()  { return loadingJadwal },
-    get weekStart()      { return weekStart },
-    get weekDays()       { return weekDays },
-    get assignCell()     { return assignCell },
+    get tipeShiftList() { return tipeShiftList },
+    get jadwalKerjaList() { return jadwalKerjaList },
+    get tukarList() { return tukarList },
+    get loadingJadwal() { return loadingJadwal },
+    get weekStart() { return weekStart },
+    get weekDays() { return weekDays },
+    get assignCell() { return assignCell },
     set assignCell(v: { karyawan_id: number; tanggal: string } | null) { assignCell = v },
-    get modalTipeOpen()  { return modalTipeOpen },
+    get modalTipeOpen() { return modalTipeOpen },
     set modalTipeOpen(v: boolean) { modalTipeOpen = v },
-    get editTipe()       { return editTipe },
-    get formTipe()       { return formTipe },
+    get editTipe() { return editTipe },
+    get formTipe() { return formTipe },
     get modalTukarOpen() { return modalTukarOpen },
     set modalTukarOpen(v: boolean) { modalTukarOpen = v },
-    get formTukar()      { return formTukar },
-    get jadwalSendiri()  { return jadwalSendiri },
+    get formTukar() { return formTukar },
+    get jadwalSendiri() { return jadwalSendiri },
     jadwalUntuk, muatJadwal, prevWeek, nextWeek, thisWeek,
     assignShift, hapusJadwal, bukaModalTipe, simpanTipe, hapusTipe,
     bukaFormTukar, ajukanTukar, setujuiTukar, tolakTukar,
 
     // ── Performa ──
-    get bulanPerforma()  { return bulanPerforma },
+    get bulanPerforma() { return bulanPerforma },
     set bulanPerforma(v: string) { bulanPerforma = v },
-    get performaList()   { return performaList },
+    get performaList() { return performaList },
     get performaDetail() { return performaDetail },
-    get performaDetailId(){ return performaDetailId },
+    get performaDetailId() { return performaDetailId },
     set performaDetailId(v: number | null) { performaDetailId = v },
-    get loadingPerforma(){ return loadingPerforma },
+    get loadingPerforma() { return loadingPerforma },
     muatPerforma, muatPerformaDetail,
 
     // ── Izin ──
-    get izinRows()       { return izinRows },
-    get izinLoading()    { return izinLoading },
-    get izinBulan()      { return izinBulan },
+    get izinRows() { return izinRows },
+    get izinLoading() { return izinLoading },
+    get izinBulan() { return izinBulan },
     set izinBulan(v: string) { izinBulan = v },
     get izinKaryawanId() { return izinKaryawanId },
     set izinKaryawanId(v: string) { izinKaryawanId = v },
-    get izinFormOpen()   { return izinFormOpen },
+    get izinFormOpen() { return izinFormOpen },
     set izinFormOpen(v: boolean) { izinFormOpen = v },
-    get izinError()      { return izinError },
-    get fIzinJenis()     { return fIzinJenis },
+    get izinError() { return izinError },
+    get fIzinJenis() { return fIzinJenis },
     set fIzinJenis(v: 'cuti' | 'izin' | 'sakit') { fIzinJenis = v },
-    get fIzinMulai()     { return fIzinMulai },
+    get fIzinMulai() { return fIzinMulai },
     set fIzinMulai(v: string) { fIzinMulai = v },
-    get fIzinSelesai()   { return fIzinSelesai },
+    get fIzinSelesai() { return fIzinSelesai },
     set fIzinSelesai(v: string) { fIzinSelesai = v },
-    get fIzinAlasan()    { return fIzinAlasan },
+    get fIzinAlasan() { return fIzinAlasan },
     set fIzinAlasan(v: string) { fIzinAlasan = v },
-    get fIzinKaryawanId(){ return fIzinKaryawanId },
+    get fIzinKaryawanId() { return fIzinKaryawanId },
     set fIzinKaryawanId(v: string) { fIzinKaryawanId = v },
     muatIzin, setujuiIzin, tolakIzin, bukaFormIzin, simpanIzin,
 
     // ── Evaluasi ──
-    get evalRows()       { return evalRows },
+    get evalRows() { return evalRows },
     get evalKaryawanId() { return evalKaryawanId },
     set evalKaryawanId(v: string) { evalKaryawanId = v },
-    get evalPeriode()    { return evalPeriode },
+    get evalPeriode() { return evalPeriode },
     set evalPeriode(v: string) { evalPeriode = v },
-    get evalFormOpen()   { return evalFormOpen },
+    get evalFormOpen() { return evalFormOpen },
     set evalFormOpen(v: boolean) { evalFormOpen = v },
-    get evalError()      { return evalError },
-    get editEvalId()     { return editEvalId },
-    get fEvalKaryawanId(){ return fEvalKaryawanId },
+    get evalError() { return evalError },
+    get editEvalId() { return editEvalId },
+    get fEvalKaryawanId() { return fEvalKaryawanId },
     set fEvalKaryawanId(v: string) { fEvalKaryawanId = v },
-    get fEvalPeriode()   { return fEvalPeriode },
+    get fEvalPeriode() { return fEvalPeriode },
     set fEvalPeriode(v: string) { fEvalPeriode = v },
-    get fEvalNilai()     { return fEvalNilai },
+    get fEvalNilai() { return fEvalNilai },
     set fEvalNilai(v: string) { fEvalNilai = v },
-    get fEvalCatatan()   { return fEvalCatatan },
+    get fEvalCatatan() { return fEvalCatatan },
     set fEvalCatatan(v: string) { fEvalCatatan = v },
-    get konfirmEvalBuka(){ return konfirmEvalBuka },
+    get konfirmEvalBuka() { return konfirmEvalBuka },
     set konfirmEvalBuka(v: boolean) { konfirmEvalBuka = v },
     muatEval, bukaEvalForm, simpanEval, hapusEval, doHapusEval,
     resetKonfirmEval() { konfirmEvalId = null },
 
     // ── Sanksi & Insentif ──
-    get siRows()         { return siRows },
-    get siBulan()        { return siBulan },
+    get siRows() { return siRows },
+    get siBulan() { return siBulan },
     set siBulan(v: string) { siBulan = v },
-    get siKaryawanId()   { return siKaryawanId },
+    get siKaryawanId() { return siKaryawanId },
     set siKaryawanId(v: string) { siKaryawanId = v },
-    get siTipe()         { return siTipe },
+    get siTipe() { return siTipe },
     set siTipe(v: string) { siTipe = v },
-    get siFormOpen()     { return siFormOpen },
+    get siFormOpen() { return siFormOpen },
     set siFormOpen(v: boolean) { siFormOpen = v },
-    get siError()        { return siError },
-    get fSiKaryawanId()  { return fSiKaryawanId },
+    get siError() { return siError },
+    get fSiKaryawanId() { return fSiKaryawanId },
     set fSiKaryawanId(v: string) { fSiKaryawanId = v },
-    get fSiTipe()        { return fSiTipe },
+    get fSiTipe() { return fSiTipe },
     set fSiTipe(v: 'sanksi' | 'insentif') { fSiTipe = v },
-    get fSiJenis()       { return fSiJenis },
+    get fSiJenis() { return fSiJenis },
     set fSiJenis(v: string) { fSiJenis = v },
-    get fSiJumlah()      { return fSiJumlah },
+    get fSiJumlah() { return fSiJumlah },
     set fSiJumlah(v: string) { fSiJumlah = v },
-    get fSiTanggal()     { return fSiTanggal },
+    get fSiTanggal() { return fSiTanggal },
     set fSiTanggal(v: string) { fSiTanggal = v },
-    get fSiBulan()       { return fSiBulan },
+    get fSiBulan() { return fSiBulan },
     set fSiBulan(v: string) { fSiBulan = v },
-    get fSiKet()         { return fSiKet },
+    get fSiKet() { return fSiKet },
     set fSiKet(v: string) { fSiKet = v },
-    get konfirmSIBuka()  { return konfirmSIBuka },
+    get konfirmSIBuka() { return konfirmSIBuka },
     set konfirmSIBuka(v: boolean) { konfirmSIBuka = v },
     muatSI, bukaFormSI, simpanSI, hapusSI, doHapusSI,
     resetKonfirmSI() { konfirmSIId = null },

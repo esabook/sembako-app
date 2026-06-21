@@ -266,8 +266,8 @@
 										min="0.01"
 										step="0.01"
 										bind:value={item.jumlah}
-										class="w-20 rounded border px-2 py-0.5 text-right text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										placeholder="0"
+										class="input input-bordered w-20 text-right text-sm"
 									/></td
 								>
 								<td class="px-2 py-1 text-right"
@@ -275,8 +275,8 @@
 										type="number"
 										min="0"
 										bind:value={item.harga}
-										class="w-28 rounded border px-2 py-0.5 text-right text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										placeholder="0"
+										class="input input-bordered w-28 text-right text-sm"
 									/></td
 								>
 								<td class="px-2 py-1"

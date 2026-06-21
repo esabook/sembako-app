@@ -12,14 +12,14 @@
     <div class="flex flex-col gap-1">
       <label for="f-kode" class="text-xs" style="color:var(--text-dim)">KODE *</label>
       <input id="f-kode" type="text" bind:value={store.formKaryawan.kode_karyawan} required
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        placeholder="Cth: KRY001"
+        class="input input-bordered w-full text-sm" />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label>
       <input id="f-nama" type="text" bind:value={store.formKaryawan.nama} required
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        placeholder="Nama lengkap"
+        class="input input-bordered w-full text-sm" />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-role" class="text-xs" style="color:var(--text-dim)">ROLE *</label>
@@ -28,19 +28,22 @@
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-username" class="text-xs" style="color:var(--text-dim)">USERNAME *</label>
-      <input id="f-username" bind:value={store.formKaryawan.username} required class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      <input id="f-username" bind:value={store.formKaryawan.username} required
+        placeholder="Username login"
+        class="input input-bordered w-full text-sm" />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-pw" class="text-xs" style="color:var(--text-dim)">PASSWORD {store.editKaryawan?.id ? '(kosong = tidak ubah)' : '*'}</label>
       <input id="f-pw" type="password" bind:value={store.formKaryawan.password}
-        required={!store.editKaryawan?.id} class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        required={!store.editKaryawan?.id}
+        placeholder="••••••••"
+        class="input input-bordered w-full text-sm" />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-kontak" class="text-xs" style="color:var(--text-dim)">KONTAK</label>
-      <input id="f-kontak" bind:value={store.formKaryawan.kontak} class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      <input id="f-kontak" bind:value={store.formKaryawan.kontak}
+        placeholder="No. HP / telepon"
+        class="input input-bordered w-full text-sm" />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-pin" class="text-xs" style="color:var(--text-dim)">
@@ -49,13 +52,13 @@
       <input id="f-pin" type="password" inputmode="numeric" maxlength="4"
         bind:value={store.formKaryawan.pin_absensi}
         placeholder="4 digit angka"
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        class="input input-bordered w-full text-sm" />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-gaji" class="text-xs" style="color:var(--text-dim)">GAJI POKOK</label>
-      <input id="f-gaji" type="number" min="0" bind:value={store.formKaryawan.gaji_pokok} class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+      <input id="f-gaji" type="number" min="0" bind:value={store.formKaryawan.gaji_pokok}
+        placeholder="0"
+        class="input input-bordered w-full text-sm" />
     </div>
     <div class="flex flex-col gap-1">
       <label for="f-tipe" class="text-xs" style="color:var(--text-dim)">TIPE GAJI</label>

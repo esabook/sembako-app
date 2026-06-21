@@ -26,8 +26,8 @@
       <div class="flex flex-col gap-1">
         <label for="fp-qty" class="text-xs" style="color:var(--text-dim)">JUMLAH MINTA</label>
         <input id="fp-qty" type="number" min="1" bind:value={store.fPQty}
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+          placeholder="1"
+          class="input input-bordered w-full text-sm" />
       </div>
       <div class="col-span-2">
         <DatePicker2 label="TANGGAL *" bind:value={store.fPTanggal} />
@@ -36,8 +36,7 @@
     <div class="flex flex-col gap-1">
       <label for="fp-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
       <input id="fp-catatan" bind:value={store.fPCatatan} placeholder="Detail tambahan"
-        class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-        style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
+        class="input input-bordered w-full text-sm" />
     </div>
     {#if store.pError}<p class="text-xs" style="color:var(--danger)">{store.pError}</p>{/if}
     <div class="flex justify-end gap-2 mt-1">

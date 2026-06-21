@@ -118,21 +118,21 @@
 		<div class="flex gap-3">
 			<div class="flex-1">
 				<label class="label text-sm" for="l-durasi">Durasi (menit)</label>
-				<input id="l-durasi" type="number" min="1" class="input input-bordered w-full text-sm" bind:value={fDurasi} />
+				<input id="l-durasi" type="number" min="1" class="input input-bordered w-full text-sm" bind:value={fDurasi} placeholder="Cth: 60" />
 			</div>
 			<div class="flex-1">
 				<label class="label text-sm" for="l-buffer">Buffer (menit)</label>
-				<input id="l-buffer" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={fBuffer} />
+				<input id="l-buffer" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={fBuffer} placeholder="Cth: 15" />
 			</div>
 		</div>
 		<div class="flex gap-3">
 			<div class="flex-1">
 				<label class="label text-sm" for="l-kp">Komisi (%)</label>
-				<input id="l-kp" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={fKomisiPersen} />
+				<input id="l-kp" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={fKomisiPersen} placeholder="0" />
 			</div>
 			<div class="flex-1">
 				<label class="label text-sm" for="l-kn">Komisi (Rp)</label>
-				<input id="l-kn" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={fKomisiNominal} />
+				<input id="l-kn" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={fKomisiNominal} placeholder="0" />
 			</div>
 		</div>
 		<label class="flex items-center gap-2 text-sm">

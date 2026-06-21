@@ -1,5 +1,6 @@
 import type { AsetRow, TagihanRow } from './aset.types.js'
 import { fetchAset, createAset, updateAset, deleteAset, fetchUtilitas, createUtilitas, updateUtilitas, deleteUtilitas } from './aset.api.js'
+import { now } from '@internationalized/date'
 
 export function createAsetStore() {
   // ── Tab: Inventaris Aset ──────────────────────────────────────────────────
@@ -79,7 +80,7 @@ export function createAsetStore() {
   let utRows = $state<TagihanRow[]>([])
   let utLoading = $state(false)
   let utJenisFilter = $state('')
-  let utBulanFilter = $state('')
+  let utBulanFilter = $state(new Date().toISOString().slice(0, 7))
   let utFormOpen = $state(false)
   let utError = $state('')
   let editUtId = $state<number | null>(null)

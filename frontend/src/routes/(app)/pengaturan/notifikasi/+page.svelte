@@ -294,8 +294,8 @@
 											type="number"
 											bind:value={editForm.threshold}
 											min="1"
-											class="w-full rounded border px-2 py-1.5 text-sm"
-											style="background:var(--surface);border-color:var(--border);color:var(--text)"
+											placeholder="1"
+											class="input input-bordered w-full text-sm"
 										/>
 									</div>
 								{/if}
@@ -409,8 +409,8 @@
 							min="1"
 							max="30"
 							bind:value={batasHari}
-							class="w-14 rounded border px-2 py-1 text-center text-sm outline-none"
-							style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+							placeholder="7"
+							class="input input-bordered w-14 text-center text-sm"
 						/>
 						<span style="color:var(--text-dim)">hari</span>
 					</div>

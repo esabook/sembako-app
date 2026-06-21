@@ -4,7 +4,7 @@ import * as api from './crm.api.js'
 export function createCrmStore() {
   // ── Permintaan state ─────────────────────────────────────────────────────
   let _pRows = $state<PermintaanRow[]>([])
-  let _pBulan = $state('')
+  let _pBulan = $state(new Date().toISOString().slice(0, 7))
   let _pStatus = $state('')
   let _pFormOpen = $state(false)
   let _pError = $state('')
@@ -19,7 +19,7 @@ export function createCrmStore() {
 
   // ── Komplain state ───────────────────────────────────────────────────────
   let _kRows = $state<KomplainRow[]>([])
-  let _kBulan = $state('')
+  let _kBulan = $state(new Date().toISOString().slice(0, 7))
   let _kStatus = $state('')
   let _kFormOpen = $state(false)
   let _kDetailOpen = $state(false)

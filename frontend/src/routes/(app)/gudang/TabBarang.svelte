@@ -294,11 +294,11 @@
 		<div class="grid grid-cols-2 gap-3">
 			<div class="flex flex-col gap-1">
 				<label for="fb-kode" class="text-xs" style="color:var(--text-dim)">KODE *</label>
-				<input id="fb-kode" bind:value={fb.kode_barang} required class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
+				<input id="fb-kode" bind:value={fb.kode_barang} required placeholder="Cth: BRG001" class="input input-bordered w-full text-sm" />
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="fb-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label>
-				<input id="fb-nama" bind:value={fb.nama_barang} required class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
+				<input id="fb-nama" bind:value={fb.nama_barang} required placeholder="Nama barang" class="input input-bordered w-full text-sm" />
 			</div>
 
 			<div class="col-span-2 flex flex-col gap-1">
@@ -316,7 +316,7 @@
 
 			<div class="flex flex-col gap-1">
 				<label for="fb-min" class="text-xs" style="color:var(--text-dim)">STOK MINIMUM</label>
-				<input id="fb-min" type="number" min="0" bind:value={fb.stok_minimum} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
+				<input id="fb-min" type="number" min="0" bind:value={fb.stok_minimum} placeholder="0" class="input input-bordered w-full text-sm" />
 			</div>
 
 			<!-- Kategori dengan filter -->
@@ -325,7 +325,7 @@
 				{#if kategoriList.length === 0}
 					<p class="text-xs px-2 py-1.5 rounded" style="background:var(--surface2);color:var(--warn)">Belum ada kategori — tambah di tab Pengaturan.</p>
 				{:else}
-					<input type="text" placeholder="Filter kategori..." bind:value={searchKategori} class="w-full rounded border px-2 py-1.5 text-xs outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text-dim);--tw-ring-color:var(--accent)" />
+					<input type="text" placeholder="Filter kategori..." bind:value={searchKategori} class="input input-bordered w-full text-xs" />
 					<Select bind:value={fb.kategori_id} options={filteredKategori.map(k => ({ value: k.id, label: k.nama + (k.contoh ? ` — ${k.contoh}` : '') }))} placeholder="— pilih —" />
 				{/if}
 			</div>
@@ -336,14 +336,14 @@
 				{#if satuanList.length === 0}
 					<p class="text-xs px-2 py-1.5 rounded" style="background:var(--surface2);color:var(--warn)">Belum ada satuan — tambah di tab Pengaturan.</p>
 				{:else}
-					<input type="text" placeholder="Filter satuan..." bind:value={searchSatuan} class="w-full rounded border px-2 py-1.5 text-xs outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text-dim);--tw-ring-color:var(--accent)" />
+					<input type="text" placeholder="Filter satuan..." bind:value={searchSatuan} class="input input-bordered w-full text-xs" />
 					<Select bind:value={fb.satuan_dasar_id} options={filteredSatuan.map(s => ({ value: s.id, label: s.nama + ' (' + s.singkatan + ')' + (s.contoh ? ` — ${s.contoh}` : '') }))} placeholder="— pilih —" />
 				{/if}
 			</div>
 
 			<div class="flex flex-col gap-1 col-span-2">
 				<label for="fb-rak" class="text-xs" style="color:var(--text-dim)">LOKASI RAK</label>
-				<input id="fb-rak" bind:value={fb.lokasi_rak} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
+				<input id="fb-rak" bind:value={fb.lokasi_rak} placeholder="Cth: A1-Rak3" class="input input-bordered w-full text-sm" />
 			</div>
 
 			<!-- Foto produk -->

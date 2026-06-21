@@ -10,7 +10,8 @@
   <div style="display:flex; gap:.4rem; align-items:center">
     <label for="pajak-tahun" style="font-size:.75rem; color:var(--text-dim)">Tahun</label>
     <input id="pajak-tahun" type="number" min="2020" max="2099" bind:value={store.tahunPajak}
-      style="padding:.35rem .6rem; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:inherit; font-size:.82rem; width:5.5rem" />
+      placeholder="Cth: 2025"
+      class="input input-bordered w-[5.5rem] text-sm" />
   </div>
   <button
     onclick={() => store.muatPajakUmkm()}

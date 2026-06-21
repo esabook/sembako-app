@@ -261,8 +261,8 @@
 						type="number" min="1" max="99"
 						value={item.qty}
 						oninput={(e) => inputQty(item.barang.id, (e.target as HTMLInputElement).value)}
-						class="w-9 text-center rounded border outline-none text-xs font-mono"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+						placeholder="1"
+						class="input input-bordered w-9 text-center text-xs font-mono"
 					/>
 					<Button variant="dim" size="xs" onclick={() => ubahQty(item.barang.id, 1)}>+</Button>
 					<Button variant="danger" size="xs" onclick={() => togglePilih(item.barang)}>×</Button>

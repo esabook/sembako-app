@@ -190,16 +190,16 @@
 		<div class="flex gap-3">
 			<div class="flex-1">
 				<label class="label text-sm" for="p-sesi">Jumlah Sesi</label>
-				<input id="p-sesi" type="number" min="1" class="input input-bordered w-full text-sm" bind:value={pSesi} />
+				<input id="p-sesi" type="number" min="1" class="input input-bordered w-full text-sm" bind:value={pSesi} placeholder="Cth: 10" />
 			</div>
 			<div class="flex-1">
 				<label class="label text-sm" for="p-berlaku">Berlaku (hari, 0=∞)</label>
-				<input id="p-berlaku" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={pBerlaku} />
+				<input id="p-berlaku" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={pBerlaku} placeholder="Cth: 30" />
 			</div>
 		</div>
 		<div>
 			<label class="label text-sm" for="p-harga">Harga (Rp)</label>
-			<input id="p-harga" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={pHarga} />
+			<input id="p-harga" type="number" min="0" class="input input-bordered w-full text-sm" bind:value={pHarga} placeholder="0" />
 		</div>
 		{#if pErr}<p class="text-sm text-[var(--danger)]">{pErr}</p>{/if}
 		<div class="flex gap-2 pt-1">

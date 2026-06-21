@@ -138,8 +138,8 @@
 					type="number"
 					min="0"
 					bind:value={store.fNilai}
-					class="rounded border px-2 py-1 outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+					placeholder="0"
+					class="input input-bordered w-full text-sm"
 				/>
 			</div>
 			<DatePicker2 label="TANGGAL MASUK *" bind:value={store.fTanggal} />

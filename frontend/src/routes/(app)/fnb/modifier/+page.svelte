@@ -307,6 +307,7 @@
 					id="g-min"
 					type="number"
 					min="0"
+					placeholder="0"
 					class="input-bordered input w-full text-sm"
 					bind:value={gMin}
 				/>
@@ -317,6 +318,7 @@
 					id="g-max"
 					type="number"
 					min="1"
+					placeholder="1"
 					class="input-bordered input w-full text-sm"
 					bind:value={gMax}
 				/>
@@ -348,6 +350,7 @@
 				id="o-harga"
 				type="number"
 				min="0"
+				placeholder="0"
 				class="input-bordered input w-full text-sm"
 				bind:value={oHarga}
 			/>

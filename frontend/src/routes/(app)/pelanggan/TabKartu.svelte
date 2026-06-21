@@ -560,8 +560,8 @@
 					min="0"
 					max="100"
 					step="0.5"
-					class="w-full rounded border px-3 py-1.5 text-sm"
-					style="border-color:var(--border);color:var(--text)"
+					placeholder="0"
+					class="input input-bordered w-full text-sm"
 				/>
 			</div>
 		</div>

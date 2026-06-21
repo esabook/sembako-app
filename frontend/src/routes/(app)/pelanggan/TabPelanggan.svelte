@@ -558,8 +558,7 @@
 					bind:value={formPlg.kode_pelanggan}
 					oninput={() => (formPlg.kode_pelanggan = formPlg.kode_pelanggan.toUpperCase())}
 					placeholder="PLG001"
-					class="w-full rounded border px-3 py-1.5 text-sm uppercase"
-					style="background:var(--bg);border-color:var(--border);color:var(--text)"
+					class="input input-bordered w-full uppercase text-sm"
 				/>
 			</div>
 			<div>
@@ -659,8 +658,8 @@
 					type="number"
 					bind:value={formPlg.limit_piutang}
 					min="0"
-					class="w-full rounded border px-3 py-1.5 text-sm"
-					style="background:var(--bg);border-color:var(--border);color:var(--text)"
+					placeholder="0"
+					class="input input-bordered w-full text-sm"
 				/>
 			</div>
 		</div>

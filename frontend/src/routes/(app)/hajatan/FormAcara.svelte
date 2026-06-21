@@ -35,8 +35,8 @@
 				bind:value={store.fEstimasi}
 				type="number"
 				min="0"
-				class="w-full rounded border px-3 py-2 text-sm"
-				style="border-color:var(--border);color:var(--text)"
+				placeholder="Cth: 100"
+				class="input input-bordered w-full text-sm"
 			/>
 		</div>
 		<InputRupiah value={totalOrder} label="Total Order" onchange={(v) => (store.fTotalOrder = v)} />

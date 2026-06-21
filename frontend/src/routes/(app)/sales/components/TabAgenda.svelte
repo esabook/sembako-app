@@ -96,8 +96,8 @@
 					id="fa-sup"
 					bind:value={store.fNamaSupplier}
 					required
-					class="rounded border px-2 py-1 outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+					placeholder="Nama supplier"
+					class="input input-bordered w-full text-sm"
 				/>
 			</div>
 

@@ -176,6 +176,7 @@
 				id="m-kap"
 				type="number"
 				min="1"
+				placeholder="Cth: 4"
 				class="input-bordered input w-full text-sm"
 				bind:value={fKapasitas}
 			/>

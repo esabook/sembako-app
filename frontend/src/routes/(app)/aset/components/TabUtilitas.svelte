@@ -11,7 +11,10 @@
 <div class="mb-2 flex flex-wrap items-end gap-2">
 	<Select
 		bind:value={store.utJenisFilter}
-		options={Object.entries(JENIS_LABEL).map(([v, lbl]) => ({ value: v, label: (JENIS_ICON[v as TagihanRow['jenis']] ?? '') + ' ' + lbl }))}
+		options={Object.entries(JENIS_LABEL).map(([v, lbl]) => ({
+			value: v,
+			label: (JENIS_ICON[v as TagihanRow['jenis']] ?? '') + ' ' + lbl
+		}))}
 		placeholder="Semua Jenis"
 		standalone
 	/>

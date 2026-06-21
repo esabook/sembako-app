@@ -114,20 +114,19 @@
       <div class="flex flex-col gap-1">
         <label for="fk-jml" class="text-xs" style="color:var(--text-dim)">JUMLAH *</label>
         <input id="fk-jml" type="number" min="1" bind:value={store.formKasbon.jumlah} required
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+          placeholder="0"
+          class="input input-bordered w-full text-sm" />
       </div>
       <div class="flex flex-col gap-1 col-span-2">
         <label for="fk-cicil" class="text-xs" style="color:var(--text-dim)">CICILAN/BULAN (0 = tidak potong gaji otomatis)</label>
         <input id="fk-cicil" type="number" min="0" bind:value={store.formKasbon.cicilan_per_bulan}
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+          placeholder="0"
+          class="input input-bordered w-full text-sm" />
       </div>
       <div class="flex flex-col gap-1 col-span-2">
         <label for="fk-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
         <input id="fk-catatan" bind:value={store.formKasbon.catatan} placeholder="Opsional"
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+          class="input input-bordered w-full text-sm" />
       </div>
     </div>
     <div class="flex justify-end gap-2 mt-1">
@@ -147,8 +146,8 @@
     <div class="flex flex-col gap-1">
       <label for="cicil-jml" class="text-xs" style="color:var(--text-dim)">JUMLAH CICILAN</label>
       <input id="cicil-jml" type="number" min="1" bind:value={store.cicilJumlah}
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        placeholder="0"
+        class="input input-bordered w-full text-sm" />
     </div>
     <div class="flex justify-end gap-2 mt-1">
       <button onclick={() => store.modalCicilOpen = false} class="px-3 py-1 rounded text-sm"

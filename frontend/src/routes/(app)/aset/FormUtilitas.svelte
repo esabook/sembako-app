@@ -28,8 +28,8 @@
       <div class="flex flex-col gap-1 col-span-2">
         <label for="fu-jumlah" class="text-xs" style="color:var(--text-dim)">JUMLAH TAGIHAN (Rp) *</label>
         <input id="fu-jumlah" type="number" min="1" bind:value={store.fUtJumlah} required
-          class="px-2 py-1 rounded border outline-none"
-          style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+          placeholder="0"
+          class="input input-bordered w-full text-sm" />
       </div>
       <div class="col-span-2">
         <DatePicker2 label="TANGGAL BAYAR" bind:value={store.fUtTanggalBayar} />
@@ -40,22 +40,21 @@
         <div class="flex flex-col gap-1">
           <label for="fu-awal" class="text-xs" style="color:var(--text-dim)">METER AWAL</label>
           <input id="fu-awal" type="number" min="0" bind:value={store.fUtMeterAwal}
-            class="px-2 py-1 rounded border outline-none"
-            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+            placeholder="0"
+            class="input input-bordered w-full text-sm" />
         </div>
         <div class="flex flex-col gap-1">
           <label for="fu-akhir" class="text-xs" style="color:var(--text-dim)">METER AKHIR</label>
           <input id="fu-akhir" type="number" min="0" bind:value={store.fUtMeterAkhir}
-            class="px-2 py-1 rounded border outline-none"
-            style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+            placeholder="0"
+            class="input input-bordered w-full text-sm" />
         </div>
       </div>
     {/if}
     <div class="flex flex-col gap-1">
       <label for="fu-catatan" class="text-xs" style="color:var(--text-dim)">CATATAN</label>
       <input id="fu-catatan" bind:value={store.fUtCatatan} placeholder="Opsional"
-        class="px-2 py-1 rounded border outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)" />
+        class="input input-bordered w-full text-sm" />
     </div>
     {#if store.utError}
       <p class="text-xs" style="color:var(--danger)">{store.utError}</p>

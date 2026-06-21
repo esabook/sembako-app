@@ -381,8 +381,8 @@
 								<td class="px-2 py-1.5">
 									<input
 										bind:value={editKategoriNama}
-										class="w-full rounded border px-2 py-0.5 text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										placeholder="Nama kategori"
+										class="input input-bordered w-full text-sm"
 									/>
 								</td>
 							{/if}
@@ -391,8 +391,7 @@
 									<input
 										bind:value={editKategoriKode}
 										placeholder="kode..."
-										class="w-full rounded border px-2 py-0.5 font-mono text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										class="input input-bordered w-full font-mono text-sm"
 									/>
 								</td>
 							{/if}
@@ -401,8 +400,7 @@
 									<input
 										bind:value={editKategoriContoh}
 										placeholder="contoh penggunaan..."
-										class="w-full rounded border px-2 py-0.5 text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										class="input input-bordered w-full text-sm"
 									/>
 								</td>
 							{/if}
@@ -547,8 +545,8 @@
 								<td class="px-2 py-1.5">
 									<input
 										bind:value={editSatuanNama}
-										class="w-full rounded border px-2 py-0.5 text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										placeholder="Nama satuan"
+										class="input input-bordered w-full text-sm"
 									/>
 								</td>
 							{/if}
@@ -556,8 +554,8 @@
 								<td class="px-2 py-1.5">
 									<input
 										bind:value={editSatuanSingkatan}
-										class="w-full rounded border px-2 py-0.5 text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										placeholder="Cth: pcs"
+										class="input input-bordered w-full text-sm"
 									/>
 								</td>
 							{/if}
@@ -566,8 +564,7 @@
 									<input
 										bind:value={editSatuanContoh}
 										placeholder="contoh penggunaan..."
-										class="w-full rounded border px-2 py-0.5 text-sm outline-none"
-										style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+										class="input input-bordered w-full text-sm"
 									/>
 								</td>
 							{/if}

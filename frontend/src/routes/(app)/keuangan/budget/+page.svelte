@@ -174,8 +174,8 @@
 							type="number"
 							min="0"
 							bind:value={store.draftOmzet}
-							class="w-full rounded border px-2 py-1.5 font-mono text-sm"
-							style="border-color: var(--border); background: var(--surface2); color: var(--text)"
+							placeholder="0"
+							class="input input-bordered w-full font-mono text-sm"
 						/>
 					</label>
 					<label class="space-y-1">
@@ -184,8 +184,8 @@
 							type="number"
 							min="0"
 							bind:value={store.draftTransaksi}
-							class="w-full rounded border px-2 py-1.5 font-mono text-sm"
-							style="border-color: var(--border); background: var(--surface2); color: var(--text)"
+							placeholder="0"
+							class="input input-bordered w-full font-mono text-sm"
 						/>
 					</label>
 					<label class="space-y-1">
@@ -196,8 +196,8 @@
 							max="100"
 							step="0.5"
 							bind:value={store.draftMargin}
-							class="w-full rounded border px-2 py-1.5 font-mono text-sm"
-							style="border-color: var(--border); background: var(--surface2); color: var(--text)"
+							placeholder="0"
+							class="input input-bordered w-full font-mono text-sm"
 						/>
 					</label>
 				</div>

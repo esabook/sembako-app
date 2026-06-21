@@ -28,8 +28,8 @@
       <div>
         <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jumlah</span>
         <input type="number" bind:value={store.formJurnal.jumlah} min="1"
-          class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1"
-          style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)" />
+          placeholder="0"
+          class="input input-bordered w-full text-sm" />
       </div>
     </div>
     {#snippet footer()}

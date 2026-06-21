@@ -3,7 +3,7 @@ import type { KunjunganRow, AgendaRow, PipelineRow } from './sales.types.js'
 
 export function createKunjunganStore() {
   let rows = $state<KunjunganRow[]>([])
-  let bulan = $state('')
+  let bulan = $state(new Date().toISOString().slice(0, 7))
   let status = $state('')
   let formOpen = $state(false)
   let error = $state('')
@@ -86,7 +86,7 @@ export function createKunjunganStore() {
 
 export function createAgendaStore() {
   let rows = $state<AgendaRow[]>([])
-  let bulan = $state('')
+  let bulan = $state(new Date().toISOString().slice(0, 7))
   let status = $state('')
   let formOpen = $state(false)
   let error = $state('')

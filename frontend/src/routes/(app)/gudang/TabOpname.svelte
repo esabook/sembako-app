@@ -266,8 +266,9 @@
 										inputFisik(item.id, v, alasan);
 									}
 								}}
-								class="w-20 px-2 py-0.5 rounded border outline-none text-right text-xs"
-								style="background:var(--surface2);border-color:{item.stok_fisik !== null ? 'var(--border)' : 'var(--warn)'};color:var(--text);opacity:{opnameItemSaving.has(item.id) ? .5 : 1}"
+								placeholder="0"
+								class="input input-bordered w-20 text-right text-xs"
+								style="border-color:{item.stok_fisik !== null ? 'var(--border)' : 'var(--warn)'};opacity:{opnameItemSaving.has(item.id) ? .5 : 1}"
 							/>
 						</td>
 					{/if}

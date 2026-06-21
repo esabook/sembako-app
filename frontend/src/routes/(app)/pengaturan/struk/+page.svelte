@@ -272,8 +272,8 @@
 					<label for="bridge-port" class="text-xs" style="color:var(--text-dim)">Port Go Agent</label>
 					<input id="bridge-port" type="number" min="1024" max="65535"
 						bind:value={bridgePort}
-						class="w-32 rounded border px-3 py-1.5 text-sm font-mono"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+						placeholder="Cth: 8080"
+						class="input input-bordered w-32 font-mono text-sm"
 					/>
 				</div>
 

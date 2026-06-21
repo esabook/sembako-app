@@ -21,8 +21,8 @@
         id="edit_eceran"
         type="number"
         bind:value={store.editEceran}
-        class="w-full rounded border px-3 py-2 text-sm"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+        placeholder="0"
+        class="input input-bordered w-full text-sm"
       />
       {#if store.editTarget.harga_beli_terakhir > 0}
         <p class="text-xs" style={marginColor(((store.editEceran - store.editTarget.harga_beli_terakhir) / store.editTarget.harga_beli_terakhir) * 100)}>
@@ -37,8 +37,8 @@
         id="edit_grosir"
         type="number"
         bind:value={store.editGrosir}
-        class="w-full rounded border px-3 py-2 text-sm"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+        placeholder="0"
+        class="input input-bordered w-full text-sm"
       />
       {#if store.editTarget.harga_beli_terakhir > 0}
         <p class="text-xs" style={marginColor(((store.editGrosir - store.editTarget.harga_beli_terakhir) / store.editTarget.harga_beli_terakhir) * 100)}>

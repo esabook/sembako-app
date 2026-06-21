@@ -24,7 +24,7 @@
 
 	let rows = $state<TamuRow[]>([]);
 	let loading = $state(false);
-	let dariBulan = $state('');
+	let dariBulan = $state(new Date().toISOString().slice(0, 7));
 	let formOpen = $state(false);
 	let error = $state('');
 

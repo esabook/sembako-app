@@ -126,17 +126,20 @@
         <div>
           <div style="font-size:.72rem; color:var(--text-dim); margin-bottom:.25rem">Target Omzet (Rp)</div>
           <input type="number" min="0" bind:value={budgetStore.draftOmzet}
-            style="width:100%; padding:.4rem .6rem; border:1px solid var(--border); border-radius:4px; background:var(--surface2); color:var(--text); font-family:inherit; font-size:.82rem; box-sizing:border-box" />
+            placeholder="0"
+            class="input input-bordered w-full text-sm" />
         </div>
         <div>
           <div style="font-size:.72rem; color:var(--text-dim); margin-bottom:.25rem">Target Transaksi</div>
           <input type="number" min="0" bind:value={budgetStore.draftTransaksi}
-            style="width:100%; padding:.4rem .6rem; border:1px solid var(--border); border-radius:4px; background:var(--surface2); color:var(--text); font-family:inherit; font-size:.82rem; box-sizing:border-box" />
+            placeholder="0"
+            class="input input-bordered w-full text-sm" />
         </div>
         <div>
           <div style="font-size:.72rem; color:var(--text-dim); margin-bottom:.25rem">Target Margin (%)</div>
           <input type="number" min="0" max="100" step="0.5" bind:value={budgetStore.draftMargin}
-            style="width:100%; padding:.4rem .6rem; border:1px solid var(--border); border-radius:4px; background:var(--surface2); color:var(--text); font-family:inherit; font-size:.82rem; box-sizing:border-box" />
+            placeholder="0"
+            class="input input-bordered w-full text-sm" />
         </div>
       </div>
       <div style="display:flex; gap:.5rem; justify-content:flex-end">
@@ -212,11 +215,11 @@
                 <div style="display:flex; flex-wrap:wrap; align-items:center; gap:.5rem">
                   <span style="font-size:.75rem; color:var(--accent); flex-shrink:0">{KATEGORI_LABEL[kat]}</span>
                   <input type="number" min="0" bind:value={budgetStore.draftBudget}
-                    style="width:9rem; padding:.35rem .6rem; border:1px solid var(--accent); border-radius:4px; background:var(--bg); color:var(--text); font-family:inherit; font-size:.82rem"
-                    placeholder="Budget (Rp)" />
+                    placeholder="Budget (Rp)"
+                    class="input input-bordered input-accent w-[9rem] text-sm" />
                   <input type="text" bind:value={budgetStore.draftBudgetCatatan}
-                    style="flex:1; min-width:0; padding:.35rem .6rem; border:1px solid var(--border); border-radius:4px; background:var(--bg); color:var(--text); font-family:inherit; font-size:.82rem"
-                    placeholder="Catatan (opsional)" />
+                    placeholder="Catatan (opsional)"
+                    class="input input-bordered flex-1 min-w-0 text-sm" />
                   <button onclick={() => budgetStore.simpanBudget()}
                     style="padding:.35rem .75rem; background:var(--accent); color:var(--bg); border:none; border-radius:4px; font-family:inherit; font-size:.8rem; font-weight:700; cursor:pointer; flex-shrink:0">Simpan</button>
                   <button onclick={() => budgetStore.tutupEditBudget()}

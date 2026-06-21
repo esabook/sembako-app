@@ -363,8 +363,8 @@
 					type="number"
 					min="1"
 					max="100"
-					class="w-full rounded border px-3 py-2 text-sm"
-					style="background:var(--bg);border-color:var(--border);color:var(--text)"
+					placeholder="1–100"
+					class="input input-bordered w-full text-sm"
 				/>
 			</div>
 			<div>

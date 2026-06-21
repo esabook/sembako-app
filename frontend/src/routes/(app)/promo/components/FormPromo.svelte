@@ -27,8 +27,8 @@
 					id="pm-nama"
 					bind:value={store.fb.nama}
 					required
-					class="rounded border px-2 py-1.5 outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+					placeholder="Nama promo"
+					class="input input-bordered w-full text-sm"
 				/>
 			</div>
 
@@ -38,8 +38,7 @@
 					id="pm-desk"
 					bind:value={store.fb.deskripsi}
 					placeholder="Opsional"
-					class="rounded border px-2 py-1.5 outline-none"
-					style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+					class="input input-bordered w-full text-sm"
 				/>
 			</div>
 
@@ -106,8 +105,8 @@
 						type="number"
 						min="1"
 						bind:value={store.fb.min_qty}
-						class="rounded border px-2 py-1.5 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+						placeholder="1"
+						class="input input-bordered w-full text-sm"
 					/>
 				</div>
 			{:else}
@@ -121,8 +120,8 @@
 						min="0"
 						step="1000"
 						bind:value={store.fb.min_total}
-						class="rounded border px-2 py-1.5 outline-none"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+						placeholder="0"
+						class="input input-bordered w-full text-sm"
 					/>
 				</div>
 			{/if}

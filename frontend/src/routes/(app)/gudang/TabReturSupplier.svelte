@@ -432,8 +432,8 @@
 											max={it.sisa_retur}
 											step="1"
 											bind:value={formItems[i].jumlah}
-											class="w-16 rounded border px-1 py-0.5 text-right"
-											style="border-color:var(--border);color:var(--text)"
+											placeholder="0"
+											class="input input-bordered w-16 text-right text-sm"
 										/>
 									</td>
 								</tr>

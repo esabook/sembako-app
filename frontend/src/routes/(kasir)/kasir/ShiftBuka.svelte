@@ -65,8 +65,8 @@
         step="1000"
         bind:value={kasAwal}
         use:focusEl
-        class="w-full rounded border px-3 py-2 text-sm outline-none"
-        style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+        placeholder="0"
+        class="input input-bordered w-full text-sm"
       />
       <div class="mt-1.5 flex gap-1 overflow-x-auto pb-0.5" style="scrollbar-width:none">
         {#each [0, 50000, 100000, 200000, 500000, 1000000, 1500000, 2000000] as nom (nom)}
