@@ -15,9 +15,14 @@ Stokasir berjalan sebagai server lokal di jaringan WiFi toko. Pilih platform ser
 
 ```
 Bun    ≥ 1.1  — satu-satunya runtime yang dibutuhkan     [WAJIB]
-Nginx         — reverse proxy + HTTPS termination         [OPSIONAL]
-mkcert        — sertifikat HTTPS lokal tanpa biaya        [OPSIONAL, untuk HTTPS]
+Nginx         — reverse proxy + HTTPS termination         [WAJIB untuk offline mode]
+mkcert        — sertifikat HTTPS lokal tanpa biaya        [WAJIB untuk offline mode]
 ```
+
+> ⚠️ **Offline mode butuh HTTPS.**
+> Service Worker (yang mengaktifkan offline mode) hanya bisa diregistrasi browser di koneksi HTTPS.
+> Tanpa Nginx + mkcert, app berjalan di HTTP biasa → Service Worker tidak aktif → offline mode tidak berfungsi.
+> Nginx + mkcert OPSIONAL hanya jika app ini **tidak perlu** offline.
 
 Process manager: **tidak perlu install apapun** — tiap OS sudah punya:
 - Linux/Pi → `systemd` (built-in)
@@ -147,16 +152,18 @@ sudo systemctl enable stokasir-backend stokasir-frontend
 sudo systemctl start  stokasir-backend stokasir-frontend
 ```
 
-### 7. Nginx `OPSIONAL`
+### 7. Nginx + HTTPS `WAJIB untuk offline mode`
 
 ```bash
-sudo apt install -y nginx
+sudo apt install -y nginx mkcert libnss3-tools
 sudo nano /etc/nginx/sites-available/stokasir
 # → paste konfigurasi Nginx di bawah
 sudo ln -s /etc/nginx/sites-available/stokasir /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl restart nginx
 ```
+
+Lanjutkan setup HTTPS mkcert di bagian [HTTPS dengan mkcert](#https-dengan-mkcert) di bawah.
 
 ### 8. OS Tuning `OPSIONAL`
 
@@ -240,16 +247,18 @@ sudo systemctl enable stokasir-backend stokasir-frontend
 sudo systemctl start  stokasir-backend stokasir-frontend
 ```
 
-### 7. Nginx `OPSIONAL`
+### 7. Nginx + HTTPS `WAJIB untuk offline mode`
 
 ```bash
-sudo apt install -y nginx
+sudo apt install -y nginx mkcert libnss3-tools
 sudo nano /etc/nginx/sites-available/stokasir
 # → paste konfigurasi Nginx di bawah
 sudo ln -s /etc/nginx/sites-available/stokasir /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl enable nginx && sudo systemctl restart nginx
 ```
+
+Lanjutkan setup HTTPS mkcert di bagian [HTTPS dengan mkcert](#https-dengan-mkcert) di bawah.
 
 ### 8. Backup otomatis (crontab) `OPSIONAL`
 
@@ -376,14 +385,16 @@ launchctl load ~/Library/LaunchAgents/stokasir.backend.plist
 launchctl load ~/Library/LaunchAgents/stokasir.frontend.plist
 ```
 
-### 7. Nginx via Homebrew `OPSIONAL`
+### 7. Nginx via Homebrew `WAJIB untuk offline mode`
 
 ```bash
-brew install nginx
+brew install nginx mkcert
 sudo nano /opt/homebrew/etc/nginx/servers/stokasir.conf
 # → paste konfigurasi Nginx di bawah
 brew services restart nginx
 ```
+
+Lanjutkan setup HTTPS mkcert di bagian [HTTPS dengan mkcert](#https-dengan-mkcert) di bawah.
 
 ### 8. Agar Mac tidak tidur saat jadi server `WAJIB`
 
@@ -408,7 +419,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 ```
 
 Script interaktif akan menangani semua langkah: install Bun, konfigurasi, build,
-migrasi database, nginx (opsional), HTTPS via mkcert (opsional), firewall, dan
+migrasi database, nginx + HTTPS via mkcert (wajib untuk offline mode), firewall, dan
 Task Scheduler.
 
 Mode yang tersedia:
@@ -534,7 +545,7 @@ netsh advfirewall firewall add rule name="Stokasir-80"   dir=in action=allow pro
 Settings → System → Power → Screen and sleep → semua set ke "Never"
 ```
 
-#### 10. Nginx for Windows `OPSIONAL`
+#### 10. Nginx for Windows `WAJIB untuk offline mode`
 
 Install via winget: `winget install Nginx.Nginx`
 atau download dari [nginx.org/en/download.html](https://nginx.org/en/download.html) → ekstrak ke `C:\nginx\`.
@@ -554,7 +565,7 @@ Register-ScheduledTask -TaskName "Stokasir Nginx" `
 Start-ScheduledTask "Stokasir Nginx"
 ```
 
-> Tanpa Nginx: akses langsung via `http://[IP-PC]:5173` dari HP. Backend tetap di `:3000`.
+> ⚠️ Tanpa Nginx: akses via `http://[IP-PC]:5173` memang bisa, tapi **Service Worker tidak aktif** di HTTP → offline mode mati. Gunakan hanya untuk testing awal, bukan produksi.
 
 ---
 
@@ -588,7 +599,7 @@ Stop-ScheduledTask  'Stokasir Backend'      # stop
 # Log: lihat di Task Scheduler → History, atau tambahkan redirect di start-frontend.ps1
 ```
 
-### Nginx — server block `OPSIONAL`
+### Nginx — server block `WAJIB untuk offline mode`
 
 Berlaku untuk Linux / Mac / Pi. Untuk Windows sesuaikan path `alias`.
 
@@ -632,10 +643,12 @@ server {
 
 ---
 
-### HTTPS dengan mkcert `OPSIONAL — Direkomendasikan`
+### HTTPS dengan mkcert `WAJIB untuk offline mode`
 
 mkcert membuat sertifikat HTTPS yang dipercaya oleh browser — **tanpa biaya, tanpa warning**.
 HP karyawan cukup install CA certificate **1x saja**.
+
+> **Kenapa wajib?** Service Worker (offline cache) hanya bisa diregistrasi di HTTPS. Tanpa langkah ini, app berjalan normal saat online tapi **tidak bisa dipakai saat server mati atau koneksi putus**.
 
 #### 1. Install mkcert di server (Pi / Linux / Mac)
 
@@ -734,12 +747,19 @@ Setelah update config nginx:
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
-#### 5. Update env frontend (jika pakai HTTPS)
+#### 5. Update env setelah HTTPS aktif
 
-Di systemd service atau `.env` frontend, ubah:
+Di `.env` frontend (atau systemd/launchd/Task Scheduler):
 ```
 PUBLIC_API_URL=https://192.168.1.x/api
 ```
+
+Di `.env` backend, ubah CORS origin ke HTTPS:
+```
+FRONTEND_URL=https://192.168.1.x
+```
+
+Rebuild frontend dan restart semua service setelah perubahan ini.
 
 #### 6. Cara install CA di HP karyawan
 
@@ -810,7 +830,7 @@ Get-ScheduledTask 'Stokasir*'
 ```
 
 Akses dari HP/laptop di jaringan yang sama:
-- HTTP  : `http://[IP-SERVER]/`
-- HTTPS : `https://[IP-SERVER]/` (setelah install CA di HP — lihat langkah 6 di atas)
+- **HTTPS** : `https://[IP-SERVER]/` ← **gunakan ini** (offline mode aktif, setelah install CA di HP)
+- HTTP  : `http://[IP-SERVER]/` ← testing awal saja, Service Worker tidak aktif di HTTP
 
 Set IP server menjadi **static** di pengaturan router agar alamat tidak berubah.
