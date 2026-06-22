@@ -172,6 +172,7 @@ const DEFAULTS: Record<string, string> = {
   wa_nomor: '',
   tema_default: 'dark',
   harga_default: 'eceran',
+  onboarding_selesai: 'false',
 }
 
 // ── GET /pengaturan/preferensi/:modul — ambil preferensi user untuk modul ──
