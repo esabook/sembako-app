@@ -54,7 +54,7 @@ sopRouter.put('/rule/:id', requirePermission('pengaturan.kelola'), async (c) => 
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(sop_rule).where(and(eq(sop_rule.id, id), eq(sop_rule.tenant_id, tenantId))))
+  const existing = await query.find<typeof sop_rule.$inferSelect>(db.select().from(sop_rule).where(and(eq(sop_rule.id, id), eq(sop_rule.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Rule tidak ditemukan' })
 
   const body = await c.req.json<Partial<{
@@ -125,7 +125,7 @@ sopRouter.post('/checklist/:instance_id/selesai', async (c) => {
   const instanceId = Number(c.req.param('instance_id'))
   const body = await c.req.json<{ hasil: unknown }>()
 
-  const instance = await query.find(db
+  const instance = await query.find<typeof sop_instance.$inferSelect>(db
     .select()
     .from(sop_instance)
     .where(eq(sop_instance.id, instanceId))
