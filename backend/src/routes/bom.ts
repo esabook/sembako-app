@@ -68,7 +68,7 @@ bomRouter.post('/bahan', requirePermission('stok.edit'), async (c) => {
     tenant_id: tenantId,
   }).returning({ id: bahan_baku.id })
 
-  return c.json({ success: true, data: { id: row.id } }, 201)
+  return c.json({ success: true, data: { id: row!.id } }, 201)
 })
 
 bomRouter.put('/bahan/:id', requirePermission('stok.edit'), async (c) => {
@@ -110,7 +110,7 @@ bomRouter.get('/resep/:barang_id', requirePermission('stok.lihat'), async (c) =>
   const tenantId = user.tenant_id ?? 1
   const barangId = Number(c.req.param('barang_id'))
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ id: number; bahan_baku_id: number; bahan_nama: string; jumlah: number; satuan_id: number | null; satuan_singkatan: string | null; harga_beli_rata: number }>(db
     .select({
       id: resep.id,
       bahan_baku_id: resep.bahan_baku_id,
@@ -159,7 +159,7 @@ bomRouter.get('/hpp', requirePermission('stok.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
 
-  const menus = await query.findAll(db
+  const menus = await query.findAll<{ id: number; nama_barang: string; harga_jual_eceran: number }>(db
     .select({ id: barang.id, nama_barang: barang.nama_barang, harga_jual_eceran: barang.harga_jual_eceran })
     .from(barang)
     .where(and(eq(barang.tenant_id, tenantId), eq(barang.tipe_produk, 'menu_item'), eq(barang.is_active, true)))
@@ -168,7 +168,7 @@ bomRouter.get('/hpp', requirePermission('stok.lihat'), async (c) => {
   if (!menus.length) return c.json({ success: true, data: [] })
 
   const menuIds = menus.map((m) => m.id)
-  const reseps = await query.findAll(db
+  const reseps = await query.findAll<{ barang_id: number; jumlah: number; harga_beli_rata: number }>(db
     .select({ barang_id: resep.barang_id, jumlah: resep.jumlah, harga_beli_rata: bahan_baku.harga_beli_rata })
     .from(resep)
     .innerJoin(bahan_baku, eq(bahan_baku.id, resep.bahan_baku_id))
