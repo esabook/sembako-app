@@ -99,7 +99,7 @@ evaluasiRouter.put('/:id', requirePermission('karyawan.lihat'), async (c) => {
   }
 
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(evaluasi_karyawan).where(and(eq(evaluasi_karyawan.id, id), eq(evaluasi_karyawan.tenant_id, tenantId))))
+  const existing = await query.find<typeof evaluasi_karyawan.$inferSelect>(db.select().from(evaluasi_karyawan).where(and(eq(evaluasi_karyawan.id, id), eq(evaluasi_karyawan.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Evaluasi tidak ditemukan' })
 
   const body = await c.req.json<Partial<{ nilai: number; catatan: string; periode: string }>>()
