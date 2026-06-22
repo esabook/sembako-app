@@ -63,6 +63,7 @@ import { jasaRouter } from './routes/jasa.ts'
 import { bomRouter } from './routes/bom.ts'
 import { demoRouter } from './routes/demo.ts'
 import { langgananMiddleware } from './middleware/langganan.ts'
+import { langgananRouter } from './routes/langganan.ts'
 import { initHooks } from './lib/hooks.ts'
 import { initScheduler } from './lib/scheduler.ts'
 import type { JWTPayload } from './routes/auth.ts'
@@ -119,6 +120,7 @@ app.get('/uploads/*', async (c) => {
 app.use('*', langgananMiddleware)
 
 app.route('/auth', authRouter)
+app.route('/langganan', langgananRouter)
 app.route('/barang', barangRouter)
 app.route('/supplier', supplierRouter)
 app.route('/pelanggan', pelangganRouter)
