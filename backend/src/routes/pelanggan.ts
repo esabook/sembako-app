@@ -149,7 +149,7 @@ pelangganRouter.post('/:id/assign-kartu', requirePermission('penjualan.buat'), a
   const plg = await query.find(db.select().from(pelanggan).where(and(eq(pelanggan.id, pelanggan_id), eq(pelanggan.tenant_id, tenantId))))
   if (!plg) throw new HTTPException(404, { message: 'Pelanggan tidak ditemukan' })
 
-  const kartu = await query.find(db.select().from(kartu_anggota).where(eq(kartu_anggota.id, body.kartu_id)))
+  const kartu = await query.find<typeof kartu_anggota.$inferSelect>(db.select().from(kartu_anggota).where(eq(kartu_anggota.id, body.kartu_id)))
   if (!kartu) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
   if (!kartu.is_active) throw new HTTPException(400, { message: 'Kartu sudah tidak aktif' })
   if (kartu.pelanggan_id) throw new HTTPException(400, { message: 'Kartu sudah di-assign ke pelanggan lain' })
@@ -206,7 +206,7 @@ pelangganRouter.get('/:id/riwayat', requirePermission('penjualan.lihat'), async 
     .offset(offset)
     )
 
-  const totalRow = await query.find(db
+  const totalRow = await query.find<{ count: number }>(db
     .select({ count: sql<number>`COUNT(*)` })
     .from(penjualan)
     .where(and(...conds))
@@ -261,14 +261,14 @@ pelangganRouter.delete('/:id/assign-kartu', requirePermission('penjualan.buat'),
   const plgCheck = await query.find(db.select().from(pelanggan).where(and(eq(pelanggan.id, pelanggan_id), eq(pelanggan.tenant_id, tenantId))))
   if (!plgCheck) throw new HTTPException(404, { message: 'Pelanggan tidak ditemukan' })
 
-  const kartu = await query.find(db.select().from(kartu_anggota)
+  const kartu = await query.find<typeof kartu_anggota.$inferSelect>(db.select().from(kartu_anggota)
     .where(and(eq(kartu_anggota.pelanggan_id, pelanggan_id), eq(kartu_anggota.is_active, true)))
   )
   if (!kartu) throw new HTTPException(404, { message: 'Pelanggan tidak memiliki kartu aktif' })
 
   await query.exec(db.update(kartu_anggota)
     .set({ pelanggan_id: null, updated_at: isoNow() })
-    .where(eq(kartu_anggota.id, kartu.id))
+    .where(eq(kartu_anggota.id, kartu.id!))
   )
 
   return c.json({ success: true, data: null })
