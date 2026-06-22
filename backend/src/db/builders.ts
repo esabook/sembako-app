@@ -25,16 +25,21 @@ export const pkInt = (name: string) =>
 : sl.integer(name).primaryKey({ autoIncrement: true })
 
 // Boolean — integer(mode:'boolean') di SQLite, boolean() di PG/MySQL
-export const bool = (name: string) =>
-  d === 'pg' ? pg.boolean(name) as unknown as ReturnType<typeof sl.integer<string, { mode: 'boolean' }>>
-: d === 'my' ? my.boolean(name) as unknown as ReturnType<typeof sl.integer<string, { mode: 'boolean' }>>
-: sl.integer(name, { mode: 'boolean' })
+// Cast seluruh ternary ke satu tipe kanonik agar return-type tunggal
+// (bukan union); kalau union, .default(true) di-resolve ke intersection
+// (boolean|SQL)&(number|SQL) yang mustahil dipenuhi literal boolean.
+type BoolCol = ReturnType<typeof sl.integer<string, 'boolean'>>
+export const bool = (name: string): BoolCol =>
+  (d === 'pg' ? pg.boolean(name)
+  : d === 'my' ? my.boolean(name)
+  : sl.integer(name, { mode: 'boolean' })) as unknown as BoolCol
 
 // JSON stored as text — mode:'json' hanya valid di SQLite
-export const jsonText = (name: string) =>
-  d === 'pg' ? pg.text(name) as unknown as ReturnType<typeof sl.text<string, { mode: 'json' }>>
-: d === 'my' ? my.text(name) as unknown as ReturnType<typeof sl.text<string, { mode: 'json' }>>
-: sl.text(name, { mode: 'json' })
+type JsonCol = ReturnType<typeof sl.text<string, string, [string, ...string[]], undefined, 'json'>>
+export const jsonText = (name: string): JsonCol =>
+  (d === 'pg' ? pg.text(name)
+  : d === 'my' ? my.text(name)
+  : sl.text(name, { mode: 'json' })) as unknown as JsonCol
 
 // Timestamp dengan $defaultFn agar berlaku di semua dialect (bukan SQL default)
 export const isoNow = () => new Date().toISOString()
