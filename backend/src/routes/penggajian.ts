@@ -74,7 +74,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
   const [tahun, bln] = body.bulan.split('-').map(Number) as [number, number]
   const hariKerja = body.hari_kerja ?? hitungHariKerja(tahun, bln)
 
-  const semua_karyawan = await query.findAll(db
+  const semua_karyawan = await query.findAll<{ id: number; nama: string; gaji_pokok: number; tipe_gaji: 'harian' | 'bulanan' }>(db
     .select({
       id: karyawan.id,
       nama: karyawan.nama,
@@ -89,15 +89,15 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
   const karyawanIds = semua_karyawan.map((k) => k.id)
 
   const existingSet = new Set(
-    await query.findAll(db.select({ karyawan_id: penggajian.karyawan_id })
+    (await query.findAll<{ karyawan_id: number }>(db.select({ karyawan_id: penggajian.karyawan_id })
       .from(penggajian)
       .where(and(eq(penggajian.tenant_id, tenantId), eq(penggajian.periode_bulan, body.bulan)))
-    )
+    ))
       .map((r) => r.karyawan_id)
   )
 
   const absensiRows = karyawanIds.length
-    ? await query.findAll(db.select({ karyawan_id: absensi.karyawan_id, hadir: sql<number>`COUNT(*)` })
+    ? await query.findAll<{ karyawan_id: number; hadir: number }>(db.select({ karyawan_id: absensi.karyawan_id, hadir: sql<number>`COUNT(*)` })
         .from(absensi)
         .where(and(
           inArray(absensi.karyawan_id, karyawanIds),
@@ -111,7 +111,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
   const absensiMap = new Map(absensiRows.map((r) => [r.karyawan_id, r.hadir]))
 
   const kasbonAll = karyawanIds.length
-    ? await query.findAll(db.select({ karyawan_id: kasbon.karyawan_id, cicilan: kasbon.cicilan_per_bulan })
+    ? await query.findAll<{ karyawan_id: number; cicilan: number }>(db.select({ karyawan_id: kasbon.karyawan_id, cicilan: kasbon.cicilan_per_bulan })
         .from(kasbon)
         .where(and(inArray(kasbon.karyawan_id, karyawanIds), eq(kasbon.status, 'aktif')))
     )
@@ -122,7 +122,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
   }
 
   const siAll = karyawanIds.length
-    ? await query.findAll(db.select({ karyawan_id: sanksi_insentif.karyawan_id, tipe: sanksi_insentif.tipe, jumlah: sanksi_insentif.jumlah })
+    ? await query.findAll<{ karyawan_id: number; tipe: string; jumlah: number }>(db.select({ karyawan_id: sanksi_insentif.karyawan_id, tipe: sanksi_insentif.tipe, jumlah: sanksi_insentif.jumlah })
         .from(sanksi_insentif)
         .where(and(
           inArray(sanksi_insentif.karyawan_id, karyawanIds),
@@ -154,7 +154,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
     const potonganLain = totalSanksi
     const total = Math.max(0, gajiBase + tunjangan - potonganKasbon - potonganLain)
 
-    const row = await query.find(db
+    const row = await query.find<typeof penggajian.$inferSelect>(db
       .insert(penggajian)
       .values({
         tenant_id: tenantId,
@@ -172,7 +172,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
       .returning()
       )
 
-    generated.push(row)
+    generated.push(row!)
   }
 
   return c.json({
@@ -193,7 +193,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
     kas_bank_id?: number
   }>()
 
-  const existing = await query.find(db
+  const existing = await query.find<typeof penggajian.$inferSelect>(db
     .select()
     .from(penggajian)
     .where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId)))
@@ -203,7 +203,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
   // Recalculate total jika ada perubahan tunjangan/potongan
   const tunjangan = body.tunjangan ?? existing.tunjangan
   const potonganLain = body.potongan_lain ?? existing.potongan_lain
-  const karyw = await query.find(db.select({ tipe_gaji: karyawan.tipe_gaji }).from(karyawan).where(eq(karyawan.id, existing.karyawan_id)))
+  const karyw = await query.find<{ tipe_gaji: 'harian' | 'bulanan' }>(db.select({ tipe_gaji: karyawan.tipe_gaji }).from(karyawan).where(eq(karyawan.id, existing.karyawan_id)))
   const gajiBase =
     karyw?.tipe_gaji === 'harian'
       ? existing.gaji_pokok * existing.hari_hadir
@@ -211,7 +211,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
   const total = Math.max(0, gajiBase + tunjangan - existing.potongan_kasbon - potonganLain)
 
   const row = await withTransaction(async (tx) => {
-    const updated = await query.find(db
+    const updated = await query.find<typeof penggajian.$inferSelect>(db
       .update(penggajian)
       .set({
         tunjangan,
@@ -228,7 +228,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
 
     // Jika status dibayar: potong kasbon aktif dan catat jurnal kas
     if (body.status === 'dibayar' && existing.status !== 'dibayar') {
-      const kasbonAktif = await query.findAll(db
+      const kasbonAktif = await query.findAll<typeof kasbon.$inferSelect>(db
         .select()
         .from(kasbon)
         .where(and(eq(kasbon.karyawan_id, existing.karyawan_id), eq(kasbon.status, 'aktif')))
@@ -242,7 +242,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
             status: sisa <= 0 ? 'lunas' : 'aktif',
             updated_at: isoNow(),
           })
-          .where(eq(kasbon.id, kb.id))
+          .where(eq(kasbon.id, kb.id!))
           )
       }
 
@@ -272,7 +272,7 @@ penggajianRouter.delete('/:id', requirePermission('gaji.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: penggajian.id, status: penggajian.status }).from(penggajian).where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId))))
+  const existing = await query.find<{ id: number; status: 'draft' | 'approved' | 'dibayar' }>(db.select({ id: penggajian.id, status: penggajian.status }).from(penggajian).where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data penggajian tidak ditemukan' })
   if (existing.status !== 'draft') throw new HTTPException(400, { message: 'Hanya draft yang bisa dihapus' })
   await query.exec(db.delete(penggajian).where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId))))
