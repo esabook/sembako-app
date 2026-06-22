@@ -18,6 +18,28 @@
 	// Revisit setelah selesai → langsung layar sukses, jangan ulang wizard.
 	let sukses = $state(untrack(() => data.sudahSelesai));
 
+	// Picker toko — pemilik yang punya >1 toko bisa pindah tanpa onboarding ulang.
+	// Setelah switch, reload: layout.server hitung ulang sudahSelesai untuk toko itu
+	// → kalau sudah onboarding otomatis tampil layar sukses.
+	type TokoItem = { id: number; nama: string; cabang: { id: number; nama: string }[] };
+	let konteksList = $state<TokoItem[]>([]);
+	let tokoAktif = $state<number | null>(untrack(() => data.user?.tenant_id ?? null));
+	let pindahToko = $state(false);
+	const tokoOpts = $derived(konteksList.map((t) => ({ value: t.id, label: t.nama })));
+
+	async function pindah(id: string | number) {
+		const tokoId = Number(id);
+		if (pindahToko || tokoId === data.user?.tenant_id) return;
+		pindahToko = true;
+		const res = await api.post('/auth/switch-context', { toko_id: tokoId, cabang_id: null });
+		if (res.success) {
+			location.reload();
+		} else {
+			pindahToko = false;
+			tokoAktif = data.user?.tenant_id ?? null; // balikkan pilihan kalau gagal
+		}
+	}
+
 	// Step 1 — profil toko
 	let namaToko = $state('');
 	let alamat = $state('');
@@ -43,6 +65,11 @@
 	let isiDemo = $state(true);
 
 	onMount(async () => {
+		// Selalu muat konteks toko agar picker tahu apakah ada toko lain.
+		api.get<TokoItem[]>('/auth/accessible-context').then((res) => {
+			if (res.success) konteksList = res.data;
+		});
+
 		if (sukses) return; // sudah selesai → tak perlu muat data wizard
 		const res = await api.get<Record<string, string>>('/pengaturan');
 		if (res.success) {
@@ -151,6 +178,20 @@
 </script>
 
 <div class="w-full">
+{#if konteksList.length > 1}
+	<div class="mb-4">
+		<Select
+			label="Toko aktif"
+			bind:value={tokoAktif}
+			options={tokoOpts}
+			disabled={pindahToko}
+			onchange={pindah}
+		/>
+		<p class="mt-1 text-xs" style="color:var(--text-dim)">
+			Punya toko lain? Pilih untuk berpindah tanpa onboarding ulang.
+		</p>
+	</div>
+{/if}
 {#if sukses}
 	<div class="flex flex-col items-center gap-4 py-8 text-center">
 		<div

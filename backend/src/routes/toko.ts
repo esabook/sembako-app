@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { eq, and } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, isoNow } from '../db/index.ts'
-import { toko, cabang, karyawan } from '../db/schema.ts'
+import { toko, cabang, karyawan, toko_settings } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import { requirePermission } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
@@ -32,12 +32,31 @@ tokoRouter.post('/', requirePermission('toko.kelola'), async (c) => {
 })
 
 tokoRouter.put('/:id', requirePermission('toko.kelola'), async (c) => {
+  const user = c.get('user') as JWTPayload
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ nama?: string; alamat?: string; is_active?: boolean }>()
   const row = await query.ret(
     db.update(toko).set({ ...body, updated_at: isoNow() }).where(eq(toko.id, id)).returning()
   )
   if (!row) throw new HTTPException(404, { message: 'Toko tidak ditemukan' })
+
+  // Sync nama/alamat entitas toko → toko_settings (branding login/struk),
+  // hanya bila yang diubah adalah toko milik tenant aktif.
+  if (id === user.tenant_id) {
+    const sync: Record<string, string | undefined> = { nama_toko: body.nama, alamat: body.alamat }
+    for (const [key, value] of Object.entries(sync)) {
+      if (value === undefined) continue
+      const existing = await query.find(db.select().from(toko_settings)
+        .where(and(eq(toko_settings.toko_id, id), eq(toko_settings.key, key))))
+      if (existing) {
+        await query.exec(db.update(toko_settings).set({ value, updated_at: isoNow() })
+          .where(and(eq(toko_settings.toko_id, id), eq(toko_settings.key, key))))
+      } else {
+        await query.exec(db.insert(toko_settings).values({ toko_id: id, key, value }))
+      }
+    }
+  }
+
   return c.json({ success: true, data: row })
 })
 
