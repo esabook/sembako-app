@@ -66,7 +66,7 @@ fnbRouter.post('/meja', requirePermission('penjualan.buat'), async (c) => {
     cabang_id: cabangId,
   }).returning({ id: meja.id })
 
-  return c.json({ success: true, data: { id: row.id } }, 201)
+  return c.json({ success: true, data: { id: row!.id } }, 201)
 })
 
 // ── PUT /fnb/meja/:id (edit meja) ─────────────────────────────────────────────
@@ -132,7 +132,7 @@ fnbRouter.get('/modifier-grup', requirePermission('penjualan.lihat'), async (c) 
   if (!barangId) return c.json({ success: true, data: [] })
 
   // Ambil grup_modifier_id yg terhubung ke barang ini
-  const junctions = await query.findAll(db
+  const junctions = await query.findAll<{ grup_modifier_id: number; urutan: number }>(db
     .select({ grup_modifier_id: barang_modifier_grup.grup_modifier_id, urutan: barang_modifier_grup.urutan })
     .from(barang_modifier_grup)
     .where(
@@ -148,7 +148,7 @@ fnbRouter.get('/modifier-grup', requirePermission('penjualan.lihat'), async (c) 
 
   const grupIds = junctions.map((j) => j.grup_modifier_id)
 
-  const grups = await query.findAll(db
+  const grups = await query.findAll<{ id: number; nama: string; wajib: number | boolean; min_pilih: number; max_pilih: number }>(db
     .select({
       id: grup_modifier.id,
       nama: grup_modifier.nama,
@@ -166,7 +166,7 @@ fnbRouter.get('/modifier-grup', requirePermission('penjualan.lihat'), async (c) 
     )
   )
 
-  const modifiers = await query.findAll(db
+  const modifiers = await query.findAll<{ id: number; grup_modifier_id: number; nama: string; harga_tambahan: number; is_active: number | boolean }>(db
     .select({
       id: modifier.id,
       grup_modifier_id: modifier.grup_modifier_id,
@@ -203,7 +203,7 @@ fnbRouter.get('/grup-modifier', requirePermission('penjualan.lihat'), async (c) 
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
 
-  const grups = await query.findAll(db
+  const grups = await query.findAll<{ id: number; nama: string; wajib: number | boolean; min_pilih: number; max_pilih: number; is_active: number | boolean }>(db
     .select({
       id: grup_modifier.id,
       nama: grup_modifier.nama,
@@ -220,7 +220,7 @@ fnbRouter.get('/grup-modifier', requirePermission('penjualan.lihat'), async (c) 
   if (!grups.length) return c.json({ success: true, data: [] })
 
   const grupIds = grups.map((g) => g.id)
-  const mods = await query.findAll(db
+  const mods = await query.findAll<{ id: number; grup_modifier_id: number; nama: string; harga_tambahan: number; is_active: number | boolean }>(db
     .select({
       id: modifier.id,
       grup_modifier_id: modifier.grup_modifier_id,
@@ -254,7 +254,7 @@ fnbRouter.post('/grup-modifier', requirePermission('stok.edit'), async (c) => {
     tenant_id: tenantId,
   }).returning({ id: grup_modifier.id })
 
-  return c.json({ success: true, data: { id: row.id } }, 201)
+  return c.json({ success: true, data: { id: row!.id } }, 201)
 })
 
 fnbRouter.put('/grup-modifier/:id', requirePermission('stok.edit'), async (c) => {
@@ -297,7 +297,7 @@ fnbRouter.post('/modifier', requirePermission('stok.edit'), async (c) => {
     tenant_id: tenantId,
   }).returning({ id: modifier.id })
 
-  return c.json({ success: true, data: { id: row.id } }, 201)
+  return c.json({ success: true, data: { id: row!.id } }, 201)
 })
 
 fnbRouter.put('/modifier/:id', requirePermission('stok.edit'), async (c) => {
@@ -329,7 +329,7 @@ fnbRouter.get('/barang/:barang_id/modifier-grup', requirePermission('penjualan.l
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const barangId = Number(c.req.param('barang_id'))
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ grup_modifier_id: number }>(db
     .select({ grup_modifier_id: barang_modifier_grup.grup_modifier_id })
     .from(barang_modifier_grup)
     .where(and(eq(barang_modifier_grup.barang_id, barangId), eq(barang_modifier_grup.tenant_id, tenantId)))
@@ -365,7 +365,7 @@ fnbRouter.get('/kds', requirePermission('penjualan.lihat'), async (c) => {
   const cabangId = user.cabang_id ?? null
 
   // Order items aktif (pending/cooking), join penjualan + barang
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ id: number; penjualan_id: number; no_transaksi: string; meja_id: number | null; meja_kode: string | null; barang_nama: string; jumlah: number; catatan: string | null; status_kds: string | null; created_at: string | null }>(db
     .select({
       id: penjualan_detail.id,
       penjualan_id: penjualan_detail.penjualan_id,
@@ -395,7 +395,7 @@ fnbRouter.get('/kds', requirePermission('penjualan.lihat'), async (c) => {
 
   // Ambil modifier untuk semua detail ini
   const detailIds = rows.map((r) => r.id)
-  const mods = await query.findAll(db
+  const mods = await query.findAll<{ penjualan_detail_id: number; nama_snapshot: string }>(db
     .select({
       penjualan_detail_id: penjualan_detail_modifier.penjualan_detail_id,
       nama_snapshot: penjualan_detail_modifier.nama_snapshot,
