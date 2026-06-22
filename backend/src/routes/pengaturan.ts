@@ -24,7 +24,7 @@ export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 // ── GET /pengaturan/publik — tanpa auth, untuk login page ─────────────────
 pengaturanRouter.get('/publik', async (c) => {
-  const rows = await query.findAll(db.select().from(toko_settings))
+  const rows = await query.findAll<typeof toko_settings.$inferSelect>(db.select().from(toko_settings))
   const row = rows.find((r) => r.key === 'nama_toko')
   return c.json({ success: true, data: { nama_toko: row?.value ?? 'Stokasir' } })
 })
@@ -90,7 +90,7 @@ pengaturanRouter.get('/backup-db', requirePermission('pengaturan.kelola'), async
   // Logical streaming backup untuk Turso/libSQL/PostgreSQL
   const includeMedia = c.req.query('include_media') === '1'
   const rawStream = createBackupStream(includeMedia)
-  const gzStream = rawStream.pipeThrough(new CompressionStream('gzip'))
+  const gzStream = rawStream.pipeThrough(new CompressionStream('gzip') as any)
 
   return new Response(gzStream, {
     headers: {
@@ -180,7 +180,7 @@ const DEFAULTS: Record<string, string> = {
 pengaturanRouter.get('/preferensi/:modul', async (c) => {
   const user = c.get('user')
   const modul = c.req.param('modul')
-  const row = await query.find(db.select().from(preferensi_pengguna)
+  const row = await query.find<typeof preferensi_pengguna.$inferSelect>(db.select().from(preferensi_pengguna)
     .where(and(
       eq(preferensi_pengguna.karyawan_id, Number(user.sub)),
       eq(preferensi_pengguna.modul, modul),
@@ -199,7 +199,7 @@ pengaturanRouter.put('/preferensi/:modul', async (c) => {
   const nilai_json = JSON.stringify(body)
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' })
 
-  const existing = await query.find(db.select({ id: preferensi_pengguna.id }).from(preferensi_pengguna)
+  const existing = await query.find<{ id: number }>(db.select({ id: preferensi_pengguna.id }).from(preferensi_pengguna)
     .where(and(
       eq(preferensi_pengguna.karyawan_id, Number(user.sub)),
       eq(preferensi_pengguna.modul, modul),
@@ -225,7 +225,7 @@ pengaturanRouter.put('/preferensi/:modul', async (c) => {
 pengaturanRouter.get('/', async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const rows = await query.findAll(db.select().from(toko_settings).where(eq(toko_settings.toko_id, tenantId)))
+  const rows = await query.findAll<typeof toko_settings.$inferSelect>(db.select().from(toko_settings).where(eq(toko_settings.toko_id, tenantId)))
 
   // Merge dengan defaults agar semua key selalu ada
   const result: Record<string, string> = { ...DEFAULTS }
