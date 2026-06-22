@@ -125,7 +125,7 @@ lampiranRouter.delete('/:id', async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
 
-  const row = await query.find(db.select().from(lampiran).where(and(eq(lampiran.id, id), eq(lampiran.tenant_id, tenantId))))
+  const row = await query.find<typeof lampiran.$inferSelect>(db.select().from(lampiran).where(and(eq(lampiran.id, id), eq(lampiran.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Lampiran tidak ditemukan' })
 
   // Pemilik file atau manajer/pemilik toko boleh hapus
