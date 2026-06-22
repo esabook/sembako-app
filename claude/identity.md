@@ -11,7 +11,7 @@ OFFLINE → tanpa internet        WEBVIEW → 1 codebase, HP & laptop
 ## Tech Stack
 
 ```
-Frontend  : SvelteKit + TypeScript + TailwindCSS (font: JetBrains Mono)
+Frontend  : SvelteKit + TypeScript + TailwindCSS (font: dynamic)
 Backend   : Hono.js + Bun runtime, port 3000
 Database  : SQLite (default) / Turso libSQL / PostgreSQL / MySQL
             ORM: Drizzle ORM — builders.ts abstraksi multi-dialect

@@ -59,7 +59,7 @@ function loadFont(f: FontPilihan) {
 }
 
 const STORAGE_KEY = 'font'
-const DEFAULT: FontPilihan = 'jetbrains'
+const DEFAULT: FontPilihan = 'ibm-plex-sans'
 
 function fontAwal(): FontPilihan {
 	if (!browser) return DEFAULT

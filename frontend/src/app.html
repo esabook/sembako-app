@@ -9,10 +9,17 @@
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 	<link rel="apple-touch-icon" href="/logo.webp" />
-	<!-- Skin theme loader: inject before paint to avoid FOUC -->
+	<!-- Skin 'normal' (default) inline — hapus request /themes/normal.css dari critical path.
+	     SUMBER KEBENARAN: static/themes/normal.css — sinkronkan bila token berubah. -->
+	<style>
+		[data-theme='dark']{--bg:#0a0a0a;--surface:#111111;--surface2:#1a1a1a;--border:#2a2a2a;--text:#d4d4d4;--text-dim:#999999;--accent:#00e676;--warn:#ffb300;--danger:#ff5252;--info:#40c4ff;--skeleton:#252525}
+		[data-theme='light']{--bg:#f0f0f0;--surface:#ffffff;--surface2:#e8e8e8;--border:#cccccc;--text:#222222;--text-dim:#555555;--accent:#007a3d;--warn:#b37800;--danger:#c62828;--info:#0077aa;--skeleton:#dcdcdc}
+	</style>
+	<!-- Skin non-default: load sebelum paint untuk hindari FOUC. Normal sudah inline di atas. -->
 	<script>
 		(function(){
 			var s = localStorage.getItem('tema_skin') || 'normal';
+			if (s === 'normal') return;
 			var l = document.createElement('link');
 			l.rel = 'stylesheet';
 			l.id = 'skin-css';
