@@ -29,7 +29,7 @@ shiftRouter.get('/rekap-aktif', async (c) => {
   const tenantId = user.tenant_id ?? 1
   const cabangId = user.cabang_id ?? null
 
-  const shift = await query.find(db
+  const shift = await query.find<typeof shift_kasir.$inferSelect>(db
     .select()
     .from(shift_kasir)
     .where(
@@ -45,7 +45,7 @@ shiftRouter.get('/rekap-aktif', async (c) => {
 
   if (!shift) return c.json({ success: true, data: null })
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ metode: string | null; jumlah_trx: number; total: number }>(db
     .select({
       metode: penjualan.metode_bayar,
       jumlah_trx: sql<number>`count(*)`,
@@ -221,7 +221,7 @@ shiftRouter.post('/tutup', async (c) => {
   if (body.kas_fisik == null || body.kas_fisik < 0)
     throw new HTTPException(400, { message: 'Kas fisik tidak valid' })
 
-  const shift = await query.find(db
+  const shift = await query.find<typeof shift_kasir.$inferSelect>(db
     .select()
     .from(shift_kasir)
     .where(
@@ -238,7 +238,7 @@ shiftRouter.post('/tutup', async (c) => {
   if (!shift) throw new HTTPException(404, { message: 'Tidak ada shift yang sedang buka hari ini' })
 
   // Hitung rekap penjualan tunai shift ini
-  const rekapRows = await query.find(db
+  const rekapRows = await query.find<{ jumlah_trx: number; total: number; tunai: number }>(db
     .select({
       jumlah_trx: sql<number>`count(*)`,
       total: sql<number>`COALESCE(sum(total), 0)`,
