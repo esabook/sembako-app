@@ -55,7 +55,7 @@ purchaseOrderRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const po = await query.find(db.select().from(purchase_order).where(and(eq(purchase_order.id, id), eq(purchase_order.tenant_id, tenantId))))
+  const po = await query.find<typeof purchase_order.$inferSelect>(db.select().from(purchase_order).where(and(eq(purchase_order.id, id), eq(purchase_order.tenant_id, tenantId))))
   if (!po) throw new HTTPException(404, { message: 'PO tidak ditemukan' })
 
   const items = await query.findAll(db
@@ -88,7 +88,7 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   // Barang stok di bawah minimum
-  const kritisRows = (await query.findAll(db
+  const kritisRows = (await query.findAll<{ id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; harga_beli_terakhir: number; satuan_dasar_id: number | null }>(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -107,7 +107,7 @@ purchaseOrderRouter.get('/suggest/items', requirePermission('pembelian.buat'), a
   const tgl7HariLalu = new Date(Date.now() - 7 * 86400000)
     .toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const penjualanRecent = await query.findAll(db
+  const penjualanRecent = await query.findAll<{ barang_id: number; total_jumlah: number }>(db
     .select({
       barang_id: penjualan_detail.barang_id,
       total_jumlah: sql<number>`sum(${penjualan_detail.jumlah})`,
@@ -156,7 +156,7 @@ purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
 
   const tgl = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const po = await query.ret(db.insert(purchase_order).values({
+  const po = (await query.ret<{ id: number }>(db.insert(purchase_order).values({
     no_po: noPO(),
     supplier_id: body.supplier_id,
     tanggal_po: tgl,
@@ -165,7 +165,7 @@ purchaseOrderRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
     total_nilai: totalNilai,
     dibuat_oleh: user.id,
     tenant_id: tenantId,
-  }).returning())
+  }).returning()))!
 
   for (const item of body.items) {
     await query.exec(db.insert(po_detail).values({
@@ -190,7 +190,7 @@ purchaseOrderRouter.put('/:id/status', requirePermission('pembelian.buat'), asyn
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ status: 'draft' | 'dikirim' | 'sebagian' | 'lunas' | 'batal' }>()
 
-  const po = await query.find(db.select().from(purchase_order).where(and(eq(purchase_order.id, id), eq(purchase_order.tenant_id, tenantId))))
+  const po = await query.find<typeof purchase_order.$inferSelect>(db.select().from(purchase_order).where(and(eq(purchase_order.id, id), eq(purchase_order.tenant_id, tenantId))))
   if (!po) throw new HTTPException(404, { message: 'PO tidak ditemukan' })
 
   await query.exec(db.update(purchase_order)
