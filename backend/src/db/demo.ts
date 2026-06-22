@@ -1,4 +1,4 @@
-import { eq, count, and, like } from 'drizzle-orm'
+import { eq, count } from 'drizzle-orm'
 import { db, withTransaction, query } from './index.ts'
 import {
   toko, toko_settings, cabang, karyawan, kas_bank,
@@ -1712,18 +1712,23 @@ export async function deleteDemoData(): Promise<void> {
 // Cuma sisipkan subset master (satuan, kategori, barang, supplier, pelanggan)
 // ke tenant yang sedang login. Kode pakai prefix CONTOH- supaya gampang
 // dibedakan & dijadikan guard anti-dobel.
-const CONTOH_PREFIX = 'CONTOH-'
+// Kode contoh menyertakan tokoId supaya unik secara GLOBAL — kolom
+// kode_barang/kode_supplier/kode_pelanggan punya constraint unique global
+// (lintas tenant), jadi kode statis akan bentrok antar toko.
+const contohPrefix = (tokoId: number) => `CONTOH-${tokoId}-`
 
 export async function seedSampleIntoTenant(
   tokoId: number,
   _cabangId?: number | null
 ): Promise<{ inserted: boolean; jumlah_barang: number }> {
-  // Guard: kalau sudah pernah di-seed, jangan dobel.
+  const pfx = contohPrefix(tokoId)
+
+  // Guard idempoten: cek exact-match pada kolom unique (paling andal).
   const existing = await query.find<{ id: number }>(
     db
       .select({ id: barang.id })
       .from(barang)
-      .where(and(eq(barang.tenant_id, tokoId), like(barang.kode_barang, `${CONTOH_PREFIX}%`)))
+      .where(eq(barang.kode_barang, `${pfx}BRG-001`))
   )
   if (existing) return { inserted: false, jumlah_barang: 0 }
 
@@ -1740,11 +1745,11 @@ export async function seedSampleIntoTenant(
 
     // ── Barang contoh ─────────────────────────────────────────────────────
     const barangData = [
-      { kode: `${CONTOH_PREFIX}BRG-001`, nama: 'Beras Premium 5kg', kat: katSembako, sat: sKg, beli: 58000, eceran: 65000, grosir: 62000, stok: 50 },
-      { kode: `${CONTOH_PREFIX}BRG-002`, nama: 'Minyak Goreng 2L', kat: katMinyak, sat: sBtl, beli: 30000, eceran: 35000, grosir: 33000, stok: 40 },
-      { kode: `${CONTOH_PREFIX}BRG-003`, nama: 'Gula Pasir 1kg', kat: katSembako, sat: sKg, beli: 14000, eceran: 16000, grosir: 15000, stok: 60 },
-      { kode: `${CONTOH_PREFIX}BRG-004`, nama: 'Teh Botol 450ml', kat: katMinuman, sat: sBtl, beli: 4500, eceran: 6000, grosir: 5500, stok: 100 },
-      { kode: `${CONTOH_PREFIX}BRG-005`, nama: 'Kecap Manis 600ml', kat: katBumbu, sat: sBtl, beli: 12000, eceran: 16000, grosir: 14000, stok: 30 },
+      { kode: `${pfx}BRG-001`, nama: 'Beras Premium 5kg', kat: katSembako, sat: sKg, beli: 58000, eceran: 65000, grosir: 62000, stok: 50 },
+      { kode: `${pfx}BRG-002`, nama: 'Minyak Goreng 2L', kat: katMinyak, sat: sBtl, beli: 30000, eceran: 35000, grosir: 33000, stok: 40 },
+      { kode: `${pfx}BRG-003`, nama: 'Gula Pasir 1kg', kat: katSembako, sat: sKg, beli: 14000, eceran: 16000, grosir: 15000, stok: 60 },
+      { kode: `${pfx}BRG-004`, nama: 'Teh Botol 450ml', kat: katMinuman, sat: sBtl, beli: 4500, eceran: 6000, grosir: 5500, stok: 100 },
+      { kode: `${pfx}BRG-005`, nama: 'Kecap Manis 600ml', kat: katBumbu, sat: sBtl, beli: 12000, eceran: 16000, grosir: 14000, stok: 30 },
     ]
     for (const b of barangData) {
       await query.exec(
@@ -1767,8 +1772,8 @@ export async function seedSampleIntoTenant(
 
     // ── Supplier contoh ───────────────────────────────────────────────────
     const supData = [
-      { kode: `${CONTOH_PREFIX}SUP-001`, nama: 'CV Maju Jaya', kontak: '081234567890', terms: 30 },
-      { kode: `${CONTOH_PREFIX}SUP-002`, nama: 'UD Sumber Makmur', kontak: '082345678901', terms: 14 },
+      { kode: `${pfx}SUP-001`, nama: 'CV Maju Jaya', kontak: '081234567890', terms: 30 },
+      { kode: `${pfx}SUP-002`, nama: 'UD Sumber Makmur', kontak: '082345678901', terms: 14 },
     ]
     for (const s of supData) {
       await query.exec(
@@ -1786,9 +1791,9 @@ export async function seedSampleIntoTenant(
 
     // ── Pelanggan contoh ──────────────────────────────────────────────────
     const plgData = [
-      { kode: `${CONTOH_PREFIX}PLG-001`, nama: 'Bu Sari', tipe: 'eceran' as const },
-      { kode: `${CONTOH_PREFIX}PLG-002`, nama: 'Pak Budi Grosir', tipe: 'grosir' as const },
-      { kode: `${CONTOH_PREFIX}PLG-003`, nama: 'Warung Pak Joko', tipe: 'langganan' as const },
+      { kode: `${pfx}PLG-001`, nama: 'Bu Sari', tipe: 'eceran' as const },
+      { kode: `${pfx}PLG-002`, nama: 'Pak Budi Grosir', tipe: 'grosir' as const },
+      { kode: `${pfx}PLG-003`, nama: 'Warung Pak Joko', tipe: 'langganan' as const },
     ]
     for (const p of plgData) {
       await query.exec(
