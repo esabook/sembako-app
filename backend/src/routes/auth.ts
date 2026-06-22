@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { setCookie, deleteCookie } from 'hono/cookie'
 import { HTTPException } from 'hono/http-exception'
 import { SignJWT } from 'jose'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, or } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { karyawan, toko, cabang } from '../db/schema.ts'
 import type { Role } from '../middleware/auth.ts'
@@ -13,6 +13,11 @@ const JWT_SECRET = new TextEncoder().encode(
 )
 const JWT_EXPIRY_HOURS = Number(process.env.JWT_EXPIRY_HOURS ?? 12)
 const COOKIE_MAX_AGE = JWT_EXPIRY_HOURS * 60 * 60
+
+// Mode SaaS multi-tenant (sama flag dengan gating langganan). Saat aktif,
+// pemilik HANYA boleh akses toko miliknya (email_pemilik), bukan semua toko.
+// Mode LAN (default): pemilik = superuser 1 instance → lihat semua toko.
+const SAAS_MODE = process.env.SAAS_GATING === '1'
 
 // In-memory rate limiter: maks 10 percobaan login per IP per 15 menit
 const loginAttempts = new Map<string, { count: number; resetAt: number }>()
@@ -71,17 +76,19 @@ authRouter.post('/login', async (c) => {
   const body = await c.req.json<{ username: string; password: string }>()
 
   if (!body.username || !body.password) {
-    throw new HTTPException(400, { message: 'Username dan password wajib diisi' })
+    throw new HTTPException(400, { message: 'Username / email dan password wajib diisi' })
   }
 
+  const identifier = body.username.trim().toLowerCase()
+  const isEmail = identifier.includes('@')
   const user = await query.find<typeof karyawan.$inferSelect>(db
     .select()
     .from(karyawan)
-    .where(eq(karyawan.username, body.username))
-    )
+    .where(isEmail ? eq(karyawan.email, identifier) : eq(karyawan.username, identifier))
+  )
 
   if (!user || !user.is_active) {
-    throw new HTTPException(401, { message: 'Username atau password salah' })
+    throw new HTTPException(401, { message: 'Username / email atau password salah' })
   }
 
   const valid = await Bun.password.verify(body.password, user.password_hash)
@@ -131,7 +138,6 @@ authRouter.post('/login', async (c) => {
 type DaftarBody = {
   nama_toko: string
   nama_pemilik: string
-  username: string
   password: string
   email: string
   wa: string
@@ -149,17 +155,13 @@ authRouter.post('/daftar', async (c) => {
   // Validasi field wajib
   const nama_toko = b.nama_toko?.trim()
   const nama_pemilik = b.nama_pemilik?.trim()
-  const username = b.username?.trim().toLowerCase()
-  const email = b.email?.trim()
+  const email = b.email?.trim().toLowerCase()
   const wa = b.wa?.trim()
-  if (!nama_toko || !nama_pemilik || !username || !b.password || !email || !wa) {
-    throw new HTTPException(400, { message: 'Nama toko, nama pemilik, username, password, email, dan WA wajib diisi' })
+  if (!nama_toko || !nama_pemilik || !b.password || !email || !wa) {
+    throw new HTTPException(400, { message: 'Nama toko, nama pemilik, password, email, dan WA wajib diisi' })
   }
   if (b.password.length < 6) {
     throw new HTTPException(400, { message: 'Password minimal 6 karakter' })
-  }
-  if (!/^[a-z0-9._-]{3,}$/.test(username)) {
-    throw new HTTPException(400, { message: 'Username minimal 3 karakter (huruf, angka, . _ -)' })
   }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     throw new HTTPException(400, { message: 'Format email tidak valid' })
@@ -168,16 +170,21 @@ authRouter.post('/daftar', async (c) => {
     throw new HTTPException(400, { message: 'Nomor WA tidak valid' })
   }
 
-  // Cek username unik lebih dulu (pesan jelas; constraint DB tetap jaga race)
-  const exists = await query.find(db.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.username, username)))
+  // Cek email unik (constraint DB juga jaga race)
+  const exists = await query.find(db.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.email, email)))
   if (exists) {
-    throw new HTTPException(409, { message: 'Username sudah dipakai, pilih yang lain' })
+    throw new HTTPException(409, { message: 'Email sudah terdaftar, gunakan email lain atau masuk' })
   }
+
+  // Auto-generate username dari prefix email + suffix waktu (dijamin unik)
+  const emailPrefix = (email.split('@')[0] ?? 'user').replace(/[^a-z0-9._-]/g, '_').slice(0, 20)
 
   const hash = await Bun.password.hash(b.password)
   const trialBerakhir = new Date(Date.now() + TRIAL_HARI * 24 * 60 * 60 * 1000).toISOString()
   // Kode unik berbasis waktu — hindari tabrakan tanpa query max id
   const suffix = Date.now().toString(36).toUpperCase()
+  // Username auto-generated; pemilik login pakai email
+  const username = `${emailPrefix}_${suffix.toLowerCase()}`
 
   const result = await withTransaction(async () => {
     const tokoRow = await query.ret<{ id: number }>(
@@ -209,6 +216,7 @@ authRouter.post('/daftar', async (c) => {
         nama: nama_pemilik,
         role: 'pemilik',
         username,
+        email,
         password_hash: hash,
         tipe_gaji: 'bulanan',
         toko_id: tid,
@@ -246,9 +254,27 @@ authRouter.get('/me', authMiddleware, (c) => {
 async function getAccessibleContext(role: Role, tokoId: number) {
   if (role !== 'pemilik' && role !== 'manajer') return []
 
-  const tokoList = role === 'pemilik'
-    ? await db.select({ id: toko.id, nama: toko.nama }).from(toko).where(eq(toko.is_active, true))
-    : await db.select({ id: toko.id, nama: toko.nama }).from(toko).where(and(eq(toko.id, tokoId), eq(toko.is_active, true)))
+  let tokoList: { id: number | null; nama: string }[]
+  if (role === 'manajer') {
+    // Manajer: selalu cuma toko sendiri.
+    tokoList = await db.select({ id: toko.id, nama: toko.nama }).from(toko)
+      .where(and(eq(toko.id, tokoId), eq(toko.is_active, true)))
+  } else if (SAAS_MODE) {
+    // SaaS: pemilik hanya toko miliknya (cocokkan email_pemilik dgn toko aktif).
+    const cur = await query.find<{ email_pemilik: string | null }>(
+      db.select({ email_pemilik: toko.email_pemilik }).from(toko).where(eq(toko.id, tokoId))
+    )
+    const email = cur?.email_pemilik ?? null
+    tokoList = email
+      ? await db.select({ id: toko.id, nama: toko.nama }).from(toko)
+          .where(and(eq(toko.email_pemilik, email), eq(toko.is_active, true)))
+      : await db.select({ id: toko.id, nama: toko.nama }).from(toko)
+          .where(and(eq(toko.id, tokoId), eq(toko.is_active, true)))
+  } else {
+    // LAN: pemilik = superuser → semua toko.
+    tokoList = await db.select({ id: toko.id, nama: toko.nama }).from(toko)
+      .where(eq(toko.is_active, true))
+  }
 
   const result: { id: number; nama: string; cabang: { id: number; nama: string }[] }[] = []
   for (const t of tokoList) {
