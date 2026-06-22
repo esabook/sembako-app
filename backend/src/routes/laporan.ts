@@ -42,7 +42,7 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
   }
 
   // Penjualan bersih (tidak termasuk void)
-  const penjualanRows = await query.findAll(db
+  const penjualanRows = await query.findAll<{ total: number; diskon_total: number }>(db
     .select({ total: penjualan.total, diskon_total: penjualan.diskon_total })
     .from(penjualan)
     .where(
@@ -61,7 +61,7 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
   const jumlahTransaksi = penjualanRows.length
 
   // HPP — Weighted Average Cost (WAC): pakai harga_beli_rata, fallback ke harga_beli_terakhir
-  const hppRows = await query.find(db
+  const hppRows = await query.find<{ hpp: number }>(db
     .select({
       hpp: sql<number>`sum(${penjualan_detail.jumlah} * CASE WHEN ${barang.harga_beli_rata} > 0 THEN ${barang.harga_beli_rata} ELSE ${barang.harga_beli_terakhir} END)`,
     })
@@ -83,7 +83,7 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
   const labaKotor = totalPenjualan - totalHpp
 
   // Biaya operasional (jurnal keluar, kecuali pembayaran hutang)
-  const biayaRows = await query.findAll(db
+  const biayaRows = await query.findAll<{ kategori: string; jumlah: number }>(db
     .select({ kategori: jurnal_kas.kategori, jumlah: jurnal_kas.jumlah })
     .from(jurnal_kas)
     .where(
@@ -145,12 +145,12 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
 
-  const akunList = await query.findAll(db.select().from(kas_bank).where(
+  const akunList = await query.findAll<typeof kas_bank.$inferSelect>(db.select().from(kas_bank).where(
     and(eq(kas_bank.is_active, true), eq(kas_bank.tenant_id, tenantId), cabangId ? eq(kas_bank.cabang_id, cabangId) : undefined)
   ))
 
   // Saldo awal per akun: GROUP BY — tidak load seluruh tabel
-  const sebelumPerAkun = await query.findAll(db.select({
+  const sebelumPerAkun = await query.findAll<{ kas_bank_id: number; masuk: number; keluar: number }>(db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
@@ -162,7 +162,7 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
   const sebelumMap = new Map(sebelumPerAkun.map((r) => [r.kas_bank_id, r]))
 
   // Mutasi periode per akun: GROUP BY
-  const mutasiPerAkun = await query.findAll(db.select({
+  const mutasiPerAkun = await query.findAll<{ kas_bank_id: number; masuk: number; keluar: number }>(db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
@@ -175,7 +175,7 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
   const mutasiMap = new Map(mutasiPerAkun.map((r) => [r.kas_bank_id, r]))
 
   // Ringkasan per kategori: GROUP BY
-  const kategoriRows = await query.findAll(db.select({
+  const kategoriRows = await query.findAll<{ kategori: string; jenis: 'masuk' | 'keluar'; jumlah: number }>(db.select({
     kategori: jurnal_kas.kategori,
     jenis: jurnal_kas.jenis,
     jumlah: sql<number>`COALESCE(SUM(${jurnal_kas.jumlah}),0)`,
@@ -195,8 +195,8 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
 
   // Hitung per akun dari maps
   const perAkun = akunList.map((akun) => {
-    const sbl  = sebelumMap.get(akun.id) ?? { masuk: 0, keluar: 0 }
-    const mut  = mutasiMap.get(akun.id)  ?? { masuk: 0, keluar: 0 }
+    const sbl  = sebelumMap.get(akun.id!) ?? { masuk: 0, keluar: 0 }
+    const mut  = mutasiMap.get(akun.id!)  ?? { masuk: 0, keluar: 0 }
     const saldo_awal  = akun.saldo_awal + sbl.masuk - sbl.keluar
     const saldo_akhir = saldo_awal + mut.masuk - mut.keluar
     return { id: akun.id, nama: akun.nama, tipe: akun.tipe, saldo_awal, masuk: mut.masuk, keluar: mut.keluar, net: mut.masuk - mut.keluar, saldo_akhir }
@@ -232,11 +232,11 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
 
   // ASET
   // 1. Kas & Bank — filter jurnal sampai per_tanggal
-  const akunList = await query.findAll(db.select().from(kas_bank).where(
+  const akunList = await query.findAll<typeof kas_bank.$inferSelect>(db.select().from(kas_bank).where(
     and(eq(kas_bank.is_active, true), eq(kas_bank.tenant_id, tenantId), cabangId ? eq(kas_bank.cabang_id, cabangId) : undefined)
   ))
 
-  const jurnalPerAkun = await query.findAll(db.select({
+  const jurnalPerAkun = await query.findAll<{ kas_bank_id: number; masuk: number; keluar: number }>(db.select({
     kas_bank_id: jurnal_kas.kas_bank_id,
     masuk:  sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='masuk' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
     keluar: sql<number>`COALESCE(SUM(CASE WHEN ${jurnal_kas.jenis}='keluar' THEN ${jurnal_kas.jumlah} ELSE 0 END),0)`,
@@ -246,14 +246,14 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   const jurnalAkunMap = new Map(jurnalPerAkun.map((r) => [r.kas_bank_id, r]))
 
   const kasBank = akunList.map((akun) => {
-    const j = jurnalAkunMap.get(akun.id) ?? { masuk: 0, keluar: 0 }
+    const j = jurnalAkunMap.get(akun.id!) ?? { masuk: 0, keluar: 0 }
     const saldo = akun.saldo_awal + j.masuk - j.keluar
     return { id: akun.id, nama: akun.nama, tipe: akun.tipe, saldo }
   })
   const totalKasBank = kasBank.reduce((s, a) => s + a.saldo, 0)
 
   // 2. Piutang — dibuat sebelum per_tanggal dan belum lunas
-  const piutangRows = await query.findAll(db
+  const piutangRows = await query.findAll<{ sisa: number }>(db
     .select({ sisa: piutang_pelanggan.sisa_piutang })
     .from(piutang_pelanggan)
     .where(and(
@@ -265,7 +265,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   const totalPiutang = piutangRows.reduce((s, r) => s + r.sisa, 0)
 
   // 3. Nilai stok — gunakan WAC (harga_beli_rata), fallback ke harga_beli_terakhir
-  const nilaiStokRow = await query.find(db
+  const nilaiStokRow = await query.find<{ total: number }>(db
     .select({
       total: sql<number>`sum(${barang.stok_sekarang} * CASE WHEN ${barang.harga_beli_rata} > 0 THEN ${barang.harga_beli_rata} ELSE ${barang.harga_beli_terakhir} END)`,
     })
@@ -277,7 +277,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   const totalAset = totalKasBank + totalPiutang + totalNilaiStok
 
   // LIABILITAS — hutang dibuat sebelum per_tanggal dan belum lunas
-  const hutangRows = await query.findAll(db
+  const hutangRows = await query.findAll<{ sisa: number }>(db
     .select({ sisa: hutang_supplier.sisa_hutang })
     .from(hutang_supplier)
     .where(and(
@@ -353,7 +353,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
   type AgingBucket = { label: string; jumlah: number; total: number; items: AgingItem[] }
 
   // Piutang pelanggan
-  const piutangRows = await query.findAll(db
+  const piutangRows = await query.findAll<{ id: number; sisa_piutang: number; tanggal_jatuh_tempo: string | null; nama: string | null }>(db
     .select({
       id: piutang_pelanggan.id,
       sisa_piutang: piutang_pelanggan.sisa_piutang,
@@ -385,7 +385,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
   }
 
   // Hutang supplier
-  const hutangRows = await query.findAll(db
+  const hutangRows = await query.findAll<{ id: number; sisa_hutang: number; tanggal_jatuh_tempo: string | null; nama: string | null }>(db
     .select({
       id: hutang_supplier.id,
       sisa_hutang: hutang_supplier.sisa_hutang,
@@ -432,7 +432,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
 
 laporanRouter.post('/init-harga-rata', requirePermission('pengaturan.kelola'), async (c) => {
   // Ambil semua histori penerimaan barang diurutkan dari terlama
-  const histori = await query.findAll(db
+  const histori = await query.findAll<{ barang_id: number; jumlah: number; harga: number }>(db
     .select({
       barang_id: barang_masuk_detail.barang_id,
       jumlah: barang_masuk_detail.jumlah_terima,
@@ -474,7 +474,7 @@ laporanRouter.post('/init-harga-rata', requirePermission('pengaturan.kelola'), a
 laporanRouter.get('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), async (c) => {
   // Transaksi non-hutang, non-void, kembalian=0, tapi bayar < total
   // → diskon member/promo tidak tercatat karena bug lama
-  const affected = await query.findAll(db
+  const affected = await query.findAll<{ id: number; no_transaksi: string; tanggal: string; subtotal: number; diskon_total_lama: number; total_lama: number; bayar: number; selisih: number }>(db
     .select({
       id: penjualan.id,
       no_transaksi: penjualan.no_transaksi,
@@ -522,7 +522,7 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ barang_id: number; nama_barang: string; kategori_nama: string | null; qty_terjual: number; jumlah_transaksi: number; omset: number; hpp: number }>(db
     .select({
       barang_id: barang.id,
       nama_barang: barang.nama_barang,
@@ -588,7 +588,7 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
     return c.json({ success: false, error: 'Format tahun tidak valid. Gunakan YYYY' }, 400)
   }
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ periode: string; omset: number; jumlah_transaksi: number }>(db
     .select({
       periode: sql<string>`strftime('%Y-%m', tanggal)`,
       omset: sql<number>`COALESCE(SUM(total), 0)`,
@@ -639,7 +639,7 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
 laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ barang_id: number; nama_barang: string; kategori_nama: string | null; stok: number; harga_beli_rata: number; harga_beli_terakhir: number }>(db
     .select({
       barang_id: barang.id,
       nama_barang: barang.nama_barang,
@@ -694,7 +694,7 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
   }
   const limit = Math.min(Number(c.req.query('limit') ?? 20), 100)
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ pelanggan_id: number; nama: string; tipe: string; kontak: string | null; jumlah_transaksi: number; total_omset: number; total_diskon: number }>(db
     .select({
       pelanggan_id: pelanggan.id,
       nama: pelanggan.nama,
@@ -747,7 +747,7 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ supplier_id: number; nama_supplier: string; kontak: string | null; jumlah_penerimaan: number; total_pembelian: number }>(db
     .select({
       supplier_id: supplier.id,
       nama_supplier: supplier.nama_supplier,
@@ -796,7 +796,7 @@ laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async
     return c.json({ success: false, error: 'Format tahun tidak valid. Gunakan YYYY' }, 400)
   }
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ periode_bulan: string; jumlah_karyawan: number; total_gaji_pokok: number; total_tunjangan: number; total_potongan_kasbon: number; total_potongan_lain: number; total_gaji: number }>(db
     .select({
       periode_bulan: penggajian.periode_bulan,
       jumlah_karyawan: sql<number>`COUNT(DISTINCT ${penggajian.karyawan_id})`,
@@ -859,7 +859,7 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
   const dari = c.req.query('dari') ?? tigaPuluhHariLalu
   const sampai = c.req.query('sampai') ?? hariIni
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ jam: string; jumlah_transaksi: number; omzet: number; rata_per_trx: number }>(db
     .select({
       jam: sql<string>`strftime('%H', ${penjualan.tanggal})`,
       jumlah_transaksi: sql<number>`COUNT(*)`,
@@ -897,7 +897,7 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
 })
 
 laporanRouter.post('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), async (c) => {
-  const affected = await query.findAll(db
+  const affected = await query.findAll<{ id: number; total: number; bayar: number }>(db
     .select({
       id: penjualan.id,
       total: penjualan.total,
