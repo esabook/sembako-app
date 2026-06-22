@@ -57,13 +57,13 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
 
-  const kasirList = await query.findAll(db
+  const kasirList = await query.findAll<{ id: number; nama: string }>(db
     .select({ id: karyawan.id, nama: karyawan.nama })
     .from(karyawan)
     .where(and(eq(karyawan.toko_id, tenantId), eq(karyawan.is_active, true), eq(karyawan.role, 'kasir')))
     )
 
-  const shiftRows = await query.findAll(db
+  const shiftRows = await query.findAll<{ karyawan_id: number; total_shift: number; shift_ditutup: number; total_transaksi: number; total_penjualan: number; avg_selisih_kas: number; avg_durasi_menit: number }>(db
     .select({
       karyawan_id: shift_kasir.karyawan_id,
       total_shift: sql<number>`COUNT(*)`,
@@ -81,7 +81,7 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
     .groupBy(shift_kasir.karyawan_id)
     )
 
-  const voidRows = await query.findAll(db
+  const voidRows = await query.findAll<{ kasir_id: number; total_void: number }>(db
     .select({
       kasir_id: penjualan.kasir_id,
       total_void: sql<number>`COUNT(*)`,
@@ -96,7 +96,7 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
     .groupBy(penjualan.kasir_id)
     )
 
-  const absensiRows = await query.findAll(db
+  const absensiRows = await query.findAll<{ karyawan_id: number; hadir: number; alpa: number }>(db
     .select({
       karyawan_id: absensi.karyawan_id,
       hadir: sql<number>`SUM(CASE WHEN ${absensi.status} = 'hadir' THEN 1 ELSE 0 END)`,
@@ -166,7 +166,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
     .from(karyawan).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId))))
   if (!k) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
-  const shifts = await query.findAll(db
+  const shifts = await query.findAll<typeof shift_kasir.$inferSelect>(db
     .select()
     .from(shift_kasir)
     .where(and(
@@ -206,7 +206,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
     }
   })
 
-  const voidRow = await query.find(db.select({ total: sql<number>`COUNT(*)` })
+  const voidRow = await query.find<{ total: number }>(db.select({ total: sql<number>`COUNT(*)` })
     .from(penjualan)
     .where(and(
       eq(penjualan.tenant_id, tenantId),
@@ -217,7 +217,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
     ))
     )
 
-  const absensiData = await query.findAll(db.select()
+  const absensiData = await query.findAll<typeof absensi.$inferSelect>(db.select()
     .from(absensi)
     .where(and(eq(absensi.tenant_id, tenantId), eq(absensi.karyawan_id, id), gte(absensi.tanggal, dari), lte(absensi.tanggal, sampai)))
   )

@@ -77,7 +77,7 @@ returPenjualanRouter.get('/sisa/:penjualan_id', requirePermission('penjualan.lih
   if (!penjualanId) throw new HTTPException(400, { message: 'penjualan_id tidak valid' })
 
   // Ambil semua item dari transaksi asal
-  const detailAsal = await query.findAll(db
+  const detailAsal = await query.findAll<{ barang_id: number; jumlah_asal: number }>(db
     .select({
       barang_id: penjualan_detail.barang_id,
       jumlah_asal: penjualan_detail.jumlah,
@@ -89,7 +89,7 @@ returPenjualanRouter.get('/sisa/:penjualan_id', requirePermission('penjualan.lih
   if (!detailAsal.length) return c.json({ success: true, data: [] })
 
   // Hitung total sudah diretur per barang_id dari semua retur sebelumnya
-  const sudahDireturRows = await query.findAll(db
+  const sudahDireturRows = await query.findAll<{ barang_id: number; sudah_diretur: number | null }>(db
     .select({
       barang_id: retur_penjualan_detail.barang_id,
       sudah_diretur: sql<number>`SUM(${retur_penjualan_detail.jumlah_retur})`,
@@ -219,7 +219,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
   }
 
   // Validasi penjualan asal
-  const trxAsal = await query.find(db.select().from(penjualan).where(and(eq(penjualan.id, body.penjualan_id), eq(penjualan.tenant_id, tenantId))))
+  const trxAsal = await query.find<typeof penjualan.$inferSelect>(db.select().from(penjualan).where(and(eq(penjualan.id, body.penjualan_id), eq(penjualan.tenant_id, tenantId))))
   if (!trxAsal) throw new HTTPException(404, { message: 'Transaksi penjualan tidak ditemukan' })
   if (trxAsal.status === 'void') throw new HTTPException(400, { message: 'Transaksi sudah di-void, tidak bisa diretur' })
 
@@ -228,7 +228,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
   }
 
   // Ambil semua detail penjualan asal
-  const detailAsal = await query.findAll(db.select().from(penjualan_detail)
+  const detailAsal = await query.findAll<typeof penjualan_detail.$inferSelect>(db.select().from(penjualan_detail)
     .where(eq(penjualan_detail.penjualan_id, body.penjualan_id))
   )
 
@@ -247,7 +247,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
     }
 
     // Fix 2: Cek qty kumulatif — jumlah yang sudah diretur sebelumnya
-    const sudahDireturRow = await query.find(db
+    const sudahDireturRow = await query.find<{ total: number }>(db
       .select({ total: sql<number>`COALESCE(SUM(${retur_penjualan_detail.jumlah_retur}), 0)` })
       .from(retur_penjualan_detail)
       .innerJoin(retur_penjualan, eq(retur_penjualan_detail.retur_id, retur_penjualan.id))
@@ -291,7 +291,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
 
   const result = await withTransaction(async (tx) => {
     // 1. Insert retur header
-    const retur = await query.ret(db.insert(retur_penjualan).values({
+    const retur = await query.ret<typeof retur_penjualan.$inferSelect>(db.insert(retur_penjualan).values({
       no_retur: noRet,
       penjualan_id: body.penjualan_id,
       tanggal: tgl,
@@ -308,7 +308,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
     // 2. Detail item retur + kembalikan stok
     for (const item of itemsValidated) {
       await query.exec(db.insert(retur_penjualan_detail).values({
-        retur_id: retur.id,
+        retur_id: retur!.id!,
         barang_id: item.barang_id,
         satuan_id: item.satuan_id,
         jumlah_retur: item.jumlah_retur,
@@ -318,7 +318,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
         cabang_id: cabangId,
       }))
 
-      const br = await query.find(db.select({ stok: barang.stok_sekarang })
+      const br = await query.find<{ stok: number }>(db.select({ stok: barang.stok_sekarang })
         .from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
@@ -327,7 +327,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
         tanggal: tgl,
         jenis: 'masuk',
         referensi_tipe: 'retur_penjualan',
-        referensi_id: retur.id,
+        referensi_id: retur!.id,
         jumlah_sebelum: br.stok,
         jumlah_perubahan: item.jumlah_retur,
         jumlah_sesudah: br.stok + item.jumlah_retur,
@@ -350,7 +350,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
         jenis: 'keluar',
         kategori: 'retur_penjualan',
         referensi_tipe: 'retur_penjualan',
-        referensi_id: retur.id,
+        referensi_id: retur!.id,
         keterangan: `Refund retur ${noRet} dari ${trxAsal.no_transaksi}`,
         jumlah: totalRetur,
         dicatat_oleh: user.id,
@@ -361,7 +361,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
 
     // 4. Kurang piutang → kurangi sisa_piutang
     if (body.metode_refund === 'kurang_piutang') {
-      const piutang = await query.find(db.select().from(piutang_pelanggan)
+      const piutang = await query.find<typeof piutang_pelanggan.$inferSelect>(db.select().from(piutang_pelanggan)
         .where(eq(piutang_pelanggan.penjualan_id, body.penjualan_id))
       )
 
@@ -370,11 +370,11 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
         const statusBaru = sisaBaru === 0 ? 'lunas' : 'sebagian'
         await query.exec(db.update(piutang_pelanggan)
           .set({ sisa_piutang: sisaBaru, status: statusBaru })
-          .where(eq(piutang_pelanggan.id, piutang.id))
+          .where(eq(piutang_pelanggan.id, piutang.id!))
         )
 
         if (trxAsal.pelanggan_id) {
-          const plg = await query.find(db.select({ saldo: pelanggan.saldo_piutang })
+          const plg = await query.find<{ saldo: number }>(db.select({ saldo: pelanggan.saldo_piutang })
             .from(pelanggan).where(eq(pelanggan.id, trxAsal.pelanggan_id)))
           if (plg) {
             await query.exec(db.update(pelanggan)
@@ -390,7 +390,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
     if (body.metode_refund === 'tukar_barang' && tukarItemsValidated.length) {
       for (const ti of tukarItemsValidated) {
         await query.exec(db.insert(retur_penjualan_tukar).values({
-          retur_id: retur.id,
+          retur_id: retur!.id!,
           barang_id: ti.barang_id,
           satuan_id: ti.satuan_id,
           jumlah: ti.jumlah,
@@ -400,7 +400,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
           cabang_id: cabangId,
         }))
 
-        const brTukar = await query.find(db.select({ stok: barang.stok_sekarang })
+        const brTukar = await query.find<{ stok: number }>(db.select({ stok: barang.stok_sekarang })
           .from(barang).where(eq(barang.id, ti.barang_id)))
         if (!brTukar) throw new HTTPException(400, { message: `Barang pengganti ID ${ti.barang_id} tidak ditemukan` })
 
@@ -409,7 +409,7 @@ returPenjualanRouter.post('/', requirePermission('penjualan.void'), async (c) =>
           tanggal: tgl,
           jenis: 'keluar',
           referensi_tipe: 'retur_penjualan',
-          referensi_id: retur.id,
+          referensi_id: retur!.id,
           jumlah_sebelum: brTukar.stok,
           jumlah_perubahan: ti.jumlah,
           jumlah_sesudah: Math.max(0, brTukar.stok - ti.jumlah),
