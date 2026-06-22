@@ -70,8 +70,8 @@ kartuAnggotaRouter.post('/generate', requirePermission('penjualan.buat'), async 
       )
     } while (dupCheck)
 
-    const row = await query.ret(db.insert(kartu_anggota).values({ no_kartu, tier, diskon_member: diskon, tenant_id: tenantId }).returning())
-    hasil.push(row)
+    const row = await query.ret<typeof kartu_anggota.$inferSelect>(db.insert(kartu_anggota).values({ no_kartu, tier, diskon_member: diskon, tenant_id: tenantId }).returning())
+    hasil.push(row!)
   }
 
   return c.json({ success: true, data: hasil }, 201)
@@ -102,7 +102,7 @@ kartuAnggotaRouter.put('/:id', requirePermission('penjualan.buat'), async (c) =>
   const id   = Number(c.req.param('id'))
   const body = await c.req.json<{ tier?: 'reguler' | 'silver' | 'gold'; diskon_member?: number }>()
 
-  const existing = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
+  const existing = await query.find<typeof kartu_anggota.$inferSelect>(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!existing) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   const row = await query.find(db
@@ -122,7 +122,7 @@ kartuAnggotaRouter.patch('/:id/poin', requirePermission('penjualan.buat'), async
   const id   = Number(c.req.param('id'))
   const body = await c.req.json<{ delta: number }>()
 
-  const existing = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
+  const existing = await query.find<typeof kartu_anggota.$inferSelect>(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!existing) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   const poin_baru = Math.max(0, existing.poin + body.delta)
@@ -143,7 +143,7 @@ kartuAnggotaRouter.post('/:id/assign', requirePermission('penjualan.buat'), asyn
   const id   = Number(c.req.param('id'))
   const body = await c.req.json<{ pelanggan_id: number }>()
 
-  const kartu = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
+  const kartu = await query.find<typeof kartu_anggota.$inferSelect>(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!kartu) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
   if (!kartu.is_active) throw new HTTPException(400, { message: 'Kartu sudah tidak aktif' })
   if (kartu.pelanggan_id) throw new HTTPException(400, { message: 'Kartu sudah di-assign ke pelanggan lain' })
@@ -172,7 +172,7 @@ kartuAnggotaRouter.delete('/:id/assign', requirePermission('penjualan.buat'), as
   const user     = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const kartu = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
+  const kartu = await query.find<typeof kartu_anggota.$inferSelect>(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!kartu) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   await query.exec(db.update(kartu_anggota)
@@ -188,7 +188,7 @@ kartuAnggotaRouter.delete('/:id', requirePermission('penjualan.buat'), async (c)
   const user     = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const kartu = await query.find(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
+  const kartu = await query.find<typeof kartu_anggota.$inferSelect>(db.select().from(kartu_anggota).where(and(eq(kartu_anggota.tenant_id, tenantId), eq(kartu_anggota.id, id))))
   if (!kartu) throw new HTTPException(404, { message: 'Kartu tidak ditemukan' })
 
   await query.exec(db.update(kartu_anggota)
