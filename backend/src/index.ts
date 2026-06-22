@@ -62,6 +62,7 @@ import { fnbRouter } from './routes/fnb.ts'
 import { jasaRouter } from './routes/jasa.ts'
 import { bomRouter } from './routes/bom.ts'
 import { demoRouter } from './routes/demo.ts'
+import { onboardingRouter } from './routes/onboarding.ts'
 import { langgananMiddleware } from './middleware/langganan.ts'
 import { langgananRouter } from './routes/langganan.ts'
 import { initHooks } from './lib/hooks.ts'
@@ -171,6 +172,7 @@ app.route('/fnb', fnbRouter)
 app.route('/jasa', jasaRouter)
 app.route('/bom', bomRouter)
 app.route('/demo', demoRouter)
+app.route('/onboarding', onboardingRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 if (dialect === 'sqlite') {
