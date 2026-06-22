@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { setCookie, deleteCookie } from 'hono/cookie'
 import { HTTPException } from 'hono/http-exception'
 import { SignJWT } from 'jose'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { karyawan, toko, cabang } from '../db/schema.ts'
 import type { Role } from '../middleware/auth.ts'
@@ -127,4 +127,73 @@ authRouter.get('/me', authMiddleware, (c) => {
       cabang_id: user.cabang_id,
     },
   })
+})
+
+// Helper: ambil list toko+cabang yang boleh diakses user berdasarkan role
+async function getAccessibleContext(role: Role, tokoId: number) {
+  if (role !== 'pemilik' && role !== 'manajer') return []
+
+  const tokoList = role === 'pemilik'
+    ? await db.select({ id: toko.id, nama: toko.nama }).from(toko).where(eq(toko.is_active, true))
+    : await db.select({ id: toko.id, nama: toko.nama }).from(toko).where(and(eq(toko.id, tokoId), eq(toko.is_active, true)))
+
+  const result: { id: number; nama: string; cabang: { id: number; nama: string }[] }[] = []
+  for (const t of tokoList) {
+    if (!t.id) continue
+    const cabangList = await db
+      .select({ id: cabang.id, nama: cabang.nama })
+      .from(cabang)
+      .where(and(eq(cabang.toko_id, t.id), eq(cabang.is_active, true)))
+    result.push({ id: t.id, nama: t.nama, cabang: cabangList.map((c) => ({ id: c.id!, nama: c.nama })) })
+  }
+  return result
+}
+
+authRouter.get('/accessible-context', authMiddleware, async (c) => {
+  const user = c.get('user') as JWTPayload
+  const list = await getAccessibleContext(user.role, user.tenant_id)
+  return c.json({ success: true, data: list })
+})
+
+authRouter.post('/switch-context', authMiddleware, async (c) => {
+  const user = c.get('user') as JWTPayload
+  const body = await c.req.json<{ toko_id: number; cabang_id: number | null }>()
+
+  if (!body.toko_id) throw new HTTPException(400, { message: 'toko_id wajib diisi' })
+
+  const accessible = await getAccessibleContext(user.role, user.tenant_id)
+  const targetToko = accessible.find((t) => t.id === body.toko_id)
+  if (!targetToko) throw new HTTPException(403, { message: 'Tidak punya akses ke toko ini' })
+
+  if (body.cabang_id !== null && body.cabang_id !== undefined) {
+    const validCabang = targetToko.cabang.find((c) => c.id === body.cabang_id)
+    if (!validCabang) throw new HTTPException(403, { message: 'Cabang tidak ditemukan di toko ini' })
+  }
+
+  const newCabangId = body.cabang_id ?? null
+
+  const payload: JWTPayload = {
+    sub: String(user.id),
+    id: user.id,
+    nama: user.nama,
+    role: user.role,
+    kode_karyawan: user.kode_karyawan,
+    tenant_id: body.toko_id,
+    cabang_id: newCabangId,
+  }
+
+  const token = await new SignJWT(payload as Record<string, unknown>)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
+    .sign(JWT_SECRET)
+
+  setCookie(c, 'auth_token', token, {
+    httpOnly: true,
+    sameSite: 'Strict',
+    maxAge: COOKIE_MAX_AGE,
+    path: '/',
+  })
+
+  return c.json({ success: true, data: { tenant_id: body.toko_id, cabang_id: newCabangId } })
 })

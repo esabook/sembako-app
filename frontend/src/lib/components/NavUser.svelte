@@ -9,8 +9,14 @@
 	import Shrink from '@lucide/svelte/icons/shrink';
 	import ScanBarcode from '@lucide/svelte/icons/scan-barcode';
 	import Lightbulb from '@lucide/svelte/icons/lightbulb';
+	import Store from '@lucide/svelte/icons/store';
+	import Palette from '@lucide/svelte/icons/palette';
+	import ChevronRight from '@lucide/svelte/icons/chevron-right';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
 	let buka = $state(false);
+	let bukaKonteks = $state(false);
+	let bukaTema = $state(false);
 	let ref: HTMLDivElement;
 	let isFullscreen = $state(false);
 
@@ -33,6 +39,38 @@
 		gudang: 'Gudang'
 	};
 
+	type CabangItem = { id: number; nama: string };
+	type TokoItem = { id: number; nama: string; cabang: CabangItem[] };
+
+	let konteksList = $state<TokoItem[]>([]);
+	let loadingSwitch = $state(false);
+
+	const bisaSwitch = $derived($user?.role === 'pemilik' || $user?.role === 'manajer');
+
+	async function muatKonteks() {
+		if (konteksList.length > 0) return;
+		const res = await api.get<TokoItem[]>('/auth/accessible-context');
+		if (res.success) konteksList = res.data;
+	}
+
+	async function switchKonteks(tokoId: number, cabangId: number | null) {
+		if (loadingSwitch) return;
+		loadingSwitch = true;
+		try {
+			const res = await api.post<{ tenant_id: number; cabang_id: number | null }>(
+				'/auth/switch-context',
+				{ toko_id: tokoId, cabang_id: cabangId }
+			);
+			if (res.success) {
+				buka = false;
+				bukaKonteks = false;
+				location.reload();
+			}
+		} finally {
+			loadingSwitch = false;
+		}
+	}
+
 	async function logout() {
 		buka = false;
 		await api.post('/auth/logout', {});
@@ -41,7 +79,20 @@
 	}
 
 	function tutupJikaLuar(e: MouseEvent) {
-		if (ref && !ref.contains(e.target as Node)) buka = false;
+		if (ref && !ref.contains(e.target as Node)) {
+			buka = false;
+			bukaKonteks = false;
+			bukaTema = false;
+		}
+	}
+
+	function toggleKonteks() {
+		bukaKonteks = !bukaKonteks;
+		if (bukaKonteks) muatKonteks();
+	}
+
+	function toggleTema() {
+		bukaTema = !bukaTema;
 	}
 
 	onMount(() => {
@@ -56,11 +107,10 @@
 
 <div class="relative" bind:this={ref}>
 	<button
-		onclick={() => (buka = !buka)}
+		onclick={() => { buka = !buka; if (!buka) bukaKonteks = false; }}
 		class="flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors"
 		style="color:var(--text-dim)"
 	>
-		<!-- Ikon user sederhana -->
 		<span
 			class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[0.7em] font-bold"
 			style="background:var(--surface2);color:var(--accent)"
@@ -92,41 +142,117 @@
 				</div>
 			</div>
 
-			<!-- Pilihan tema -->
-			<div class="border-b px-3 py-2" style="border-color:var(--border)">
-				<div class="mb-1.5 flex items-center justify-between">
-					<span class="text-[0.7em] tracking-wider uppercase" style="color:var(--text-dim)"
-						>Tema</span
+			<!-- Sub-dropdown: Toko & Cabang — hanya pemilik & manajer -->
+			{#if bisaSwitch}
+				<div class="border-b" style="border-color:var(--border)">
+					<button
+						onclick={toggleKonteks}
+						class="flex w-full items-center justify-between px-3 py-2 text-xs transition-colors"
+						style="color:var(--text-dim)"
 					>
-					<div class="flex gap-0.5">
-						{#each MODE_LIST as m (m.nilai)}
-							<button
-								onclick={() => temaMode.set(m.nilai)}
-								title={m.label}
-								class="rounded px-1.5 py-0.5 text-xs transition-colors"
-								style={$temaMode === m.nilai
-									? 'background:var(--surface2);color:var(--accent)'
-									: 'color:var(--text-dim)'}
-							>
-								{m.ikon}
-							</button>
-						{/each}
+						<span class="flex items-center gap-1.5">
+							<Store size="0.85rem" />
+							Toko &amp; Cabang
+						</span>
+						{#if bukaKonteks}
+							<ChevronDown size="0.85rem" />
+						{:else}
+							<ChevronRight size="0.85rem" />
+						{/if}
+					</button>
+
+					{#if bukaKonteks}
+						<div class="border-t pb-1.5" style="border-color:var(--border)">
+							{#if konteksList.length === 0}
+								<div class="px-3 py-2 text-[0.7em]" style="color:var(--text-dim)">Memuat…</div>
+							{:else}
+								{#each konteksList as t (t.id)}
+									<div>
+										<button
+											onclick={() => switchKonteks(t.id, null)}
+											disabled={loadingSwitch}
+											class="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium transition-colors"
+											style={$user?.tenant_id === t.id && $user?.cabang_id === null
+												? 'color:var(--accent);background:var(--surface2)'
+												: 'color:var(--text)'}
+										>
+											<span class="text-[0.6em]">{$user?.tenant_id === t.id ? '●' : '○'}</span>
+											{t.nama}
+										</button>
+										{#each t.cabang as cb (cb.id)}
+											<button
+												onclick={() => switchKonteks(t.id, cb.id)}
+												disabled={loadingSwitch}
+												class="flex w-full items-center gap-1.5 py-1 pl-7 pr-3 text-left text-[0.7em] transition-colors"
+												style={$user?.tenant_id === t.id && $user?.cabang_id === cb.id
+													? 'color:var(--accent)'
+													: 'color:var(--text-dim)'}
+											>
+												<span>{$user?.tenant_id === t.id && $user?.cabang_id === cb.id ? '✓' : '·'}</span>
+												{cb.nama}
+											</button>
+										{/each}
+									</div>
+								{/each}
+							{/if}
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			<!-- Pilihan tema — sub-dropdown -->
+			<div class="border-b" style="border-color:var(--border)">
+				<button
+					onclick={toggleTema}
+					class="flex w-full items-center justify-between px-3 py-2 text-xs transition-colors"
+					style="color:var(--text-dim)"
+				>
+					<span class="flex items-center gap-1.5">
+						<Palette size="0.85rem" />
+						Tema
+					</span>
+					{#if bukaTema}
+						<ChevronDown size="0.85rem" />
+					{:else}
+						<ChevronRight size="0.85rem" />
+					{/if}
+				</button>
+
+				{#if bukaTema}
+					<div class="border-t px-3 pb-2 pt-1.5" style="border-color:var(--border)">
+						<div class="mb-1.5 flex items-center justify-between">
+							<span class="text-[0.65em] tracking-wider uppercase" style="color:var(--text-dim)">Mode</span>
+							<div class="flex gap-0.5">
+								{#each MODE_LIST as m (m.nilai)}
+									<button
+										onclick={() => temaMode.set(m.nilai)}
+										title={m.label}
+										class="rounded px-1.5 py-0.5 text-xs transition-colors"
+										style={$temaMode === m.nilai
+											? 'background:var(--surface2);color:var(--accent)'
+											: 'color:var(--text-dim)'}
+									>
+										{m.ikon}
+									</button>
+								{/each}
+							</div>
+						</div>
+						<div class="flex flex-col gap-0.5">
+							{#each SKIN_LIST as s (s.nilai)}
+								<button
+									onclick={() => temaSkin.set(s.nilai)}
+									class="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors"
+									style={$temaSkin === s.nilai
+										? 'background:var(--surface2);color:var(--accent)'
+										: 'color:var(--text-dim)'}
+								>
+									<span>{s.label}</span>
+									<span class="text-[0.7em]" style="color:var(--text-dim)">{s.deskripsi}</span>
+								</button>
+							{/each}
+						</div>
 					</div>
-				</div>
-				<div class="flex flex-col gap-0.5">
-					{#each SKIN_LIST as s (s.nilai)}
-						<button
-							onclick={() => temaSkin.set(s.nilai)}
-							class="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors"
-							style={$temaSkin === s.nilai
-								? 'background:var(--surface2);color:var(--accent)'
-								: 'color:var(--text-dim)'}
-						>
-							<span>{s.label}</span>
-							<span class="text-[0.7em]" style="color:var(--text-dim)">{s.deskripsi}</span>
-						</button>
-					{/each}
-				</div>
+				{/if}
 			</div>
 
 			<!-- Scanner + Fullscreen + Keluar -->
@@ -155,7 +281,6 @@
 					{/if}
 				</button>
 
-				<!-- Tombol panduan -->
 				<a
 					href="/panduan"
 					target="_blank"

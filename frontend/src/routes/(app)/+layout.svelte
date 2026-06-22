@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { user } from '$lib/stores/auth.js';
 	import { api } from '$lib/utils/api.js';
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { font, FONT_CSS } from '$lib/stores/font.js';
 	import { ukuranFont } from '$lib/stores/ukuran-font.js';
@@ -32,18 +31,22 @@
 		goto('/kasir');
 	}
 
-	onMount(() => {
+	$effect(() => {
+		const cabangId = $user?.cabang_id;
+
 		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
 			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
 		});
-		const u = data.user;
-		if (u?.cabang_id) {
+
+		if (cabangId) {
 			api.get<{ id: number; nama: string }[]>('/toko/cabang').then((res) => {
 				if (res.success) {
-					const cab = res.data.find((c) => c.id === u.cabang_id);
-					if (cab) namaCabang = cab.nama;
+					const cab = res.data.find((c) => c.id === cabangId);
+					namaCabang = cab ? cab.nama : '';
 				}
 			});
+		} else {
+			namaCabang = '';
 		}
 	});
 </script>
