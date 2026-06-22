@@ -43,17 +43,17 @@ keuanganRouter.get('/kas-bank/saldo', requirePermission('hutang.lihat'), async (
     and(eq(kas_bank.is_active, true), eq(kas_bank.tenant_id, tenantId), cabangId ? eq(kas_bank.cabang_id, cabangId) : undefined)
   ))
 
-  const saldoList = await Promise.all(rows.map(async (kb) => {
-    const masuk = (await query.find(db
+  const saldoList = await Promise.all((rows as (typeof kas_bank.$inferSelect)[]).map(async (kb) => {
+    const masuk = (await query.find<{ total: number }>(db
       .select({ total: sql<number>`COALESCE(SUM(jumlah), 0)` })
       .from(jurnal_kas)
-      .where(and(eq(jurnal_kas.kas_bank_id, kb.id), eq(jurnal_kas.jenis, 'masuk')))
+      .where(and(eq(jurnal_kas.kas_bank_id, kb.id!), eq(jurnal_kas.jenis, 'masuk')))
     ))?.total ?? 0
 
-    const keluar = (await query.find(db
+    const keluar = (await query.find<{ total: number }>(db
       .select({ total: sql<number>`COALESCE(SUM(jumlah), 0)` })
       .from(jurnal_kas)
-      .where(and(eq(jurnal_kas.kas_bank_id, kb.id), eq(jurnal_kas.jenis, 'keluar')))
+      .where(and(eq(jurnal_kas.kas_bank_id, kb.id!), eq(jurnal_kas.jenis, 'keluar')))
     ))?.total ?? 0
 
     return {
@@ -96,7 +96,7 @@ keuanganRouter.put('/kas-bank/:id', requirePermission('hutang.edit'), async (c) 
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ nama?: string; saldo_awal?: number }>()
 
-  const kb = await query.find(db.select().from(kas_bank).where(and(eq(kas_bank.id, id), eq(kas_bank.tenant_id, tenantId))))
+  const kb = await query.find<typeof kas_bank.$inferSelect>(db.select().from(kas_bank).where(and(eq(kas_bank.id, id), eq(kas_bank.tenant_id, tenantId))))
   if (!kb) throw new HTTPException(404, { message: 'Akun tidak ditemukan' })
 
   const row = await query.ret(db.update(kas_bank)
@@ -182,7 +182,7 @@ keuanganRouter.post('/hutang/:id/bayar', requirePermission('hutang.edit'), async
   if (!body.kas_bank_id)
     throw new HTTPException(400, { message: 'Pilih akun kas/bank' })
 
-  const hutang = await query.find(db.select().from(hutang_supplier).where(and(eq(hutang_supplier.id, id), eq(hutang_supplier.tenant_id, tenantId))))
+  const hutang = await query.find<typeof hutang_supplier.$inferSelect>(db.select().from(hutang_supplier).where(and(eq(hutang_supplier.id, id), eq(hutang_supplier.tenant_id, tenantId))))
   if (!hutang) throw new HTTPException(404, { message: 'Hutang tidak ditemukan' })
   if (hutang.status === 'lunas') throw new HTTPException(400, { message: 'Hutang sudah lunas' })
 
@@ -286,7 +286,7 @@ keuanganRouter.post('/piutang/:id/bayar', requirePermission('piutang.edit'), asy
   if (!body.kas_bank_id)
     throw new HTTPException(400, { message: 'Pilih akun kas/bank' })
 
-  const piutang = await query.find(db.select().from(piutang_pelanggan).where(and(eq(piutang_pelanggan.id, id), eq(piutang_pelanggan.tenant_id, tenantId))))
+  const piutang = await query.find<typeof piutang_pelanggan.$inferSelect>(db.select().from(piutang_pelanggan).where(and(eq(piutang_pelanggan.id, id), eq(piutang_pelanggan.tenant_id, tenantId))))
   if (!piutang) throw new HTTPException(404, { message: 'Piutang tidak ditemukan' })
   if (piutang.status === 'lunas') throw new HTTPException(400, { message: 'Piutang sudah lunas' })
 
@@ -415,7 +415,7 @@ keuanganRouter.post('/jurnal', requirePermission('hutang.edit'), async (c) => {
 keuanganRouter.get('/rekonsiliasi-piutang', requirePermission('piutang.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const aktual = await query.findAll(db
+  const aktual = await query.findAll<{ pelanggan_id: number; nama: string; saldo_tersimpan: number; saldo_aktual: number }>(db
     .select({
       pelanggan_id: pelanggan.id,
       nama: pelanggan.nama,
@@ -457,7 +457,7 @@ keuanganRouter.get('/rekonsiliasi-piutang', requirePermission('piutang.edit'), a
 keuanganRouter.post('/rekonsiliasi-piutang', requirePermission('piutang.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const aktual = await query.findAll(db
+  const aktual = await query.findAll<{ pelanggan_id: number; saldo_aktual: number }>(db
     .select({
       pelanggan_id: pelanggan.id,
       saldo_aktual: sql<number>`COALESCE(SUM(${piutang_pelanggan.sisa_piutang}), 0)`,

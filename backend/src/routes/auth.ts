@@ -74,7 +74,7 @@ authRouter.post('/login', async (c) => {
     throw new HTTPException(400, { message: 'Username dan password wajib diisi' })
   }
 
-  const user = await query.find(db
+  const user = await query.find<typeof karyawan.$inferSelect>(db
     .select()
     .from(karyawan)
     .where(eq(karyawan.username, body.username))
@@ -93,7 +93,7 @@ authRouter.post('/login', async (c) => {
 
   const payload: JWTPayload = {
     sub: String(user.id),
-    id: user.id,
+    id: user.id!,
     nama: user.nama,
     role: user.role,
     kode_karyawan: user.kode_karyawan,
@@ -287,7 +287,7 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 
   const payload: JWTPayload = {
     sub: String(user.id),
-    id: user.id,
+    id: user.id!,
     nama: user.nama,
     role: user.role,
     kode_karyawan: user.kode_karyawan,

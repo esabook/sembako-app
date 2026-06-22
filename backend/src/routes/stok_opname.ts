@@ -59,7 +59,7 @@ stokOpnameRouter.get('/:id', requirePermission('stok.lihat'), async (c) => {
   )))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
 
-  const items = await query.findAll(db
+  const items = await query.findAll<{ id: number; barang_id: number; kode_barang: string | null; nama_barang: string | null; nama_kategori: string | null; nama_satuan: string | null; singkatan_satuan: string | null; lokasi_rak: string | null; stok_sistem: number; stok_fisik: number | null; selisih: number | null; alasan_selisih: string | null }>(db
     .select({
       id: stok_opname_detail.id,
       barang_id: stok_opname_detail.barang_id,
@@ -95,7 +95,7 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
   const cabangId = user.cabang_id ?? 1
 
   // Cek tidak ada opname aktif (draft/proses) di cabang ini
-  const aktif = await query.find(db
+  const aktif = await query.find<typeof stok_opname.$inferSelect>(db
     .select()
     .from(stok_opname)
     .where(and(
@@ -104,7 +104,7 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
       eq(stok_opname.cabang_id, cabangId),
     ))
     )
-    ?? await query.find(db.select().from(stok_opname).where(and(
+    ?? await query.find<typeof stok_opname.$inferSelect>(db.select().from(stok_opname).where(and(
       eq(stok_opname.status, 'proses'),
       eq(stok_opname.tenant_id, tenantId),
       eq(stok_opname.cabang_id, cabangId),
@@ -119,16 +119,16 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
   const tgl = tglSekarang()
 
   const opname = await withTransaction(async (tx) => {
-    const op = await query.ret(db.insert(stok_opname).values({
+    const op = (await query.ret<{ id: number }>(db.insert(stok_opname).values({
       no_opname: noOpname(),
       tanggal_mulai: tgl,
       status: 'proses',
       tenant_id: tenantId,
       cabang_id: cabangId,
-    }).returning())
+    }).returning()))!
 
     // Snapshot semua barang aktif milik toko ini
-    const semuaBarang = await query.findAll(db
+    const semuaBarang = await query.findAll<{ id: number; stok_sekarang: number }>(db
       .select({ id: barang.id, stok_sekarang: barang.stok_sekarang })
       .from(barang)
       .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
@@ -171,7 +171,7 @@ stokOpnameRouter.put('/:id/item/:itemId', requirePermission('stok.edit'), async 
   )))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
 
-  const item = await query.find(db
+  const item = await query.find<typeof stok_opname_detail.$inferSelect>(db
     .select()
     .from(stok_opname_detail)
     .where(eq(stok_opname_detail.id, itemId))
@@ -202,14 +202,14 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
   const cabangId = user.cabang_id ?? 1
   const id = Number(c.req.param('id'))
 
-  const op = await query.find(db.select().from(stok_opname).where(and(
+  const op = await query.find<typeof stok_opname.$inferSelect>(db.select().from(stok_opname).where(and(
     eq(stok_opname.id, id),
     eq(stok_opname.tenant_id, tenantId),
   )))
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
   if (op.status === 'approved') throw new HTTPException(400, { message: 'Opname sudah diapprove' })
 
-  const items = await query.findAll(db
+  const items = await query.findAll<typeof stok_opname_detail.$inferSelect>(db
     .select()
     .from(stok_opname_detail)
     .where(eq(stok_opname_detail.opname_id, id))
@@ -225,7 +225,7 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
     for (const item of items) {
       if (item.selisih === null || item.selisih === 0) continue
 
-      const br = await query.find(db.select().from(barang).where(eq(barang.id, item.barang_id)))
+      const br = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) continue
 
       await query.exec(db.insert(mutasi_stok).values({
@@ -269,7 +269,7 @@ stokOpnameRouter.delete('/:id', requirePermission('stok.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const op = await query.find(db.select().from(stok_opname).where(and(
+  const op = await query.find<typeof stok_opname.$inferSelect>(db.select().from(stok_opname).where(and(
     eq(stok_opname.id, id),
     eq(stok_opname.tenant_id, tenantId),
   )))

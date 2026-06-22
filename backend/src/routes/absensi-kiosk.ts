@@ -43,7 +43,7 @@ absensiKioskRouter.post('/check-pin', async (c) => {
     throw new HTTPException(400, { message: 'PIN harus 4 digit angka' })
   }
 
-  const k = await query.find(db
+  const k = await query.find<{ id: number; nama: string; role: string; pin_absensi: string | null; toko_id: number | null }>(db
     .select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role, pin_absensi: karyawan.pin_absensi, toko_id: karyawan.toko_id })
     .from(karyawan)
     .where(and(eq(karyawan.id, body.karyawan_id), eq(karyawan.is_active, true)))
@@ -54,7 +54,7 @@ absensiKioskRouter.post('/check-pin', async (c) => {
 
   const { tanggal } = getWaktuJakarta()
   const tenantId = k.toko_id ?? 1
-  const existing = await query.find(db
+  const existing = await query.find<{ jam_masuk: string | null; jam_keluar: string | null }>(db
     .select({ jam_masuk: absensi.jam_masuk, jam_keluar: absensi.jam_keluar })
     .from(absensi)
     .where(and(eq(absensi.karyawan_id, k.id), eq(absensi.tanggal, tanggal), eq(absensi.tenant_id, tenantId)))
@@ -84,7 +84,7 @@ absensiKioskRouter.post('/masuk', async (c) => {
     return c.json({ success: false, error: beforeResult.reason, data: beforeResult.data }, 428)
   }
 
-  const k2 = await query.find(db
+  const k2 = await query.find<{ toko_id: number | null }>(db
     .select({ toko_id: karyawan.toko_id })
     .from(karyawan)
     .where(eq(karyawan.id, body.karyawan_id))
@@ -98,7 +98,7 @@ absensiKioskRouter.post('/masuk', async (c) => {
     )
   if (existing) throw new HTTPException(409, { message: 'Sudah clock in hari ini' })
 
-  const jadwal = await query.find(db
+  const jadwal = await query.find<{ jam_mulai: string; nama: string }>(db
     .select({ jam_mulai: tipe_shift.jam_mulai, nama: tipe_shift.nama })
     .from(jadwal_kerja)
     .innerJoin(tipe_shift, eq(jadwal_kerja.tipe_shift_id, tipe_shift.id))
@@ -138,10 +138,10 @@ absensiKioskRouter.post('/pulang', async (c) => {
 
   const { tanggal, jam } = getWaktuJakarta()
 
-  const kp = await query.find(db.select({ toko_id: karyawan.toko_id }).from(karyawan).where(eq(karyawan.id, body.karyawan_id)))
+  const kp = await query.find<{ toko_id: number | null }>(db.select({ toko_id: karyawan.toko_id }).from(karyawan).where(eq(karyawan.id, body.karyawan_id)))
   const tenantId = kp?.toko_id ?? 1
 
-  const existing = await query.find(db
+  const existing = await query.find<{ id: number; jam_keluar: string | null }>(db
     .select({ id: absensi.id, jam_keluar: absensi.jam_keluar })
     .from(absensi)
     .where(and(eq(absensi.karyawan_id, body.karyawan_id), eq(absensi.tanggal, tanggal), eq(absensi.tenant_id, tenantId)))
