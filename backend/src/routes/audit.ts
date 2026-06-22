@@ -50,7 +50,7 @@ auditRouter.get('/', async (c) => {
     .offset(offset)
     )
 
-  const total = (await query.find(db.select({ n: sql<number>`count(*)` })
+  const total = (await query.find<{ n: number }>(db.select({ n: sql<number>`count(*)` })
     .from(log_aktivitas)
     .leftJoin(karyawan, eq(log_aktivitas.karyawan_id, karyawan.id))
     .where(where)
@@ -76,7 +76,7 @@ auditRouter.get('/export', async (c) => {
   if (q.sampai)      conditions.push(lte(log_aktivitas.waktu, q.sampai + ' 23:59:59'))
   const where = and(...conditions)
 
-  const rows = await query.findAll(db.select({
+  const rows = await query.findAll<{ id: number; waktu: string; aksi: string; modul: string; referensi_id: number | null; detail_json: unknown; nama_karyawan: string | null; role_karyawan: string | null; ip_address: string | null }>(db.select({
     id:            log_aktivitas.id,
     waktu:         log_aktivitas.waktu,
     aksi:          log_aktivitas.aksi,
@@ -131,7 +131,7 @@ auditRouter.get('/karyawan-list', async (c) => {
 auditRouter.get('/modul-list', async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const rows = await query.findAll(db.selectDistinct({ modul: log_aktivitas.modul })
+  const rows = await query.findAll<{ modul: string }>(db.selectDistinct({ modul: log_aktivitas.modul })
     .from(log_aktivitas)
     .leftJoin(karyawan, eq(log_aktivitas.karyawan_id, karyawan.id))
     .where(eq(karyawan.toko_id, tenantId))
