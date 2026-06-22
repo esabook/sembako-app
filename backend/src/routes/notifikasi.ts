@@ -30,7 +30,7 @@ const JENIS_DEFAULT = [
 notifikasiRouter.get('/config', async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const rows = await query.findAll(db.select().from(notifikasi_config).where(eq(notifikasi_config.tenant_id, tenantId)))
+  const rows = await query.findAll<typeof notifikasi_config.$inferSelect>(db.select().from(notifikasi_config).where(eq(notifikasi_config.tenant_id, tenantId)))
   const byJenis = Object.fromEntries(rows.map(r => [r.jenis, r]))
 
   const result = JENIS_DEFAULT.map(def => ({
@@ -129,14 +129,14 @@ notifikasiRouter.post('/log', requirePermission('absensi.diri'), async (c) => {
 notifikasiRouter.get('/check', async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const configs = await query.findAll(db.select().from(notifikasi_config).where(and(eq(notifikasi_config.aktif, true), eq(notifikasi_config.tenant_id, tenantId))))
+  const configs = await query.findAll<typeof notifikasi_config.$inferSelect>(db.select().from(notifikasi_config).where(and(eq(notifikasi_config.aktif, true), eq(notifikasi_config.tenant_id, tenantId))))
   const alerts: { jenis: string; pesan: string; referensi_tipe: string; referensi_id: number }[] = []
 
   for (const cfg of configs) {
     if (cfg.jenis === 'stok_habis') {
       const items = db.query.barang?.findMany?.({ where: (b: any, { eq: eq2 }: any) => eq2(b.is_active, 1) }) ?? []
       // Gunakan raw query karena relational query belum di-setup
-      const stmt = await query.findAll(db.select({
+      const stmt = await query.findAll<{ id: number; nama_barang: string; stok_sekarang: number }>(db.select({
         id: barang.id,
         nama_barang: barang.nama_barang,
         stok_sekarang: barang.stok_sekarang,
@@ -155,7 +155,7 @@ notifikasiRouter.get('/check', async (c) => {
     }
 
     if (cfg.jenis === 'stok_kritis') {
-      const stmt = await query.findAll(db.select({
+      const stmt = await query.findAll<{ id: number; nama_barang: string; stok_sekarang: number; stok_minimum: number }>(db.select({
         id: barang.id,
         nama_barang: barang.nama_barang,
         stok_sekarang: barang.stok_sekarang,
@@ -182,7 +182,7 @@ notifikasiRouter.get('/check', async (c) => {
       batas.setDate(batas.getDate() + threshold)
       const batasStr = batas.toISOString().slice(0, 10)
 
-      const rows = await query.findAll(db.select({
+      const rows = await query.findAll<{ id: number; sisa_hutang: number; tanggal_jatuh_tempo: string | null }>(db.select({
         id: hutang_supplier.id,
         sisa_hutang: hutang_supplier.sisa_hutang,
         tanggal_jatuh_tempo: hutang_supplier.tanggal_jatuh_tempo,
@@ -206,7 +206,7 @@ notifikasiRouter.get('/check', async (c) => {
       batas.setDate(batas.getDate() - threshold)
       const batasStr = batas.toISOString().slice(0, 10)
 
-      const rows = await query.findAll(db.select({
+      const rows = await query.findAll<{ id: number; sisa_piutang: number; tanggal_jatuh_tempo: string | null }>(db.select({
         id: piutang_pelanggan.id,
         sisa_piutang: piutang_pelanggan.sisa_piutang,
         tanggal_jatuh_tempo: piutang_pelanggan.tanggal_jatuh_tempo,
