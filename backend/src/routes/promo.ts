@@ -21,8 +21,8 @@ function tglHariIni(): string {
 promoRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const rows = await query.findAll(db.select().from(promo).where(eq(promo.tenant_id, tenantId)).orderBy(promo.created_at))
-  const targets = await query.findAll(db.select().from(promo_target))
+  const rows = await query.findAll<typeof promo.$inferSelect>(db.select().from(promo).where(eq(promo.tenant_id, tenantId)).orderBy(promo.created_at))
+  const targets = await query.findAll<typeof promo_target.$inferSelect>(db.select().from(promo_target))
 
   const data = rows.map((p) => ({
     ...p,
@@ -39,7 +39,7 @@ promoRouter.get('/aktif', requirePermission('penjualan.lihat'), async (c) => {
   const tenantId = user.tenant_id ?? 1
   const hari = tglHariIni()
 
-  const rows = await query.findAll(db.select().from(promo).where(
+  const rows = await query.findAll<typeof promo.$inferSelect>(db.select().from(promo).where(
     and(
       eq(promo.tenant_id, tenantId),
       eq(promo.aktif, true),
@@ -50,7 +50,7 @@ promoRouter.get('/aktif', requirePermission('penjualan.lihat'), async (c) => {
   ))
 
   const targets = rows.length > 0
-    ? await query.findAll(db.select().from(promo_target).where(
+    ? await query.findAll<typeof promo_target.$inferSelect>(db.select().from(promo_target).where(
         sql`${promo_target.promo_id} IN (${sql.join(rows.map((r) => sql`${r.id}`), sql`, `)})`
       ))
     : []
@@ -102,7 +102,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   if (body.tipe_nilai === 'persen' && body.nilai > 100) throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
   const hasil = await withTransaction(async (tx) => {
-    const p = await query.ret(db.insert(promo).values({
+    const p = (await query.ret<{ id: number }>(db.insert(promo).values({
       tenant_id: tenantId,
       nama: body.nama,
       deskripsi: body.deskripsi,
@@ -115,7 +115,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       berlaku_sampai: body.berlaku_sampai,
       max_penggunaan: body.max_penggunaan,
       dibuat_oleh: user.id,
-    }).returning())
+    }).returning()))!
 
     if (body.targets?.length) {
       for (const t of body.targets) {
@@ -135,7 +135,7 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(promo).where(and(eq(promo.id, id), eq(promo.tenant_id, tenantId))))
+  const existing = await query.find<typeof promo.$inferSelect>(db.select().from(promo).where(and(eq(promo.id, id), eq(promo.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Promo tidak ditemukan' })
 
   const body = await c.req.json<{
