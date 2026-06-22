@@ -182,7 +182,7 @@ absensiRouter.put('/:id', requireAbsensiAkses(), async (c) => {
     status?: 'hadir' | 'izin' | 'sakit' | 'alpa'
   }>()
 
-  const existing = await query.find(db.select().from(absensi).where(and(eq(absensi.id, id), eq(absensi.tenant_id, tenantId))))
+  const existing = await query.find<typeof absensi.$inferSelect>(db.select().from(absensi).where(and(eq(absensi.id, id), eq(absensi.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Absensi tidak ditemukan' })
   if (!canSemua && existing.karyawan_id !== user.id) {
     throw new HTTPException(403, { message: 'Hanya bisa edit absensi diri sendiri' })
