@@ -61,7 +61,7 @@ barangMasukRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) =>
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const bm = await query.find(db.select().from(barang_masuk).where(and(eq(barang_masuk.id, id), eq(barang_masuk.tenant_id, tenantId))))
+  const bm = await query.find<typeof barang_masuk.$inferSelect>(db.select().from(barang_masuk).where(and(eq(barang_masuk.id, id), eq(barang_masuk.tenant_id, tenantId))))
   if (!bm) throw new HTTPException(404, { message: 'Penerimaan tidak ditemukan' })
 
   const items = await query.findAll(db
@@ -109,7 +109,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
   if (!body.supplier_id) throw new HTTPException(400, { message: 'Supplier wajib dipilih' })
   if (!body.items?.length) throw new HTTPException(400, { message: 'Item barang kosong' })
 
-  const sup = await query.find(db.select().from(supplier).where(and(eq(supplier.id, body.supplier_id), eq(supplier.tenant_id, tenantId))))
+  const sup = await query.find<typeof supplier.$inferSelect>(db.select().from(supplier).where(and(eq(supplier.id, body.supplier_id), eq(supplier.tenant_id, tenantId))))
   if (!sup) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
 
   const tgl = body.tanggal_terima ?? tglSekarang()
@@ -124,7 +124,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
   const result = await withTransaction(async (tx) => {
     // 1. Buat barang_masuk header
-    const bm = await query.ret(db.insert(barang_masuk).values({
+    const bm = (await query.ret<{ id: number }>(db.insert(barang_masuk).values({
       no_penerimaan: noTrx,
       po_id: body.po_id,
       supplier_id: body.supplier_id,
@@ -133,11 +133,11 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
       total_nilai: totalNilai,
       diterima_oleh: user.id,
       tenant_id: tenantId,
-    }).returning())
+    }).returning()))!
 
     // 2. Detail + mutasi stok
     for (const item of body.items) {
-      const br = await query.find(db.select().from(barang).where(and(eq(barang.id, item.barang_id), eq(barang.tenant_id, tenantId))))
+      const br = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(and(eq(barang.id, item.barang_id), eq(barang.tenant_id, tenantId))))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
       await query.exec(db.insert(barang_masuk_detail).values({
