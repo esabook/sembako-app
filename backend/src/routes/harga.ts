@@ -31,7 +31,7 @@ hargaRouter.get('/', requirePermission('harga_jual.lihat'), async (c) => {
   const q = c.req.query('q')
   const kategori_id = c.req.query('kategori_id')
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ id: number; kode_barang: string; nama_barang: string; harga_beli_terakhir: number; harga_jual_eceran: number; harga_jual_grosir: number; stok_sekarang: number; kategori_id: number | null; nama_kategori: string | null; nama_satuan: string | null; singkatan_satuan: string | null }>(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -167,7 +167,7 @@ hargaRouter.post('/simulasi', requirePermission('harga_jual.lihat'), async (c) =
     return c.json({ success: false, error: 'Pilih minimal 1 barang' }, 400)
   }
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ id: number; nama_barang: string; kode_barang: string; harga_jual_eceran: number; harga_jual_grosir: number; harga_beli_terakhir: number }>(db
     .select({
       id: barang.id,
       nama_barang: barang.nama_barang,
@@ -233,7 +233,7 @@ hargaRouter.post('/massal', requirePermission('harga_jual.edit'), async (c) => {
   let updated = 0
 
   for (const id of body.barang_ids) {
-    const b = await query.find(db.select().from(barang).where(and(eq(barang.id, id), eq(barang.tenant_id, tenantId))))
+    const b = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(and(eq(barang.id, id), eq(barang.tenant_id, tenantId))))
     if (!b) continue
 
     let eceran_baru: number
