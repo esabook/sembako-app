@@ -191,7 +191,7 @@ jadwalRouter.post('/tukar', requirePermission('karyawan.lihat'), async (c) => {
     throw new HTTPException(400, { message: 'jadwal_id dan penerima_id wajib' })
 
   // Validasi jadwal milik pengaju
-  const jadwal = await query.find(db.select({ id: jadwal_kerja.id, karyawan_id: jadwal_kerja.karyawan_id })
+  const jadwal = await query.find<{ id: number; karyawan_id: number }>(db.select({ id: jadwal_kerja.id, karyawan_id: jadwal_kerja.karyawan_id })
     .from(jadwal_kerja).where(eq(jadwal_kerja.id, body.jadwal_id)))
   if (!jadwal) throw new HTTPException(404, { message: 'Jadwal tidak ditemukan' })
   if (jadwal.karyawan_id !== user.id && !['pemilik', 'manajer'].includes(user.role))
@@ -215,13 +215,13 @@ jadwalRouter.put('/tukar/:id/setujui', requirePermission('karyawan.edit'), async
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ catatan?: string }>().catch(() => ({}))
-  const req = await query.find(db.select().from(tukar_shift).where(and(eq(tukar_shift.id, id), eq(tukar_shift.tenant_id, tenantId))))
+  const req = await query.find<typeof tukar_shift.$inferSelect>(db.select().from(tukar_shift).where(and(eq(tukar_shift.id, id), eq(tukar_shift.tenant_id, tenantId))))
   if (!req) throw new HTTPException(404, { message: 'Permintaan tukar shift tidak ditemukan' })
   if (req.status !== 'menunggu') throw new HTTPException(400, { message: 'Permintaan sudah diproses' })
 
   // Validasi jadwal penerima benar-benar milik penerima_id
   if (req.jadwal_penerima_id) {
-    const jp = await query.find(db.select({ karyawan_id: jadwal_kerja.karyawan_id })
+    const jp = await query.find<{ karyawan_id: number }>(db.select({ karyawan_id: jadwal_kerja.karyawan_id })
       .from(jadwal_kerja).where(eq(jadwal_kerja.id, req.jadwal_penerima_id)))
     if (!jp || jp.karyawan_id !== req.penerima_id)
       throw new HTTPException(400, { message: 'Jadwal penerima tidak valid' })
@@ -251,7 +251,7 @@ jadwalRouter.put('/tukar/:id/tolak', requirePermission('karyawan.edit'), async (
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ catatan?: string }>().catch(() => ({}))
-  const req = await query.find(db.select({ id: tukar_shift.id, status: tukar_shift.status })
+  const req = await query.find<{ id: number; status: string }>(db.select({ id: tukar_shift.id, status: tukar_shift.status })
     .from(tukar_shift).where(and(eq(tukar_shift.id, id), eq(tukar_shift.tenant_id, tenantId))))
   if (!req) throw new HTTPException(404, { message: 'Permintaan tukar shift tidak ditemukan' })
   if (req.status !== 'menunggu') throw new HTTPException(400, { message: 'Permintaan sudah diproses' })
