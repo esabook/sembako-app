@@ -51,7 +51,7 @@ stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) =>
   const tujuhHariLalu = new Date(Date.now() - 7 * 86400000)
     .toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const velRows = await query.findAll(db
+  const velRows = await query.findAll<{ barang_id: number; total_qty: number }>(db
     .select({
       barang_id: penjualan_detail.barang_id,
       total_qty: sql<number>`SUM(${penjualan_detail.jumlah})`,
@@ -69,7 +69,7 @@ stokRouter.get('/alert-prediktif', requirePermission('stok.lihat'), async (c) =>
 
   const velMap = new Map(velRows.map(r => [r.barang_id, r.total_qty / 7]))
 
-  const barangList = await query.findAll(db
+  const barangList = await query.findAll<{ id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; satuan: string | null }>(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
@@ -148,7 +148,7 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
   if (body.stok_baru < 0) throw new HTTPException(400, { message: 'Stok tidak boleh negatif' })
   if (!body.alasan?.trim()) throw new HTTPException(400, { message: 'Alasan koreksi wajib diisi' })
 
-  const br = await query.find(db.select().from(barang).where(and(eq(barang.id, body.barang_id), eq(barang.tenant_id, tenantId))))
+  const br = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(and(eq(barang.id, body.barang_id), eq(barang.tenant_id, tenantId))))
   if (!br) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
 
   const selisih = body.stok_baru - br.stok_sekarang
@@ -193,7 +193,7 @@ stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
   const tenantId = user.tenant_id ?? 1
   const cabangId = user.cabang_id ?? null
 
-  const mutasiTerakhir = await query.findAll(db
+  const mutasiTerakhir = await query.findAll<{ barang_id: number; jumlah_sesudah: number; tanggal: string; id: number }>(db
     .select({
       barang_id: mutasi_stok.barang_id,
       jumlah_sesudah: mutasi_stok.jumlah_sesudah,
@@ -216,7 +216,7 @@ stokRouter.get('/rekonsiliasi', requirePermission('stok.edit'), async (c) => {
 
   const mutasiMap = new Map(mutasiTerakhir.map((m) => [m.barang_id, m]))
 
-  const semuaBarang = await query.findAll(db
+  const semuaBarang = await query.findAll<{ id: number; kode_barang: string; nama_barang: string; stok_sekarang: number }>(db
     .select({
       id: barang.id,
       kode_barang: barang.kode_barang,
