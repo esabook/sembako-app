@@ -32,8 +32,40 @@ export const toko = table('toko', {
   nama: txt('nama').notNull(),
   alamat: txt('alamat'),
   is_active: bool('is_active').notNull().default(true),
+  // ─── SaaS billing (cloud) — diabaikan di mode LAN, gating cek mode online ───
+  status_langganan: txt('status_langganan', { enum: ['trial', 'aktif', 'suspended'] }).notNull().default('trial'),
+  trial_berakhir: txt('trial_berakhir'), // ISO, diisi saat daftar = isoNow()+14d
+  aktif_sampai: txt('aktif_sampai'),     // ISO, diisi saat approve = isoNow()+30d
+  email_pemilik: txt('email_pemilik'),
+  wa_pemilik: txt('wa_pemilik'),
   ...timestamps,
 })
+
+// ─── Platform Admin — operator lintas-tenant (BUKAN karyawan, tak tenant-scoped) ──
+export const platform_admin = table('platform_admin', {
+  id: pkInt('id'),
+  username: txt('username').notNull().unique(),
+  password_hash: txt('password_hash').notNull(),
+  nama: txt('nama').notNull(),
+  is_active: bool('is_active').notNull().default(true),
+  ...timestamps,
+})
+
+// ─── Pembayaran Langganan — audit + antrian verifikasi bukti transfer ────────
+export const pembayaran_langganan = table('pembayaran_langganan', {
+  id: pkInt('id'),
+  toko_id: int('toko_id').notNull().references(() => toko.id),
+  periode_bulan: int('periode_bulan').notNull().default(1),
+  nominal: money('nominal').notNull().default(0),
+  bukti_path: txt('bukti_path'),
+  status: txt('status', { enum: ['menunggu', 'disetujui', 'ditolak'] }).notNull().default('menunggu'),
+  catatan_admin: txt('catatan_admin'),
+  diverifikasi_oleh: int('diverifikasi_oleh').references(() => platform_admin.id),
+  ...timestamps,
+}, (t) => [
+  idx('idx_pembayaran_toko').on(t.toko_id),
+  idx('idx_pembayaran_status').on(t.status),
+])
 
 // ─── Cabang dalam Toko ───────────────────────────────────────────────────────
 export const cabang = table('cabang', {
