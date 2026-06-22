@@ -42,7 +42,7 @@ barangRouter.put('/kategori/:id', requirePermission('stok.edit'), async (c) => {
 
 barangRouter.delete('/kategori/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const item = await query.find(db.select().from(kategori).where(eq(kategori.id, id)))
+  const item = await query.find<typeof kategori.$inferSelect>(db.select().from(kategori).where(eq(kategori.id, id)))
   if (!item) throw new HTTPException(404, { message: 'Kategori tidak ditemukan' })
   if (item.is_preset) throw new HTTPException(400, { message: 'Kategori bawaan tidak bisa dihapus' })
   const dipakai = await query.find(db.select({ id: barang.id }).from(barang).where(eq(barang.kategori_id, id)))
@@ -57,7 +57,7 @@ barangRouter.post('/kategori/import-preset', requirePermission('stok.edit'), asy
   let updated = 0
   for (const item of body.items) {
     const kode = item.kode?.trim().toUpperCase() || null
-    const existing = await query.find(db.select({ id: kategori.id }).from(kategori).where(eq(kategori.nama, item.nama)))
+    const existing = await query.find<{ id: number }>(db.select({ id: kategori.id }).from(kategori).where(eq(kategori.nama, item.nama)))
     if (!existing) {
       await query.exec(db.insert(kategori).values({ nama: item.nama, kode, contoh: item.contoh ?? null, is_preset: true }))
       inserted++
@@ -105,7 +105,7 @@ barangRouter.put('/satuan/:id', requirePermission('stok.edit'), async (c) => {
 
 barangRouter.delete('/satuan/:id', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const item = await query.find(db.select().from(satuan).where(eq(satuan.id, id)))
+  const item = await query.find<typeof satuan.$inferSelect>(db.select().from(satuan).where(eq(satuan.id, id)))
   if (!item) throw new HTTPException(404, { message: 'Satuan tidak ditemukan' })
   if (item.is_preset) throw new HTTPException(400, { message: 'Satuan bawaan tidak bisa dihapus' })
   const dipakai = await query.find(db.select({ id: barang.id }).from(barang).where(eq(barang.satuan_dasar_id, id)))
@@ -119,7 +119,7 @@ barangRouter.post('/satuan/import-preset', requirePermission('stok.edit'), async
   let inserted = 0
   let updated = 0
   for (const item of body.items) {
-    const existing = await query.find(db.select({ id: satuan.id }).from(satuan).where(eq(satuan.nama, item.nama)))
+    const existing = await query.find<{ id: number }>(db.select({ id: satuan.id }).from(satuan).where(eq(satuan.nama, item.nama)))
     if (!existing) {
       await query.exec(db.insert(satuan).values({ nama: item.nama, singkatan: item.singkatan, contoh: item.contoh ?? null, is_preset: true }))
       inserted++
@@ -279,7 +279,7 @@ barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
 barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
   const id = Number(c.req.param('id'))
   const user = c.get('user') as JWTPayload
-  const existing = await query.find(db.select().from(barang).where(eq(barang.id, id)))
+  const existing = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(eq(barang.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
   if ((existing.stok_sekarang ?? 0) > 0) {
     throw new HTTPException(400, {
@@ -300,7 +300,7 @@ barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
 
 barangRouter.post('/:id/foto', requirePermission('stok.edit'), async (c) => {
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(barang).where(eq(barang.id, id)))
+  const existing = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(eq(barang.id, id)))
   if (!existing) throw new HTTPException(404, { message: 'Barang tidak ditemukan' })
 
   const formData = await c.req.formData()
@@ -368,10 +368,10 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
   const satCache = new Map<string, number>()
 
   // Seed cache dengan data yang sudah ada
-  for (const k of await query.findAll(db.select({ id: kategori.id, nama: kategori.nama }).from(kategori))) {
+  for (const k of await query.findAll<{ id: number; nama: string }>(db.select({ id: kategori.id, nama: kategori.nama }).from(kategori))) {
     katCache.set(k.nama.toLowerCase(), k.id)
   }
-  for (const s of await query.findAll(db.select({ id: satuan.id, nama: satuan.nama }).from(satuan))) {
+  for (const s of await query.findAll<{ id: number; nama: string }>(db.select({ id: satuan.id, nama: satuan.nama }).from(satuan))) {
     satCache.set(s.nama.toLowerCase(), s.id)
   }
 
@@ -402,7 +402,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
         if (katCache.has(key)) {
           kategoriId = katCache.get(key)
         } else if (body.settings.kategori_auto) {
-          const newKat = await query.ret(db.insert(kategori).values({ nama: row.kategori_nama.trim() }).returning())
+          const newKat = (await query.ret<{ id: number }>(db.insert(kategori).values({ nama: row.kategori_nama.trim() }).returning()))!
           katCache.set(key, newKat.id)
           kategoriDibuat.push(row.kategori_nama.trim())
           kategoriId = newKat.id
@@ -418,7 +418,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
         if (satCache.has(key)) {
           satuanId = satCache.get(key)
         } else if (body.settings.satuan_auto) {
-          const newSat = await query.ret(db.insert(satuan).values({ nama: row.satuan_nama.trim(), singkatan: row.satuan_nama.trim().slice(0, 10) }).returning())
+          const newSat = (await query.ret<{ id: number }>(db.insert(satuan).values({ nama: row.satuan_nama.trim(), singkatan: row.satuan_nama.trim().slice(0, 10) }).returning()))!
           satCache.set(key, newSat.id)
           satuanDibuat.push(row.satuan_nama.trim())
           satuanId = newSat.id
@@ -432,7 +432,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
       if (!kode) kode = nextKode()
 
       // Cek duplikat
-      const existing = await query.find(db.select({ id: barang.id, kode_barang: barang.kode_barang })
+      const existing = await query.find<{ id: number; kode_barang: string }>(db.select({ id: barang.id, kode_barang: barang.kode_barang })
         .from(barang).where(eq(barang.kode_barang, kode)))
 
       if (existing) {
@@ -463,7 +463,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
       }
 
       try {
-        const inserted = await query.find(db.insert(barang).values({
+        const inserted = (await query.find<{ id: number }>(db.insert(barang).values({
           kode_barang: kode,
           nama_barang: nama,
           kategori_id: kategoriId,
@@ -476,7 +476,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
           stok_sekarang: row.stok_sekarang ?? 0,
           lokasi_rak: row.lokasi_rak || null,
           ...getAuditBy(c),
-        }).returning({ id: barang.id }))
+        }).returning({ id: barang.id })))!
         berhasil.push(inserted.id)
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
