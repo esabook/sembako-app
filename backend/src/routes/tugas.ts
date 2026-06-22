@@ -115,7 +115,7 @@ tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) 
   if (!body.item_id) throw new HTTPException(400, { message: 'item_id wajib' })
   const tanggal = body.tanggal ?? new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
-  const existing = await query.find(db.select({ id: checklist_log.id })
+  const existing = await query.find<{ id: number }>(db.select({ id: checklist_log.id })
     .from(checklist_log)
     .where(and(eq(checklist_log.item_id, body.item_id), eq(checklist_log.tanggal, tanggal), eq(checklist_log.tenant_id, tenantId)))
   )
@@ -149,7 +149,7 @@ tugasRouter.get('/ringkasan', requirePermission('karyawan.lihat'), async (c) => 
 
   if (!dari || !sampai) throw new HTTPException(400, { message: 'dari dan sampai wajib' })
 
-  const rows = await query.findAll(db
+  const rows = await query.findAll<{ tanggal: string; total_item: number; selesai: number | boolean }>(db
     .select({
       tanggal: checklist_log.tanggal,
       total_item: checklist_item.id,
