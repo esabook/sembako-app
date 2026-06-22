@@ -21,7 +21,7 @@ export const chk   = (d === 'pg' ? pg.check   : d === 'my' ? my.check     : sl.c
 // Primary key auto-increment — paling berbeda antar dialect
 export const pkInt = (name: string) =>
   d === 'pg' ? pg.serial(name).primaryKey() as unknown as ReturnType<typeof sl.integer>
-: d === 'my' ? my.int(name).primaryKey().autoIncrement() as unknown as ReturnType<typeof sl.integer>
+: d === 'my' ? my.int(name).primaryKey().autoincrement() as unknown as ReturnType<typeof sl.integer>
 : sl.integer(name).primaryKey({ autoIncrement: true })
 
 // Boolean — integer(mode:'boolean') di SQLite, boolean() di PG/MySQL
