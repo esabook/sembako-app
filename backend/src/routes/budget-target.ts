@@ -31,14 +31,14 @@ budgetTargetRouter.get('/histori/ringkasan', requirePermission('laporan.lihat'),
     periodeList.push(p)
   }
 
-  const targets = await query.findAll(db.select().from(target_penjualan)
+  const targets = await query.findAll<typeof target_penjualan.$inferSelect>(db.select().from(target_penjualan)
     .where(and(
       eq(target_penjualan.tenant_id, tenantId),
       sql`periode_bulan IN (${sql.join(periodeList.map(p => sql`${p}`), sql`, `)})`,
     ))
   )
 
-  const realisasiRows = await query.findAll(db.select({
+  const realisasiRows = await query.findAll<{ periode: string; omzet: number; transaksi: number }>(db.select({
     periode: sql<string>`strftime('%Y-%m', tanggal)`,
     omzet: sql<number>`COALESCE(SUM(total), 0)`,
     transaksi: sql<number>`COUNT(*)`,
@@ -111,7 +111,7 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
     throw new HTTPException(400, { message: 'periode_bulan wajib diisi (format YYYY-MM)' })
   }
 
-  const existing = await query.find(db.select().from(target_penjualan)
+  const existing = await query.find<typeof target_penjualan.$inferSelect>(db.select().from(target_penjualan)
     .where(and(
       eq(target_penjualan.tenant_id, tenantId),
       eq(target_penjualan.periode_bulan, body.periode_bulan),
@@ -127,7 +127,7 @@ budgetTargetRouter.post('/target', requirePermission('laporan.lihat'), async (c)
         catatan: body.catatan ?? existing.catatan,
         updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
       })
-      .where(eq(target_penjualan.id, existing.id))
+      .where(eq(target_penjualan.id, existing.id!))
       .returning()
       )
     return c.json({ success: true, data: updated })
@@ -169,7 +169,7 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
     throw new HTTPException(400, { message: 'nilai_budget harus angka >= 0' })
   }
 
-  const existing = await query.find(db.select().from(budget_operasional)
+  const existing = await query.find<typeof budget_operasional.$inferSelect>(db.select().from(budget_operasional)
     .where(and(
       eq(budget_operasional.tenant_id, tenantId),
       eq(budget_operasional.periode_bulan, body.periode_bulan),
@@ -184,7 +184,7 @@ budgetTargetRouter.post('/budget', requirePermission('laporan.lihat'), async (c)
         catatan: body.catatan ?? existing.catatan,
         updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
       })
-      .where(eq(budget_operasional.id, existing.id))
+      .where(eq(budget_operasional.id, existing.id!))
       .returning()
       )
     return c.json({ success: true, data: updated })
@@ -214,7 +214,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
   }
 
   // Realisasi omzet dari penjualan lunas
-  const omzetRow = await query.find(db.select({
+  const omzetRow = await query.find<{ total: number; jumlah_transaksi: number }>(db.select({
     total: sql<number>`COALESCE(SUM(total), 0)`,
     jumlah_transaksi: sql<number>`COUNT(*)`,
   })
@@ -227,7 +227,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
     )
 
   // Realisasi HPP: estimasi dari harga_beli_terakhir × jumlah terjual
-  const hppRow = await query.find(db.select({
+  const hppRow = await query.find<{ hpp: number }>(db.select({
     hpp: sql<number>`COALESCE(SUM(${penjualan_detail.jumlah} * ${barang.harga_beli_terakhir}), 0)`,
   })
     .from(penjualan_detail)
@@ -246,7 +246,7 @@ budgetTargetRouter.get('/:periode/realisasi', requirePermission('laporan.lihat')
   const marginPct = omzet > 0 ? (labaKotor / omzet) * 100 : 0
 
   // Realisasi pengeluaran per kategori dari jurnal_kas
-  const pengeluaranRows = await query.findAll(db.select({
+  const pengeluaranRows = await query.findAll<{ kategori: string; total: number }>(db.select({
     kategori: jurnal_kas.kategori,
     total: sql<number>`COALESCE(SUM(jumlah), 0)`,
   })
@@ -304,7 +304,7 @@ budgetTargetRouter.get('/:periode/proyeksi', requirePermission('laporan.lihat'),
     ? Number(hariIni.slice(8, 10))
     : hariDalamBulan // periode lampau → anggap sudah selesai
 
-  const omzetRow = await query.find(db.select({
+  const omzetRow = await query.find<{ total: number }>(db.select({
     total: sql<number>`COALESCE(SUM(total), 0)`,
   })
     .from(penjualan)
@@ -347,14 +347,14 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
     throw new HTTPException(400, { message: 'Periode sumber dan tujuan tidak boleh sama' })
   }
 
-  const sumberTarget = await query.find(db.select().from(target_penjualan)
+  const sumberTarget = await query.find<typeof target_penjualan.$inferSelect>(db.select().from(target_penjualan)
     .where(and(
       eq(target_penjualan.tenant_id, tenantId),
       eq(target_penjualan.periode_bulan, body.dari),
     ))
   )
 
-  const sumberBudgets = await query.findAll(db.select().from(budget_operasional)
+  const sumberBudgets = await query.findAll<typeof budget_operasional.$inferSelect>(db.select().from(budget_operasional)
     .where(and(
       eq(budget_operasional.tenant_id, tenantId),
       eq(budget_operasional.periode_bulan, body.dari),
@@ -368,7 +368,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
   // Upsert target
   let targetBaru = null
   if (sumberTarget) {
-    const existingTarget = await query.find(db.select().from(target_penjualan)
+    const existingTarget = await query.find<typeof target_penjualan.$inferSelect>(db.select().from(target_penjualan)
       .where(and(
         eq(target_penjualan.tenant_id, tenantId),
         eq(target_penjualan.periode_bulan, body.ke),
@@ -383,7 +383,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
           target_margin_pct: sumberTarget.target_margin_pct,
           updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
         })
-        .where(eq(target_penjualan.id, existingTarget.id))
+        .where(eq(target_penjualan.id, existingTarget.id!))
         .returning()
         )
     } else {
@@ -401,7 +401,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
   // Upsert budgets
   const budgetBaru = []
   for (const src of sumberBudgets) {
-    const existing = await query.find(db.select().from(budget_operasional)
+    const existing = await query.find<typeof budget_operasional.$inferSelect>(db.select().from(budget_operasional)
       .where(and(
         eq(budget_operasional.tenant_id, tenantId),
         eq(budget_operasional.periode_bulan, body.ke),
@@ -412,7 +412,7 @@ budgetTargetRouter.post('/salin', requirePermission('laporan.lihat'), async (c) 
     if (existing) {
       const updated = await query.ret(db.update(budget_operasional)
         .set({ nilai_budget: src.nilai_budget, updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }) })
-        .where(eq(budget_operasional.id, existing.id))
+        .where(eq(budget_operasional.id, existing.id!))
         .returning()
       )
       budgetBaru.push(updated)
