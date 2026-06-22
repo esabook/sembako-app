@@ -1,7 +1,7 @@
 import { eq, count } from 'drizzle-orm'
 import { db, withTransaction, query } from './index.ts'
 import {
-  toko, cabang, karyawan, kas_bank,
+  toko, toko_settings, cabang, karyawan, kas_bank,
   satuan, kategori, barang, supplier, pelanggan,
   kartu_anggota, histori_harga_beli, histori_harga_jual,
   purchase_order, po_detail,
@@ -171,30 +171,30 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     const bankId = bankRow!.id
 
     // ── 5. Satuan (global — cukup pastikan ada) ───────────────────────────────
-    const sKg  = await ensureSatuan('Kilogram', 'kg')
+    const sKg = await ensureSatuan('Kilogram', 'kg')
     const sPcs = await ensureSatuan('Pcs', 'pcs')
     const sBtl = await ensureSatuan('Botol', 'btl')
     const sKtn = await ensureSatuan('Karton', 'ktn')
 
     // ── 6. Kategori (global — cukup pastikan ada) ─────────────────────────────
     const katSembako = await ensureKategori('Sembako')
-    const katMinyak  = await ensureKategori('Minyak & Lemak')
+    const katMinyak = await ensureKategori('Minyak & Lemak')
     const katMinuman = await ensureKategori('Minuman')
-    const katBumbu   = await ensureKategori('Bumbu & Rempah')
-    const katRokok   = await ensureKategori('Rokok')
+    const katBumbu = await ensureKategori('Bumbu & Rempah')
+    const katRokok = await ensureKategori('Rokok')
 
     // ── 7. Barang ─────────────────────────────────────────────────────────────
     const barangData = [
-      { kode: 'DEMO-BRG-001', nama: 'Beras Premium 5kg',       kat: katSembako, sat: sKg,  beli: 58000,  eceran: 65000,  grosir: 62000,  stok: 120 },
-      { kode: 'DEMO-BRG-002', nama: 'Minyak Goreng Bimoli 2L', kat: katMinyak,  sat: sBtl, beli: 30000,  eceran: 35000,  grosir: 33000,  stok: 80  },
-      { kode: 'DEMO-BRG-003', nama: 'Gula Pasir 1kg',          kat: katSembako, sat: sKg,  beli: 14000,  eceran: 16000,  grosir: 15000,  stok: 150 },
-      { kode: 'DEMO-BRG-004', nama: 'Teh Botol Sosro 450ml',   kat: katMinuman, sat: sBtl, beli: 4500,   eceran: 6000,   grosir: 5500,   stok: 200 },
-      { kode: 'DEMO-BRG-005', nama: 'Aqua 600ml',              kat: katMinuman, sat: sBtl, beli: 2500,   eceran: 4000,   grosir: 3500,   stok: 300 },
-      { kode: 'DEMO-BRG-006', nama: 'Indomie Goreng',          kat: katSembako, sat: sPcs, beli: 2800,   eceran: 4000,   grosir: 3500,   stok: 500 },
-      { kode: 'DEMO-BRG-007', nama: 'Kecap Manis ABC 600ml',   kat: katBumbu,   sat: sBtl, beli: 12000,  eceran: 16000,  grosir: 14000,  stok: 60  },
-      { kode: 'DEMO-BRG-008', nama: 'Sabun Lifebuoy 80gr',     kat: katSembako, sat: sPcs, beli: 3500,   eceran: 5000,   grosir: 4500,   stok: 100 },
-      { kode: 'DEMO-BRG-009', nama: 'Garam Beryodium 500gr',   kat: katBumbu,   sat: sPcs, beli: 2000,   eceran: 3000,   grosir: 2500,   stok: 80  },
-      { kode: 'DEMO-BRG-010', nama: 'Rokok Gudang Garam 12',   kat: katRokok,   sat: sKtn, beli: 264000, eceran: 288000, grosir: 276000, stok: 30  },
+      { kode: 'DEMO-BRG-001', nama: 'Beras Premium 5kg', kat: katSembako, sat: sKg, beli: 58000, eceran: 65000, grosir: 62000, stok: 120 },
+      { kode: 'DEMO-BRG-002', nama: 'Minyak Goreng Bimoli 2L', kat: katMinyak, sat: sBtl, beli: 30000, eceran: 35000, grosir: 33000, stok: 80 },
+      { kode: 'DEMO-BRG-003', nama: 'Gula Pasir 1kg', kat: katSembako, sat: sKg, beli: 14000, eceran: 16000, grosir: 15000, stok: 150 },
+      { kode: 'DEMO-BRG-004', nama: 'Teh Botol Sosro 450ml', kat: katMinuman, sat: sBtl, beli: 4500, eceran: 6000, grosir: 5500, stok: 200 },
+      { kode: 'DEMO-BRG-005', nama: 'Aqua 600ml', kat: katMinuman, sat: sBtl, beli: 2500, eceran: 4000, grosir: 3500, stok: 300 },
+      { kode: 'DEMO-BRG-006', nama: 'Indomie Goreng', kat: katSembako, sat: sPcs, beli: 2800, eceran: 4000, grosir: 3500, stok: 500 },
+      { kode: 'DEMO-BRG-007', nama: 'Kecap Manis ABC 600ml', kat: katBumbu, sat: sBtl, beli: 12000, eceran: 16000, grosir: 14000, stok: 60 },
+      { kode: 'DEMO-BRG-008', nama: 'Sabun Lifebuoy 80gr', kat: katSembako, sat: sPcs, beli: 3500, eceran: 5000, grosir: 4500, stok: 100 },
+      { kode: 'DEMO-BRG-009', nama: 'Garam Beryodium 500gr', kat: katBumbu, sat: sPcs, beli: 2000, eceran: 3000, grosir: 2500, stok: 80 },
+      { kode: 'DEMO-BRG-010', nama: 'Rokok Gudang Garam 12', kat: katRokok, sat: sKtn, beli: 264000, eceran: 288000, grosir: 276000, stok: 30 },
     ]
 
     const barangIds: number[] = []
@@ -219,12 +219,12 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     }
 
     // ── 7b. Barang FnB & Jasa (menu item + service) ──────────────────────────
-    const katFnB   = await ensureKategori('F&B / Makanan')
-    const katJasa  = await ensureKategori('Jasa & Layanan')
+    const katFnB = await ensureKategori('F&B / Makanan')
+    const katJasa = await ensureKategori('Jasa & Layanan')
 
     const fnbData = [
-      { kode: 'DEMO-FNB-001', nama: 'Nasi Goreng Spesial', beli: 8000,  eceran: 18000, grosir: 16000 },
-      { kode: 'DEMO-FNB-002', nama: 'Es Teh Manis',        beli: 2000,  eceran: 8000,  grosir: 7000  },
+      { kode: 'DEMO-FNB-001', nama: 'Nasi Goreng Spesial', beli: 8000, eceran: 18000, grosir: 16000 },
+      { kode: 'DEMO-FNB-002', nama: 'Es Teh Manis', beli: 2000, eceran: 8000, grosir: 7000 },
     ]
     const fnbIds: number[] = []
     for (const f of fnbData) {
@@ -242,8 +242,8 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     }
 
     const jasaData = [
-      { kode: 'DEMO-JSA-001', nama: 'Cuci Motor',   beli: 10000, eceran: 25000, grosir: 22000 },
-      { kode: 'DEMO-JSA-002', nama: 'Potong Rambut', beli: 5000,  eceran: 35000, grosir: 30000 },
+      { kode: 'DEMO-JSA-001', nama: 'Cuci Motor', beli: 10000, eceran: 25000, grosir: 22000 },
+      { kode: 'DEMO-JSA-002', nama: 'Potong Rambut', beli: 5000, eceran: 35000, grosir: 30000 },
     ]
     const jasaIds: number[] = []
     for (const j of jasaData) {
@@ -286,9 +286,9 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 9. Supplier ───────────────────────────────────────────────────────────
     const supData = [
-      { kode: 'DEMO-SUP-001', nama: 'CV Maju Jaya',              kontak: '081234567890', terms: 30 },
-      { kode: 'DEMO-SUP-002', nama: 'PT Distributor Nusantara',  kontak: '082345678901', terms: 14 },
-      { kode: 'DEMO-SUP-003', nama: 'UD Sumber Makmur',          kontak: '083456789012', terms: 7  },
+      { kode: 'DEMO-SUP-001', nama: 'CV Maju Jaya', kontak: '081234567890', terms: 30 },
+      { kode: 'DEMO-SUP-002', nama: 'PT Distributor Nusantara', kontak: '082345678901', terms: 14 },
+      { kode: 'DEMO-SUP-003', nama: 'UD Sumber Makmur', kontak: '083456789012', terms: 7 },
     ]
     const supIds: number[] = []
     for (const s of supData) {
@@ -308,11 +308,11 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 10. Pelanggan ──────────────────────────────────────────────────────────
     const plgData = [
-      { kode: 'DEMO-PLG-001', nama: 'Bu Sari',         tipe: 'eceran'    as const },
-      { kode: 'DEMO-PLG-002', nama: 'Pak Budi Grosir', tipe: 'grosir'    as const },
+      { kode: 'DEMO-PLG-001', nama: 'Bu Sari', tipe: 'eceran' as const },
+      { kode: 'DEMO-PLG-002', nama: 'Pak Budi Grosir', tipe: 'grosir' as const },
       { kode: 'DEMO-PLG-003', nama: 'Warung Pak Joko', tipe: 'langganan' as const },
-      { kode: 'DEMO-PLG-004', nama: 'Ibu Dewi',        tipe: 'eceran'    as const },
-      { kode: 'DEMO-PLG-005', nama: 'Toko ABC Makmur', tipe: 'grosir'    as const },
+      { kode: 'DEMO-PLG-004', nama: 'Ibu Dewi', tipe: 'eceran' as const },
+      { kode: 'DEMO-PLG-005', nama: 'Toko ABC Makmur', tipe: 'grosir' as const },
     ]
     const plgIds: number[] = []
     for (const p of plgData) {
@@ -1085,12 +1085,12 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 30. Budget Operasional (bulan ini & bulan lalu) ───────────────────────
     const BUDGET_KAT = [
-      { kat: 'gaji'        as const, nilai: 7500000  },
-      { kat: 'sewa'        as const, nilai: 2000000  },
-      { kat: 'listrik'     as const, nilai: 500000   },
-      { kat: 'kemasan'     as const, nilai: 300000   },
-      { kat: 'operasional' as const, nilai: 750000   },
-      { kat: 'lain'        as const, nilai: 200000   },
+      { kat: 'gaji' as const, nilai: 7500000 },
+      { kat: 'sewa' as const, nilai: 2000000 },
+      { kat: 'listrik' as const, nilai: 500000 },
+      { kat: 'kemasan' as const, nilai: 300000 },
+      { kat: 'operasional' as const, nilai: 750000 },
+      { kat: 'lain' as const, nilai: 200000 },
     ]
     for (const m of [1, 0]) {
       for (const bk of BUDGET_KAT) {
@@ -1224,9 +1224,9 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 36. Aset Tetap (3 aset) ───────────────────────────────────────────────
     const asetData = [
-      { nama: 'Mesin Kasir Sunmi T2', kat: 'Elektronik',  beli: 4500000, sekarang: 3800000, tgl: dateStr(365) },
-      { nama: 'Rak Besi 5 Tingkat',   kat: 'Perabot',     beli: 1200000, sekarang: 1000000, tgl: dateStr(400) },
-      { nama: 'AC 1 PK Daikin',       kat: 'Elektronik',  beli: 3200000, sekarang: 2700000, tgl: dateStr(200) },
+      { nama: 'Mesin Kasir Sunmi T2', kat: 'Elektronik', beli: 4500000, sekarang: 3800000, tgl: dateStr(365) },
+      { nama: 'Rak Besi 5 Tingkat', kat: 'Perabot', beli: 1200000, sekarang: 1000000, tgl: dateStr(400) },
+      { nama: 'AC 1 PK Daikin', kat: 'Elektronik', beli: 3200000, sekarang: 2700000, tgl: dateStr(200) },
     ]
     for (const a of asetData) {
       await query.exec(
@@ -1242,9 +1242,9 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 37. Tagihan Utilitas (3 jenis × 2 bulan) ─────────────────────────────
     const utilitasData = [
-      { jenis: 'listrik'  as const, jumlah: 450000,  meterAwal: 1200, meterAkhir: 1650 },
-      { jenis: 'air'      as const, jumlah: 85000,   meterAwal: null,  meterAkhir: null  },
-      { jenis: 'internet' as const, jumlah: 250000,  meterAwal: null,  meterAkhir: null  },
+      { jenis: 'listrik' as const, jumlah: 450000, meterAwal: 1200, meterAkhir: 1650 },
+      { jenis: 'air' as const, jumlah: 85000, meterAwal: null, meterAkhir: null },
+      { jenis: 'internet' as const, jumlah: 250000, meterAwal: null, meterAkhir: null },
     ]
     for (const m of [1, 0]) {
       for (const u of utilitasData) {
@@ -1324,11 +1324,11 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 40. Checklist Tugas Harian (5 item + 7 hari log) ─────────────────────
     const checklistItems = [
-      { nama: 'Sapu & pel lantai toko',           kat: 'kebersihan', urutan: 1 },
-      { nama: 'Lap rak dan display barang',        kat: 'kebersihan', urutan: 2 },
-      { nama: 'Periksa stok kritis / habis',       kat: 'stok',       urutan: 3 },
-      { nama: 'Buka & tutup kasir (rekap shift)',  kat: 'keuangan',   urutan: 4 },
-      { nama: 'Cek tanggal kadaluarsa barang',     kat: 'kualitas',   urutan: 5 },
+      { nama: 'Sapu & pel lantai toko', kat: 'kebersihan', urutan: 1 },
+      { nama: 'Lap rak dan display barang', kat: 'kebersihan', urutan: 2 },
+      { nama: 'Periksa stok kritis / habis', kat: 'stok', urutan: 3 },
+      { nama: 'Buka & tutup kasir (rekap shift)', kat: 'keuangan', urutan: 4 },
+      { nama: 'Cek tanggal kadaluarsa barang', kat: 'kualitas', urutan: 5 },
     ]
     const checkIds: number[] = []
     for (const ci of checklistItems) {
@@ -1431,9 +1431,9 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 44. F&B: Bahan Baku (3 bahan) ────────────────────────────────────────
     const bahanData = [
-      { kode: 'DEMO-BB-001', nama: 'Nasi Putih',  stok: 10, harga: 3000 },
-      { kode: 'DEMO-BB-002', nama: 'Telur Ayam',  stok: 50, harga: 2500 },
-      { kode: 'DEMO-BB-003', nama: 'Teh Celup',   stok: 100, harga: 500 },
+      { kode: 'DEMO-BB-001', nama: 'Nasi Putih', stok: 10, harga: 3000 },
+      { kode: 'DEMO-BB-002', nama: 'Telur Ayam', stok: 50, harga: 2500 },
+      { kode: 'DEMO-BB-003', nama: 'Teh Celup', stok: 100, harga: 500 },
     ]
     const bahanIds: number[] = []
     for (const b of bahanData) {
@@ -1621,75 +1621,88 @@ export async function deleteDemoData(): Promise<void> {
   if (!demoId) throw new Error('Data demo tidak ditemukan')
 
   const t = demoId
+
+  async function execDel(tableName: string, promise: Promise<unknown>) {
+    try {
+      await query.exec(promise)
+    } catch (err: any) {
+      if (err?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+        throw new Error(`Gagal hapus tabel "${tableName}": ${err.message ?? err}`)
+      }
+      throw err
+    }
+  }
+
   return withTransaction(async () => {
     // Hapus child-first, ikuti urutan FK
     // Jasa
-    await query.exec(db.delete(komisi_staf).where(eq(komisi_staf.tenant_id, t)))
-    await query.exec(db.delete(booking).where(eq(booking.tenant_id, t)))
-    await query.exec(db.delete(kredit_membership).where(eq(kredit_membership.tenant_id, t)))
-    await query.exec(db.delete(paket_membership).where(eq(paket_membership.tenant_id, t)))
-    await query.exec(db.delete(detail_layanan).where(eq(detail_layanan.tenant_id, t)))
-    await query.exec(db.delete(jadwal_staf).where(eq(jadwal_staf.tenant_id, t)))
+    await execDel('komisi_staf', db.delete(komisi_staf).where(eq(komisi_staf.tenant_id, t)))
+    await execDel('booking', db.delete(booking).where(eq(booking.tenant_id, t)))
+    await execDel('kredit_membership', db.delete(kredit_membership).where(eq(kredit_membership.tenant_id, t)))
+    await execDel('paket_membership', db.delete(paket_membership).where(eq(paket_membership.tenant_id, t)))
+    await execDel('detail_layanan', db.delete(detail_layanan).where(eq(detail_layanan.tenant_id, t)))
+    await execDel('jadwal_staf', db.delete(jadwal_staf).where(eq(jadwal_staf.tenant_id, t)))
     // F&B
-    await query.exec(db.delete(barang_modifier_grup).where(eq(barang_modifier_grup.tenant_id, t)))
-    await query.exec(db.delete(modifier).where(eq(modifier.tenant_id, t)))
-    await query.exec(db.delete(grup_modifier).where(eq(grup_modifier.tenant_id, t)))
-    await query.exec(db.delete(resep).where(eq(resep.tenant_id, t)))
-    await query.exec(db.delete(bahan_baku).where(eq(bahan_baku.tenant_id, t)))
-    await query.exec(db.delete(meja).where(eq(meja.tenant_id, t)))
+    await execDel('barang_modifier_grup', db.delete(barang_modifier_grup).where(eq(barang_modifier_grup.tenant_id, t)))
+    await execDel('modifier', db.delete(modifier).where(eq(modifier.tenant_id, t)))
+    await execDel('grup_modifier', db.delete(grup_modifier).where(eq(grup_modifier.tenant_id, t)))
+    await execDel('resep', db.delete(resep).where(eq(resep.tenant_id, t)))
+    await execDel('bahan_baku', db.delete(bahan_baku).where(eq(bahan_baku.tenant_id, t)))
+    await execDel('meja', db.delete(meja).where(eq(meja.tenant_id, t)))
     // Operasional
-    await query.exec(db.delete(checklist_log).where(eq(checklist_log.tenant_id, t)))
-    await query.exec(db.delete(checklist_item).where(eq(checklist_item.tenant_id, t)))
-    await query.exec(db.delete(inspeksi_toko).where(eq(inspeksi_toko.tenant_id, t)))
-    await query.exec(db.delete(tamu_birokrasi).where(eq(tamu_birokrasi.tenant_id, t)))
-    await query.exec(db.delete(acara_hajatan).where(eq(acara_hajatan.tenant_id, t)))
-    await query.exec(db.delete(aset_tetap).where(eq(aset_tetap.tenant_id, t)))
-    await query.exec(db.delete(tagihan_utilitas).where(eq(tagihan_utilitas.tenant_id, t)))
-    await query.exec(db.delete(pinjaman_investasi).where(eq(pinjaman_investasi.tenant_id, t)))
+    await execDel('checklist_log', db.delete(checklist_log).where(eq(checklist_log.tenant_id, t)))
+    await execDel('checklist_item', db.delete(checklist_item).where(eq(checklist_item.tenant_id, t)))
+    await execDel('inspeksi_toko', db.delete(inspeksi_toko).where(eq(inspeksi_toko.tenant_id, t)))
+    await execDel('tamu_birokrasi', db.delete(tamu_birokrasi).where(eq(tamu_birokrasi.tenant_id, t)))
+    await execDel('acara_hajatan', db.delete(acara_hajatan).where(eq(acara_hajatan.tenant_id, t)))
+    await execDel('aset_tetap', db.delete(aset_tetap).where(eq(aset_tetap.tenant_id, t)))
+    await execDel('tagihan_utilitas', db.delete(tagihan_utilitas).where(eq(tagihan_utilitas.tenant_id, t)))
+    await execDel('pinjaman_investasi', db.delete(pinjaman_investasi).where(eq(pinjaman_investasi.tenant_id, t)))
     // Sales & CRM
-    await query.exec(db.delete(pipeline_grosir).where(eq(pipeline_grosir.tenant_id, t)))
-    await query.exec(db.delete(komplain_pelanggan).where(eq(komplain_pelanggan.tenant_id, t)))
-    await query.exec(db.delete(permintaan_pelanggan).where(eq(permintaan_pelanggan.tenant_id, t)))
-    await query.exec(db.delete(agenda_supplier).where(eq(agenda_supplier.tenant_id, t)))
-    await query.exec(db.delete(kunjungan_sales).where(eq(kunjungan_sales.tenant_id, t)))
-    await query.exec(db.delete(budget_operasional).where(eq(budget_operasional.tenant_id, t)))
-    await query.exec(db.delete(promo_target).where(eq(promo_target.tenant_id, t)))
-    await query.exec(db.delete(promo).where(eq(promo.tenant_id, t)))
-    await query.exec(db.delete(shift_kasir).where(eq(shift_kasir.tenant_id, t)))
-    await query.exec(db.delete(evaluasi_karyawan).where(eq(evaluasi_karyawan.tenant_id, t)))
-    await query.exec(db.delete(sanksi_insentif).where(eq(sanksi_insentif.tenant_id, t)))
-    await query.exec(db.delete(penggajian).where(eq(penggajian.tenant_id, t)))
-    await query.exec(db.delete(kasbon).where(eq(kasbon.tenant_id, t)))
-    await query.exec(db.delete(absensi).where(eq(absensi.tenant_id, t)))
-    await query.exec(db.delete(jadwal_kerja).where(eq(jadwal_kerja.tenant_id, t)))
-    await query.exec(db.delete(tipe_shift).where(eq(tipe_shift.tenant_id, t)))
-    await query.exec(db.delete(stok_opname_detail).where(eq(stok_opname_detail.tenant_id, t)))
-    await query.exec(db.delete(stok_opname).where(eq(stok_opname.tenant_id, t)))
-    await query.exec(db.delete(retur_supplier_detail).where(eq(retur_supplier_detail.tenant_id, t)))
-    await query.exec(db.delete(retur_supplier).where(eq(retur_supplier.tenant_id, t)))
-    await query.exec(db.delete(retur_penjualan_detail).where(eq(retur_penjualan_detail.tenant_id, t)))
-    await query.exec(db.delete(retur_penjualan).where(eq(retur_penjualan.tenant_id, t)))
-    await query.exec(db.delete(pembayaran_piutang).where(eq(pembayaran_piutang.tenant_id, t)))
-    await query.exec(db.delete(piutang_pelanggan).where(eq(piutang_pelanggan.tenant_id, t)))
-    await query.exec(db.delete(pembayaran_hutang).where(eq(pembayaran_hutang.tenant_id, t)))
-    await query.exec(db.delete(mutasi_stok).where(eq(mutasi_stok.tenant_id, t)))
-    await query.exec(db.delete(jurnal_kas).where(eq(jurnal_kas.tenant_id, t)))
-    await query.exec(db.delete(penjualan_detail).where(eq(penjualan_detail.tenant_id, t)))
-    await query.exec(db.delete(penjualan).where(eq(penjualan.tenant_id, t)))
-    await query.exec(db.delete(po_detail).where(eq(po_detail.tenant_id, t)))
-    await query.exec(db.delete(purchase_order).where(eq(purchase_order.tenant_id, t)))
-    await query.exec(db.delete(barang_masuk_detail).where(eq(barang_masuk_detail.tenant_id, t)))
-    await query.exec(db.delete(hutang_supplier).where(eq(hutang_supplier.tenant_id, t)))
-    await query.exec(db.delete(barang_masuk).where(eq(barang_masuk.tenant_id, t)))
-    await query.exec(db.delete(histori_harga_jual).where(eq(histori_harga_jual.tenant_id, t)))
-    await query.exec(db.delete(histori_harga_beli).where(eq(histori_harga_beli.tenant_id, t)))
-    await query.exec(db.delete(kartu_anggota).where(eq(kartu_anggota.tenant_id, t)))
-    await query.exec(db.delete(barang).where(eq(barang.tenant_id, t)))
-    await query.exec(db.delete(supplier).where(eq(supplier.tenant_id, t)))
-    await query.exec(db.delete(pelanggan).where(eq(pelanggan.tenant_id, t)))
-    await query.exec(db.delete(kas_bank).where(eq(kas_bank.tenant_id, t)))
-    await query.exec(db.delete(karyawan).where(eq(karyawan.toko_id, t)))
-    await query.exec(db.delete(cabang).where(eq(cabang.toko_id, t)))
-    await query.exec(db.delete(toko).where(eq(toko.id, t)))
+    await execDel('pipeline_grosir', db.delete(pipeline_grosir).where(eq(pipeline_grosir.tenant_id, t)))
+    await execDel('komplain_pelanggan', db.delete(komplain_pelanggan).where(eq(komplain_pelanggan.tenant_id, t)))
+    await execDel('permintaan_pelanggan', db.delete(permintaan_pelanggan).where(eq(permintaan_pelanggan.tenant_id, t)))
+    await execDel('agenda_supplier', db.delete(agenda_supplier).where(eq(agenda_supplier.tenant_id, t)))
+    await execDel('kunjungan_sales', db.delete(kunjungan_sales).where(eq(kunjungan_sales.tenant_id, t)))
+    await execDel('budget_operasional', db.delete(budget_operasional).where(eq(budget_operasional.tenant_id, t)))
+    await execDel('promo_target', db.delete(promo_target).where(eq(promo_target.tenant_id, t)))
+    await execDel('promo', db.delete(promo).where(eq(promo.tenant_id, t)))
+    await execDel('shift_kasir', db.delete(shift_kasir).where(eq(shift_kasir.tenant_id, t)))
+    await execDel('evaluasi_karyawan', db.delete(evaluasi_karyawan).where(eq(evaluasi_karyawan.tenant_id, t)))
+    await execDel('sanksi_insentif', db.delete(sanksi_insentif).where(eq(sanksi_insentif.tenant_id, t)))
+    await execDel('penggajian', db.delete(penggajian).where(eq(penggajian.tenant_id, t)))
+    await execDel('kasbon', db.delete(kasbon).where(eq(kasbon.tenant_id, t)))
+    await execDel('absensi', db.delete(absensi).where(eq(absensi.tenant_id, t)))
+    await execDel('jadwal_kerja', db.delete(jadwal_kerja).where(eq(jadwal_kerja.tenant_id, t)))
+    await execDel('tipe_shift', db.delete(tipe_shift).where(eq(tipe_shift.tenant_id, t)))
+    await execDel('stok_opname_detail', db.delete(stok_opname_detail).where(eq(stok_opname_detail.tenant_id, t)))
+    await execDel('stok_opname', db.delete(stok_opname).where(eq(stok_opname.tenant_id, t)))
+    await execDel('retur_supplier_detail', db.delete(retur_supplier_detail).where(eq(retur_supplier_detail.tenant_id, t)))
+    await execDel('retur_supplier', db.delete(retur_supplier).where(eq(retur_supplier.tenant_id, t)))
+    await execDel('retur_penjualan_detail', db.delete(retur_penjualan_detail).where(eq(retur_penjualan_detail.tenant_id, t)))
+    await execDel('retur_penjualan', db.delete(retur_penjualan).where(eq(retur_penjualan.tenant_id, t)))
+    await execDel('pembayaran_piutang', db.delete(pembayaran_piutang).where(eq(pembayaran_piutang.tenant_id, t)))
+    await execDel('piutang_pelanggan', db.delete(piutang_pelanggan).where(eq(piutang_pelanggan.tenant_id, t)))
+    await execDel('pembayaran_hutang', db.delete(pembayaran_hutang).where(eq(pembayaran_hutang.tenant_id, t)))
+    await execDel('mutasi_stok', db.delete(mutasi_stok).where(eq(mutasi_stok.tenant_id, t)))
+    await execDel('jurnal_kas', db.delete(jurnal_kas).where(eq(jurnal_kas.tenant_id, t)))
+    await execDel('penjualan_detail', db.delete(penjualan_detail).where(eq(penjualan_detail.tenant_id, t)))
+    await execDel('penjualan', db.delete(penjualan).where(eq(penjualan.tenant_id, t)))
+    await execDel('po_detail', db.delete(po_detail).where(eq(po_detail.tenant_id, t)))
+    await execDel('barang_masuk_detail', db.delete(barang_masuk_detail).where(eq(barang_masuk_detail.tenant_id, t)))
+    await execDel('hutang_supplier', db.delete(hutang_supplier).where(eq(hutang_supplier.tenant_id, t)))
+    await execDel('barang_masuk', db.delete(barang_masuk).where(eq(barang_masuk.tenant_id, t)))
+    await execDel('purchase_order', db.delete(purchase_order).where(eq(purchase_order.tenant_id, t)))
+    await execDel('histori_harga_jual', db.delete(histori_harga_jual).where(eq(histori_harga_jual.tenant_id, t)))
+    await execDel('histori_harga_beli', db.delete(histori_harga_beli).where(eq(histori_harga_beli.tenant_id, t)))
+    await execDel('kartu_anggota', db.delete(kartu_anggota).where(eq(kartu_anggota.tenant_id, t)))
+    await execDel('barang', db.delete(barang).where(eq(barang.tenant_id, t)))
+    await execDel('supplier', db.delete(supplier).where(eq(supplier.tenant_id, t)))
+    await execDel('pelanggan', db.delete(pelanggan).where(eq(pelanggan.tenant_id, t)))
+    await execDel('kas_bank', db.delete(kas_bank).where(eq(kas_bank.tenant_id, t)))
+    await execDel('karyawan', db.delete(karyawan).where(eq(karyawan.toko_id, t)))
+    await execDel('cabang', db.delete(cabang).where(eq(cabang.toko_id, t)))
+    await execDel('toko_settings', db.delete(toko_settings).where(eq(toko_settings.toko_id, t)))
+    await execDel('toko', db.delete(toko).where(eq(toko.id, t)))
   })
 }

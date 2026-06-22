@@ -212,9 +212,6 @@ export const NAV: NavItem[] = [
 			{ key: 'audit', label: 'Audit Trail', href: '/pengaturan/audit' },
 			{ key: 'info-server', label: 'Info Server', href: '/pengaturan/info-server' },
 			{ key: 'toko', label: 'Toko & Cabang', href: '/pengaturan/toko' },
-			{ key: 'meja', label: 'Meja (F&B)', href: '/pengaturan/meja' },
-			{ key: 'modifier', label: 'Modifier (F&B)', href: '/pengaturan/modifier' },
-			{ key: 'bahan', label: 'Bahan & Resep (F&B)', href: '/pengaturan/bahan' },
 		]
 	}
 ]
