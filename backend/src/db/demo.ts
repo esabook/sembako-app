@@ -15,6 +15,17 @@ import {
   absensi, kasbon, penggajian, sanksi_insentif, evaluasi_karyawan,
   tipe_shift, jadwal_kerja, shift_kasir,
   promo, promo_target, budget_operasional,
+  // Sales & CRM
+  kunjungan_sales, agenda_supplier, permintaan_pelanggan, komplain_pelanggan,
+  pipeline_grosir,
+  // Operasional
+  aset_tetap, tagihan_utilitas, pinjaman_investasi,
+  checklist_item, checklist_log,
+  acara_hajatan, inspeksi_toko, tamu_birokrasi,
+  // F&B
+  meja, bahan_baku, resep, grup_modifier, modifier, barang_modifier_grup,
+  // Jasa
+  detail_layanan, jadwal_staf, paket_membership, kredit_membership, booking, komisi_staf,
 } from './schema.ts'
 
 export const DEMO_KODE_TOKO = 'DEMO'
@@ -205,6 +216,48 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
         }).returning()
       )
       barangIds.push(r!.id)
+    }
+
+    // ── 7b. Barang FnB & Jasa (menu item + service) ──────────────────────────
+    const katFnB   = await ensureKategori('F&B / Makanan')
+    const katJasa  = await ensureKategori('Jasa & Layanan')
+
+    const fnbData = [
+      { kode: 'DEMO-FNB-001', nama: 'Nasi Goreng Spesial', beli: 8000,  eceran: 18000, grosir: 16000 },
+      { kode: 'DEMO-FNB-002', nama: 'Es Teh Manis',        beli: 2000,  eceran: 8000,  grosir: 7000  },
+    ]
+    const fnbIds: number[] = []
+    for (const f of fnbData) {
+      const r = await query.ret<{ id: number }>(
+        db.insert(barang).values({
+          kode_barang: f.kode, nama_barang: f.nama,
+          kategori_id: katFnB, satuan_dasar_id: sPcs,
+          harga_beli_terakhir: f.beli, harga_beli_rata: f.beli,
+          harga_jual_eceran: f.eceran, harga_jual_grosir: f.grosir,
+          stok_sekarang: 0, stok_minimum: 0,
+          tenant_id: tid, is_active: true,
+        }).returning()
+      )
+      fnbIds.push(r!.id)
+    }
+
+    const jasaData = [
+      { kode: 'DEMO-JSA-001', nama: 'Cuci Motor',   beli: 10000, eceran: 25000, grosir: 22000 },
+      { kode: 'DEMO-JSA-002', nama: 'Potong Rambut', beli: 5000,  eceran: 35000, grosir: 30000 },
+    ]
+    const jasaIds: number[] = []
+    for (const j of jasaData) {
+      const r = await query.ret<{ id: number }>(
+        db.insert(barang).values({
+          kode_barang: j.kode, nama_barang: j.nama,
+          kategori_id: katJasa, satuan_dasar_id: sPcs,
+          harga_beli_terakhir: j.beli, harga_beli_rata: j.beli,
+          harga_jual_eceran: j.eceran, harga_jual_grosir: j.grosir,
+          stok_sekarang: 0, stok_minimum: 0,
+          tenant_id: tid, is_active: true,
+        }).returning()
+      )
+      jasaIds.push(r!.id)
     }
 
     // ── 8. Histori Harga ──────────────────────────────────────────────────────
@@ -1053,6 +1106,512 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
       }
     }
 
+    // ── 31. Sales: Kunjungan Sales (3 kunjungan ke pelanggan grosir) ──────────
+    const kunjunganTujuan = ['prospek', 'follow_up', 'pengiriman'] as const
+    for (let k = 0; k < 3; k++) {
+      await query.exec(
+        db.insert(kunjungan_sales).values({
+          pelanggan_id: plgIds[k + 1]!, // Pak Budi, Warung Pak Joko, Ibu Dewi
+          nama_warung: plgData[k + 1]!.nama,
+          alamat: `Jl. Demo Gang ${k + 1}, Kota Contoh`,
+          petugas_id: kasirId,
+          tanggal: dateStr(20 - k * 5),
+          tujuan: kunjunganTujuan[k]!,
+          hasil: k === 0 ? 'Prospek tertarik beli grosir beras dan gula' : k === 1 ? 'Konfirmasi order 50 karton indomie' : 'Barang diterima, pembayaran minggu depan',
+          catatan: `Kunjungan rutin demo ke-${k + 1}`,
+          status_tindak_lanjut: k < 2 ? 'selesai' : 'open',
+          tenant_id: tid,
+        })
+      )
+    }
+
+    // ── 32. Sales: Agenda Supplier (2 agenda) ─────────────────────────────────
+    const agendaTipe = ['negosiasi', 'kunjungan'] as const
+    for (let a = 0; a < 2; a++) {
+      await query.exec(
+        db.insert(agenda_supplier).values({
+          supplier_id: supIds[a]!,
+          nama_supplier: supData[a]!.nama,
+          tipe: agendaTipe[a]!,
+          tanggal: dateStr(a === 0 ? -3 : 7), // 3 hari lagi / 7 hari lalu
+          jam: a === 0 ? '10:00' : '14:00',
+          lokasi: a === 0 ? 'Kantor Supplier' : 'Toko Demo',
+          petugas_id: pemilikId,
+          hasil: a === 0 ? null : 'Negosiasi harga beras berhasil turun 2%',
+          status: a === 0 ? 'dijadwalkan' : 'selesai',
+          tenant_id: tid,
+        })
+      )
+    }
+
+    // ── 33. CRM: Permintaan Pelanggan (2 permintaan) ──────────────────────────
+    await query.exec(
+      db.insert(permintaan_pelanggan).values({
+        pelanggan_id: plgIds[0]!,
+        nama_pelanggan: plgData[0]!.nama,
+        nama_barang: 'Minyak Goreng 5L',
+        qty_minta: 10,
+        catatan: 'Butuh cepat untuk hajatan minggu depan',
+        status: 'menunggu',
+        tanggal: dateStr(3),
+        ditangani_oleh: kasirId,
+        tenant_id: tid,
+      })
+    )
+    await query.exec(
+      db.insert(permintaan_pelanggan).values({
+        pelanggan_id: plgIds[2]!,
+        nama_pelanggan: plgData[2]!.nama,
+        nama_barang: 'Kecap Manis 1L',
+        barang_id: barangIds[6]!, // Kecap Manis ABC
+        qty_minta: 24,
+        catatan: 'Minta harga grosir kalau ada',
+        status: 'tersedia',
+        tanggal: dateStr(6),
+        ditangani_oleh: kasirId,
+        tenant_id: tid,
+      })
+    )
+
+    // ── 34. CRM: Komplain Pelanggan (2 komplain) ──────────────────────────────
+    await query.exec(
+      db.insert(komplain_pelanggan).values({
+        pelanggan_id: plgIds[3]!,
+        nama_pelanggan: plgData[3]!.nama,
+        kategori: 'kualitas_barang',
+        deskripsi: 'Gula yang dibeli kemarin menggumpal dan ada semut',
+        tanggal: dateStr(4),
+        status: 'selesai',
+        resolusi: 'Barang diganti dengan yang baru, mohon maaf atas ketidaknyamanan',
+        ditangani_oleh: kasirId,
+        tenant_id: tid,
+      })
+    )
+    await query.exec(
+      db.insert(komplain_pelanggan).values({
+        pelanggan_id: plgIds[1]!,
+        nama_pelanggan: plgData[1]!.nama,
+        kategori: 'harga',
+        deskripsi: 'Harga beras naik 5% dibanding bulan lalu, minta penjelasan',
+        tanggal: dateStr(2),
+        status: 'diproses',
+        resolusi: null,
+        ditangani_oleh: pemilikId,
+        tenant_id: tid,
+      })
+    )
+
+    // ── 35. CRM: Pipeline Grosir (4 prospek tahap berbeda) ───────────────────
+    const pipelineTahap = ['prospek', 'dikunjungi', 'penawaran', 'deal'] as const
+    const pipelineNama = ['Warung Bu Lastri', 'Toko Sumber Rejeki', 'Minimarket Pak Hasan', 'Grosir Makmur Jaya']
+    const pipelineNilai = [2500000, 5000000, 12000000, 35000000]
+    for (let p = 0; p < 4; p++) {
+      await query.exec(
+        db.insert(pipeline_grosir).values({
+          nama_pelanggan: pipelineNama[p]!,
+          pelanggan_id: p < plgIds.length ? plgIds[p]! : null,
+          nilai_estimasi: pipelineNilai[p]!,
+          tahap: pipelineTahap[p]!,
+          petugas_id: kasirId,
+          produk_minat: p % 2 === 0 ? 'Beras, Gula, Minyak' : 'Indomie, Kecap, Garam',
+          catatan: `Pipeline demo tahap ${pipelineTahap[p]}`,
+          tanggal_masuk: dateStr(25 - p * 5),
+          tanggal_update: dateStr(20 - p * 3),
+          tenant_id: tid,
+        })
+      )
+    }
+
+    // ── 36. Aset Tetap (3 aset) ───────────────────────────────────────────────
+    const asetData = [
+      { nama: 'Mesin Kasir Sunmi T2', kat: 'Elektronik',  beli: 4500000, sekarang: 3800000, tgl: dateStr(365) },
+      { nama: 'Rak Besi 5 Tingkat',   kat: 'Perabot',     beli: 1200000, sekarang: 1000000, tgl: dateStr(400) },
+      { nama: 'AC 1 PK Daikin',       kat: 'Elektronik',  beli: 3200000, sekarang: 2700000, tgl: dateStr(200) },
+    ]
+    for (const a of asetData) {
+      await query.exec(
+        db.insert(aset_tetap).values({
+          nama: a.nama, kategori: a.kat,
+          nilai_beli: a.beli, nilai_sekarang: a.sekarang,
+          tanggal_beli: a.tgl, kondisi: 'baik',
+          lokasi: 'Cabang Utama Demo', is_active: true,
+          tenant_id: tid,
+        })
+      )
+    }
+
+    // ── 37. Tagihan Utilitas (3 jenis × 2 bulan) ─────────────────────────────
+    const utilitasData = [
+      { jenis: 'listrik'  as const, jumlah: 450000,  meterAwal: 1200, meterAkhir: 1650 },
+      { jenis: 'air'      as const, jumlah: 85000,   meterAwal: null,  meterAkhir: null  },
+      { jenis: 'internet' as const, jumlah: 250000,  meterAwal: null,  meterAkhir: null  },
+    ]
+    for (const m of [1, 0]) {
+      for (const u of utilitasData) {
+        await query.exec(
+          db.insert(tagihan_utilitas).values({
+            jenis: u.jenis,
+            periode_bulan: monthStr(m),
+            jumlah: u.jumlah,
+            tanggal_bayar: m === 1 ? dateStr(25) : null,
+            meter_awal: u.meterAwal,
+            meter_akhir: u.meterAkhir,
+            tenant_id: tid,
+          })
+        )
+      }
+    }
+
+    // ── 38. Pinjaman & Investasi (2 record) ───────────────────────────────────
+    await query.exec(
+      db.insert(pinjaman_investasi).values({
+        tipe: 'pinjaman',
+        nama: 'KUR BRI Pengembangan Toko',
+        jumlah_pokok: 50000000,
+        bunga_persen: 6,
+        cicilan_per_bulan: 950000,
+        tanggal_mulai: dateStr(180),
+        jatuh_tempo: dateStr(-360),
+        sisa_pokok: 42000000,
+        status: 'aktif',
+        catatan: 'KUR mikro untuk penambahan stok dan renovasi',
+        tenant_id: tid,
+      })
+    )
+    await query.exec(
+      db.insert(pinjaman_investasi).values({
+        tipe: 'investasi',
+        nama: 'Deposito BCA 6 Bulan',
+        jumlah_pokok: 20000000,
+        bunga_persen: 4.5,
+        cicilan_per_bulan: 0,
+        tanggal_mulai: dateStr(90),
+        jatuh_tempo: dateStr(-90),
+        sisa_pokok: 20000000,
+        status: 'aktif',
+        catatan: 'Deposito dari keuntungan Q1',
+        tenant_id: tid,
+      })
+    )
+
+    // ── 39. Tamu Birokrasi (2 tamu) ──────────────────────────────────────────
+    await query.exec(
+      db.insert(tamu_birokrasi).values({
+        nama_tamu: 'Pak Suyatno',
+        instansi: 'Dinas Perindustrian & Perdagangan',
+        keperluan: 'Verifikasi SIUP dan data stok',
+        tanggal: dateStr(10),
+        jam_masuk: '09:30',
+        jam_keluar: '10:15',
+        keterangan: 'Pemeriksaan rutin tahunan, tidak ada temuan',
+        dicatat_oleh: pemilikId,
+        tenant_id: tid,
+      })
+    )
+    await query.exec(
+      db.insert(tamu_birokrasi).values({
+        nama_tamu: 'Ibu Rahayu',
+        instansi: 'Kantor Pajak KPP Pratama',
+        keperluan: 'Konsultasi pelaporan SPT Tahunan',
+        tanggal: dateStr(3),
+        jam_masuk: '13:00',
+        jam_keluar: '14:00',
+        keterangan: 'Dibawa dokumen NPWP dan bukti transaksi Q4',
+        dicatat_oleh: pemilikId,
+        tenant_id: tid,
+      })
+    )
+
+    // ── 40. Checklist Tugas Harian (5 item + 7 hari log) ─────────────────────
+    const checklistItems = [
+      { nama: 'Sapu & pel lantai toko',           kat: 'kebersihan', urutan: 1 },
+      { nama: 'Lap rak dan display barang',        kat: 'kebersihan', urutan: 2 },
+      { nama: 'Periksa stok kritis / habis',       kat: 'stok',       urutan: 3 },
+      { nama: 'Buka & tutup kasir (rekap shift)',  kat: 'keuangan',   urutan: 4 },
+      { nama: 'Cek tanggal kadaluarsa barang',     kat: 'kualitas',   urutan: 5 },
+    ]
+    const checkIds: number[] = []
+    for (const ci of checklistItems) {
+      const r = await query.ret<{ id: number }>(
+        db.insert(checklist_item).values({
+          nama: ci.nama, kategori: ci.kat, urutan: ci.urutan,
+          is_active: true, tenant_id: tid,
+        }).returning()
+      )
+      checkIds.push(r!.id)
+    }
+    for (let d = 6; d >= 0; d--) {
+      for (let i = 0; i < checkIds.length; i++) {
+        const selesai = !(d === 0 && i >= 3) // hari ini item 4-5 belum selesai
+        await query.exec(
+          db.insert(checklist_log).values({
+            item_id: checkIds[i]!,
+            tanggal: dateStr(d),
+            karyawan_id: kasirId,
+            selesai,
+            catatan: selesai ? null : 'Belum sempat, masih ramai pembeli',
+            tenant_id: tid,
+          })
+        )
+      }
+    }
+
+    // ── 41. Acara Hajatan (2 acara) ───────────────────────────────────────────
+    await query.exec(
+      db.insert(acara_hajatan).values({
+        nama_acara: 'Pernikahan Putra Pak Budi',
+        nama_penyelenggara: 'Pak Budi Grosir',
+        pelanggan_id: plgIds[1]!,
+        tanggal_acara: dateStr(-14),
+        alamat: 'Gedung Serbaguna RW 05, Kota Contoh',
+        estimasi_tamu: 300,
+        catatan: 'Order beras 200kg, gula 50kg, minyak 30L',
+        status: 'selesai',
+        total_order: 18500000,
+        tenant_id: tid,
+      })
+    )
+    await query.exec(
+      db.insert(acara_hajatan).values({
+        nama_acara: 'Khitanan Keluarga Bu Sari',
+        nama_penyelenggara: 'Bu Sari',
+        pelanggan_id: plgIds[0]!,
+        tanggal_acara: dateStr(-7),
+        alamat: 'Rumah Bu Sari, Jl. Kenangan No. 12',
+        estimasi_tamu: 100,
+        catatan: 'Order sembako campur ±Rp5jt',
+        status: 'konfirmasi',
+        total_order: 4800000,
+        tenant_id: tid,
+      })
+    )
+
+    // ── 42. Inspeksi Toko (2 inspeksi) ───────────────────────────────────────
+    await query.exec(
+      db.insert(inspeksi_toko).values({
+        tanggal: dateStr(15),
+        jenis: 'bulanan',
+        petugas_id: pemilikId,
+        area: 'Seluruh area toko & gudang',
+        temuan: 'Rak sudut barat berdebu, 3 item mendekati kadaluarsa bulan depan',
+        tindakan: 'Lap rak segera, tandai item kadaluarsa, hubungi supplier untuk retur',
+        nilai: 82,
+        status: 'selesai',
+        tenant_id: tid,
+      })
+    )
+    await query.exec(
+      db.insert(inspeksi_toko).values({
+        tanggal: dateStr(2),
+        jenis: 'rutin',
+        petugas_id: kasirId,
+        area: 'Area kasir & display depan',
+        temuan: 'Display harga beberapa barang tidak up-to-date',
+        tindakan: 'Update label harga hari ini',
+        nilai: 88,
+        status: 'selesai',
+        tenant_id: tid,
+      })
+    )
+
+    // ── 43. F&B: Meja (4 meja dine-in) ──────────────────────────────────────
+    for (let m = 1; m <= 4; m++) {
+      await query.exec(
+        db.insert(meja).values({
+          kode_meja: `M${String(m).padStart(2, '0')}`,
+          nama: `Meja ${m}`,
+          kapasitas: m <= 2 ? 2 : 4,
+          status: m === 1 ? 'terisi' : 'kosong',
+          is_active: true,
+          tenant_id: tid,
+          cabang_id: cid,
+        })
+      )
+    }
+
+    // ── 44. F&B: Bahan Baku (3 bahan) ────────────────────────────────────────
+    const bahanData = [
+      { kode: 'DEMO-BB-001', nama: 'Nasi Putih',  stok: 10, harga: 3000 },
+      { kode: 'DEMO-BB-002', nama: 'Telur Ayam',  stok: 50, harga: 2500 },
+      { kode: 'DEMO-BB-003', nama: 'Teh Celup',   stok: 100, harga: 500 },
+    ]
+    const bahanIds: number[] = []
+    for (const b of bahanData) {
+      const r = await query.ret<{ id: number }>(
+        db.insert(bahan_baku).values({
+          kode_bahan: b.kode, nama: b.nama,
+          satuan_id: sPcs,
+          stok_sekarang: b.stok, stok_minimum: 5,
+          harga_beli_rata: b.harga, is_active: true,
+          tenant_id: tid,
+        }).returning()
+      )
+      bahanIds.push(r!.id)
+    }
+
+    // ── 45. F&B: Resep (Nasi Goreng pakai nasi+telur, Es Teh pakai teh) ──────
+    await query.exec(
+      db.insert(resep).values({ barang_id: fnbIds[0]!, bahan_baku_id: bahanIds[0]!, jumlah: 1, satuan_id: sPcs, tenant_id: tid })
+    )
+    await query.exec(
+      db.insert(resep).values({ barang_id: fnbIds[0]!, bahan_baku_id: bahanIds[1]!, jumlah: 1, satuan_id: sPcs, tenant_id: tid })
+    )
+    await query.exec(
+      db.insert(resep).values({ barang_id: fnbIds[1]!, bahan_baku_id: bahanIds[2]!, jumlah: 1, satuan_id: sPcs, tenant_id: tid })
+    )
+
+    // ── 46. F&B: Grup Modifier + Modifier ────────────────────────────────────
+    const grpUkuranRow = await query.ret<{ id: number }>(
+      db.insert(grup_modifier).values({
+        nama: 'Ukuran Porsi', wajib: true, min_pilih: 1, max_pilih: 1, is_active: true, tenant_id: tid,
+      }).returning()
+    )
+    const grpToppingRow = await query.ret<{ id: number }>(
+      db.insert(grup_modifier).values({
+        nama: 'Topping', wajib: false, min_pilih: 0, max_pilih: 3, is_active: true, tenant_id: tid,
+      }).returning()
+    )
+    const grpUkuranId = grpUkuranRow!.id
+    const grpToppingId = grpToppingRow!.id
+
+    for (const [nama, harga, grp] of [
+      ['Regular', 0, grpUkuranId], ['Jumbo', 3000, grpUkuranId],
+      ['Extra Telur', 3000, grpToppingId], ['Keju', 4000, grpToppingId],
+    ] as [string, number, number][]) {
+      await query.exec(
+        db.insert(modifier).values({ grup_modifier_id: grp, nama, harga_tambahan: harga, is_active: true, tenant_id: tid })
+      )
+    }
+
+    // Link Nasi Goreng ke kedua grup modifier
+    await query.exec(
+      db.insert(barang_modifier_grup).values({ barang_id: fnbIds[0]!, grup_modifier_id: grpUkuranId, urutan: 1, tenant_id: tid })
+    )
+    await query.exec(
+      db.insert(barang_modifier_grup).values({ barang_id: fnbIds[0]!, grup_modifier_id: grpToppingId, urutan: 2, tenant_id: tid })
+    )
+
+    // ── 47. Jasa: Detail Layanan (2 layanan dari jasa barang) ────────────────
+    await query.exec(
+      db.insert(detail_layanan).values({
+        barang_id: jasaIds[0]!, durasi_menit: 30, buffer_menit: 5,
+        dapat_dibooking: true, komisi_persen: 20, komisi_nominal: 0, tenant_id: tid,
+      })
+    )
+    await query.exec(
+      db.insert(detail_layanan).values({
+        barang_id: jasaIds[1]!, durasi_menit: 45, buffer_menit: 10,
+        dapat_dibooking: true, komisi_persen: 25, komisi_nominal: 0, tenant_id: tid,
+      })
+    )
+
+    // ── 48. Jasa: Jadwal Staf (kasir kerja Senin-Sabtu) ──────────────────────
+    for (let hari = 1; hari <= 6; hari++) { // 1=Senin ... 6=Sabtu
+      await query.exec(
+        db.insert(jadwal_staf).values({
+          karyawan_id: kasirId,
+          hari,
+          jam_mulai: '08:00',
+          jam_selesai: '17:00',
+          is_active: true,
+          tenant_id: tid,
+          cabang_id: cid,
+        })
+      )
+    }
+
+    // ── 49. Jasa: Paket Membership (2 paket) ─────────────────────────────────
+    const paketRow1 = await query.ret<{ id: number }>(
+      db.insert(paket_membership).values({
+        kode_paket: 'DEMO-PKT-001',
+        nama: 'Paket Cuci Motor 5x',
+        barang_id: jasaIds[0]!,
+        jumlah_sesi: 5,
+        harga: 100000,
+        masa_berlaku_hari: 90,
+        is_active: true,
+        tenant_id: tid,
+      }).returning()
+    )
+    const paketRow2 = await query.ret<{ id: number }>(
+      db.insert(paket_membership).values({
+        kode_paket: 'DEMO-PKT-002',
+        nama: 'Paket Potong Rambut 3x',
+        barang_id: jasaIds[1]!,
+        jumlah_sesi: 3,
+        harga: 90000,
+        masa_berlaku_hari: 60,
+        is_active: true,
+        tenant_id: tid,
+      }).returning()
+    )
+    const paketId1 = paketRow1!.id
+    const paketId2 = paketRow2!.id
+
+    // ── 50. Jasa: Kredit Membership (2 pelanggan beli paket) ─────────────────
+    const kreditRow1 = await query.ret<{ id: number }>(
+      db.insert(kredit_membership).values({
+        pelanggan_id: plgIds[0]!, // Bu Sari
+        paket_id: paketId1,
+        sisa_kuota: 3,
+        tanggal_mulai: dateStr(20),
+        tanggal_expired: dateStr(-70),
+        status: 'aktif',
+        tenant_id: tid,
+      }).returning()
+    )
+    const kreditRow2 = await query.ret<{ id: number }>(
+      db.insert(kredit_membership).values({
+        pelanggan_id: plgIds[3]!, // Ibu Dewi
+        paket_id: paketId2,
+        sisa_kuota: 2,
+        tanggal_mulai: dateStr(15),
+        tanggal_expired: dateStr(-45),
+        status: 'aktif',
+        tenant_id: tid,
+      }).returning()
+    )
+    const kreditId1 = kreditRow1!.id
+    const kreditId2 = kreditRow2!.id
+
+    // ── 51. Jasa: Booking (3 booking) ────────────────────────────────────────
+    const bookingStatus = ['selesai', 'confirmed', 'booked'] as const
+    for (let b = 0; b < 3; b++) {
+      const isCuci = b < 2
+      await query.exec(
+        db.insert(booking).values({
+          no_booking: `DEMO-BK-${String(b + 1).padStart(3, '0')}`,
+          pelanggan_id: b === 0 ? plgIds[0]! : b === 1 ? plgIds[3]! : plgIds[2]!,
+          karyawan_id: kasirId,
+          barang_id: isCuci ? jasaIds[0]! : jasaIds[1]!,
+          waktu_mulai: `${dateStr(b === 0 ? 5 : b === 1 ? 1 : -1)}T${b === 0 ? '09' : b === 1 ? '11' : '14'}:00:00`,
+          waktu_selesai: b === 0 ? `${dateStr(5)}T09:35:00` : null,
+          status: bookingStatus[b]!,
+          kredit_id: b === 0 ? kreditId1 : b === 1 ? kreditId2 : null,
+          catatan: b === 2 ? 'Minta potong model pendek rapi' : null,
+          tenant_id: tid,
+          cabang_id: cid,
+        })
+      )
+    }
+
+    // ── 52. Jasa: Komisi Staf (2 komisi dari layanan selesai) ────────────────
+    for (let k = 0; k < 2; k++) {
+      const barangJasa = jasaData[k]!
+      const komisiNilai = Math.floor(barangJasa.eceran * (k === 0 ? 0.2 : 0.25))
+      await query.exec(
+        db.insert(komisi_staf).values({
+          karyawan_id: kasirId,
+          barang_id: jasaIds[k]!,
+          nilai_komisi: komisiNilai,
+          persen: k === 0 ? 20 : 25,
+          tanggal: dateStr(5),
+          status: 'pending',
+          tenant_id: tid,
+        })
+      )
+    }
+
     return { toko_id: tid }
   })
 }
@@ -1064,6 +1623,35 @@ export async function deleteDemoData(): Promise<void> {
   const t = demoId
   return withTransaction(async () => {
     // Hapus child-first, ikuti urutan FK
+    // Jasa
+    await query.exec(db.delete(komisi_staf).where(eq(komisi_staf.tenant_id, t)))
+    await query.exec(db.delete(booking).where(eq(booking.tenant_id, t)))
+    await query.exec(db.delete(kredit_membership).where(eq(kredit_membership.tenant_id, t)))
+    await query.exec(db.delete(paket_membership).where(eq(paket_membership.tenant_id, t)))
+    await query.exec(db.delete(detail_layanan).where(eq(detail_layanan.tenant_id, t)))
+    await query.exec(db.delete(jadwal_staf).where(eq(jadwal_staf.tenant_id, t)))
+    // F&B
+    await query.exec(db.delete(barang_modifier_grup).where(eq(barang_modifier_grup.tenant_id, t)))
+    await query.exec(db.delete(modifier).where(eq(modifier.tenant_id, t)))
+    await query.exec(db.delete(grup_modifier).where(eq(grup_modifier.tenant_id, t)))
+    await query.exec(db.delete(resep).where(eq(resep.tenant_id, t)))
+    await query.exec(db.delete(bahan_baku).where(eq(bahan_baku.tenant_id, t)))
+    await query.exec(db.delete(meja).where(eq(meja.tenant_id, t)))
+    // Operasional
+    await query.exec(db.delete(checklist_log).where(eq(checklist_log.tenant_id, t)))
+    await query.exec(db.delete(checklist_item).where(eq(checklist_item.tenant_id, t)))
+    await query.exec(db.delete(inspeksi_toko).where(eq(inspeksi_toko.tenant_id, t)))
+    await query.exec(db.delete(tamu_birokrasi).where(eq(tamu_birokrasi.tenant_id, t)))
+    await query.exec(db.delete(acara_hajatan).where(eq(acara_hajatan.tenant_id, t)))
+    await query.exec(db.delete(aset_tetap).where(eq(aset_tetap.tenant_id, t)))
+    await query.exec(db.delete(tagihan_utilitas).where(eq(tagihan_utilitas.tenant_id, t)))
+    await query.exec(db.delete(pinjaman_investasi).where(eq(pinjaman_investasi.tenant_id, t)))
+    // Sales & CRM
+    await query.exec(db.delete(pipeline_grosir).where(eq(pipeline_grosir.tenant_id, t)))
+    await query.exec(db.delete(komplain_pelanggan).where(eq(komplain_pelanggan.tenant_id, t)))
+    await query.exec(db.delete(permintaan_pelanggan).where(eq(permintaan_pelanggan.tenant_id, t)))
+    await query.exec(db.delete(agenda_supplier).where(eq(agenda_supplier.tenant_id, t)))
+    await query.exec(db.delete(kunjungan_sales).where(eq(kunjungan_sales.tenant_id, t)))
     await query.exec(db.delete(budget_operasional).where(eq(budget_operasional.tenant_id, t)))
     await query.exec(db.delete(promo_target).where(eq(promo_target.tenant_id, t)))
     await query.exec(db.delete(promo).where(eq(promo.tenant_id, t)))
