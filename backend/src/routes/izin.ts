@@ -85,7 +85,7 @@ izinRouter.get('/:id', async (c) => {
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
 
-  const row = await query.find(db
+  const row = await query.find<{ karyawan_id: number }>(db
     .select({
       id: pengajuan_izin.id,
       karyawan_id: pengajuan_izin.karyawan_id,
@@ -165,7 +165,7 @@ izinRouter.post('/:id/setujui', async (c) => {
   let catatan: string | undefined
   try { catatan = (await c.req.json<{ catatan?: string }>()).catatan } catch { /* opsional */ }
 
-  const row = await query.find(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
+  const row = await query.find<typeof pengajuan_izin.$inferSelect>(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Pengajuan tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Pengajuan sudah ${row.status}` })
@@ -197,7 +197,7 @@ izinRouter.post('/:id/setujui', async (c) => {
     }
   }
 
-  const updated = await query.find(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
+  const updated = await query.find<typeof pengajuan_izin.$inferSelect>(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
   return c.json({ success: true, data: updated })
 })
 
@@ -214,7 +214,7 @@ izinRouter.post('/:id/tolak', async (c) => {
   let catatan: string | undefined
   try { catatan = (await c.req.json<{ catatan?: string }>()).catatan } catch { /* opsional */ }
 
-  const row = await query.find(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
+  const row = await query.find<typeof pengajuan_izin.$inferSelect>(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Pengajuan tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Pengajuan sudah ${row.status}` })
