@@ -69,7 +69,7 @@ approvalRouter.post('/:id/setujui', requirePermission('karyawan.lihat'), async (
     catatan = body.catatan
   } catch { /* body opsional */ }
 
-  const row = await query.find(db.select().from(approval).where(and(eq(approval.id, id), eq(approval.tenant_id, tenantId))))
+  const row = await query.find<typeof approval.$inferSelect>(db.select().from(approval).where(and(eq(approval.id, id), eq(approval.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Approval tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Approval sudah ${row.status}` })
@@ -109,7 +109,7 @@ approvalRouter.post('/:id/tolak', requirePermission('karyawan.lihat'), async (c)
     catatan = body.catatan
   } catch { /* body opsional */ }
 
-  const row = await query.find(db.select().from(approval).where(and(eq(approval.id, id), eq(approval.tenant_id, tenantId))))
+  const row = await query.find<typeof approval.$inferSelect>(db.select().from(approval).where(and(eq(approval.id, id), eq(approval.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Approval tidak ditemukan' })
   if (row.status !== 'menunggu') {
     throw new HTTPException(409, { message: `Approval sudah ${row.status}` })
