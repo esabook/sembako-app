@@ -272,7 +272,7 @@ shiftRouter.post('/tutup', async (c) => {
       status: 'tutup',
       updated_at: isoNow(),
     })
-    .where(eq(shift_kasir.id, shift.id))
+    .where(eq(shift_kasir.id, shift.id!))
     .returning()
     )
 
