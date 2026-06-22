@@ -84,7 +84,7 @@ pinjamanInvestasiRouter.put('/:id', requirePermission('laporan.lihat'), async (c
     catatan?: string
   }>()
 
-  const existing = await query.find(db.select().from(pinjaman_investasi).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))))
+  const existing = await query.find<typeof pinjaman_investasi.$inferSelect>(db.select().from(pinjaman_investasi).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
 
   const row = await query.ret(db.update(pinjaman_investasi).set({
@@ -109,7 +109,7 @@ pinjamanInvestasiRouter.post('/:id/cicil', requirePermission('laporan.lihat'), a
 
   if (!body.jumlah || body.jumlah <= 0) throw new HTTPException(400, { message: 'jumlah harus > 0' })
 
-  const existing = await query.find(db.select().from(pinjaman_investasi).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))))
+  const existing = await query.find<typeof pinjaman_investasi.$inferSelect>(db.select().from(pinjaman_investasi).where(and(eq(pinjaman_investasi.id, id), eq(pinjaman_investasi.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data tidak ditemukan' })
   if (existing.status !== 'aktif') throw new HTTPException(400, { message: 'Hanya status aktif yang bisa dicicil' })
 
