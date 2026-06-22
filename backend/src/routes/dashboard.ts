@@ -54,7 +54,7 @@ dashboardRouter.get('/', async (c) => {
   )
 
   // ── Saldo kas/bank ──────────────────────────────────────────────────────────
-  const akunKasRows = await query.findAll(db.select({
+  const akunKasRows = await query.findAll<{ id: number; nama: string; tipe: string; saldo_awal: number; masuk: number; keluar: number }>(db.select({
     id: kas_bank.id,
     nama: kas_bank.nama,
     tipe: kas_bank.tipe,
@@ -89,7 +89,7 @@ dashboardRouter.get('/', async (c) => {
   )
 
   // ── Piutang lewat jatuh tempo ───────────────────────────────────────────────
-  const piutangMacet = await query.findAll(db.select({
+  const piutangMacet = await query.findAll<{ id: number; nama_pelanggan: string | null; kontak: string | null; sisa_piutang: number; tanggal_jatuh_tempo: string | null }>(db.select({
     id: piutang_pelanggan.id,
     nama_pelanggan: pelanggan.nama,
     kontak: pelanggan.kontak,
@@ -109,7 +109,7 @@ dashboardRouter.get('/', async (c) => {
   const totalPiutangMacet = piutangMacet.reduce((s, r) => s + r.sisa_piutang, 0)
 
   // ── Hutang jatuh tempo 7 hari ke depan ─────────────────────────────────────
-  const hutangJatuhTempo = await query.findAll(db.select({
+  const hutangJatuhTempo = await query.findAll<{ id: number; nama_supplier: string | null; sisa_hutang: number; tanggal_jatuh_tempo: string | null }>(db.select({
     id: hutang_supplier.id,
     nama_supplier: supplier.nama_supplier,
     sisa_hutang: hutang_supplier.sisa_hutang,
@@ -161,14 +161,14 @@ dashboardRouter.get('/', async (c) => {
   )
 
   // ── Ringkasan piutang & hutang total ───────────────────────────────────────
-  const totalPiutang = await query.find(db.select({
+  const totalPiutang = await query.find<{ total: number }>(db.select({
     total: sql<number>`COALESCE(SUM(${piutang_pelanggan.sisa_piutang}), 0)`,
   })
   .from(piutang_pelanggan)
   .where(and(eq(piutang_pelanggan.tenant_id, tenantId), sql`${piutang_pelanggan.status} != 'lunas'`))
   )
 
-  const totalHutang = await query.find(db.select({
+  const totalHutang = await query.find<{ total: number }>(db.select({
     total: sql<number>`COALESCE(SUM(${hutang_supplier.sisa_hutang}), 0)`,
   })
   .from(hutang_supplier)
