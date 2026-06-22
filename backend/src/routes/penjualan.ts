@@ -177,7 +177,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     if (item.harga_jual < 0) {
       throw new HTTPException(400, { message: 'Harga jual tidak boleh negatif' })
     }
-    const br = await query.find(db.select().from(barang).where(and(eq(barang.id, item.barang_id), eq(barang.tenant_id, tenantId))))
+    const br = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(and(eq(barang.id, item.barang_id), eq(barang.tenant_id, tenantId))))
     if (!br || !br.is_active) {
       throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
     }
@@ -202,7 +202,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   // Semua operasi dalam 1 transaksi SQLite
   const result = await withTransaction(async (tx) => {
     // 1. Buat penjualan
-    const trx = await query.ret(db.insert(penjualan).values({
+    const trx = await query.ret<typeof penjualan.$inferSelect>(db.insert(penjualan).values({
       no_transaksi: noTrx,
       pelanggan_id: body.pelanggan_id,
       tanggal: tgl,
@@ -227,8 +227,8 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       // KDS: menu_item pada layanan F&B masuk antrian dapur
       const statusKds = item.tipe_produk === 'menu_item' && dineIn ? 'pending' as const : null
 
-      const det = await query.ret(db.insert(penjualan_detail).values({
-        penjualan_id: trx.id,
+      const det = await query.ret<typeof penjualan_detail.$inferSelect>(db.insert(penjualan_detail).values({
+        penjualan_id: trx!.id!,
         barang_id: item.barang_id,
         satuan_id: item.satuan_id,
         jumlah: item.jumlah,
@@ -247,7 +247,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       if (item.modifiers?.length) {
         await query.exec(db.insert(penjualan_detail_modifier).values(
           item.modifiers.map((m) => ({
-            penjualan_detail_id: det.id,
+            penjualan_detail_id: det!.id!,
             modifier_id: m.modifier_id,
             nama_snapshot: m.nama_snapshot,
             harga_snapshot: m.harga_snapshot,
@@ -258,7 +258,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
       // Komisi staf utk item layanan (service) yang punya pelaksana
       if (item.tipe_produk === 'service' && item.dilayani_oleh) {
-        const dl = await query.find(db.select({
+        const dl = await query.find<{ komisi_persen: number; komisi_nominal: number }>(db.select({
           komisi_persen: detail_layanan.komisi_persen,
           komisi_nominal: detail_layanan.komisi_nominal,
         }).from(detail_layanan).where(and(eq(detail_layanan.barang_id, item.barang_id), eq(detail_layanan.tenant_id, tenantId))))
@@ -269,8 +269,8 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         if (nilaiKomisi > 0) {
           await query.exec(db.insert(komisi_staf).values({
             karyawan_id: item.dilayani_oleh,
-            penjualan_id: trx.id,
-            penjualan_detail_id: det.id,
+            penjualan_id: trx!.id!,
+            penjualan_detail_id: det!.id!,
             barang_id: item.barang_id,
             nilai_komisi: nilaiKomisi,
             persen: dl?.komisi_persen ?? 0,
@@ -283,10 +283,10 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
       // Menu F&B: potong stok bahan baku sesuai resep (BoM) × jumlah porsi
       if (item.tipe_produk === 'menu_item') {
-        const lines = await query.findAll(db.select({ bahan_baku_id: resep.bahan_baku_id, jumlah: resep.jumlah })
+        const lines = await query.findAll<{ bahan_baku_id: number; jumlah: number }>(db.select({ bahan_baku_id: resep.bahan_baku_id, jumlah: resep.jumlah })
           .from(resep).where(and(eq(resep.barang_id, item.barang_id), eq(resep.tenant_id, tenantId))))
         for (const ln of lines) {
-          const bb = await query.find(db.select({ stok: bahan_baku.stok_sekarang })
+          const bb = await query.find<{ stok: number }>(db.select({ stok: bahan_baku.stok_sekarang })
             .from(bahan_baku).where(eq(bahan_baku.id, ln.bahan_baku_id)))
           if (!bb) continue
           const sisa = Math.max(0, bb.stok - ln.jumlah * item.jumlah) // jangan langgar chk >= 0
@@ -298,7 +298,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       // Kurangi stok hanya utk barang fisik
       if (item.tipe_produk !== 'physical_good') continue
 
-      const br = await query.find(db.select({ stok: barang.stok_sekarang })
+      const br = await query.find<{ stok: number }>(db.select({ stok: barang.stok_sekarang })
         .from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
       if (br.stok < item.jumlah) {
@@ -312,7 +312,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         tanggal: tgl,
         jenis: 'keluar',
         referensi_tipe: 'penjualan',
-        referensi_id: trx.id,
+        referensi_id: trx!.id!,
         jumlah_sebelum: br.stok,
         jumlah_perubahan: -item.jumlah,
         jumlah_sesudah: br.stok - item.jumlah,
@@ -338,20 +338,20 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     // 3. Jurnal kas (hanya jika bukan hutang)
     if (body.metode_bayar !== 'hutang') {
       let kasTujuan = body.kas_bank_id
-        ? await query.find(db.select().from(kas_bank).where(and(eq(kas_bank.id, body.kas_bank_id), eq(kas_bank.tenant_id, tenantId), eq(kas_bank.cabang_id, cabangId))))
+        ? await query.find<typeof kas_bank.$inferSelect>(db.select().from(kas_bank).where(and(eq(kas_bank.id, body.kas_bank_id), eq(kas_bank.tenant_id, tenantId), eq(kas_bank.cabang_id, cabangId))))
         : null
       // Fallback ke kas tunai pertama milik cabang ini
       if (!kasTujuan) {
-        kasTujuan = await query.find(db.select().from(kas_bank).where(and(eq(kas_bank.tipe, 'kas'), eq(kas_bank.tenant_id, tenantId), eq(kas_bank.cabang_id, cabangId))))
+        kasTujuan = await query.find<typeof kas_bank.$inferSelect>(db.select().from(kas_bank).where(and(eq(kas_bank.tipe, 'kas'), eq(kas_bank.tenant_id, tenantId), eq(kas_bank.cabang_id, cabangId))))
       }
       if (kasTujuan) {
         await query.exec(db.insert(jurnal_kas).values({
           tanggal: tgl,
-          kas_bank_id: kasTujuan.id,
+          kas_bank_id: kasTujuan.id!,
           jenis: 'masuk',
           kategori: 'penjualan',
           referensi_tipe: 'penjualan',
-          referensi_id: trx.id,
+          referensi_id: trx!.id!,
           keterangan: `Penjualan ${noTrx}`,
           jumlah: total,
           dicatat_oleh: user.id,
@@ -363,7 +363,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
     // 4. Piutang (jika hutang)
     if (body.metode_bayar === 'hutang' && body.pelanggan_id) {
-      const plg = await query.find(db.select().from(pelanggan)
+      const plg = await query.find<typeof pelanggan.$inferSelect>(db.select().from(pelanggan)
         .where(and(eq(pelanggan.id, body.pelanggan_id), eq(pelanggan.tenant_id, tenantId))))
 
       if (plg && plg.limit_piutang > 0 && plg.saldo_piutang + total > plg.limit_piutang) {
@@ -372,7 +372,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
       await query.exec(db.insert(piutang_pelanggan).values({
         pelanggan_id: body.pelanggan_id,
-        penjualan_id: trx.id,
+        penjualan_id: trx!.id!,
         tanggal_piutang: tgl,
         total_piutang: total,
         sisa_piutang: total,
@@ -410,11 +410,11 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
   const tenantId = user.tenant_id ?? 1
   const cabangId = user.cabang_id ?? 1
 
-  const trx = await query.find(db.select().from(penjualan).where(and(eq(penjualan.id, id), eq(penjualan.tenant_id, tenantId))))
+  const trx = await query.find<typeof penjualan.$inferSelect>(db.select().from(penjualan).where(and(eq(penjualan.id, id), eq(penjualan.tenant_id, tenantId))))
   if (!trx) throw new HTTPException(404, { message: 'Transaksi tidak ditemukan' })
   if (trx.status === 'void') throw new HTTPException(400, { message: 'Transaksi sudah di-void' })
 
-  const items = await query.findAll(db.select().from(penjualan_detail)
+  const items = await query.findAll<typeof penjualan_detail.$inferSelect>(db.select().from(penjualan_detail)
     .where(eq(penjualan_detail.penjualan_id, id)))
 
   const tgl = tglSekarang()
@@ -422,7 +422,7 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
   await withTransaction(async (tx) => {
     // Kembalikan stok
     for (const item of items) {
-      const br = await query.find(db.select({ stok: barang.stok_sekarang })
+      const br = await query.find<{ stok: number }>(db.select({ stok: barang.stok_sekarang })
         .from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
