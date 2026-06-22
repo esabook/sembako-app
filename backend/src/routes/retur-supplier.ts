@@ -125,7 +125,7 @@ returSupplierRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) 
 returSupplierRouter.get('/sisa/:barang_masuk_id', requirePermission('pembelian.lihat'), async (c) => {
   const bmId = Number(c.req.param('barang_masuk_id'))
 
-  const diterima = await query.findAll(db
+  const diterima = await query.findAll<{ barang_id: number; nama_barang: string | null; kode_barang: string | null; jumlah_terima: number; harga_beli: number }>(db
     .select({
       barang_id: barang_masuk_detail.barang_id,
       nama_barang: barang.nama_barang,
@@ -139,7 +139,7 @@ returSupplierRouter.get('/sisa/:barang_masuk_id', requirePermission('pembelian.l
     )
 
   // Jumlah yang sudah diretur sebelumnya dari dokumen ini
-  const sudahRetur = await query.findAll(db
+  const sudahRetur = await query.findAll<{ barang_id: number; jumlah_retur: number }>(db
     .select({
       barang_id: retur_supplier_detail.barang_id,
       jumlah_retur: retur_supplier_detail.jumlah_retur,
@@ -180,7 +180,7 @@ type ItemInput = {
 returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
-  const cabangId = user.cabang_id ?? null
+  const cabangId = user.cabang_id ?? 1
   const body = await c.req.json<{
     barang_masuk_id: number
     metode_refund: 'kurang_hutang' | 'tunai'
@@ -194,14 +194,14 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
   if (!body.barang_masuk_id) throw new HTTPException(400, { message: 'barang_masuk_id wajib' })
   if (!body.items?.length) throw new HTTPException(400, { message: 'Minimal satu item' })
 
-  const bm = await query.find(db.select().from(barang_masuk).where(and(eq(barang_masuk.id, body.barang_masuk_id), eq(barang_masuk.tenant_id, tenantId))))
+  const bm = await query.find<typeof barang_masuk.$inferSelect>(db.select().from(barang_masuk).where(and(eq(barang_masuk.id, body.barang_masuk_id), eq(barang_masuk.tenant_id, tenantId))))
   if (!bm) throw new HTTPException(404, { message: 'Dokumen penerimaan tidak ditemukan' })
 
   // Validasi qty sisa per barang
   for (const item of body.items) {
     if (item.jumlah_retur <= 0) throw new HTTPException(400, { message: 'Jumlah retur harus > 0' })
 
-    const diterima = await query.find(db
+    const diterima = await query.find<{ jumlah_terima: number }>(db
       .select({ jumlah_terima: barang_masuk_detail.jumlah_terima })
       .from(barang_masuk_detail)
       .where(and(
@@ -212,7 +212,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
 
     if (!diterima) throw new HTTPException(400, { message: `Barang ${item.barang_id} tidak ada di penerimaan ini` })
 
-    const sudahRetur = await query.findAll(db
+    const sudahReturRows = await query.findAll<{ total: number }>(db
       .select({ total: retur_supplier_detail.jumlah_retur })
       .from(retur_supplier_detail)
       .innerJoin(retur_supplier, eq(retur_supplier_detail.retur_id, retur_supplier.id))
@@ -221,7 +221,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         eq(retur_supplier_detail.barang_id, item.barang_id),
       ))
       )
-      .reduce((s, r) => s + r.total, 0)
+    const sudahRetur = sudahReturRows.reduce((s, r) => s + r.total, 0)
 
     const sisa = diterima.jumlah_terima - sudahRetur
     if (item.jumlah_retur > sisa) {
@@ -235,9 +235,9 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
   const tgl = tglSekarang()
   const noRet = noRetur()
 
-  const fn = await withTransaction(async (tx) => {
+  const created = await withTransaction(async (tx) => {
     // 1. Header retur
-    const ret = await query.ret(db.insert(retur_supplier).values({
+    const ret = await query.ret<typeof retur_supplier.$inferSelect>(db.insert(retur_supplier).values({
       no_retur: noRet,
       barang_masuk_id: body.barang_masuk_id,
       supplier_id: bm.supplier_id,
@@ -257,7 +257,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
     for (const item of body.items) {
       const subtotal = Math.round(item.harga_beli * item.jumlah_retur)
       await query.exec(db.insert(retur_supplier_detail).values({
-        retur_id: ret.id,
+        retur_id: ret!.id!,
         barang_id: item.barang_id,
         jumlah_retur: item.jumlah_retur,
         harga_beli: item.harga_beli,
@@ -266,14 +266,14 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         cabang_id: cabangId,
       }))
 
-      const br = await query.find(db.select({ stok: barang.stok_sekarang }).from(barang).where(eq(barang.id, item.barang_id)))
+      const br = await query.find<{ stok: number }>(db.select({ stok: barang.stok_sekarang }).from(barang).where(eq(barang.id, item.barang_id)))
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
       await query.exec(db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
         tanggal: tgl,
         jenis: 'keluar',
         referensi_tipe: 'retur_supplier',
-        referensi_id: ret.id,
+        referensi_id: ret!.id,
         jumlah_sebelum: br.stok,
         jumlah_perubahan: -item.jumlah_retur,
         jumlah_sesudah: br.stok - item.jumlah_retur,
@@ -290,7 +290,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
 
     // 3. Kurangi hutang supplier
     if (body.metode_refund === 'kurang_hutang' && body.hutang_id) {
-      const hutang = await query.find(db.select().from(hutang_supplier).where(eq(hutang_supplier.id, body.hutang_id)))
+      const hutang = await query.find<typeof hutang_supplier.$inferSelect>(db.select().from(hutang_supplier).where(eq(hutang_supplier.id, body.hutang_id)))
       if (hutang && hutang.status !== 'lunas') {
         const sisaBaru = Math.max(0, hutang.sisa_hutang - total)
         const statusBaru = sisaBaru === 0 ? 'lunas' : sisaBaru < hutang.total_hutang ? 'sebagian' : 'belum'
@@ -309,7 +309,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
         jenis: 'masuk',
         kategori: 'retur_supplier',
         referensi_tipe: 'retur_supplier',
-        referensi_id: ret.id,
+        referensi_id: ret!.id,
         keterangan: `Retur supplier ${noRet}`,
         jumlah: total,
         dicatat_oleh: user.id,
@@ -321,6 +321,5 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
     return ret
   })
 
-  const result = fn()
-  return c.json({ success: true, data: result }, 201)
+  return c.json({ success: true, data: created }, 201)
 })

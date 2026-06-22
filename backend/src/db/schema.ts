@@ -753,10 +753,12 @@ export const retur_supplier = table('retur_supplier', {
   kas_bank_id: int('kas_bank_id').references(() => kas_bank.id),
   catatan: txt('catatan'),
   ...tenantField,
+  ...cabangField,
   ...timestamps,
 }, (t) => [
   idx('idx_retur_sup_bm').on(t.barang_masuk_id),
   idx('idx_retur_sup_supplier').on(t.supplier_id),
+  idx('idx_retur_sup_cabang').on(t.cabang_id),
 ])
 
 export const retur_supplier_detail = table('retur_supplier_detail', {
@@ -767,6 +769,7 @@ export const retur_supplier_detail = table('retur_supplier_detail', {
   harga_beli: money('harga_beli').notNull(), // snapshot harga dari penerimaan asal
   subtotal: money('subtotal').notNull(),
   ...tenantField,
+  ...cabangField,
 })
 
 // ─── Notifikasi Terpusat ──────────────────────────────────────────────────────
