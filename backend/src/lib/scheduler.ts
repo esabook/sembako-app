@@ -17,7 +17,7 @@ type Alert = {
   jenis: string
   pesan: string
   referensi_tipe?: string
-  referensi_id?: number
+  referensi_id?: number | null // $inferSelect.id = number|null (cast pkInt di builders)
 }
 
 // ── Fungsi cek per jenis ────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ function cekRingkasanMingguan(): Alert[] {
 
 // ── Periksa dedup: apakah log untuk referensi ini sudah ada hari ini? ──────
 
-function sudahDilogHariIni(jenis: string, referensiTipe?: string, referensiId?: number): boolean {
+function sudahDilogHariIni(jenis: string, referensiTipe?: string, referensiId?: number | null): boolean {
   const hariIni = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
 
   const row = db
@@ -245,7 +245,7 @@ function jalankanCek(cfg: typeof notifikasi_config.$inferSelect): void {
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
   db.update(notifikasi_config)
     .set({ terakhir_dikirim: now })
-    .where(eq(notifikasi_config.id, cfg.id))
+    .where(eq(notifikasi_config.id, cfg.id!))
     .run()
 
   console.log(`[scheduler] ${cfg.jenis}: ${alerts.length} alert(s) diproses`)

@@ -35,7 +35,7 @@ export function initHooks(): void {
         .from(sop_instance)
         .where(
           and(
-            eq(sop_instance.rule_id, rule.id),
+            eq(sop_instance.rule_id, rule.id!),
             eq(sop_instance.karyawan_id, karyawan_id),
             sql`date(${sop_instance.dibuat_at}) = ${tanggal}`,
             eq(sop_instance.status, 'selesai'),
@@ -51,7 +51,7 @@ export function initHooks(): void {
         .from(sop_instance)
         .where(
           and(
-            eq(sop_instance.rule_id, rule.id),
+            eq(sop_instance.rule_id, rule.id!),
             eq(sop_instance.karyawan_id, karyawan_id),
             sql`date(${sop_instance.dibuat_at}) = ${tanggal}`,
             eq(sop_instance.status, 'pending'),
@@ -63,7 +63,7 @@ export function initHooks(): void {
         instance = db
           .insert(sop_instance)
           .values({
-            rule_id: rule.id,
+            rule_id: rule.id!,
             karyawan_id,
             status: 'pending',
             payload_json: { karyawan_id, tanggal },

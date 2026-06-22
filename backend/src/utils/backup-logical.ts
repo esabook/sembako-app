@@ -55,7 +55,10 @@ export function createBackupStream(includeMedia: boolean): ReadableStream<Uint8A
 }
 
 export async function restoreFromBackup(rawStream: ReadableStream<Uint8Array>): Promise<{ tables: number; files: number }> {
-  const decompressed = rawStream.pipeThrough(new DecompressionStream('gzip'))
+  // cast: churn lib.dom TS6 (NonSharedUint8Array vs Uint8Array) di tipe stream
+  const decompressed = rawStream.pipeThrough(
+    new DecompressionStream('gzip') as unknown as ReadableWritablePair<Uint8Array, Uint8Array>,
+  )
   const reader = decompressed.getReader()
   const dec = new TextDecoder()
 
