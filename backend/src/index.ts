@@ -8,6 +8,7 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { HTTPException } from 'hono/http-exception'
 import { join } from 'node:path'
+import { env } from './config/env.ts'
 import { Scalar } from '@scalar/hono-api-reference'
 import { openAPISpec } from './openapi.ts'
 import { authRouter } from './routes/auth.ts'
@@ -72,8 +73,7 @@ const app = new Hono<{ Variables: Variables }>()
 
 app.use('*', logger())
 app.use('*', compress())
-const corsOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:5173')
-  .split(',').map((s) => s.trim()).filter(Boolean)
+const corsOrigins = env.corsOrigins
 
 app.use('*', cors({
   origin: (origin) => (corsOrigins.includes(origin ?? '') ? origin ?? corsOrigins[0] : null),
@@ -172,7 +172,7 @@ app.route('/demo', demoRouter)
 
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 if (dialect === 'sqlite') {
-  const migrationsFolder = process.env.MIGRATIONS_DIR ?? './src/db/migrations/sqlite'
+  const migrationsFolder = env.migrationsDir
   migrate(db as any, { migrationsFolder })
 }
 console.log('Database migrations OK')
@@ -201,7 +201,7 @@ if ((seedCheck?.total ?? 0) === 0) {
   console.log('Seed awal OK — login: admin / admin123')
 }
 
-const PORT = Number(process.env.PORT ?? 3000)
+const PORT = env.port
 console.log(`Backend berjalan di http://localhost:${PORT}`)
 
 export default {
