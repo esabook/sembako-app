@@ -61,6 +61,7 @@ import { fnbRouter } from './routes/fnb.ts'
 import { jasaRouter } from './routes/jasa.ts'
 import { bomRouter } from './routes/bom.ts'
 import { demoRouter } from './routes/demo.ts'
+import { langgananMiddleware } from './middleware/langganan.ts'
 import { initHooks } from './lib/hooks.ts'
 import { initScheduler } from './lib/scheduler.ts'
 import type { JWTPayload } from './routes/auth.ts'
@@ -112,6 +113,10 @@ app.get('/uploads/*', async (c) => {
   if (!await file.exists()) return c.notFound()
   return new Response(file)
 })
+
+// Gating langganan SaaS — kunci mutasi saat trial habis/suspended (no-op di mode LAN).
+// Dipasang sebelum router bisnis; whitelist /auth, /langganan, /platform & semua GET.
+app.use('*', langgananMiddleware)
 
 app.route('/auth', authRouter)
 app.route('/barang', barangRouter)
