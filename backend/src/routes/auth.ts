@@ -30,6 +30,24 @@ function checkRateLimit(ip: string): boolean {
   return true
 }
 
+// Rate limiter terpisah untuk registrasi: maks 5 daftar per IP per jam (cegah spam)
+const registerAttempts = new Map<string, { count: number; resetAt: number }>()
+function checkRegisterLimit(ip: string): boolean {
+  const now = Date.now()
+  const windowMs = 60 * 60 * 1000
+  const max = 5
+  const entry = registerAttempts.get(ip)
+  if (!entry || entry.resetAt < now) {
+    registerAttempts.set(ip, { count: 1, resetAt: now + windowMs })
+    return true
+  }
+  if (entry.count >= max) return false
+  entry.count++
+  return true
+}
+
+const TRIAL_HARI = Number(process.env.TRIAL_HARI ?? 14)
+
 export type JWTPayload = {
   sub: string
   id: number
@@ -107,6 +125,101 @@ authRouter.post('/login', async (c) => {
       cabang_id: user.cabang_id ?? null,
     },
   })
+})
+
+// ─── Registrasi mandiri (publik) — SaaS cloud ───────────────────────────────
+type DaftarBody = {
+  nama_toko: string
+  nama_pemilik: string
+  username: string
+  password: string
+  email: string
+  wa: string
+  nama_cabang?: string
+}
+
+authRouter.post('/daftar', async (c) => {
+  const ip = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown'
+  if (!checkRegisterLimit(ip)) {
+    throw new HTTPException(429, { message: 'Terlalu banyak pendaftaran. Coba lagi dalam 1 jam.' })
+  }
+
+  const b = await c.req.json<DaftarBody>()
+
+  // Validasi field wajib
+  const nama_toko = b.nama_toko?.trim()
+  const nama_pemilik = b.nama_pemilik?.trim()
+  const username = b.username?.trim().toLowerCase()
+  const email = b.email?.trim()
+  const wa = b.wa?.trim()
+  if (!nama_toko || !nama_pemilik || !username || !b.password || !email || !wa) {
+    throw new HTTPException(400, { message: 'Nama toko, nama pemilik, username, password, email, dan WA wajib diisi' })
+  }
+  if (b.password.length < 6) {
+    throw new HTTPException(400, { message: 'Password minimal 6 karakter' })
+  }
+  if (!/^[a-z0-9._-]{3,}$/.test(username)) {
+    throw new HTTPException(400, { message: 'Username minimal 3 karakter (huruf, angka, . _ -)' })
+  }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw new HTTPException(400, { message: 'Format email tidak valid' })
+  }
+  if (!/^[0-9+\s-]{8,}$/.test(wa)) {
+    throw new HTTPException(400, { message: 'Nomor WA tidak valid' })
+  }
+
+  // Cek username unik lebih dulu (pesan jelas; constraint DB tetap jaga race)
+  const exists = await query.find(db.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.username, username)))
+  if (exists) {
+    throw new HTTPException(409, { message: 'Username sudah dipakai, pilih yang lain' })
+  }
+
+  const hash = await Bun.password.hash(b.password)
+  const trialBerakhir = new Date(Date.now() + TRIAL_HARI * 24 * 60 * 60 * 1000).toISOString()
+  // Kode unik berbasis waktu — hindari tabrakan tanpa query max id
+  const suffix = Date.now().toString(36).toUpperCase()
+
+  const result = await withTransaction(async () => {
+    const tokoRow = await query.ret<{ id: number }>(
+      db.insert(toko).values({
+        kode_toko: `T-${suffix}`,
+        nama: nama_toko,
+        status_langganan: 'trial',
+        trial_berakhir: trialBerakhir,
+        email_pemilik: email,
+        wa_pemilik: wa,
+        is_active: true,
+      }).returning()
+    )
+    const tid = tokoRow!.id
+
+    const cabangRow = await query.ret<{ id: number }>(
+      db.insert(cabang).values({
+        toko_id: tid,
+        kode_cabang: 'CAB-01',
+        nama: b.nama_cabang?.trim() || 'Cabang Utama',
+        is_active: true,
+      }).returning()
+    )
+    const cid = cabangRow!.id
+
+    await query.ret<{ id: number }>(
+      db.insert(karyawan).values({
+        kode_karyawan: `KRY-${suffix}`,
+        nama: nama_pemilik,
+        role: 'pemilik',
+        username,
+        password_hash: hash,
+        tipe_gaji: 'bulanan',
+        toko_id: tid,
+        cabang_id: null, // pemilik akses semua cabang
+      }).returning()
+    )
+
+    return { toko_id: tid, cabang_id: cid }
+  })
+
+  return c.json({ success: true, data: { toko_id: result.toko_id } }, 201)
 })
 
 authRouter.post('/logout', (c) => {
