@@ -9,6 +9,9 @@
 	import StepperOnboarding from './StepperOnboarding.svelte';
 	import { api } from '$lib/utils/api.js';
 	import { withLoading } from '$lib/utils/async.js';
+	import Store from '@lucide/svelte/icons/store';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Check from '@lucide/svelte/icons/check';
 
 	let { data } = $props();
 
@@ -23,21 +26,20 @@
 	// → kalau sudah onboarding otomatis tampil layar sukses.
 	type TokoItem = { id: number; nama: string; cabang: { id: number; nama: string }[] };
 	let konteksList = $state<TokoItem[]>([]);
-	let tokoAktif = $state<number | null>(untrack(() => data.user?.tenant_id ?? null));
 	let pindahToko = $state(false);
-	const tokoOpts = $derived(konteksList.map((t) => ({ value: t.id, label: t.nama })));
+	let bukaPicker = $state(false);
+	let pickerRef = $state<HTMLDivElement>();
+	const tokoAktifNama = $derived(
+		konteksList.find((t) => t.id === data.user?.tenant_id)?.nama ?? 'Toko ini'
+	);
 
-	async function pindah(id: string | number) {
-		const tokoId = Number(id);
+	async function pindah(tokoId: number) {
+		bukaPicker = false;
 		if (pindahToko || tokoId === data.user?.tenant_id) return;
 		pindahToko = true;
 		const res = await api.post('/auth/switch-context', { toko_id: tokoId, cabang_id: null });
-		if (res.success) {
-			location.reload();
-		} else {
-			pindahToko = false;
-			tokoAktif = data.user?.tenant_id ?? null; // balikkan pilihan kalau gagal
-		}
+		if (res.success) location.reload();
+		else pindahToko = false;
 	}
 
 	// Step 1 — profil toko
@@ -64,16 +66,31 @@
 	// Step 4 — data contoh
 	let isiDemo = $state(true);
 
+	function tutupPickerLuar(e: MouseEvent) {
+		if (bukaPicker && pickerRef && !pickerRef.contains(e.target as Node)) bukaPicker = false;
+	}
+
+	$effect(() => {
+		document.addEventListener('click', tutupPickerLuar);
+		return () => document.removeEventListener('click', tutupPickerLuar);
+	});
+
 	onMount(async () => {
 		// Selalu muat konteks toko agar picker tahu apakah ada toko lain.
-		api.get<TokoItem[]>('/auth/accessible-context').then((res) => {
-			if (res.success) konteksList = res.data;
-		});
+		const ctx = await api.get<TokoItem[]>('/auth/accessible-context');
+		if (ctx.success) konteksList = ctx.data;
+		// Nama toko asli dari registrasi (kolom toko.nama) — sumber kebenaran.
+		const namaTokoAsli = ctx.success
+			? (ctx.data.find((t) => t.id === data.user?.tenant_id)?.nama ?? '')
+			: '';
 
 		if (sukses) return; // sudah selesai → tak perlu muat data wizard
 		const res = await api.get<Record<string, string>>('/pengaturan');
 		if (res.success) {
-			namaToko = res.data.nama_toko ?? '';
+			// toko_settings.nama_toko default 'Stokasir' (belum diisi saat daftar) →
+			// pakai nama toko asli supaya konsisten dengan picker.
+			const setNama = res.data.nama_toko;
+			namaToko = setNama && setNama !== 'Stokasir' ? setNama : namaTokoAsli || setNama || '';
 			alamat = res.data.alamat ?? '';
 			telepon = res.data.telepon ?? '';
 		}
@@ -98,7 +115,13 @@
 				if (!res.success) throw new Error(res.error);
 				return true;
 			},
-			{ loadingKey: 'ob-profil', suksesOtomatis: true, suksesPesan: 'Profil toko disimpan', modul: 'pengaturan', aksi: 'simpan profil onboarding' }
+			{
+				loadingKey: 'ob-profil',
+				suksesOtomatis: true,
+				suksesPesan: 'Profil toko disimpan',
+				modul: 'pengaturan',
+				aksi: 'simpan profil onboarding'
+			}
 		);
 		menyimpan = false;
 		return !!hasil;
@@ -119,7 +142,13 @@
 				if (!res.success) throw new Error(res.error);
 				return true;
 			},
-			{ loadingKey: 'ob-barang', suksesOtomatis: true, suksesPesan: 'Barang pertama ditambahkan', modul: 'barang', aksi: 'tambah barang onboarding' }
+			{
+				loadingKey: 'ob-barang',
+				suksesOtomatis: true,
+				suksesPesan: 'Barang pertama ditambahkan',
+				modul: 'barang',
+				aksi: 'tambah barang onboarding'
+			}
 		);
 		menyimpan = false;
 		return !!hasil;
@@ -140,7 +169,13 @@
 				if (!res.success) throw new Error(res.error);
 				return true;
 			},
-			{ loadingKey: 'ob-karyawan', suksesOtomatis: true, suksesPesan: 'Karyawan diundang', modul: 'karyawan', aksi: 'undang karyawan onboarding' }
+			{
+				loadingKey: 'ob-karyawan',
+				suksesOtomatis: true,
+				suksesPesan: 'Karyawan diundang',
+				modul: 'karyawan',
+				aksi: 'undang karyawan onboarding'
+			}
 		);
 		menyimpan = false;
 		return !!hasil;
@@ -158,7 +193,14 @@
 				if (!res.success) throw new Error(res.error);
 				return true;
 			},
-			{ loadingKey: 'ob-selesai', loadingPesan: 'Menyelesaikan…', suksesOtomatis: true, suksesPesan: 'Selamat datang di Stokasir!', modul: 'pengaturan', aksi: 'selesai onboarding' }
+			{
+				loadingKey: 'ob-selesai',
+				loadingPesan: 'Menyelesaikan…',
+				suksesOtomatis: true,
+				suksesPesan: 'Selamat datang di Stokasir!',
+				modul: 'pengaturan',
+				aksi: 'selesai onboarding'
+			}
 		);
 		menyimpan = false;
 		if (hasil) sukses = true;
@@ -178,109 +220,147 @@
 </script>
 
 <div class="w-full">
-{#if konteksList.length > 1}
-	<div class="mb-4">
-		<Select
-			label="Toko aktif"
-			bind:value={tokoAktif}
-			options={tokoOpts}
-			disabled={pindahToko}
-			onchange={pindah}
-		/>
-		<p class="mt-1 text-xs" style="color:var(--text-dim)">
-			Punya toko lain? Pilih untuk berpindah tanpa onboarding ulang.
-		</p>
-	</div>
-{/if}
-{#if sukses}
-	<div class="flex flex-col items-center gap-4 py-8 text-center">
-		<div
-			class="flex h-16 w-16 items-center justify-center rounded-full text-3xl"
-			style="background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent)"
-		>
-			✓
+	{#if konteksList.length > 1}
+		<div class="mb-3 flex justify-center border-b pb-3" style="border-color:var(--border)">
+			<div class="relative" bind:this={pickerRef}>
+				<button
+					type="button"
+					disabled={pindahToko}
+					onclick={() => (bukaPicker = !bukaPicker)}
+					class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-opacity disabled:opacity-50"
+					style="background:var(--surface);border-color:var(--border);color:var(--text)"
+					title="Pindah toko"
+				>
+					<Store size={14} color="var(--accent)" />
+					<span class="max-w-[10rem] truncate font-medium">{tokoAktifNama}</span>
+					<ChevronDown size={14} color="var(--text-dim)" />
+				</button>
+				{#if bukaPicker}
+					<div
+						class="absolute right-0 z-20 mt-1 max-h-64 min-w-[13rem] overflow-auto rounded border py-1 shadow-lg"
+						style="background:var(--surface);border-color:var(--border)"
+					>
+						<p
+							class="px-3 py-1 text-[0.65rem] tracking-wide uppercase"
+							style="color:var(--text-dim)"
+						>
+							Pindah ke toko lain
+						</p>
+						{#each konteksList as t (t.id)}
+							{@const aktif = t.id === data.user?.tenant_id}
+							<button
+								type="button"
+								onclick={() => pindah(t.id)}
+								class="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm hover:bg-[var(--surface2)]"
+								style={aktif ? 'color:var(--accent)' : 'color:var(--text)'}
+							>
+								<span class="truncate">{t.nama}</span>
+								{#if aktif}<Check size={14} color="var(--accent)" />{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
-		<h1 class="text-xl font-bold">Toko Anda siap! 🎉</h1>
-		<p class="text-sm" style="color:var(--text-dim)">
-			Onboarding selesai. Mulai kelola stok, kasir, dan laporan dari dashboard.
-		</p>
-		<Button variant="primary" onclick={() => goto('/dashboard')}>Buka Dashboard</Button>
-	</div>
-{:else}
-	<PageHeader judul="Selamat datang 👋" sub="Atur toko Anda dalam beberapa langkah singkat" />
-
-	<div class="my-4">
-		<StepperOnboarding langkah={LANGKAH} aktif={step} />
-	</div>
-
-	{#if step === 0}
-		<SectionCard judul="Profil Toko">
-			<div class="grid gap-3">
-				<Input label="Nama Toko" bind:value={namaToko} />
-				<Input label="Alamat" bind:value={alamat} />
-				<Input label="Telepon" type="tel" bind:value={telepon} />
-			</div>
-		</SectionCard>
-	{:else if step === 1}
-		<SectionCard judul="Barang Pertama">
-			<p class="mb-3 text-xs" style="color:var(--text-dim)">Opsional — bisa dilewati dan diisi nanti.</p>
-			<div class="grid gap-3 sm:grid-cols-2">
-				<Input label="Kode Barang" bind:value={kodeBarang} />
-				<Input label="Nama Barang" bind:value={namaBarang} />
-				<Select label="Kategori" bind:value={kategoriId} options={kategoriOpts} />
-				<Select label="Satuan" bind:value={satuanId} options={satuanOpts} />
-				<Input label="Harga Jual Eceran (Rp)" type="number" bind:value={hargaEceran} />
-			</div>
-		</SectionCard>
-	{:else if step === 2}
-		<SectionCard judul="Undang Karyawan">
-			<p class="mb-3 text-xs" style="color:var(--text-dim)">Opsional — tambah kasir/gudang sekarang atau nanti.</p>
-			<div class="grid gap-3 sm:grid-cols-2">
-				<Input label="Nama Karyawan" bind:value={namaKaryawan} />
-				<Input label="Kode Karyawan" bind:value={kodeKaryawan} />
-				<Input label="Username" bind:value={username} />
-				<Input label="Password" type="password" bind:value={password} />
-				<Select
-					label="Role"
-					bind:value={role}
-					options={[
-						{ value: 'kasir', label: 'Kasir' },
-						{ value: 'gudang', label: 'Gudang' },
-						{ value: 'manajer', label: 'Manajer' }
-					]}
-				/>
-			</div>
-		</SectionCard>
-	{:else}
-		<SectionCard judul="Data Contoh">
-			<label class="flex cursor-pointer items-start gap-3">
-				<input type="checkbox" class="checkbox checkbox-sm mt-0.5" bind:checked={isiDemo} />
-				<span class="text-sm">
-					Isi contoh data (barang, supplier, pelanggan) ke toko ini.
-					<span class="mt-1 block text-xs" style="color:var(--text-dim)">
-						Bagus untuk mencoba fitur. Bisa dihapus manual kapan saja.
-					</span>
-				</span>
-			</label>
-		</SectionCard>
 	{/if}
 
-	<div class="mt-4 flex items-center justify-between">
-		<div>
-			{#if step > 0}
-				<Button variant="ghost" disabled={menyimpan} onclick={() => (step -= 1)}>Kembali</Button>
-			{/if}
+	{#if sukses}
+		<div class="flex flex-col items-center gap-4 py-8 text-center">
+			<div
+				class="flex h-16 w-16 items-center justify-center rounded-full text-3xl"
+				style="background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent)"
+			>
+				✓
+			</div>
+			<h1 class="text-xl font-bold">Toko Anda siap! 🎉</h1>
+			<p class="text-sm" style="color:var(--text-dim)">
+				Onboarding selesai. Mulai kelola stok, kasir, dan laporan dari dashboard.
+			</p>
+			<Button variant="primary" onclick={() => goto('/dashboard')}>Buka Dashboard</Button>
 		</div>
-		<div class="flex gap-2">
-			{#if step > 0 && step < LANGKAH.length - 1}
-				<Button variant="dim" disabled={menyimpan} onclick={lewati}>Lewati</Button>
-			{/if}
-			{#if step < LANGKAH.length - 1}
-				<Button variant="primary" loading={menyimpan} disabled={menyimpan} onclick={lanjut}>Lanjut</Button>
-			{:else}
-				<Button variant="primary" loading={menyimpan} disabled={menyimpan} onclick={selesai}>Selesai</Button>
-			{/if}
+	{:else}
+		<PageHeader judul="Selamat datang 👋" sub="Atur toko Anda dalam beberapa langkah singkat" />
+
+		<div class="my-4 overflow-x-auto">
+			<StepperOnboarding langkah={LANGKAH} aktif={step} />
 		</div>
-	</div>
-{/if}
+
+		{#if step === 0}
+			<SectionCard judul="Profil Toko">
+				<div class="grid gap-3">
+					<Input label="Nama Toko" bind:value={namaToko} />
+					<Input label="Alamat" bind:value={alamat} />
+					<Input label="Telepon" type="tel" bind:value={telepon} />
+				</div>
+			</SectionCard>
+		{:else if step === 1}
+			<SectionCard judul="Barang Pertama">
+				<p class="mb-3 text-xs" style="color:var(--text-dim)">
+					Opsional — bisa dilewati dan diisi nanti.
+				</p>
+				<div class="grid gap-3 sm:grid-cols-2">
+					<Input label="Kode Barang" bind:value={kodeBarang} />
+					<Input label="Nama Barang" bind:value={namaBarang} />
+					<Select label="Kategori" bind:value={kategoriId} options={kategoriOpts} />
+					<Select label="Satuan" bind:value={satuanId} options={satuanOpts} />
+					<Input label="Harga Jual Eceran (Rp)" type="number" bind:value={hargaEceran} />
+				</div>
+			</SectionCard>
+		{:else if step === 2}
+			<SectionCard judul="Undang Karyawan">
+				<p class="mb-3 text-xs" style="color:var(--text-dim)">
+					Opsional — tambah kasir/gudang sekarang atau nanti.
+				</p>
+				<div class="grid gap-3 sm:grid-cols-2">
+					<Input label="Nama Karyawan" bind:value={namaKaryawan} />
+					<Input label="Kode Karyawan" bind:value={kodeKaryawan} />
+					<Input label="Username" bind:value={username} />
+					<Input label="Password" type="password" bind:value={password} />
+					<Select
+						label="Role"
+						bind:value={role}
+						options={[
+							{ value: 'kasir', label: 'Kasir' },
+							{ value: 'gudang', label: 'Gudang' },
+							{ value: 'manajer', label: 'Manajer' }
+						]}
+					/>
+				</div>
+			</SectionCard>
+		{:else}
+			<SectionCard judul="Data Contoh">
+				<label class="flex cursor-pointer items-start gap-3">
+					<input type="checkbox" class="checkbox mt-0.5 checkbox-sm" bind:checked={isiDemo} />
+					<span class="text-sm">
+						Isi contoh data (barang, supplier, pelanggan) ke toko ini.
+						<span class="mt-1 block text-xs" style="color:var(--text-dim)">
+							Bagus untuk mencoba fitur. Bisa dihapus manual kapan saja.
+						</span>
+					</span>
+				</label>
+			</SectionCard>
+		{/if}
+
+		<div class="mt-4 flex items-center justify-between">
+			<div>
+				{#if step > 0}
+					<Button variant="ghost" disabled={menyimpan} onclick={() => (step -= 1)}>Kembali</Button>
+				{/if}
+			</div>
+			<div class="flex gap-2">
+				{#if step > 0 && step < LANGKAH.length - 1}
+					<Button variant="dim" disabled={menyimpan} onclick={lewati}>Lewati</Button>
+				{/if}
+				{#if step < LANGKAH.length - 1}
+					<Button variant="primary" loading={menyimpan} disabled={menyimpan} onclick={lanjut}
+						>Lanjut</Button
+					>
+				{:else}
+					<Button variant="primary" loading={menyimpan} disabled={menyimpan} onclick={selesai}
+						>Selesai</Button
+					>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>
