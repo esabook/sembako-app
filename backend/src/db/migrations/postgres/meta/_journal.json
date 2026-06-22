@@ -8,6 +8,13 @@
       "when": 1781390582812,
       "tag": "0000_gray_kingpin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782120022048,
+      "tag": "0001_faulty_steve_rogers",
+      "breakpoints": true
     }
   ]
 }
