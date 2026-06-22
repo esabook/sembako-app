@@ -79,11 +79,11 @@ kasbonRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
   if (body.jumlah <= 0)
     throw new HTTPException(400, { message: 'Jumlah kasbon harus > 0' })
 
-  const karyw = await query.find(db.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.id, body.karyawan_id)))
+  const karyw = await query.find<{ id: number }>(db.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.id, body.karyawan_id)))
   if (!karyw) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
 
   // Cek apakah ada kasbon aktif/pengajuan/disetujui yang belum lunas
-  const kasbonAktif = await query.findAll(db.select({ id: kasbon.id, sisa: kasbon.sisa_kasbon }).from(kasbon)
+  const kasbonAktif = await query.findAll<{ id: number; sisa: number }>(db.select({ id: kasbon.id, sisa: kasbon.sisa_kasbon }).from(kasbon)
     .where(and(
       eq(kasbon.tenant_id, tenantId),
       eq(kasbon.karyawan_id, body.karyawan_id),
@@ -115,7 +115,7 @@ kasbonRouter.put('/:id/setujui', requirePermission('karyawan.edit'), async (c) =
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
+  const existing = await query.find<typeof kasbon.$inferSelect>(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (existing.status !== 'pengajuan')
     throw new HTTPException(400, { message: `Kasbon status '${existing.status}', bukan pengajuan` })
@@ -136,7 +136,7 @@ kasbonRouter.put('/:id/tolak', requirePermission('karyawan.edit'), async (c) => 
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ catatan?: string }>()
-  const existing = await query.find(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
+  const existing = await query.find<typeof kasbon.$inferSelect>(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (!['pengajuan', 'disetujui'].includes(existing.status))
     throw new HTTPException(400, { message: 'Hanya bisa tolak kasbon yang belum cair' })
@@ -156,7 +156,7 @@ kasbonRouter.put('/:id/cair', requirePermission('karyawan.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
+  const existing = await query.find<typeof kasbon.$inferSelect>(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (existing.status !== 'disetujui')
     throw new HTTPException(400, { message: 'Kasbon harus berstatus disetujui sebelum dicairkan' })
@@ -181,7 +181,7 @@ kasbonRouter.put('/:id/cicil', requirePermission('karyawan.edit'), async (c) => 
   if (!body.jumlah_cicil || body.jumlah_cicil <= 0)
     throw new HTTPException(400, { message: 'jumlah_cicil harus > 0' })
 
-  const existing = await query.find(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
+  const existing = await query.find<typeof kasbon.$inferSelect>(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (existing.status !== 'aktif')
     throw new HTTPException(400, { message: 'Hanya kasbon berstatus aktif yang bisa dicicil' })
@@ -202,7 +202,7 @@ kasbonRouter.get('/:id/jadwal', requirePermission('karyawan.lihat'), async (c) =
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const kb = await query.find(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
+  const kb = await query.find<typeof kasbon.$inferSelect>(db.select().from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
   if (!kb) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
 
   if (!kb.cicilan_per_bulan || kb.cicilan_per_bulan <= 0)
@@ -236,7 +236,7 @@ kasbonRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = await query.find(db.select({ id: kasbon.id, status: kasbon.status }).from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
+  const existing = await query.find<{ id: number; status: string }>(db.select({ id: kasbon.id, status: kasbon.status }).from(kasbon).where(and(eq(kasbon.id, id), eq(kasbon.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Kasbon tidak ditemukan' })
   if (existing.status === 'aktif' || existing.status === 'disetujui')
     throw new HTTPException(400, { message: 'Kasbon yang sudah disetujui atau aktif tidak bisa dihapus' })
