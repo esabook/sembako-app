@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import PageHeader from '$lib/components/layout/PageHeader.svelte';
 	import SectionCard from '$lib/components/layout/SectionCard.svelte';
@@ -10,9 +10,13 @@
 	import { api } from '$lib/utils/api.js';
 	import { withLoading } from '$lib/utils/async.js';
 
+	let { data } = $props();
+
 	const LANGKAH = ['Profil Toko', 'Barang Pertama', 'Undang Karyawan', 'Data Contoh'];
 	let step = $state(0);
 	let menyimpan = $state(false);
+	// Revisit setelah selesai → langsung layar sukses, jangan ulang wizard.
+	let sukses = $state(untrack(() => data.sudahSelesai));
 
 	// Step 1 — profil toko
 	let namaToko = $state('');
@@ -39,6 +43,7 @@
 	let isiDemo = $state(true);
 
 	onMount(async () => {
+		if (sukses) return; // sudah selesai → tak perlu muat data wizard
 		const res = await api.get<Record<string, string>>('/pengaturan');
 		if (res.success) {
 			namaToko = res.data.nama_toko ?? '';
@@ -129,7 +134,7 @@
 			{ loadingKey: 'ob-selesai', loadingPesan: 'Menyelesaikan…', suksesOtomatis: true, suksesPesan: 'Selamat datang di Stokasir!', modul: 'pengaturan', aksi: 'selesai onboarding' }
 		);
 		menyimpan = false;
-		if (hasil) goto('/dashboard');
+		if (hasil) sukses = true;
 	}
 
 	async function lanjut() {
@@ -145,7 +150,22 @@
 	}
 </script>
 
-<div class="mx-auto max-w-2xl">
+<div class="w-full">
+{#if sukses}
+	<div class="flex flex-col items-center gap-4 py-8 text-center">
+		<div
+			class="flex h-16 w-16 items-center justify-center rounded-full text-3xl"
+			style="background:color-mix(in srgb, var(--accent) 20%, transparent);color:var(--accent)"
+		>
+			✓
+		</div>
+		<h1 class="text-xl font-bold">Toko Anda siap! 🎉</h1>
+		<p class="text-sm" style="color:var(--text-dim)">
+			Onboarding selesai. Mulai kelola stok, kasir, dan laporan dari dashboard.
+		</p>
+		<Button variant="primary" onclick={() => goto('/dashboard')}>Buka Dashboard</Button>
+	</div>
+{:else}
 	<PageHeader judul="Selamat datang 👋" sub="Atur toko Anda dalam beberapa langkah singkat" />
 
 	<div class="my-4">
@@ -221,4 +241,5 @@
 			{/if}
 		</div>
 	</div>
+{/if}
 </div>
