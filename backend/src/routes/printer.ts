@@ -14,7 +14,7 @@ printerRouter.use('*', authMiddleware)
 printerRouter.use('*', tenantMiddleware)
 
 async function getBridgePort(tenantId: number): Promise<number> {
-  const row = await query.find(
+  const row = await query.find<typeof toko_settings.$inferSelect>(
     db.select().from(toko_settings).where(
       and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, 'printer_bridge_port'))
     )
