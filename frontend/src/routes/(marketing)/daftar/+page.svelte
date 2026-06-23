@@ -1,12 +1,16 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
+	import { bukaDemo } from '$lib/utils/demo-onboard';
 	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import Eye from '@lucide/svelte/icons/eye';
 	import EyeOff from '@lucide/svelte/icons/eye-off';
 
 	let step = $state(1);
+	// Pilihan di step-2: daftar penuh vs buka demo langsung.
+	let pilihan = $state<'akun' | 'demo'>('akun');
 
 	let showPassword = $state(false);
 	let showRePassword = $state(false);
@@ -21,7 +25,32 @@
 	let nama_cabang = $state('');
 
 	let loading = $state(false);
+	let demoLoading = $state(false);
 	let errors = $state<Record<string, string>>({});
+
+	// Prefill dari buku tamu landing: email → step-1, wa → step-2.
+	onMount(() => {
+		const sp = new URL(window.location.href).searchParams;
+		const e = sp.get('email');
+		const w = sp.get('wa');
+		if (e) email = e;
+		if (w) wa = w;
+	});
+
+	// Buka demo: akun asli (email+password step-1) + data toko sentinel,
+	// lalu langsung masuk sandbox demo. Profil toko diisi nanti di onboarding.
+	async function bukaVersiDemo() {
+		if (demoLoading) return;
+		demoLoading = true;
+		const ok = await bukaDemo({
+			email,
+			password,
+			nama_toko: 'StokasirDemo',
+			nama_pemilik: email.split('@')[0]?.trim() || 'PemilikDemo',
+			wa: wa.trim() || '08000000000'
+		});
+		if (!ok) demoLoading = false; // sukses → sudah redirect ke '/'
+	}
 
 	function validasiStep1(): boolean {
 		const e: Record<string, string> = {};
@@ -184,45 +213,128 @@
 			<button type="submit" class="btn mt-2 btn-primary"> Lanjut </button>
 		</form>
 	{:else}
-		<form class="mt-6 flex flex-col gap-4" onsubmit={submit}>
-			{@render field(
-				'Nama toko',
-				nama_toko,
-				(v) => (nama_toko = v),
-				'nama_toko',
-				'text',
-				'Toko Sembako Jaya'
-			)}
-			{@render field('Nama pemilik', nama_pemilik, (v) => (nama_pemilik = v), 'nama_pemilik')}
-			{@render field('No. WhatsApp', wa, (v) => (wa = v), 'wa', 'tel', '08xxxxxxxxxx')}
-			{@render field(
-				'Nama cabang (opsional)',
-				nama_cabang,
-				(v) => (nama_cabang = v),
-				'nama_cabang',
-				'text',
-				'Cabang Utama'
-			)}
-
-			<div class="flex flex-wrap gap-2">
+		<div class="mt-6 flex flex-col gap-4">
+			<!-- pilihan: daftar penuh vs buka demo -->
+			<div class="grid gap-3 sm:grid-cols-2">
 				<button
 					type="button"
-					class="btn flex btn-secondary"
-					onclick={() => {
-						step = 1;
-						errors = {};
-					}}
+					class="rounded-2xl border p-4 text-left transition-colors"
+					style:border-color={pilihan === 'akun' ? 'var(--accent)' : 'var(--border)'}
+					onclick={() => (pilihan = 'akun')}
+					aria-pressed={pilihan === 'akun'}
 				>
-					<ChevronLeft size="1rem" />
+					<span class="block text-sm font-semibold">Daftar akun toko</span>
+					<span class="mt-1 block text-xs" style="color:var(--text-dim)">
+						Isi data toko, langsung punya toko sendiri.
+					</span>
 				</button>
-				<button type="submit" class="btn flex-1 btn-primary" disabled={loading}>
-					{loading ? 'Memproses…' : 'Daftar & Mulai Gratis'}
+				<button
+					type="button"
+					class="rounded-2xl border p-4 text-left transition-colors"
+					style:border-color={pilihan === 'demo' ? 'var(--accent)' : 'var(--border)'}
+					onclick={() => (pilihan = 'demo')}
+					aria-pressed={pilihan === 'demo'}
+				>
+					<span class="block text-sm font-semibold">Buka versi demo</span>
+					<span class="mt-1 block text-xs" style="color:var(--text-dim)">
+						Coba dulu pakai data contoh, tanpa isi data toko.
+					</span>
 				</button>
 			</div>
-		</form>
+
+			<div class="dash-h mt-4"></div>
+
+			{#if pilihan === 'akun'}
+				<form class="flex flex-col gap-4" onsubmit={submit}>
+					{@render field(
+						'Nama toko',
+						nama_toko,
+						(v) => (nama_toko = v),
+						'nama_toko',
+						'text',
+						'Toko Sembako Jaya'
+					)}
+					{@render field('Nama pemilik', nama_pemilik, (v) => (nama_pemilik = v), 'nama_pemilik')}
+					{@render field('No. WhatsApp', wa, (v) => (wa = v), 'wa', 'tel', '08xxxxxxxxxx')}
+					{@render field(
+						'Nama cabang (opsional)',
+						nama_cabang,
+						(v) => (nama_cabang = v),
+						'nama_cabang',
+						'text',
+						'Cabang Utama'
+					)}
+
+					<div class="flex flex-wrap gap-2">
+						<button
+							type="button"
+							class="btn flex btn-secondary"
+							onclick={() => {
+								step = 1;
+								errors = {};
+							}}
+						>
+							<ChevronLeft size="1rem" />
+						</button>
+						<button type="submit" class="btn flex-1 btn-primary" disabled={loading}>
+							{loading ? 'Memproses…' : 'Daftar & Mulai Gratis'}
+						</button>
+					</div>
+				</form>
+			{:else}
+				<div class="rounded-2xl border p-4" style="border-color:var(--border)">
+					<p class="text-sm" style="color:var(--text-dim)">
+						Langsung masuk toko demo berisi data contoh — barang, transaksi, dan laporan siap
+						dijelajahi. Tanpa isi data toko dulu. Saat keluar mode demo, kamu bisa lengkapi data
+						toko aslimu kapan saja.
+					</p>
+				</div>
+
+				<div class="flex flex-wrap gap-2">
+					<button
+						type="button"
+						class="btn flex btn-secondary"
+						onclick={() => {
+							step = 1;
+							errors = {};
+						}}
+					>
+						<ChevronLeft size="1rem" />
+					</button>
+					<button
+						type="button"
+						class="btn flex-1 btn-primary"
+						disabled={demoLoading}
+						onclick={bukaVersiDemo}
+					>
+						{demoLoading ? 'Menyiapkan…' : 'Daftar'}
+					</button>
+				</div>
+			{/if}
+		</div>
 	{/if}
 
 	<p class="mt-4 text-center text-sm" style="color:var(--text-dim)">
 		Sudah punya akun? <a href="/login" class="font-medium" style="color:var(--accent)">Masuk</a>
 	</p>
 </section>
+
+<style>
+	.dash-h {
+		display: block;
+		top: 50%;
+		left: 0;
+		right: 0;
+		bottom: auto;
+		transform: translateY(-50%);
+		width: 100%;
+		height: 1px;
+		background: repeating-linear-gradient(
+			to right,
+			var(--border) 0px,
+			var(--border) 4px,
+			transparent 4px,
+			transparent 8px
+		);
+	}
+</style>

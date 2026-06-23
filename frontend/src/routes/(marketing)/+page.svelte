@@ -1,6 +1,7 @@
 <script lang="ts">
 	import KartuHarga from './KartuHarga.svelte';
 	import KatalogFitur from './KatalogFitur.svelte';
+	import BukuTamuDemo from './BukuTamuDemo.svelte';
 	import ShoppingCart from '@lucide/svelte/icons/shopping-cart';
 	import Boxes from '@lucide/svelte/icons/boxes';
 	import ChartColumn from '@lucide/svelte/icons/chart-column';
@@ -113,10 +114,11 @@
 			href="/daftar"
 			class="btn"
 			style="background:var(--accent);color:var(--bg);border-color:var(--accent)"
+			data-sveltekit-preload-data="off"
 		>
 			Mulai Gratis
 		</a>
-		<a href="/login" class="btn btn-ghost">
+		<a href="/login" class="btn btn-ghost" data-sveltekit-preload-data="off">
 			Sudah punya akun? <span style="color:var(--accent)">Masuk</span>
 		</a>
 	</div>
@@ -215,3 +217,5 @@
 		</div>
 	</div>
 </section>
+
+<BukuTamuDemo />

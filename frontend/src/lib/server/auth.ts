@@ -37,6 +37,26 @@ export async function requireUser(token: string | undefined): Promise<AuthUser> 
 }
 
 /**
+ * Validasi cookie auth_token tanpa redirect.
+ * Kembalikan user bila valid, null bila tidak login/invalid.
+ * Dipakai di halaman publik (marketing) yang ingin tahu status login.
+ */
+export async function optionalUser(token: string | undefined): Promise<AuthUser | null> {
+	if (!token) return null
+	try {
+		const res = await fetch(`${API_URL}/auth/me`, {
+			headers: { Cookie: `auth_token=${token}` }
+		})
+		if (!res.ok) return null
+		const json = await res.json()
+		if (!json.success) return null
+		return json.data as AuthUser
+	} catch {
+		return null
+	}
+}
+
+/**
  * Cek apakah pemilik sudah menyelesaikan wizard onboarding.
  * Gagal baca setting → anggap selesai agar tidak memblokir akses.
  */

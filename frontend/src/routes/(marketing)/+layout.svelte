@@ -1,11 +1,48 @@
 <script lang="ts">
-	import { tema, nextTema } from '$lib/stores/tema';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { api } from '$lib/utils/api.js';
+	import { temaMode, temaSkin } from '$lib/stores/tema';
+	import { onMount } from 'svelte';
 	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
+	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
+	import Banknote from '@lucide/svelte/icons/banknote';
+	import MonitorSmartphone from '@lucide/svelte/icons/monitor-smartphone';
+	import LogOut from '@lucide/svelte/icons/log-out';
 
-	let { children } = $props();
+	let { children, data } = $props();
 
-	const gelap = $derived(['dark', 'bwb', 'island', 'klasik', 'lambo'].includes($tema));
+	const gelap = $derived($temaMode === 'dark');
+	const user = $derived(data.user);
+
+	function toggleGelap() {
+		temaSkin.set('normal');
+		temaMode.set($temaMode === 'dark' ? 'light' : 'dark');
+	}
+
+	let buka = $state(false);
+	let ref = $state<HTMLDivElement>();
+
+	function tutupJikaLuar(e: MouseEvent) {
+		if (ref && !ref.contains(e.target as Node)) buka = false;
+	}
+
+	onMount(() => {
+		document.addEventListener('click', tutupJikaLuar);
+		return () => document.removeEventListener('click', tutupJikaLuar);
+	});
+
+	async function logout() {
+		buka = false;
+		await api.post('/auth/logout', {});
+		await invalidateAll();
+		goto('/');
+	}
+
+	function ke(path: string) {
+		buka = false;
+		goto(path);
+	}
 </script>
 
 <div class="flex min-h-screen flex-col" style="background:var(--bg);color:var(--text)">
@@ -23,18 +60,80 @@
 					class="btn btn-square btn-ghost btn-sm"
 					title="Ganti tema"
 					aria-label="Ganti tema"
-					onclick={() => nextTema($tema)}
+					onclick={toggleGelap}
 				>
 					{#if gelap}<Sun class="size-4" />{:else}<Moon class="size-4" />{/if}
 				</button>
-				<a href="/login" class="btn btn-ghost btn-sm">Masuk</a>
-				<a
-					href="/daftar"
-					class="btn btn-sm"
-					style="background:var(--accent);color:var(--bg);border-color:var(--accent)"
-				>
-					Daftar
-				</a>
+
+				{#if user}
+					<div class="relative" bind:this={ref}>
+						<button
+							onclick={() => (buka = !buka)}
+							class="flex items-center gap-1.5 rounded px-1 py-0.5 transition-colors"
+							aria-label="Menu akun"
+						>
+							<span
+								class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[0.7em] font-bold"
+								style="background:var(--surface);color:var(--accent)"
+								>{user.nama?.[0]?.toUpperCase() ?? '?'}</span
+							>
+						</button>
+
+						{#if buka}
+							<div
+								class="absolute top-full right-0 z-50 mt-1 w-48 rounded border shadow-lg"
+								style="background:var(--surface);border-color:var(--border)"
+							>
+								<div class="border-b px-3 py-2.5" style="border-color:var(--border)">
+									<div class="truncate text-sm font-medium" style="color:var(--text)">
+										{user.nama ?? '—'}
+									</div>
+								</div>
+								<div class="flex flex-col gap-0.5 px-2 py-2">
+									<button
+										onclick={() => ke('/dashboard')}
+										class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
+										style="color:var(--text-dim)"
+									>
+										<span>Dashboard</span>
+										<LayoutDashboard size="1rem" />
+									</button>
+									<button
+										onclick={() => ke('/kasir')}
+										class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
+										style="color:var(--text-dim)"
+									>
+										<span>Kasir</span>
+										<Banknote size="1rem" />
+									</button>
+									<button
+										onclick={() => ke('/kds')}
+										class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
+										style="color:var(--text-dim)"
+									>
+										<span>KDS</span>
+										<MonitorSmartphone size="1rem" />
+									</button>
+								</div>
+								<div class="border-t px-2 py-2" style="border-color:var(--border)">
+									<button
+										onclick={logout}
+										class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:opacity-80"
+										style="color:var(--danger)"
+									>
+										<span>Keluar</span>
+										<LogOut size="1rem" />
+									</button>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{:else}
+					<a href="/login" class="btn btn-ghost btn-sm" data-sveltekit-preload-data="off">Masuk</a>
+					<a href="/daftar" class="btn btn-sm btn-primary" data-sveltekit-preload-data="off">
+						Daftar
+					</a>
+				{/if}
 			</div>
 		</nav>
 	</header>
