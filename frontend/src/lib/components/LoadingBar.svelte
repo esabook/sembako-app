@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { isLoading, pesanLoading } from '$lib/stores/ui.store';
+	import { navigating } from '$app/stores';
 </script>
 
-{#if $isLoading}
+{#if $isLoading || $navigating}
 	<div
 		class="fixed inset-x-0 top-0 z-[60] h-[1px] overflow-hidden"
 		style="background:var(--surface2)"
