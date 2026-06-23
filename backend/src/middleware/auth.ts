@@ -2,6 +2,9 @@ import type { Context, Next } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { HTTPException } from 'hono/http-exception'
 import { jwtVerify } from 'jose'
+import { eq } from 'drizzle-orm'
+import { db, query } from '../db/index.ts'
+import { karyawan } from '../db/schema.ts'
 import type { JWTPayload } from '../routes/auth.ts'
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -78,8 +81,14 @@ export async function authMiddleware(c: Context, next: Next) {
 
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
-    c.set('user', payload as JWTPayload)
-  } catch {
+    const user = payload as JWTPayload
+    const active = await query.find<{ is_active: boolean }>(
+      db.select({ is_active: karyawan.is_active }).from(karyawan).where(eq(karyawan.id, user.id))
+    )
+    if (!active?.is_active) throw new HTTPException(401, { message: 'Akun tidak aktif' })
+    c.set('user', user)
+  } catch (e) {
+    if (e instanceof HTTPException) throw e
     throw new HTTPException(401, { message: 'Token tidak valid atau kedaluwarsa' })
   }
 

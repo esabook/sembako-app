@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
+	import { cabangListVersion } from '$lib/stores/cabang-version.js';
 	import { temaSkin, temaMode, MODE_LIST, SKIN_LIST } from '$lib/stores/tema.js';
 	import { onMount } from 'svelte';
 	import Fullscreen from '@lucide/svelte/icons/fullscreen';
@@ -46,6 +47,10 @@
 	let loadingSwitch = $state(false);
 
 	const bisaSwitch = $derived($user?.role === 'pemilik' || $user?.role === 'manajer');
+
+	$effect(() => {
+		if ($cabangListVersion > 0) konteksList = [];
+	});
 	// Mode SaaS: 1 email = 1 toko → switcher fokus cabang saja (tanpa pindah toko).
 	const saas = $derived($user?.saas ?? false);
 
@@ -149,7 +154,7 @@
 				<div class="border-b" style="border-color:var(--border)">
 					<button
 						onclick={toggleKonteks}
-						class="flex w-full items-center justify-between px-3 py-2 text-xs transition-colors"
+						class="flex w-full items-center justify-between rounded px-3 py-2 text-xs transition-colors hover:bg-[var(--surface2)]"
 						style="color:var(--text-dim)"
 					>
 						<span class="flex items-center gap-1.5">
@@ -164,41 +169,41 @@
 					</button>
 
 					{#if bukaKonteks}
-						<div class="border-t pb-1.5" style="border-color:var(--border)">
+						<div class="border-t p-2 space-y-1.5" style="border-color:var(--border)">
 							{#if konteksList.length === 0}
-								<div class="px-3 py-2 text-[0.7em]" style="color:var(--text-dim)">Memuat…</div>
+								<div class="px-2 py-2 text-[0.7em]" style="color:var(--text-dim)">Memuat…</div>
 							{:else}
 								{#each konteksList as t (t.id)}
-									<div>
+									{@const tokoAktif = $user?.tenant_id === t.id}
+									{@const semuaAktif = tokoAktif && $user?.cabang_id === null}
+									<div class="overflow-hidden rounded border" style="border-color:var(--border)">
 										<button
 											onclick={() => switchKonteks(t.id, null)}
 											disabled={loadingSwitch}
-											class="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-xs font-medium transition-colors"
-											style={$user?.tenant_id === t.id && $user?.cabang_id === null
-												? 'color:var(--accent);background:var(--surface2)'
+											class="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-medium transition-colors hover:bg-[var(--surface2)]"
+											style={semuaAktif
+												? 'background:var(--surface2);color:var(--accent)'
 												: 'color:var(--text)'}
 										>
-											{#if saas}
-												<span class="text-[0.6em]">{$user?.cabang_id === null ? '✓' : '·'}</span>
-												Semua Cabang
-											{:else}
-												<span class="text-[0.6em]">{$user?.tenant_id === t.id ? '●' : '○'}</span>
-												{t.nama}
-											{/if}
+											<span>{saas ? 'Semua Cabang' : t.nama}</span>
+											{#if semuaAktif}<span class="text-[0.8em]">✓</span>{/if}
 										</button>
-										{#each t.cabang as cb (cb.id)}
-											<button
-												onclick={() => switchKonteks(t.id, cb.id)}
-												disabled={loadingSwitch}
-												class="flex w-full items-center gap-1.5 py-1 pl-7 pr-3 text-left text-[0.7em] transition-colors"
-												style={$user?.tenant_id === t.id && $user?.cabang_id === cb.id
-													? 'color:var(--accent)'
-													: 'color:var(--text-dim)'}
-											>
-												<span>{$user?.tenant_id === t.id && $user?.cabang_id === cb.id ? '✓' : '·'}</span>
-												{cb.nama}
-											</button>
-										{/each}
+										{#if t.cabang.length > 0}
+											<div class="border-t" style="border-color:var(--border)">
+												{#each t.cabang as cb (cb.id)}
+													{@const cabangAktif = tokoAktif && (semuaAktif || $user?.cabang_id === cb.id)}
+													<button
+														onclick={() => switchKonteks(t.id, cb.id)}
+														disabled={loadingSwitch}
+														class="flex w-full items-center justify-between py-1.5 pl-4 pr-3 text-left text-[0.7em] transition-colors hover:bg-[var(--surface2)]"
+														style={cabangAktif ? 'color:var(--accent)' : 'color:var(--text-dim)'}
+													>
+														<span>{cb.nama}</span>
+														{#if cabangAktif}<span>✓</span>{/if}
+													</button>
+												{/each}
+											</div>
+										{/if}
 									</div>
 								{/each}
 							{/if}
@@ -211,7 +216,7 @@
 			<div class="border-b" style="border-color:var(--border)">
 				<button
 					onclick={toggleTema}
-					class="flex w-full items-center justify-between px-3 py-2 text-xs transition-colors"
+					class="flex w-full items-center justify-between rounded px-3 py-2 text-xs transition-colors hover:bg-[var(--surface2)]"
 					style="color:var(--text-dim)"
 				>
 					<span class="flex items-center gap-1.5">
@@ -268,7 +273,7 @@
 					<a
 						href="/scanner"
 						onclick={() => (buka = false)}
-						class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors"
+						class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
 						style="color:var(--text-dim)"
 					>
 						<span>Mode Scanner</span>
@@ -277,7 +282,7 @@
 				{/if}
 				<button
 					onclick={toggleFullscreen}
-					class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors"
+					class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
 					style="color:var(--text-dim)"
 				>
 					<span>{isFullscreen ? 'Keluar Fullscreen' : 'Fullscreen'}</span>
@@ -291,7 +296,7 @@
 				<a
 					href="/panduan"
 					target="_blank"
-					class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors"
+					class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
 					style="color:var(--text-dim)"
 				>
 					<span>Panduan Penggunaan</span>
@@ -300,7 +305,7 @@
 
 				<button
 					onclick={logout}
-					class="w-full rounded px-2 py-1.5 text-left text-xs transition-colors"
+					class="w-full rounded px-2 py-1.5 text-left text-xs transition-colors hover:opacity-80"
 					style="color:var(--danger)">Keluar</button
 				>
 			</div>

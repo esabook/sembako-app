@@ -76,6 +76,10 @@
   box-shadow: none !important;
 }
 
+.toggle {
+  --border: 1px;
+}
+
 /* ─── Base ──────────────────────────────────────── */
 body {
   background-color: var(--bg);

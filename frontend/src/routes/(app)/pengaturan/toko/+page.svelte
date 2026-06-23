@@ -14,6 +14,7 @@
 	import Input from '$lib/components/ui/Input.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import SlideOver from '$lib/components/SlideOver.svelte';
+	import PencilLine from '@lucide/svelte/icons/pencil-line';
 
 	type Toko = {
 		id: number;
@@ -244,21 +245,31 @@
 {#if saas}
 	<div class="mx-auto max-w-2xl space-y-4">
 		<SectionCard judul="Daftar Cabang">
-			<div class="mb-2 flex justify-end">
-				<Button size="xs" onclick={() => openTambahCabang(tenantId)}>+ Tambah Cabang</Button>
-			</div>
+			{#snippet aksi()}
+				<Button size="xs" onclick={() => openTambahCabang(tenantId)}>+ Tambah</Button>
+			{/snippet}
 			{#each cabangByToko[tenantId] ?? [] as c (c.id)}
-				<div class="flex items-center gap-2 border-b py-2 text-sm last:border-0" style="border-color:var(--border)">
+				<div
+					class="flex items-center gap-2 border-b py-2 text-sm last:border-0"
+					style="border-color:var(--border)"
+				>
 					<span class:opacity-40={!c.is_active} class="flex-1">
 						<span class="font-mono text-xs" style="color:var(--text-dim)">[{c.kode_cabang}]</span>
 						{c.nama}
-						{#if c.alamat}<span class="text-xs" style="color:var(--text-dim)">· {c.alamat}</span>{/if}
+						{#if c.alamat}<span class="text-xs" style="color:var(--text-dim)">· {c.alamat}</span
+							>{/if}
 					</span>
 					{#if c.is_active}
-						<Button variant="ghost" size="xs" onclick={() => openEditCabang(tenantId, c)}>Edit</Button>
-						<Button variant="danger" size="xs" onclick={() => hapusCabang(tenantId, c)}>Nonaktifkan</Button>
+						<Button variant="ghost" size="xs" onclick={() => openEditCabang(tenantId, c)}
+							><PencilLine size="1rem" /></Button
+						>
+						<Button variant="danger" size="xs" onclick={() => hapusCabang(tenantId, c)}
+							>Nonaktifkan</Button
+						>
 					{:else}
-						<Button variant="ghost" size="xs" onclick={() => setAktifCabang(tenantId, c, true)}>Aktifkan</Button>
+						<Button variant="ghost" size="xs" onclick={() => setAktifCabang(tenantId, c, true)}
+							>Aktifkan</Button
+						>
 					{/if}
 				</div>
 			{/each}
@@ -268,82 +279,93 @@
 		</SectionCard>
 	</div>
 {:else}
-<div class="mx-auto max-w-2xl space-y-4">
-	<SectionCard judul="Daftar Toko">
-		<div class="mb-2 flex justify-end">
-			<Button size="xs" onclick={openTambahToko}>+ Tambah Toko</Button>
-		</div>
-
-		{#each tokoList as t (t.id)}
-			<div class="border-b py-2 last:border-0" style="border-color:var(--border)">
-				<div class="flex items-center gap-2">
-					<button
-						class="flex-1 text-left text-sm font-medium"
-						class:opacity-40={!t.is_active}
-						onclick={() => toggleToko(t.id)}
-					>
-						<span class="font-mono text-xs" style="color:var(--text-dim)">[{t.kode_toko}]</span>
-						{t.nama}
-						{#if t.alamat}<span class="text-xs" style="color:var(--text-dim)">· {t.alamat}</span
-							>{/if}
-					</button>
-					{#if t.is_active}
-						<Button variant="ghost" size="xs" onclick={() => openEditToko(t)}>Edit</Button>
-						<Button variant="danger" size="xs" onclick={() => hapusToko(t)}>Nonaktifkan</Button>
-					{:else}
-						<Button variant="ghost" size="xs" onclick={() => setAktifToko(t, true)}>Aktifkan</Button>
-					{/if}
-					<Button variant="dim" size="xs" onclick={() => toggleToko(t.id)}>
-						{expandedToko === t.id ? '▲ Cabang' : '▼ Cabang'}
-					</Button>
-				</div>
-
-				{#if expandedToko === t.id}
-					<div class="mt-2 ml-4 space-y-1">
-						{#each cabangByToko[t.id] ?? [] as c (c.id)}
-							<div class="flex items-center gap-2 text-sm">
-								<span class:opacity-40={!c.is_active} class="flex-1">
-									<span class="font-mono text-xs" style="color:var(--text-dim)"
-										>[{c.kode_cabang}]</span
-									>
-									{c.nama}
-									{#if c.alamat}<span class="text-xs" style="color:var(--text-dim)">· {c.alamat}</span
-										>{/if}
-								</span>
-								{#if c.is_active}
-									<Button variant="ghost" size="xs" onclick={() => openEditCabang(t.id, c)}>
-										Edit
-									</Button>
-									<Button variant="danger" size="xs" onclick={() => hapusCabang(t.id, c)}>
-										Nonaktifkan
-									</Button>
-								{:else}
-									<Button variant="ghost" size="xs" onclick={() => setAktifCabang(t.id, c, true)}>
-										Aktifkan
-									</Button>
-								{/if}
-							</div>
-						{/each}
-
-						<button
-							class="mt-1 text-xs"
-							style="color:var(--accent)"
-							onclick={() => openTambahCabang(t.id)}
-						>
-							+ Tambah Cabang
-						</button>
-					</div>
-				{/if}
+	<div class="mx-auto max-w-2xl space-y-4">
+		<SectionCard judul="Daftar Toko">
+			<div class="mb-2 flex justify-end">
+				<Button size="xs" onclick={openTambahToko}>+ Tambah Toko</Button>
 			</div>
-		{/each}
-		{#if tokoList.length === 0}
-			<p class="text-sm" style="color:var(--text-dim)">Belum ada toko</p>
-		{/if}
-	</SectionCard>
-</div>
+
+			{#each tokoList as t (t.id)}
+				<div class="border-b py-2 last:border-0" style="border-color:var(--border)">
+					<div class="flex items-center gap-2">
+						<button
+							class="flex-1 text-left text-sm font-medium"
+							class:opacity-40={!t.is_active}
+							onclick={() => toggleToko(t.id)}
+						>
+							<span class="font-mono text-xs" style="color:var(--text-dim)">[{t.kode_toko}]</span>
+							{t.nama}
+							{#if t.alamat}<span class="text-xs" style="color:var(--text-dim)">· {t.alamat}</span
+								>{/if}
+						</button>
+						{#if t.is_active}
+							<Button variant="ghost" size="xs" onclick={() => openEditToko(t)}>Edit</Button>
+							<Button variant="danger" size="xs" onclick={() => hapusToko(t)}>Nonaktifkan</Button>
+						{:else}
+							<Button variant="ghost" size="xs" onclick={() => setAktifToko(t, true)}
+								>Aktifkan</Button
+							>
+						{/if}
+						<Button variant="dim" size="xs" onclick={() => toggleToko(t.id)}>
+							{expandedToko === t.id ? '▲ Cabang' : '▼ Cabang'}
+						</Button>
+					</div>
+
+					{#if expandedToko === t.id}
+						<div class="mt-2 ml-4 space-y-1">
+							{#each cabangByToko[t.id] ?? [] as c (c.id)}
+								<div class="flex items-center gap-2 text-sm">
+									<span class:opacity-40={!c.is_active} class="flex-1">
+										<span class="font-mono text-xs" style="color:var(--text-dim)"
+											>[{c.kode_cabang}]</span
+										>
+										{c.nama}
+										{#if c.alamat}<span class="text-xs" style="color:var(--text-dim)"
+												>· {c.alamat}</span
+											>{/if}
+									</span>
+									{#if c.is_active}
+										<Button variant="ghost" size="xs" onclick={() => openEditCabang(t.id, c)}>
+											Edit
+										</Button>
+										<Button variant="danger" size="xs" onclick={() => hapusCabang(t.id, c)}>
+											Nonaktifkan
+										</Button>
+									{:else}
+										<Button variant="ghost" size="xs" onclick={() => setAktifCabang(t.id, c, true)}>
+											Aktifkan
+										</Button>
+									{/if}
+								</div>
+							{/each}
+
+							<button
+								class="mt-1 text-xs"
+								style="color:var(--accent)"
+								onclick={() => openTambahCabang(t.id)}
+							>
+								+ Tambah Cabang
+							</button>
+						</div>
+					{/if}
+				</div>
+			{/each}
+			{#if tokoList.length === 0}
+				<p class="text-sm" style="color:var(--text-dim)">Belum ada toko</p>
+			{/if}
+		</SectionCard>
+	</div>
 {/if}
 
-<SlideOver bind:open={() => slide !== null, (v) => { if (!v) slide = null; }} title={slideTitle}>
+<SlideOver
+	bind:open={
+		() => slide !== null,
+		(v) => {
+			if (!v) slide = null;
+		}
+	}
+	title={slideTitle}
+>
 	{#if slide === 'tambahToko' || slide === 'editToko'}
 		<div class="flex flex-col gap-3 p-4">
 			<Input

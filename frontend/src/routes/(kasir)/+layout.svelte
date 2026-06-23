@@ -6,6 +6,7 @@
 	import { api } from '$lib/utils/api.js';
 	import { initKasirScan, cleanupKasirScan, loadPromoAktif } from './kasir/kasir.store';
 	import KasirTabBar from './kasir/KasirTabBar.svelte';
+	import BannerDemo from '$lib/components/layout/BannerDemo.svelte';
 	import Fullscreen from '@lucide/svelte/icons/fullscreen';
 
 	let { children, data } = $props();
@@ -59,6 +60,7 @@
 		$font
 	]};font-size:{$ukuranFont}px;{isFullscreen ? 'padding-top:env(safe-area-inset-top)' : ''}"
 >
+	<BannerDemo />
 	<!-- Content -->
 	<main class="min-h-0 flex-1 overflow-hidden">
 		{@render children()}
