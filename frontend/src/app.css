@@ -15,8 +15,10 @@
   --popover: var(--surface2);
   --popover-foreground: var(--text);
   --ring: var(--accent);
-  --radius: 0.6875rem;
+  --radius-xs: 5px;
   --radius-sm: 0.5rem;
+  --radius: 0.6875rem;
+  --radius-md: 0.6875rem;
   --radius-lg: 1.125rem;
   --radius-pill: 9999px;
   --color-background: var(--bg);
@@ -33,7 +35,6 @@
   --color-input: var(--border);
   --color-ring: var(--accent);
   --color-border: var(--border);
-  --radius-md: var(--radius);
   /* daisyui v5 token mapping — resolved per-theme via [data-theme] vars */
   --color-primary-content: var(--bg);
   --color-secondary: var(--info);
@@ -54,18 +55,67 @@
   --color-warning-content: var(--bg);
   --color-error: var(--danger);
   --color-error-content: var(--bg);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  font-family: 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+
+  /* ── apple spacing tokens ───────────────────────── */
+  --sp-xxs: 4px;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 17px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-xxl: 48px;
+  --sp-section: 80px;
+
+  /* ── apple typography tokens ────────────────────── */
+  --font-display: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  --font-body: 'SF Pro Text', system-ui, -apple-system, sans-serif;
+  /* hero: 56px/600/1.07/-0.28px */
+  --fs-hero: 3.5rem;
+  --fw-hero: 600;
+  --lh-hero: 1.07;
+  --ls-hero: -0.28px;
+  /* display-lg: 40px/600/1.10/0 */
+  --fs-display-lg: 2.5rem;
+  --fw-display: 600;
+  --lh-display-lg: 1.10;
+  /* display-md: 34px/600/1.47/-0.374px */
+  --fs-display-md: 2.125rem;
+  --lh-display-md: 1.47;
+  --ls-display: -0.374px;
+  /* lead: 28px/400/1.14 */
+  --fs-lead: 1.75rem;
+  --lh-lead: 1.14;
+  /* tagline: 21px/600/1.19/0.231px */
+  --fs-tagline: 1.3125rem;
+  --lh-tagline: 1.19;
+  --ls-tagline: 0.231px;
+  /* body: 17px/400/1.47/-0.374px */
+  --fs-body: 1.0625rem;
+  --fw-body: 400;
+  --lh-body: 1.47;
+  --ls-body: -0.374px;
+  /* caption: 14px/400/1.43/-0.224px */
+  --fs-caption: 0.875rem;
+  --lh-caption: 1.43;
+  --ls-caption: -0.224px;
+  /* nav: 12px/400/1.0/-0.12px */
+  --fs-nav: 0.75rem;
+  --ls-nav: -0.12px;
 }
 
-/* ─── DaisyUI overrides ─────────────────────────── */
-.input {
+/* ─── DaisyUI overrides — apple spec ───────────── */
+.input, .select, .textarea {
   --depth: 0;
-  border: 1px solid var(--surface2);
+  border: 1px solid var(--border);
   box-shadow: none !important;
+  letter-spacing: var(--ls-body);
 }
 
 .input:focus,
-.input:focus-within {
+.input:focus-within,
+.select:focus,
+.textarea:focus {
   border-color: var(--accent);
   outline: none;
 }
@@ -74,6 +124,23 @@
   --depth: 0;
   border: none;
   box-shadow: none !important;
+  letter-spacing: var(--ls-caption);
+  transition: transform 0.1s ease;
+}
+
+.btn:active {
+  transform: scale(0.95);
+}
+
+.card {
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+.dropdown-content,
+.menu,
+.modal-box {
+  border-radius: var(--radius-lg);
 }
 
 .toggle {
