@@ -5,6 +5,7 @@ import { SignJWT } from 'jose'
 import { eq, and, or } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { env } from '../config/env.ts'
+const COOKIE_SECURE = env.isProd
 import { karyawan, toko, cabang } from '../db/schema.ts'
 import type { Role } from '../middleware/auth.ts'
 import { authMiddleware } from '../middleware/auth.ts'
@@ -116,6 +117,7 @@ authRouter.post('/login', async (c) => {
 
   setCookie(c, 'auth_token', token, {
     httpOnly: true,
+    secure: COOKIE_SECURE,
     sameSite: 'Strict',
     maxAge: COOKIE_MAX_AGE,
     path: '/',
@@ -336,6 +338,7 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 
   setCookie(c, 'auth_token', token, {
     httpOnly: true,
+    secure: COOKIE_SECURE,
     sameSite: 'Strict',
     maxAge: COOKIE_MAX_AGE,
     path: '/',
