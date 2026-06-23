@@ -11,7 +11,7 @@ export function createLoginStore() {
 	let showPassword = $state(false)
 	let rememberMe = $state(false)
 	let attemptsLeft = $state(3)
-	let showBrand = $state(true)
+	let showBrand = $state(false)
 	let namaToko = $state('')
 	let serverIP = $state('')
 	let timeStr = $state('--:--:--')
@@ -44,12 +44,12 @@ export function createLoginStore() {
 			.then((v) => {
 				namaToko = v
 			})
-			.catch(() => {})
+			.catch(() => { })
 		fetchServerIP(hostname)
 			.then((v) => {
 				serverIP = v
 			})
-			.catch(() => {})
+			.catch(() => { })
 	}
 
 	function tick(now: Date) {

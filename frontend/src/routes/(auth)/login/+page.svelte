@@ -2,10 +2,13 @@
 	import { onMount } from 'svelte';
 	import { tema, nextTema } from '$lib/stores/tema';
 	import { createLoginStore } from './login.store.svelte';
+	import { env } from '$env/dynamic/public';
 	import CircleArrowRight from '@lucide/svelte/icons/circle-arrow-right';
 
 	const store = createLoginStore();
 
+	// Daftar mandiri hanya di mode cloud/online; LAN tetap dibuat admin.
+	const bisaDaftar = env.PUBLIC_DEPLOYMENT_MODE === 'online';
 
 	let usernameInput!: HTMLInputElement;
 	let passwordInput!: HTMLInputElement;
@@ -66,7 +69,10 @@
 
 <svelte:head>
 	<title>Login - Stokasir</title>
-	<meta name="description" content="Login to Stokasir - Aplikasi manajemen stok-kasir untuk toko grosir dan eceran. Kelola stok, kasir, gudang, dan keuangan dengan mudah." />
+	<meta
+		name="description"
+		content="Login to Stokasir - Aplikasi manajemen stok-kasir untuk toko grosir dan eceran. Kelola stok, kasir, gudang, dan keuangan dengan mudah."
+	/>
 </svelte:head>
 
 <div class="screen">
@@ -93,7 +99,12 @@
 				<div class="brand-panel" class:brand-vis={store.showBrand}>
 					<div class="brand-inner">
 						<div class="brand-head">
-							<enhanced:img src="$lib/assets/logo.webp" alt="" class="brand-logo" fetchpriority="high" />
+							<enhanced:img
+								src="$lib/assets/logo.webp"
+								alt=""
+								class="brand-logo"
+								fetchpriority="high"
+							/>
 							<span class="brand-name">{store.namaToko}</span>
 						</div>
 						<div class="brand-tagline">POS · GUDANG · PELANGGAN · KEUANGAN · ALERT</div>
@@ -140,7 +151,7 @@
 
 					<form id="lf" onsubmit={store.login} autocomplete="off">
 						<div class="field">
-							<div class="field-lbl">USERNAME</div>
+							<div class="field-lbl">USERNAME / EMAIL</div>
 							<div class="field-wrap accent-left">
 								<span class="field-caret">›</span>
 								<input
@@ -213,6 +224,12 @@
 					</form>
 
 					<span class="grow"></span>
+					{#if bisaDaftar}
+						<div class="signup-row grid grid-cols-1 items-end">
+							Belum punya akun?
+							<a href="/daftar" class="signup-link">Daftar toko baru</a>
+						</div>
+					{/if}
 				</div>
 			</div>
 
@@ -248,7 +265,7 @@
 		position: fixed;
 		inset: 0;
 		overflow: hidden;
-		font-family: 'JetBrains Mono', ui-monospace, monospace;
+		font-family: inherit;
 		background: var(--bg);
 		color: var(--text);
 	}
@@ -635,6 +652,22 @@
 		clip: rect(0, 0, 0, 0);
 		white-space: nowrap;
 		border-width: 0;
+	}
+
+	.signup-row {
+		margin-top: 14px;
+		font-size: 11px;
+		color: var(--text-dim);
+		letter-spacing: 0.04em;
+	}
+	.signup-link {
+		color: var(--accent);
+		font-weight: 700;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+	.signup-link:hover {
+		opacity: 0.8;
 	}
 
 	.forgot-btn {

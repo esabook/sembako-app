@@ -1,5 +1,6 @@
 import { redirect } from '@sveltejs/kit'
 import type { PageServerLoad } from './$types'
+import { onboardingSelesai } from '$lib/server/auth'
 
 const API_URL = process.env.BACKEND_URL ?? 'http://localhost:3000'
 
@@ -13,7 +14,15 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
 	if (res.ok) {
 		const json = await res.json()
-		if (json.success) redirect(302, '/kasir')
+		if (json.success) {
+			const user = json.data as { role: string }
+
+			// Pemilik yang belum selesai wizard wajib ke onboarding dulu.
+			if (user.role === 'pemilik' && !(await onboardingSelesai(token))) {
+				redirect(302, '/onboarding')
+			}
+			redirect(302, '/kasir')
+		}
 	}
 
 	return {}
