@@ -1,5 +1,7 @@
+import { get } from 'svelte/store'
 import { withLoading } from '$lib/utils/async'
 import { toast } from '$lib/stores/ui.store'
+import { ukuranFont, UKURAN_MIN, UKURAN_MAX } from '$lib/stores/ukuran-font'
 import { audioLoad, audioSave, type AudioMode } from '$lib/utils/audio'
 import { getPengaturan, simpanPengaturan, downloadBackupDb, restoreDb } from './pengaturan.api'
 import { validateAudioFile, isValidRestoreFile } from './pengaturan.logic'
@@ -10,6 +12,9 @@ export function createPengaturanStore() {
 	let form = $state<Settings>(defaultSettings())
 	let loading = $state(true)
 	let saving = $state(false)
+
+	// ── Ukuran font (localStorage, per-device — draft, commit saat simpan) ────
+	let ukuranDraft = $state(get(ukuranFont))
 
 	// ── Audio kasir (localStorage, per-device) ───────────────────────────────
 	let audioOn = $state(true)
@@ -59,6 +64,8 @@ export function createPengaturanStore() {
 			suksesOtomatis: true,
 			errorPesan: 'Gagal menyimpan pengaturan'
 		})
+		// commit ukuran font (clamp + apply global + localStorage via store)
+		ukuranFont.set(Math.min(UKURAN_MAX, Math.max(UKURAN_MIN, Math.round(ukuranDraft))))
 		saving = false
 	}
 
@@ -149,6 +156,13 @@ export function createPengaturanStore() {
 		},
 		get saving() {
 			return saving
+		},
+		// ukuran font (draft)
+		get ukuranDraft() {
+			return ukuranDraft
+		},
+		set ukuranDraft(v) {
+			ukuranDraft = v
 		},
 		// audio
 		get audioOn() {
