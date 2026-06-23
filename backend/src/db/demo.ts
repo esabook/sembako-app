@@ -1,4 +1,4 @@
-import { eq, count } from 'drizzle-orm'
+import { eq, and, count } from 'drizzle-orm'
 import { db, withTransaction, query } from './index.ts'
 import {
   toko, toko_settings, cabang, karyawan, kas_bank,
@@ -85,67 +85,88 @@ async function ensureKategori(nama: string): Promise<number> {
   return r!.id
 }
 
-export async function generateDemoData(): Promise<{ toko_id: number }> {
-  const existing = await getDemoTokoId()
-  if (existing) throw new Error('Data demo sudah ada. Hapus dulu sebelum generate ulang.')
+// Target seed ke tenant yang sudah ada (onboarding). Tanpa ini, generateDemoData
+// membuat toko DEMO terpisah (mode lama). `prefix` membuat semua kode unik
+// (kode_barang/no_transaksi/dst) tenant-scoped agar tak bentrok constraint unik global.
+type SeedTarget = { tid: number; cid: number; pemilikId: number; kasirId: number; prefix: string }
 
-  const hash = await Bun.password.hash('demo123')
+export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: number }> {
+  if (!target) {
+    const existing = await getDemoTokoId()
+    if (existing) throw new Error('Data demo sudah ada. Hapus dulu sebelum generate ulang.')
+  }
+
+  const hash = target ? '' : await Bun.password.hash('demo123')
 
   return withTransaction(async () => {
-    // ── 1. Toko ──────────────────────────────────────────────────────────────
-    const tokoRow = await query.ret<{ id: number }>(
-      db.insert(toko).values({
-        kode_toko: DEMO_KODE_TOKO,
-        nama: 'Toko Demo Stokasir',
-        alamat: 'Jl. Demo No. 1, Kota Contoh',
-        is_active: true,
-      }).returning()
-    )
-    const tid = tokoRow!.id
+    let tid: number
+    let cid: number
+    let pemilikId: number
+    let kasirId: number
+    const prefix = target?.prefix ?? 'DEMO-'
 
-    // ── 2. Cabang ─────────────────────────────────────────────────────────────
-    const cabangRow = await query.ret<{ id: number }>(
-      db.insert(cabang).values({
-        toko_id: tid,
-        kode_cabang: 'CAB-01',
-        nama: 'Cabang Utama Demo',
-        is_active: true,
-      }).returning()
-    )
-    const cid = cabangRow!.id
+    if (target) {
+      // Mode onboarding: pakai toko/cabang/karyawan tenant yang sudah ada.
+      tid = target.tid
+      cid = target.cid
+      pemilikId = target.pemilikId
+      kasirId = target.kasirId
+    } else {
+      // ── 1. Toko ──────────────────────────────────────────────────────────────
+      const tokoRow = await query.ret<{ id: number }>(
+        db.insert(toko).values({
+          kode_toko: DEMO_KODE_TOKO,
+          nama: 'Toko Demo Stokasir',
+          alamat: 'Jl. Demo No. 1, Kota Contoh',
+          is_active: true,
+        }).returning()
+      )
+      tid = tokoRow!.id
 
-    // ── 3. Karyawan ───────────────────────────────────────────────────────────
-    const pemilikRow = await query.ret<{ id: number }>(
-      db.insert(karyawan).values({
-        kode_karyawan: 'DEMO-KRY-001',
-        nama: 'Pemilik Demo',
-        role: 'pemilik',
-        username: 'demo-admin',
-        password_hash: hash,
-        tipe_gaji: 'bulanan',
-        gaji_pokok: 5000000,
-        toko_id: tid,
-        cabang_id: null,
-        is_active: true,
-      }).returning()
-    )
-    const pemilikId = pemilikRow!.id
+      // ── 2. Cabang ─────────────────────────────────────────────────────────────
+      const cabangRow = await query.ret<{ id: number }>(
+        db.insert(cabang).values({
+          toko_id: tid,
+          kode_cabang: 'CAB-01',
+          nama: 'Cabang Utama Demo',
+          is_active: true,
+        }).returning()
+      )
+      cid = cabangRow!.id
 
-    const kasirRow = await query.ret<{ id: number }>(
-      db.insert(karyawan).values({
-        kode_karyawan: 'DEMO-KRY-002',
-        nama: 'Kasir Demo',
-        role: 'kasir',
-        username: 'demo-kasir',
-        password_hash: hash,
-        tipe_gaji: 'bulanan',
-        gaji_pokok: 2500000,
-        toko_id: tid,
-        cabang_id: cid,
-        is_active: true,
-      }).returning()
-    )
-    const kasirId = kasirRow!.id
+      // ── 3. Karyawan ───────────────────────────────────────────────────────────
+      const pemilikRow = await query.ret<{ id: number }>(
+        db.insert(karyawan).values({
+          kode_karyawan: `${prefix}KRY-001`,
+          nama: 'Pemilik Demo',
+          role: 'pemilik',
+          username: 'demo-admin',
+          password_hash: hash,
+          tipe_gaji: 'bulanan',
+          gaji_pokok: 5000000,
+          toko_id: tid,
+          cabang_id: null,
+          is_active: true,
+        }).returning()
+      )
+      pemilikId = pemilikRow!.id
+
+      const kasirRow = await query.ret<{ id: number }>(
+        db.insert(karyawan).values({
+          kode_karyawan: `${prefix}KRY-002`,
+          nama: 'Kasir Demo',
+          role: 'kasir',
+          username: 'demo-kasir',
+          password_hash: hash,
+          tipe_gaji: 'bulanan',
+          gaji_pokok: 2500000,
+          toko_id: tid,
+          cabang_id: cid,
+          is_active: true,
+        }).returning()
+      )
+      kasirId = kasirRow!.id
+    }
 
     // ── 4. Kas & Bank ─────────────────────────────────────────────────────────
     const kasRow = await query.ret<{ id: number }>(
@@ -185,16 +206,16 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 7. Barang ─────────────────────────────────────────────────────────────
     const barangData = [
-      { kode: 'DEMO-BRG-001', nama: 'Beras Premium 5kg', kat: katSembako, sat: sKg, beli: 58000, eceran: 65000, grosir: 62000, stok: 120 },
-      { kode: 'DEMO-BRG-002', nama: 'Minyak Goreng Bimoli 2L', kat: katMinyak, sat: sBtl, beli: 30000, eceran: 35000, grosir: 33000, stok: 80 },
-      { kode: 'DEMO-BRG-003', nama: 'Gula Pasir 1kg', kat: katSembako, sat: sKg, beli: 14000, eceran: 16000, grosir: 15000, stok: 150 },
-      { kode: 'DEMO-BRG-004', nama: 'Teh Botol Sosro 450ml', kat: katMinuman, sat: sBtl, beli: 4500, eceran: 6000, grosir: 5500, stok: 200 },
-      { kode: 'DEMO-BRG-005', nama: 'Aqua 600ml', kat: katMinuman, sat: sBtl, beli: 2500, eceran: 4000, grosir: 3500, stok: 300 },
-      { kode: 'DEMO-BRG-006', nama: 'Indomie Goreng', kat: katSembako, sat: sPcs, beli: 2800, eceran: 4000, grosir: 3500, stok: 500 },
-      { kode: 'DEMO-BRG-007', nama: 'Kecap Manis ABC 600ml', kat: katBumbu, sat: sBtl, beli: 12000, eceran: 16000, grosir: 14000, stok: 60 },
-      { kode: 'DEMO-BRG-008', nama: 'Sabun Lifebuoy 80gr', kat: katSembako, sat: sPcs, beli: 3500, eceran: 5000, grosir: 4500, stok: 100 },
-      { kode: 'DEMO-BRG-009', nama: 'Garam Beryodium 500gr', kat: katBumbu, sat: sPcs, beli: 2000, eceran: 3000, grosir: 2500, stok: 80 },
-      { kode: 'DEMO-BRG-010', nama: 'Rokok Gudang Garam 12', kat: katRokok, sat: sKtn, beli: 264000, eceran: 288000, grosir: 276000, stok: 30 },
+      { kode: `${prefix}BRG-001`, nama: 'Beras Premium 5kg', kat: katSembako, sat: sKg, beli: 58000, eceran: 65000, grosir: 62000, stok: 120 },
+      { kode: `${prefix}BRG-002`, nama: 'Minyak Goreng Bimoli 2L', kat: katMinyak, sat: sBtl, beli: 30000, eceran: 35000, grosir: 33000, stok: 80 },
+      { kode: `${prefix}BRG-003`, nama: 'Gula Pasir 1kg', kat: katSembako, sat: sKg, beli: 14000, eceran: 16000, grosir: 15000, stok: 150 },
+      { kode: `${prefix}BRG-004`, nama: 'Teh Botol Sosro 450ml', kat: katMinuman, sat: sBtl, beli: 4500, eceran: 6000, grosir: 5500, stok: 200 },
+      { kode: `${prefix}BRG-005`, nama: 'Aqua 600ml', kat: katMinuman, sat: sBtl, beli: 2500, eceran: 4000, grosir: 3500, stok: 300 },
+      { kode: `${prefix}BRG-006`, nama: 'Indomie Goreng', kat: katSembako, sat: sPcs, beli: 2800, eceran: 4000, grosir: 3500, stok: 500 },
+      { kode: `${prefix}BRG-007`, nama: 'Kecap Manis ABC 600ml', kat: katBumbu, sat: sBtl, beli: 12000, eceran: 16000, grosir: 14000, stok: 60 },
+      { kode: `${prefix}BRG-008`, nama: 'Sabun Lifebuoy 80gr', kat: katSembako, sat: sPcs, beli: 3500, eceran: 5000, grosir: 4500, stok: 100 },
+      { kode: `${prefix}BRG-009`, nama: 'Garam Beryodium 500gr', kat: katBumbu, sat: sPcs, beli: 2000, eceran: 3000, grosir: 2500, stok: 80 },
+      { kode: `${prefix}BRG-010`, nama: 'Rokok Gudang Garam 12', kat: katRokok, sat: sKtn, beli: 264000, eceran: 288000, grosir: 276000, stok: 30 },
     ]
 
     const barangIds: number[] = []
@@ -223,8 +244,8 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     const katJasa = await ensureKategori('Jasa & Layanan')
 
     const fnbData = [
-      { kode: 'DEMO-FNB-001', nama: 'Nasi Goreng Spesial', beli: 8000, eceran: 18000, grosir: 16000 },
-      { kode: 'DEMO-FNB-002', nama: 'Es Teh Manis', beli: 2000, eceran: 8000, grosir: 7000 },
+      { kode: `${prefix}FNB-001`, nama: 'Nasi Goreng Spesial', beli: 8000, eceran: 18000, grosir: 16000 },
+      { kode: `${prefix}FNB-002`, nama: 'Es Teh Manis', beli: 2000, eceran: 8000, grosir: 7000 },
     ]
     const fnbIds: number[] = []
     for (const f of fnbData) {
@@ -242,8 +263,8 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     }
 
     const jasaData = [
-      { kode: 'DEMO-JSA-001', nama: 'Cuci Motor', beli: 10000, eceran: 25000, grosir: 22000 },
-      { kode: 'DEMO-JSA-002', nama: 'Potong Rambut', beli: 5000, eceran: 35000, grosir: 30000 },
+      { kode: `${prefix}JSA-001`, nama: 'Cuci Motor', beli: 10000, eceran: 25000, grosir: 22000 },
+      { kode: `${prefix}JSA-002`, nama: 'Potong Rambut', beli: 5000, eceran: 35000, grosir: 30000 },
     ]
     const jasaIds: number[] = []
     for (const j of jasaData) {
@@ -286,9 +307,9 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 9. Supplier ───────────────────────────────────────────────────────────
     const supData = [
-      { kode: 'DEMO-SUP-001', nama: 'CV Maju Jaya', kontak: '081234567890', terms: 30 },
-      { kode: 'DEMO-SUP-002', nama: 'PT Distributor Nusantara', kontak: '082345678901', terms: 14 },
-      { kode: 'DEMO-SUP-003', nama: 'UD Sumber Makmur', kontak: '083456789012', terms: 7 },
+      { kode: `${prefix}SUP-001`, nama: 'CV Maju Jaya', kontak: '081234567890', terms: 30 },
+      { kode: `${prefix}SUP-002`, nama: 'PT Distributor Nusantara', kontak: '082345678901', terms: 14 },
+      { kode: `${prefix}SUP-003`, nama: 'UD Sumber Makmur', kontak: '083456789012', terms: 7 },
     ]
     const supIds: number[] = []
     for (const s of supData) {
@@ -308,11 +329,11 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 10. Pelanggan ──────────────────────────────────────────────────────────
     const plgData = [
-      { kode: 'DEMO-PLG-001', nama: 'Bu Sari', tipe: 'eceran' as const },
-      { kode: 'DEMO-PLG-002', nama: 'Pak Budi Grosir', tipe: 'grosir' as const },
-      { kode: 'DEMO-PLG-003', nama: 'Warung Pak Joko', tipe: 'langganan' as const },
-      { kode: 'DEMO-PLG-004', nama: 'Ibu Dewi', tipe: 'eceran' as const },
-      { kode: 'DEMO-PLG-005', nama: 'Toko ABC Makmur', tipe: 'grosir' as const },
+      { kode: `${prefix}PLG-001`, nama: 'Bu Sari', tipe: 'eceran' as const },
+      { kode: `${prefix}PLG-002`, nama: 'Pak Budi Grosir', tipe: 'grosir' as const },
+      { kode: `${prefix}PLG-003`, nama: 'Warung Pak Joko', tipe: 'langganan' as const },
+      { kode: `${prefix}PLG-004`, nama: 'Ibu Dewi', tipe: 'eceran' as const },
+      { kode: `${prefix}PLG-005`, nama: 'Toko ABC Makmur', tipe: 'grosir' as const },
     ]
     const plgIds: number[] = []
     for (const p of plgData) {
@@ -334,7 +355,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     for (let k = 0; k < 3; k++) {
       await query.exec(
         db.insert(kartu_anggota).values({
-          no_kartu: `DEMO-KA-${String(k + 1).padStart(4, '0')}`,
+          no_kartu: `${prefix}KA-${String(k + 1).padStart(4, '0')}`,
           tier: k === 0 ? 'gold' : k === 1 ? 'silver' : 'reguler',
           diskon_member: k === 0 ? 5 : k === 1 ? 3 : 0,
           poin: k === 0 ? 1250 : k === 1 ? 450 : 0,
@@ -351,7 +372,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
       const supId = supIds[p]!
       const poRow = await query.ret<{ id: number }>(
         db.insert(purchase_order).values({
-          no_po: `DEMO-PO-${String(p + 1).padStart(3, '0')}`,
+          no_po: `${prefix}PO-${String(p + 1).padStart(3, '0')}`,
           supplier_id: supId,
           tanggal_po: dateStr(32 + p * 5),
           tanggal_estimasi_datang: dateStr(25 + p * 5),
@@ -398,7 +419,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
       const bmRow = await query.ret<{ id: number }>(
         db.insert(barang_masuk).values({
-          no_penerimaan: `DEMO-BM-${String(i + 1).padStart(3, '0')}`,
+          no_penerimaan: `${prefix}BM-${String(i + 1).padStart(3, '0')}`,
           po_id: i < poIds.length ? poIds[i]! : null,
           supplier_id: supId,
           tanggal_terima: dateStr(daysAgo),
@@ -490,7 +511,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
           kategori: 'pembelian',
           referensi_tipe: 'pembayaran_hutang',
           referensi_id: hutId,
-          keterangan: `Bayar hutang supplier DEMO-BM-${String(h + 1).padStart(3, '0')}`,
+          keterangan: `Bayar hutang supplier ${prefix}BM-${String(h + 1).padStart(3, '0')}`,
           jumlah: bayar,
           dicatat_oleh: kasirId,
           tenant_id: tid,
@@ -531,7 +552,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
         const trxRow = await query.ret<{ id: number }>(
           db.insert(penjualan).values({
-            no_transaksi: `DEMO-TRX-${String(trxCounter).padStart(4, '0')}`,
+            no_transaksi: `${prefix}TRX-${String(trxCounter).padStart(4, '0')}`,
             pelanggan_id: plgId,
             tanggal: dateStr(day),
             tipe: isGrosir ? 'grosir' : 'eceran',
@@ -591,7 +612,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
             kategori: 'penjualan',
             referensi_tipe: 'penjualan',
             referensi_id: trxId,
-            keterangan: `Penjualan ${isGrosir ? 'Grosir' : 'Eceran'} DEMO-TRX-${String(trxCounter).padStart(4, '0')}`,
+            keterangan: `Penjualan ${isGrosir ? 'Grosir' : 'Eceran'} ${prefix}TRX-${String(trxCounter).padStart(4, '0')}`,
             jumlah: total,
             dicatat_oleh: kasirId,
             tenant_id: tid,
@@ -613,7 +634,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
       const trxHRow = await query.ret<{ id: number }>(
         db.insert(penjualan).values({
-          no_transaksi: `DEMO-HUT-${String(h + 1).padStart(3, '0')}`,
+          no_transaksi: `${prefix}HUT-${String(h + 1).padStart(3, '0')}`,
           pelanggan_id: plgId,
           tanggal: dateStr(12 + h * 3),
           tipe: 'grosir',
@@ -706,7 +727,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
       const retPjRow = await query.ret<{ id: number }>(
         db.insert(retur_penjualan).values({
-          no_retur: `DEMO-RP-${String(r + 1).padStart(3, '0')}`,
+          no_retur: `${prefix}RP-${String(r + 1).padStart(3, '0')}`,
           penjualan_id: srcTrxId,
           tanggal: dateStr(27 - r * 3),
           kasir_id: kasirId,
@@ -758,7 +779,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
             kategori: 'retur',
             referensi_tipe: 'retur_penjualan',
             referensi_id: retPjId,
-            keterangan: 'Retur penjualan tunai DEMO-RP-001',
+            keterangan: `Retur penjualan tunai ${prefix}RP-001`,
             jumlah: totalRetur,
             dicatat_oleh: kasirId,
             tenant_id: tid,
@@ -776,7 +797,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     const retSupRow = await query.ret<{ id: number }>(
       db.insert(retur_supplier).values({
-        no_retur: 'DEMO-RS-001',
+        no_retur: `${prefix}RS-001`,
         barang_masuk_id: bmIds[0]!,
         supplier_id: supIds[0]!,
         tanggal: dateStr(26),
@@ -820,7 +841,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     // ── 20. Stok Opname (1 opname selesai, 10 barang) ─────────────────────────
     const opnameRow = await query.ret<{ id: number }>(
       db.insert(stok_opname).values({
-        no_opname: 'DEMO-OPN-001',
+        no_opname: `${prefix}OPN-001`,
         tanggal_mulai: dateStr(15),
         tanggal_selesai: dateStr(14),
         status: 'approved',
@@ -1431,9 +1452,9 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
 
     // ── 44. F&B: Bahan Baku (3 bahan) ────────────────────────────────────────
     const bahanData = [
-      { kode: 'DEMO-BB-001', nama: 'Nasi Putih', stok: 10, harga: 3000 },
-      { kode: 'DEMO-BB-002', nama: 'Telur Ayam', stok: 50, harga: 2500 },
-      { kode: 'DEMO-BB-003', nama: 'Teh Celup', stok: 100, harga: 500 },
+      { kode: `${prefix}BB-001`, nama: 'Nasi Putih', stok: 10, harga: 3000 },
+      { kode: `${prefix}BB-002`, nama: 'Telur Ayam', stok: 50, harga: 2500 },
+      { kode: `${prefix}BB-003`, nama: 'Teh Celup', stok: 100, harga: 500 },
     ]
     const bahanIds: number[] = []
     for (const b of bahanData) {
@@ -1523,7 +1544,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     // ── 49. Jasa: Paket Membership (2 paket) ─────────────────────────────────
     const paketRow1 = await query.ret<{ id: number }>(
       db.insert(paket_membership).values({
-        kode_paket: 'DEMO-PKT-001',
+        kode_paket: `${prefix}PKT-001`,
         nama: 'Paket Cuci Motor 5x',
         barang_id: jasaIds[0]!,
         jumlah_sesi: 5,
@@ -1535,7 +1556,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
     )
     const paketRow2 = await query.ret<{ id: number }>(
       db.insert(paket_membership).values({
-        kode_paket: 'DEMO-PKT-002',
+        kode_paket: `${prefix}PKT-002`,
         nama: 'Paket Potong Rambut 3x',
         barang_id: jasaIds[1]!,
         jumlah_sesi: 3,
@@ -1580,7 +1601,7 @@ export async function generateDemoData(): Promise<{ toko_id: number }> {
       const isCuci = b < 2
       await query.exec(
         db.insert(booking).values({
-          no_booking: `DEMO-BK-${String(b + 1).padStart(3, '0')}`,
+          no_booking: `${prefix}BK-${String(b + 1).padStart(3, '0')}`,
           pelanggan_id: b === 0 ? plgIds[0]! : b === 1 ? plgIds[3]! : plgIds[2]!,
           karyawan_id: kasirId,
           barang_id: isCuci ? jasaIds[0]! : jasaIds[1]!,
@@ -1708,107 +1729,56 @@ export async function deleteDemoData(): Promise<void> {
 }
 
 // ── Seed contoh data ke tenant aktif (onboarding) ──────────────────────────
-// Beda dengan generateDemoData: TIDAK membuat toko/karyawan/cabang baru.
-// Cuma sisipkan subset master (satuan, kategori, barang, supplier, pelanggan)
-// ke tenant yang sedang login. Kode pakai prefix CONTOH- supaya gampang
-// dibedakan & dijadikan guard anti-dobel.
-// Kode contoh menyertakan tokoId supaya unik secara GLOBAL — kolom
-// kode_barang/kode_supplier/kode_pelanggan punya constraint unique global
-// (lintas tenant), jadi kode statis akan bentrok antar toko.
-const contohPrefix = (tokoId: number) => `CONTOH-${tokoId}-`
-
+// SINGLE SOURCE: pakai dataset penuh generateDemoData (target mode), bukan subset
+// terpisah. TIDAK membuat toko/karyawan/login baru — reuse pemilik/cabang tenant.
+// Kode di-prefix `CONTOH-${tokoId}-` supaya unik global (kolom kode unik lintas
+// tenant) + jadi guard idempoten.
 export async function seedSampleIntoTenant(
   tokoId: number,
-  _cabangId?: number | null
-): Promise<{ inserted: boolean; jumlah_barang: number }> {
-  const pfx = contohPrefix(tokoId)
+  cabangId?: number | null
+): Promise<{ inserted: boolean }> {
+  const prefix = `CONTOH-${tokoId}-`
 
-  // Guard idempoten: cek exact-match pada kolom unique (paling andal).
+  // Guard idempoten: exact-match pada kolom unique (paling andal).
   const existing = await query.find<{ id: number }>(
-    db
-      .select({ id: barang.id })
-      .from(barang)
-      .where(eq(barang.kode_barang, `${pfx}BRG-001`))
+    db.select({ id: barang.id }).from(barang).where(eq(barang.kode_barang, `${prefix}BRG-001`))
   )
-  if (existing) return { inserted: false, jumlah_barang: 0 }
+  if (existing) return { inserted: false }
 
-  return withTransaction(async () => {
-    // Satuan & kategori global (preset) — pastikan ada, reuse bila sudah ada.
-    const sKg = await ensureSatuan('Kilogram', 'kg')
-    const sPcs = await ensureSatuan('Pcs', 'pcs')
-    const sBtl = await ensureSatuan('Botol', 'btl')
+  // Aktor: pemilik toko (wajib ada). Kasir dipakai bila ada, else pakai pemilik
+  // (kita TIDAK membuat login baru di tenant nyata).
+  const pemilik = await query.find<{ id: number }>(
+    db.select({ id: karyawan.id }).from(karyawan)
+      .where(and(eq(karyawan.toko_id, tokoId), eq(karyawan.role, 'pemilik')))
+  )
+  if (!pemilik) throw new Error('Pemilik toko tidak ditemukan untuk seed contoh')
+  const kasir = await query.find<{ id: number }>(
+    db.select({ id: karyawan.id }).from(karyawan)
+      .where(and(eq(karyawan.toko_id, tokoId), eq(karyawan.role, 'kasir')))
+  )
 
-    const katSembako = await ensureKategori('Sembako')
-    const katMinyak = await ensureKategori('Minyak & Lemak')
-    const katMinuman = await ensureKategori('Minuman')
-    const katBumbu = await ensureKategori('Bumbu & Rempah')
+  // Cabang: param → cabang aktif pertama → buat 'Cabang Utama' bila belum ada.
+  let cid = cabangId ?? null
+  if (!cid) {
+    const cab = await query.find<{ id: number }>(
+      db.select({ id: cabang.id }).from(cabang)
+        .where(and(eq(cabang.toko_id, tokoId), eq(cabang.is_active, true)))
+    )
+    cid = cab?.id ?? null
+  }
+  if (!cid) {
+    const cabRow = await query.ret<{ id: number }>(
+      db.insert(cabang).values({ toko_id: tokoId, kode_cabang: 'CAB-01', nama: 'Cabang Utama', is_active: true }).returning()
+    )
+    cid = cabRow!.id
+  }
 
-    // ── Barang contoh ─────────────────────────────────────────────────────
-    const barangData = [
-      { kode: `${pfx}BRG-001`, nama: 'Beras Premium 5kg', kat: katSembako, sat: sKg, beli: 58000, eceran: 65000, grosir: 62000, stok: 50 },
-      { kode: `${pfx}BRG-002`, nama: 'Minyak Goreng 2L', kat: katMinyak, sat: sBtl, beli: 30000, eceran: 35000, grosir: 33000, stok: 40 },
-      { kode: `${pfx}BRG-003`, nama: 'Gula Pasir 1kg', kat: katSembako, sat: sKg, beli: 14000, eceran: 16000, grosir: 15000, stok: 60 },
-      { kode: `${pfx}BRG-004`, nama: 'Teh Botol 450ml', kat: katMinuman, sat: sBtl, beli: 4500, eceran: 6000, grosir: 5500, stok: 100 },
-      { kode: `${pfx}BRG-005`, nama: 'Kecap Manis 600ml', kat: katBumbu, sat: sBtl, beli: 12000, eceran: 16000, grosir: 14000, stok: 30 },
-    ]
-    for (const b of barangData) {
-      await query.exec(
-        db.insert(barang).values({
-          kode_barang: b.kode,
-          nama_barang: b.nama,
-          kategori_id: b.kat,
-          satuan_dasar_id: b.sat,
-          harga_beli_terakhir: b.beli,
-          harga_beli_rata: b.beli,
-          harga_jual_eceran: b.eceran,
-          harga_jual_grosir: b.grosir,
-          stok_sekarang: b.stok,
-          stok_minimum: 10,
-          tenant_id: tokoId,
-          is_active: true,
-        })
-      )
-    }
-
-    // ── Supplier contoh ───────────────────────────────────────────────────
-    const supData = [
-      { kode: `${pfx}SUP-001`, nama: 'CV Maju Jaya', kontak: '081234567890', terms: 30 },
-      { kode: `${pfx}SUP-002`, nama: 'UD Sumber Makmur', kontak: '082345678901', terms: 14 },
-    ]
-    for (const s of supData) {
-      await query.exec(
-        db.insert(supplier).values({
-          kode_supplier: s.kode,
-          nama_supplier: s.nama,
-          kontak: s.kontak,
-          terms_bayar: s.terms,
-          limit_hutang: 50000000,
-          tenant_id: tokoId,
-          is_active: true,
-        })
-      )
-    }
-
-    // ── Pelanggan contoh ──────────────────────────────────────────────────
-    const plgData = [
-      { kode: `${pfx}PLG-001`, nama: 'Bu Sari', tipe: 'eceran' as const },
-      { kode: `${pfx}PLG-002`, nama: 'Pak Budi Grosir', tipe: 'grosir' as const },
-      { kode: `${pfx}PLG-003`, nama: 'Warung Pak Joko', tipe: 'langganan' as const },
-    ]
-    for (const p of plgData) {
-      await query.exec(
-        db.insert(pelanggan).values({
-          kode_pelanggan: p.kode,
-          nama: p.nama,
-          tipe: p.tipe,
-          limit_piutang: p.tipe === 'grosir' ? 5000000 : 0,
-          saldo_piutang: 0,
-          tenant_id: tokoId,
-          is_active: true,
-        })
-      )
-    }
-
-    return { inserted: true, jumlah_barang: barangData.length }
+  await generateDemoData({
+    tid: tokoId,
+    cid,
+    pemilikId: pemilik.id,
+    kasirId: kasir?.id ?? pemilik.id,
+    prefix,
   })
+  return { inserted: true }
 }
