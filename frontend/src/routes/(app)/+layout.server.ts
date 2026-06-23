@@ -30,6 +30,7 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
 		kode_karyawan?: string
 		tenant_id?: number
 		cabang_id?: number | null
+		saas?: boolean
 	}
 
 	// Onboarding gate — pemilik baru wajib selesai wizard sebelum masuk app.

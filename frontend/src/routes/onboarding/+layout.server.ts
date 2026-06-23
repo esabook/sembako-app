@@ -28,6 +28,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 		role: string
 		tenant_id?: number
 		cabang_id?: number | null
+		saas?: boolean
 	}
 
 	// Onboarding khusus pemilik — role lain langsung ke dashboard.

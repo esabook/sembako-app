@@ -46,6 +46,8 @@
 	let loadingSwitch = $state(false);
 
 	const bisaSwitch = $derived($user?.role === 'pemilik' || $user?.role === 'manajer');
+	// Mode SaaS: 1 email = 1 toko → switcher fokus cabang saja (tanpa pindah toko).
+	const saas = $derived($user?.saas ?? false);
 
 	async function muatKonteks() {
 		if (konteksList.length > 0) return;
@@ -152,7 +154,7 @@
 					>
 						<span class="flex items-center gap-1.5">
 							<Store size="0.85rem" />
-							Toko &amp; Cabang
+							{saas ? 'Cabang' : 'Toko & Cabang'}
 						</span>
 						{#if bukaKonteks}
 							<ChevronDown size="0.85rem" />
@@ -176,8 +178,13 @@
 												? 'color:var(--accent);background:var(--surface2)'
 												: 'color:var(--text)'}
 										>
-											<span class="text-[0.6em]">{$user?.tenant_id === t.id ? '●' : '○'}</span>
-											{t.nama}
+											{#if saas}
+												<span class="text-[0.6em]">{$user?.cabang_id === null ? '✓' : '·'}</span>
+												Semua Cabang
+											{:else}
+												<span class="text-[0.6em]">{$user?.tenant_id === t.id ? '●' : '○'}</span>
+												{t.nama}
+											{/if}
 										</button>
 										{#each t.cabang as cb (cb.id)}
 											<button

@@ -9,6 +9,7 @@ export type User = {
   kode_karyawan?: string
   tenant_id?: number
   cabang_id?: number | null
+  saas?: boolean
 }
 
 export const user = writable<User | null>(null)

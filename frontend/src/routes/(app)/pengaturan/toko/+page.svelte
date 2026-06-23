@@ -2,7 +2,12 @@
 	import { api } from '$lib/utils/api.js';
 	import { withLoading } from '$lib/utils/async.js';
 	import { toast } from '$lib/stores/ui.store.js';
+	import { user } from '$lib/stores/auth.js';
 	import { onMount } from 'svelte';
+
+	// Mode SaaS: 1 email = 1 toko → halaman fokus kelola CABANG toko sendiri.
+	const saas = $derived($user?.saas ?? false);
+	const tenantId = $derived($user?.tenant_id ?? 0);
 	import PageHeader from '$lib/components/layout/PageHeader.svelte';
 	import SectionCard from '$lib/components/layout/SectionCard.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
@@ -222,11 +227,41 @@
 		);
 	}
 
-	onMount(loadToko);
+	onMount(() => {
+		if (saas) loadCabang(tenantId);
+		else loadToko();
+	});
 </script>
 
-<PageHeader judul="Manajemen Toko & Cabang" />
+<PageHeader judul={saas ? 'Manajemen Cabang' : 'Manajemen Toko & Cabang'} />
 
+{#if saas}
+	<div class="mx-auto max-w-2xl space-y-4">
+		<SectionCard judul="Daftar Cabang">
+			<div class="mb-2 flex justify-end">
+				<Button size="xs" onclick={() => openTambahCabang(tenantId)}>+ Tambah Cabang</Button>
+			</div>
+			{#each cabangByToko[tenantId] ?? [] as c (c.id)}
+				<div class="flex items-center gap-2 border-b py-2 text-sm last:border-0" style="border-color:var(--border)">
+					<span class:opacity-40={!c.is_active} class="flex-1">
+						<span class="font-mono text-xs" style="color:var(--text-dim)">[{c.kode_cabang}]</span>
+						{c.nama}
+						{#if c.alamat}<span class="text-xs" style="color:var(--text-dim)">· {c.alamat}</span>{/if}
+					</span>
+					{#if c.is_active}
+						<Button variant="ghost" size="xs" onclick={() => openEditCabang(tenantId, c)}>Edit</Button>
+						<Button variant="danger" size="xs" onclick={() => hapusCabang(tenantId, c)}>Nonaktifkan</Button>
+					{:else}
+						<Button variant="ghost" size="xs" onclick={() => setAktifCabang(tenantId, c, true)}>Aktifkan</Button>
+					{/if}
+				</div>
+			{/each}
+			{#if (cabangByToko[tenantId] ?? []).length === 0}
+				<p class="text-sm" style="color:var(--text-dim)">Belum ada cabang</p>
+			{/if}
+		</SectionCard>
+	</div>
+{:else}
 <div class="mx-auto max-w-2xl space-y-4">
 	<SectionCard judul="Daftar Toko">
 		<div class="mb-2 flex justify-end">
@@ -300,6 +335,7 @@
 		{/if}
 	</SectionCard>
 </div>
+{/if}
 
 <SlideOver bind:open={() => slide !== null, (v) => { if (!v) slide = null; }} title={slideTitle}>
 	{#if slide === 'tambahToko' || slide === 'editToko'}
