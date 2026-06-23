@@ -2,6 +2,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { api } from '$lib/utils/api.js';
 	import { temaMode, temaSkin } from '$lib/stores/tema';
+	import { env } from '$env/dynamic/public';
 	import { onMount } from 'svelte';
 	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
@@ -30,6 +31,21 @@
 	onMount(() => {
 		document.addEventListener('click', tutupJikaLuar);
 		return () => document.removeEventListener('click', tutupJikaLuar);
+	});
+
+	// Web analytics marketing (Umami) — HANYA mode online + var lengkap.
+	// Build LAN/offline tidak pernah memuat script pihak ketiga.
+	onMount(() => {
+		const online = env.PUBLIC_DEPLOYMENT_MODE === 'online';
+		const src = env.PUBLIC_UMAMI_SRC;
+		const id = env.PUBLIC_UMAMI_ID;
+		if (!online || !src || !id) return;
+		if (document.querySelector('script[data-website-id]')) return;
+		const s = document.createElement('script');
+		s.async = true;
+		s.src = src;
+		s.setAttribute('data-website-id', id);
+		document.head.appendChild(s);
 	});
 
 	async function logout() {

@@ -30,6 +30,7 @@
 	import PanelLeftDashed from '@lucide/svelte/icons/panel-left-dashed';
 	import Check from '@lucide/svelte/icons/check';
 	import Utensils from '@lucide/svelte/icons/utensils';
+	import Activity from '@lucide/svelte/icons/activity';
 	import type { Component } from 'svelte';
 
 	const ICONS: Record<string, Component> = {
@@ -50,7 +51,8 @@
 		BadgePercent,
 		Scissors,
 		Settings,
-		Utensils
+		Utensils,
+		Activity
 	};
 
 	let {

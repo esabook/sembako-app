@@ -25,6 +25,7 @@ import { keuanganRouter } from './routes/keuangan.ts'
 import { laporanRouter } from './routes/laporan.ts'
 import { stokOpnameRouter } from './routes/stok_opname.ts'
 import { dashboardRouter } from './routes/dashboard.ts'
+import { analyticsRouter } from './routes/analytics.ts'
 import { absensiRouter } from './routes/absensi.ts'
 import { kasbonRouter } from './routes/kasbon.ts'
 import { penggajianRouter } from './routes/penggajian.ts'
@@ -65,6 +66,7 @@ import { demoRouter } from './routes/demo.ts'
 import { langgananMiddleware } from './middleware/langganan.ts'
 import { langgananRouter } from './routes/langganan.ts'
 import { initHooks } from './lib/hooks.ts'
+import { initAnalyticsTap } from './lib/analytics-tap.ts'
 import { initScheduler } from './lib/scheduler.ts'
 import type { JWTPayload } from './routes/auth.ts'
 
@@ -134,6 +136,7 @@ app.route('/keuangan', keuanganRouter)
 app.route('/laporan', laporanRouter)
 app.route('/stok-opname', stokOpnameRouter)
 app.route('/dashboard', dashboardRouter)
+app.route('/analytics', analyticsRouter)
 app.route('/absensi', absensiRouter)
 app.route('/kasbon', kasbonRouter)
 app.route('/penggajian', penggajianRouter)
@@ -181,6 +184,8 @@ console.log('Database migrations OK')
 
 // Daftarkan semua SOP hooks ke event bus
 initHooks()
+// Tap event bus → log_aktivitas untuk product/usage analytics
+initAnalyticsTap()
 // Jalankan alert scheduler (cek setiap menit berdasarkan notifikasi_config)
 initScheduler()
 

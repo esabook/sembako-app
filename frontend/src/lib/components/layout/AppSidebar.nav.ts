@@ -1,14 +1,14 @@
-import type { Role } from '$lib/stores/auth.js'
+import type { Role } from '$lib/stores/auth.js';
 
-export type SubNavItem = { key: string; label: string; href?: string }
+export type SubNavItem = { key: string; label: string; href?: string };
 
 export type NavItem = {
-	href: string
-	label: string
-	roles: Role[]
-	icon: string
-	sub?: SubNavItem[]
-}
+	href: string;
+	label: string;
+	roles: Role[];
+	icon: string;
+	sub?: SubNavItem[];
+};
 
 export const NAV: NavItem[] = [
 	{
@@ -20,6 +20,12 @@ export const NAV: NavItem[] = [
 			{ key: 'overview', label: 'Overview' },
 			{ key: 'sales-summary', label: 'Sales Summary' }
 		]
+	},
+	{
+		href: '/analitik',
+		label: 'Analitik Penggunaan',
+		roles: ['pemilik', 'manajer'],
+		icon: 'Activity'
 	},
 	{
 		href: '/pelanggan',
@@ -104,7 +110,7 @@ export const NAV: NavItem[] = [
 		icon: 'ClipboardCheck',
 		sub: [
 			{ key: 'harian', label: 'Checklist Hari Ini' },
-			{ key: 'template', label: 'Kelola Item' },
+			{ key: 'template', label: 'Kelola Item' }
 		]
 	},
 	{
@@ -184,7 +190,7 @@ export const NAV: NavItem[] = [
 		sub: [
 			{ key: 'meja', label: 'Meja' },
 			{ key: 'modifier', label: 'Modifier' },
-			{ key: 'bahan', label: 'Bahan & Resep' },
+			{ key: 'bahan', label: 'Bahan & Resep' }
 		]
 	},
 	{
@@ -197,7 +203,7 @@ export const NAV: NavItem[] = [
 			{ key: 'jadwal', label: 'Jadwal Staf', href: '/jasa/jadwal' },
 			{ key: 'layanan', label: 'Master Layanan', href: '/jasa/layanan' },
 			{ key: 'membership', label: 'Membership', href: '/jasa/membership' },
-			{ key: 'komisi', label: 'Komisi', href: '/jasa/komisi' },
+			{ key: 'komisi', label: 'Komisi', href: '/jasa/komisi' }
 		]
 	},
 	{
@@ -211,7 +217,7 @@ export const NAV: NavItem[] = [
 			{ key: 'notifikasi', label: 'Notifikasi', href: '/pengaturan/notifikasi' },
 			{ key: 'audit', label: 'Audit Trail', href: '/pengaturan/audit' },
 			{ key: 'info-server', label: 'Info Server', href: '/pengaturan/info-server' },
-			{ key: 'toko', label: 'Toko & Cabang', href: '/pengaturan/toko' },
+			{ key: 'toko', label: 'Toko & Cabang', href: '/pengaturan/toko' }
 		]
 	}
-]
+];
