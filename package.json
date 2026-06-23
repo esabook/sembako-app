@@ -1,0 +1,7 @@
+{
+  "name": "stokasir-devhub",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --hot devhub/server.ts"
+  }
+}

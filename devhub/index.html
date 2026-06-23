@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="id" data-theme="dark">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stokasir · DevHub</title>
+  <style>
+    /* Palette tokens ported from frontend static/themes/*.css — driven by
+         <html data-theme>. Skin (normal/bw/island/klasik/lambo) × mode resolves
+         to one of these. Keep in sync if frontend tokens change. */
+    [data-theme='dark'] {
+      --bg: #000000;
+      --surface: #272729;
+      --surface2: #2a2a2c;
+      --border: #3a3a3c;
+      --text: #ffffff;
+      --text-dim: #cccccc;
+      --accent: #2997ff;
+      --warn: #ff9f0a;
+      --danger: #ff453a;
+      --info: #64d2ff;
+      --skeleton: #1c1c1e
+    }
+
+    [data-theme='light'] {
+      --bg: #ffffff;
+      --surface: #f5f5f7;
+      --surface2: #fafafc;
+      --border: #e0e0e0;
+      --text: #1d1d1f;
+      --text-dim: #7a7a7a;
+      --accent: #0066cc;
+      --warn: #b37800;
+      --danger: #c62828;
+      --info: #0066cc;
+      --skeleton: #e8e8ed
+    }
+
+    [data-theme='bww'] {
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --surface2: #eeeeee;
+      --border: #000000;
+      --text: #000000;
+      --text-dim: #333333;
+      --accent: #000000;
+      --warn: #333333;
+      --danger: #000000;
+      --info: #333333;
+      --skeleton: #dddddd
+    }
+
+    [data-theme='bwb'] {
+      --bg: #000000;
+      --surface: #000000;
+      --surface2: #111111;
+      --border: #ffffff;
+      --text: #ffffff;
+      --text-dim: #cccccc;
+      --accent: #ffffff;
+      --warn: #cccccc;
+      --danger: #ffffff;
+      --info: #cccccc;
+      --skeleton: #1c1c1c
+    }
+
+    [data-theme='island'] {
+      --bg: #1e1f22;
+      --surface: #2b2d30;
+      --surface2: #393b40;
+      --border: #1e1f22;
+      --text: #dce0e6;
+      --text-dim: #a0a4ab;
+      --accent: #4c9be8;
+      --warn: #e8b84c;
+      --danger: #f28b82;
+      --info: #6cbfe0;
+      --skeleton: #3d3f44
+    }
+
+    [data-theme='islandl'] {
+      --bg: #ffffff;
+      --surface: #f2f2f2;
+      --surface2: #e8e8e8;
+      --border: #d0d0d0;
+      --text: #1e1f22;
+      --text-dim: #404550;
+      --accent: #1a73c0;
+      --warn: #b5860b;
+      --danger: #cc3d36;
+      --info: #1d7bb5;
+      --skeleton: #e4e4e6
+    }
+
+    [data-theme='klasik'] {
+      --bg: #000000;
+      --surface: #1a1a1a;
+      --surface2: #111111;
+      --border: #333333;
+      --text: #ffffff;
+      --text-dim: #bbbbbb;
+      --accent: #ffd700;
+      --warn: #ffd700;
+      --danger: #ff3d00;
+      --info: #2979ff;
+      --skeleton: #2d2d2d
+    }
+
+    [data-theme='klasikl'] {
+      --bg: #f5f0e1;
+      --surface: #ffffff;
+      --surface2: #ece4d0;
+      --border: #c9bfa0;
+      --text: #2b2b2b;
+      --text-dim: #4a4540;
+      --accent: #b8860b;
+      --warn: #b8860b;
+      --danger: #c0392b;
+      --info: #1f6fb2;
+      --skeleton: #e6ddc4
+    }
+
+    [data-theme='lambo'] {
+      --bg: #000000;
+      --surface: #202020;
+      --surface2: #181818;
+      --border: #1a1a1a;
+      --text: #ffffff;
+      --text-dim: #f5f5f5;
+      --accent: #ffc000;
+      --warn: #917300;
+      --danger: #ff3d00;
+      --info: #29abe2;
+      --skeleton: #2d2d2d
+    }
+
+    [data-theme='lambol'] {
+      --bg: #f8f8f8;
+      --surface: #ffffff;
+      --surface2: #e6e6e6;
+      --border: #e6e6e6;
+      --text: #000000;
+      --text-dim: #494949;
+      --accent: #917300;
+      --warn: #917300;
+      --danger: #ff3d00;
+      --info: #1eaedb;
+      --skeleton: #e4e4e6
+    }
+
+    /* Alias frontend tokens -> devhub's local var names (one source of truth). */
+    html {
+      --panel: var(--surface);
+      --panel-2: var(--surface2);
+      --muted: var(--text-dim);
+      --green: #3fb950;
+      --red: var(--danger);
+      --amber: var(--warn)
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .wrap {
+      position: relative;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+    }
+
+    .theme-switch {
+      position: absolute;
+      top: 24px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .theme-switch select {
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+    }
+
+    .theme-switch .mode-btn {
+      font-size: 15px;
+      line-height: 1;
+      padding: 6px 11px;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .theme-switch .mode-btn:hover,
+    .theme-switch select:hover {
+      border-color: var(--accent);
+    }
+
+    header h1 {
+      font-size: 30px;
+      margin: 0 0 6px;
+      letter-spacing: -0.5px;
+    }
+
+    header .tag {
+      color: var(--muted);
+      margin: 0 0 14px;
+    }
+
+    header .repo {
+      font-size: 13px;
+    }
+
+    section {
+      margin-top: 36px;
+    }
+
+    section>h2 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin: 0 0 14px;
+      font-weight: 600;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+
+    .overview p {
+      margin: 0 0 10px;
+    }
+
+    .overview p:last-child {
+      margin-bottom: 0;
+    }
+
+    .principles {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 4px 0 0;
+    }
+
+    .chip {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 620px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .svc {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .svc .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .svc .name {
+      font-weight: 600;
+    }
+
+    .svc .port {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 400;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .dot.healthy {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .dot.starting {
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+
+    .dot.stopped {
+      background: var(--red);
+    }
+
+    .btns {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 7px 16px;
+      border-radius: 8px;
+      transition: 0.12s;
+    }
+
+    button:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+
+    button.start {
+      border-color: #1f5132;
+    }
+
+    button.stop {
+      border-color: #5c2526;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .mkt {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mkt input {
+      accent-color: var(--accent);
+    }
+
+    .links {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .link {
+      display: block;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px 15px;
+      transition: 0.12s;
+    }
+
+    .link:hover {
+      border-color: var(--accent);
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+
+    .link .l-name {
+      color: var(--text);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .link .l-url {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+      word-break: break-all;
+    }
+
+    .link.off {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .link[data-note]:hover .l-name::after {
+      content: " · " attr(data-note);
+      color: var(--amber);
+      font-weight: 400;
+    }
+
+    footer {
+      margin-top: 48px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+  </style>
+  <script>
+    // Pre-paint: resolve skin+mode -> data-theme before first paint (no FOUC).
+    (function () {
+      var skin = localStorage.getItem('tema_skin') || 'normal'
+      var mode = localStorage.getItem('tema_mode') || 'system'
+      var sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      var gelap = mode === 'system' ? sysDark : mode === 'dark'
+      var pair = { normal: ['dark', 'light'], bw: ['bwb', 'bww'], island: ['island', 'islandl'], klasik: ['klasik', 'klasikl'], lambo: ['lambo', 'lambol'] }[skin] || ['dark', 'light']
+      document.documentElement.setAttribute('data-theme', gelap ? pair[0] : pair[1])
+    })()
+  </script>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="theme-switch">
+      <select id="skin" title="Skin tema"></select>
+      <button class="mode-btn" id="mode" title="Mode tampilan">🖥️</button>
+    </div>
+    <header>
+      <h1>Stokasir</h1>
+      <p class="tag">Aplikasi manajemen stok-kasir grosir/eceran — multi-toko, multi-cabang, multi-dialect DB. Webview
+        lokal (LAN/Pi) atau cloud.</p>
+      <p class="repo">Repo: <a id="repo" href="#" target="_blank" rel="noopener">memuat…</a></p>
+    </header>
+
+    <section class="overview">
+      <h2>Overview</h2>
+      <div class="card">
+        <p><strong>Backend</strong> — Bun + Hono REST API (port 3000). Drizzle ORM multi-dialect
+          (SQLite/Turso/Postgres/MySQL). Modul: SOP engine, event bus, attachment, approval, scheduler, storage driver,
+          backup/restore. Dok API live di Scalar.</p>
+        <p><strong>Frontend</strong> — SvelteKit + Vite (port 5173), webview ringan. Mode deploy: jika LAN/offline
+          (<code>host/</code> maka ke kasir) atau jika cloud (<code>host/</code> maka ke landing). Multi-tenant SaaS:
+          onboarding,
+          daftar,
+          picker toko.</p>
+        <p><strong>Prinsip</strong></p>
+        <div class="principles">
+          <span class="chip">SIMPEL</span>
+          <span class="chip">RINGAN</span>
+          <span class="chip">OFFLINE</span>
+          <span class="chip">WEBVIEW</span>
+        </div>
+        <p style="margin-top:14px">Baca lebih lanjut di <code>CLAUDE.md</code> dan folder <code>claude/*.md</code>
+          (identity, coding, database, frontend, deployment, sop-engine).</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Server Lokal</h2>
+      <div class="controls">
+        <div class="card svc">
+          <div class="top">
+            <span class="name">Backend <span class="port">:3000</span></span>
+            <span class="badge"><span class="dot stopped" id="backend-dot"></span><span
+                id="backend-state">stopped</span></span>
+          </div>
+          <div class="btns">
+            <button class="start" data-start="backend">Start</button>
+            <button class="stop" data-stop="backend">Stop</button>
+          </div>
+        </div>
+        <div class="card svc">
+          <div class="top">
+            <span class="name">Frontend <span class="port">:5173</span></span>
+            <span class="badge"><span class="dot stopped" id="frontend-dot"></span><span
+                id="frontend-state">stopped</span></span>
+          </div>
+          <div class="btns">
+            <button class="start" data-start="frontend">Start</button>
+            <button class="stop" data-stop="frontend">Stop</button>
+          </div>
+          <label class="mkt"><input type="checkbox" id="mkt" /> on: /marketing; off: /kasir </label>
+          <span class="mkt">Start Frontend butuh backend (proxy /api
+            :3000).</span>
+        </div>
+        <div class="card svc">
+          <div class="top">
+            <span class="name">OmniRoute <span class="port">:20128</span></span>
+            <span class="badge"><span class="dot stopped" id="omniroute-dot"></span><span
+                id="omniroute-state">stopped</span></span>
+          </div>
+          <div class="btns">
+            <button class="start" data-start="omniroute">Start</button>
+            <button class="stop" data-stop="omniroute">Stop</button>
+          </div>
+          <span class="mkt">Router AI-tool lokal. Password sesi tampil di terminal devhub saat start.</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Tautan</h2>
+      <div class="links" id="links"></div>
+    </section>
+
+    <footer>
+      DevHub dev-only · port 4321 · LAN. Start/Stop mengontrol proses di mesin server dev.
+    </footer>
+  </div>
+
+  <script>
+    // ── Theme switcher (ported from frontend src/lib/stores/tema.ts) ──
+    const SKIN_KEY = 'tema_skin', MODE_KEY = 'tema_mode'
+    const PAIR = { normal: ['dark', 'light'], bw: ['bwb', 'bww'], island: ['island', 'islandl'], klasik: ['klasik', 'klasikl'], lambo: ['lambo', 'lambol'] }
+    const SKINS = [['normal', 'Normal'], ['bw', 'Hitam-Putih'], ['island', 'Island'], ['klasik', 'Klasik'], ['lambo', 'Lambo']]
+    const MODE_ICON = { dark: '🌙', light: '☀️', system: '🖥️' }
+    let skin = localStorage.getItem(SKIN_KEY) || 'normal'
+    let mode = localStorage.getItem(MODE_KEY) || 'system'
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const skinSel = document.getElementById('skin')
+    const modeBtn = document.getElementById('mode')
+    for (const [v, l] of SKINS) {
+      const o = document.createElement('option'); o.value = v; o.textContent = l; skinSel.appendChild(o)
+    }
+    function applyTheme() {
+      const gelap = mode === 'system' ? mq.matches : mode === 'dark'
+      const pair = PAIR[skin] || PAIR.normal
+      document.documentElement.setAttribute('data-theme', gelap ? pair[0] : pair[1])
+      skinSel.value = skin
+      modeBtn.textContent = MODE_ICON[mode]
+    }
+    mq.addEventListener('change', () => { if (mode === 'system') applyTheme() })
+    skinSel.addEventListener('change', () => { skin = skinSel.value; localStorage.setItem(SKIN_KEY, skin); applyTheme() })
+    modeBtn.addEventListener('click', () => {
+      mode = mode === 'dark' ? 'light' : mode === 'light' ? 'system' : 'dark'
+      localStorage.setItem(MODE_KEY, mode); applyTheme()
+    })
+    applyTheme()
+
+    const HOST = window.location.hostname // LAN-correct: peers hit the dev machine's IP.
+    const be = (p) => `http://${HOST}:3000${p}`
+    const fe = (p) => `http://${HOST}:5173${p}`
+    const om = (p) => `http://${HOST}:20128${p}`
+
+    const LINKS = [
+      { color: '--accent', name: '[BE] Backend API', url: be('/'), svc: 'backend' },
+      { color: '--accent', name: '[BE] API Doc (Scalar)', url: be('/doc'), svc: 'backend' },
+      { color: '--danger', name: '[FE1] Marketing', url: fe('/'), svc: 'frontend', note: 'butuh marketing mode' },
+      { color: '--danger', name: '[FE1] Onboarding', url: fe('/onboarding'), svc: 'frontend' },
+      { color: '--danger', name: '[FE1] Daftar', url: fe('/daftar'), svc: 'frontend' },
+      { color: '--warn', name: '[FE2] Login', url: fe('/login'), svc: 'frontend' },
+      { color: '--warn', name: '[FE2] Kasir', url: fe('/kasir'), svc: 'frontend' },
+      { color: '--warn', name: '[FE2] Dashboard', url: fe('/dashboard'), svc: 'frontend' },
+      { color: '--green', name: '[AI] OmniRoute Dashboard', url: om('/'), svc: 'omniroute' },
+      { color: '--green', name: '[AI] OmniRoute API', url: om('/v1'), svc: 'omniroute' },
+    ]
+
+    const linksEl = document.getElementById('links')
+    for (const l of LINKS) {
+      const a = document.createElement('a')
+      a.className = 'link off'
+      a.style = `background-color: color-mix(in srgb, var(${l.color}) 30%, transparent);`
+      a.target = '_blank'
+      a.rel = 'noopener'
+      a.href = l.url
+      a.dataset.svc = l.svc
+      if (l.note) a.dataset.note = l.note
+      a.innerHTML = `<div class="l-name" >${l.name}</div><div class="l-url">${l.url}</div>`
+      linksEl.appendChild(a)
+    }
+
+    function paint(svc, s) {
+      const dot = document.getElementById(`${svc}-dot`)
+      const txt = document.getElementById(`${svc}-state`)
+      let cls = 'stopped', label = 'stopped'
+      if (s.healthy) { cls = 'healthy'; label = 'running' }
+      else if (s.running) { cls = 'starting'; label = 'starting…' }
+      dot.className = 'dot ' + cls
+      txt.textContent = label
+      document.querySelector(`button[data-start="${svc}"]`).disabled = s.running
+      document.querySelector(`button[data-stop="${svc}"]`).disabled = !s.running
+      for (const a of document.querySelectorAll(`.link[data-svc="${svc}"]`)) {
+        a.classList.toggle('off', !s.healthy)
+      }
+    }
+
+    async function refresh() {
+      try {
+        const s = await fetch('/api/status').then((r) => r.json())
+        paint('backend', s.backend)
+        paint('frontend', s.frontend)
+        paint('omniroute', s.omniroute)
+        if (s.gitRemote) {
+          const r = document.getElementById('repo')
+          const web = s.gitRemote.replace(/^git@github\.com:/, 'https://github.com/').replace(/\.git$/, '')
+          r.textContent = web
+          r.href = web
+        }
+      } catch (e) { /* devhub restarting */ }
+    }
+
+    async function act(path, target) {
+      const body = { target }
+      if (target === 'frontend') body.marketing = document.getElementById('mkt').checked
+      await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      refresh()
+    }
+
+    document.querySelectorAll('button[data-start]').forEach((b) =>
+      b.addEventListener('click', () => act('/api/start', b.dataset.start)))
+    document.querySelectorAll('button[data-stop]').forEach((b) =>
+      b.addEventListener('click', () => act('/api/stop', b.dataset.stop)))
+
+    refresh()
+    setInterval(refresh, 2000)
+  </script>
+</body>
+
+</html>
