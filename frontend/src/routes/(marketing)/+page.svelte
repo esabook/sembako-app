@@ -10,9 +10,9 @@
 	import Activity from '@lucide/svelte/icons/activity';
 	import HeartHandshake from '@lucide/svelte/icons/heart-handshake';
 
-	// Placeholder isi nomor WA, URL donasi & domain asli.
-	const WA = 'https://wa.me/6282248396070';
-	const DONASI = '#';
+	// Placeholder isi nomor Telegram, URL donasi & domain asli.
+	const WA = 'https://t.me/stokasir';
+	const DONASI = 'http://lynk.id/digitrait/s/xgp8gygl9xg7';
 	const SITE = ''; // mis. 'https://stokasir.app' kosong = pakai URL relatif
 
 	const DESKRIPSI =
@@ -175,7 +175,7 @@
 			nama="Custom"
 			harga="Hubungi"
 			fitur={['Kuota disesuaikan kebutuhan', ...fiturTier, 'Diskusi langsung']}
-			cta="Hubungi via WhatsApp"
+			cta="Hubungi via Telegram"
 			href={WA}
 		/>
 	</div>

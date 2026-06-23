@@ -16,7 +16,7 @@
 		</p>
 		<p>
 			Anda dapat meminta penghapusan akun dan data kapan saja melalui fitur hapus akun atau melaui
-			WhatsApp yang tertera di halaman utama.
+			Telegram yang tertera di halaman utama.
 		</p>
 	</div>
 	<a href="/" class="mt-6 inline-block text-sm" style="color:var(--accent)">← Kembali</a>

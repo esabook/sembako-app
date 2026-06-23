@@ -16,7 +16,7 @@
 			diunduh kapan saja.
 		</p>
 		<p>
-			Untuk pertanyaan lebih lanjut, hubungi kami melalui WhatsApp yang tertera di halaman utama.
+			Untuk pertanyaan lebih lanjut, hubungi kami melalui Telegram yang tertera di halaman utama.
 		</p>
 	</div>
 	<a href="/" class="mt-6 inline-block text-sm" style="color:var(--accent)">← Kembali</a>
