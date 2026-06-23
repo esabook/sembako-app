@@ -1,6 +1,6 @@
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { db, dialect, query } from './db/index.ts'
-import { karyawan, kas_bank } from './db/schema.ts'
+import { karyawan, kas_bank, toko } from './db/schema.ts'
 import { count } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { compress } from 'hono/compress'
@@ -190,6 +190,11 @@ initScheduler()
 const seedCheck = await query.find<{ total: number }>(db.select({ total: count() }).from(karyawan))
 if ((seedCheck?.total ?? 0) === 0) {
   const hash = await Bun.password.hash('admin123')
+  // Toko default (id=1) wajib ada dulu — karyawan.toko_id FK ke toko.id
+  await query.exec(db.insert(toko).values({
+    kode_toko: 'TOKO-001',
+    nama: 'Toko Saya',
+  }))
   await query.exec(db.insert(karyawan).values({
     kode_karyawan: 'KRY-001',
     nama: 'Pemilik',
