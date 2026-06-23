@@ -15,7 +15,7 @@
 
 	let { data } = $props();
 
-	const LANGKAH = ['Profil Toko', 'Barang Pertama', 'Undang Karyawan', 'Data Contoh'];
+	const LANGKAH = ['Profil Toko', 'Barang Pertama', 'Undang Karyawan', 'Mode Demo'];
 	let step = $state(0);
 	let menyimpan = $state(false);
 	// Revisit setelah selesai → langsung layar sukses, jangan ulang wizard.
@@ -185,12 +185,28 @@
 		menyimpan = true;
 		const hasil = await withLoading(
 			async () => {
-				if (isiDemo) {
-					const seed = await api.post('/onboarding/seed-demo', {});
-					if (!seed.success) throw new Error(seed.error);
-				}
 				const res = await api.post('/pengaturan/bulk', { onboarding_selesai: 'true' });
 				if (!res.success) throw new Error(res.error);
+				if (isiDemo) {
+					// Mode demo = sandbox toko terpisah. Generate lalu masuk konteks demo.
+					// Toko asli tetap bersih; keluar mode demo = switch balik ke home_tenant.
+					let demoTokoId: number | null = null;
+					const status = await api.get<{ exists: boolean; toko_id?: number }>('/demo/status');
+					if (status.success && status.data.exists) demoTokoId = status.data.toko_id ?? null;
+					if (!demoTokoId) {
+						const gen = await api.post<{ toko_id: number }>('/demo/generate', {});
+						if (!gen.success) throw new Error(gen.error);
+						demoTokoId = gen.data.toko_id;
+					}
+					if (data.user?.tenant_id)
+						localStorage.setItem('home_tenant', String(data.user.tenant_id));
+					const sw = await api.post('/auth/switch-context', {
+						toko_id: demoTokoId,
+						cabang_id: null
+					});
+					if (!sw.success) throw new Error(sw.error);
+					return 'demo';
+				}
 				return true;
 			},
 			{
@@ -203,6 +219,10 @@
 			}
 		);
 		menyimpan = false;
+		if (hasil === 'demo') {
+			location.href = '/kasir';
+			return;
+		}
 		if (hasil) sukses = true;
 	}
 
@@ -328,13 +348,14 @@
 				</div>
 			</SectionCard>
 		{:else}
-			<SectionCard judul="Data Contoh">
+			<SectionCard judul="Mode Demo">
 				<label class="flex cursor-pointer items-start gap-3">
 					<input type="checkbox" class="checkbox mt-0.5 checkbox-sm" bind:checked={isiDemo} />
 					<span class="text-sm">
-						Isi contoh data (barang, supplier, pelanggan) ke toko ini.
+						Coba fitur dengan data contoh di toko demo terpisah.
 						<span class="mt-1 block text-xs" style="color:var(--text-dim)">
-							Bagus untuk mencoba fitur. Bisa dihapus manual kapan saja.
+							Toko Anda tetap bersih. Selesai onboarding langsung masuk mode demo — keluar kapan
+							saja untuk kembali ke toko asli.
 						</span>
 					</span>
 				</label>

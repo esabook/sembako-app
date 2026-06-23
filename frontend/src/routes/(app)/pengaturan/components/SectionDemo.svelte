@@ -9,14 +9,17 @@
 		| { exists: true; toko_id: number; jumlah_barang: number; jumlah_penjualan: number; jumlah_barang_masuk: number };
 
 	let status = $state<DemoStatus | null>(null);
+	let isDemo = $state(false);
 	let loadingStatus = $state(true);
 	let generating = $state(false);
 	let deleting = $state(false);
 	let confirmHapus = $state(false);
-	let lastGenerated = $state<{ toko_id: number } | null>(null);
+	let masuk = $state(false);
 
 	async function muatStatus() {
 		loadingStatus = true;
+		const me = await api.get<{ is_demo?: boolean }>('/auth/me');
+		if (me.success) isDemo = !!me.data.is_demo;
 		const res = await api.get<DemoStatus>('/demo/status');
 		if (res.success) status = res.data;
 		else toast.error(res.error ?? 'Gagal memuat status demo');
@@ -27,7 +30,6 @@
 		generating = true;
 		const res = await api.post<{ message: string; toko_id: number }>('/demo/generate', {});
 		if (res.success) {
-			lastGenerated = { toko_id: res.data.toko_id };
 			toast.sukses('Data demo berhasil di-generate');
 			await muatStatus();
 		} else {
@@ -36,11 +38,24 @@
 		generating = false;
 	}
 
+	// Masuk mode demo = switch-context ke toko demo. Simpan toko asli untuk balik.
+	async function masukDemo(tokoId: number) {
+		if (masuk) return;
+		masuk = true;
+		const me = await api.get<{ tenant_id: number }>('/auth/me');
+		if (me.success) localStorage.setItem('home_tenant', String(me.data.tenant_id));
+		const sw = await api.post('/auth/switch-context', { toko_id: tokoId, cabang_id: null });
+		if (sw.success) location.href = '/kasir';
+		else {
+			toast.error(sw.error ?? 'Gagal masuk mode demo');
+			masuk = false;
+		}
+	}
+
 	async function hapus() {
 		deleting = true;
 		const res = await api.delete<{ message: string }>('/demo');
 		if (res.success) {
-			lastGenerated = null;
 			confirmHapus = false;
 			toast.sukses('Data demo berhasil dihapus');
 			await muatStatus();
@@ -53,6 +68,7 @@
 	onMount(muatStatus);
 </script>
 
+{#if !isDemo}
 <section
 	class="space-y-4 rounded border p-4"
 	style="background:var(--surface);border-color:var(--border)"
@@ -72,6 +88,7 @@
 			<Spinner size={14} /> Mengecek status...
 		</div>
 	{:else if status?.exists}
+		{@const demoTokoId = status.toko_id}
 		<!-- Status: ada data demo -->
 		<div
 			class="flex flex-wrap items-center gap-4 rounded border px-3 py-2 text-xs"
@@ -84,25 +101,25 @@
 			</span>
 		</div>
 
-		{#if lastGenerated}
-			<div
-				class="rounded border px-3 py-2 text-xs space-y-1"
-				style="border-color:var(--accent);background:rgba(99,102,241,.08)"
-			>
-				<p class="font-semibold" style="color:var(--accent)">Login data demo:</p>
-				<p style="color:var(--text)">Username: <code class="font-mono">demo-admin</code></p>
-				<p style="color:var(--text)">Password: <code class="font-mono">demo123</code></p>
-			</div>
-		{/if}
-
 		{#if !confirmHapus}
-			<button
-				onclick={() => (confirmHapus = true)}
-				class="rounded border px-4 py-2 text-xs font-medium"
-				style="border-color:var(--danger);color:var(--danger);background:transparent;cursor:pointer"
-			>
-				Hapus Data Demo
-			</button>
+			<div class="flex flex-wrap gap-2">
+				<button
+					onclick={() => masukDemo(demoTokoId)}
+					disabled={masuk}
+					class="inline-flex items-center gap-2 rounded border px-4 py-2 text-xs font-medium"
+					style="background:var(--accent);color:#fff;border-color:var(--accent);cursor:{masuk ? 'default' : 'pointer'};opacity:{masuk ? .6 : 1}"
+				>
+					{#if masuk}<Spinner size={12} />{/if}
+					{masuk ? 'Masuk...' : 'Masuk Mode Demo'}
+				</button>
+				<button
+					onclick={() => (confirmHapus = true)}
+					class="rounded border px-4 py-2 text-xs font-medium"
+					style="border-color:var(--danger);color:var(--danger);background:transparent;cursor:pointer"
+				>
+					Hapus Data Demo
+				</button>
+			</div>
 		{:else}
 			<div
 				class="space-y-2 rounded border px-3 py-2"
@@ -153,3 +170,4 @@
 		</button>
 	{/if}
 </section>
+{/if}

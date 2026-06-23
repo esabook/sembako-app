@@ -235,8 +235,13 @@ authRouter.post('/logout', (c) => {
   return c.json({ success: true, data: null })
 })
 
-authRouter.get('/me', authMiddleware, (c) => {
+authRouter.get('/me', authMiddleware, async (c) => {
   const user = c.get('user') as JWTPayload
+  // Konteks demo aktif bila toko yang sedang diakses ber-kode 'DEMO' (sandbox).
+  const cur = await query.find<{ kode_toko: string }>(
+    db.select({ kode_toko: toko.kode_toko }).from(toko).where(eq(toko.id, user.tenant_id))
+  )
+  const is_demo = (cur?.kode_toko ?? '').startsWith('DEMO')
   return c.json({
     success: true,
     data: {
@@ -247,6 +252,7 @@ authRouter.get('/me', authMiddleware, (c) => {
       tenant_id: user.tenant_id,
       cabang_id: user.cabang_id,
       saas: env.saasGating,
+      is_demo,
     },
   })
 })

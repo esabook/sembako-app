@@ -87,6 +87,7 @@ export const karyawan = table('karyawan', {
   nama: txt('nama').notNull(),
   role: txt('role', { enum: ['pemilik', 'manajer', 'kasir', 'gudang'] }).notNull(),
   username: txt('username').notNull().unique(),
+  email: txt('email').unique(),
   password_hash: txt('password_hash').notNull(),
   gaji_pokok: money('gaji_pokok').notNull().default(0),
   tipe_gaji: txt('tipe_gaji', { enum: ['harian', 'bulanan'] }).notNull().default('bulanan'),

@@ -1,4 +1,4 @@
-import { eq, and, count } from 'drizzle-orm'
+import { eq, count } from 'drizzle-orm'
 import { db, withTransaction, query } from './index.ts'
 import {
   toko, toko_settings, cabang, karyawan, kas_bank,
@@ -30,6 +30,13 @@ import {
 
 export const DEMO_KODE_TOKO = 'DEMO'
 
+// Kode toko demo per-mode:
+// - LAN  (!saas): satu toko global 'DEMO'
+// - SaaS (saas) : per-pemilik 'DEMO-${tenantId}' (kode_toko unik global)
+export function demoTokoKode(saas: boolean, tenantId: number): string {
+  return saas ? `${DEMO_KODE_TOKO}-${tenantId}` : DEMO_KODE_TOKO
+}
+
 function dateStr(daysAgo: number): string {
   const d = new Date()
   d.setDate(d.getDate() - daysAgo)
@@ -43,9 +50,9 @@ function monthStr(monthsAgo: number): string {
   return d.toISOString().slice(0, 7)
 }
 
-export async function getDemoTokoId(): Promise<number | null> {
+export async function getDemoTokoId(kode: string = DEMO_KODE_TOKO): Promise<number | null> {
   const row = await query.find<{ id: number }>(
-    db.select({ id: toko.id }).from(toko).where(eq(toko.kode_toko, DEMO_KODE_TOKO))
+    db.select({ id: toko.id }).from(toko).where(eq(toko.kode_toko, kode))
   )
   return row?.id ?? null
 }
@@ -85,88 +92,90 @@ async function ensureKategori(nama: string): Promise<number> {
   return r!.id
 }
 
-// Target seed ke tenant yang sudah ada (onboarding). Tanpa ini, generateDemoData
-// membuat toko DEMO terpisah (mode lama). `prefix` membuat semua kode unik
-// (kode_barang/no_transaksi/dst) tenant-scoped agar tak bentrok constraint unik global.
-type SeedTarget = { tid: number; cid: number; pemilikId: number; kasirId: number; prefix: string }
+// Opsi generate toko demo (sandbox terpisah, selalu toko sendiri).
+// - kode      : kode_toko toko demo (LAN 'DEMO' / SaaS 'DEMO-${tenantId}')
+// - emailPemilik: di-set di toko demo agar muncul di accessible-context SaaS
+//   (difilter email_pemilik). null untuk LAN.
+// - userSuffix : disisipkan ke username/kode_karyawan demo agar unik global
+//   lintas tenant di SaaS (LAN '').
+type DemoOpts = { kode?: string; emailPemilik?: string | null; userSuffix?: string }
 
-export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: number }> {
-  if (!target) {
-    const existing = await getDemoTokoId()
-    if (existing) throw new Error('Data demo sudah ada. Hapus dulu sebelum generate ulang.')
-  }
+export async function generateDemoData(opts: DemoOpts = {}): Promise<{ toko_id: number }> {
+  const kode = opts.kode ?? DEMO_KODE_TOKO
+  const emailPemilik = opts.emailPemilik ?? null
+  const userSuffix = opts.userSuffix ?? ''
 
-  const hash = target ? '' : await Bun.password.hash('demo123')
+  const existing = await getDemoTokoId(kode)
+  if (existing) throw new Error('Data demo sudah ada. Hapus dulu sebelum generate ulang.')
+
+  const hash = await Bun.password.hash('demo123')
+  // Prefix kode (barang/transaksi/dst) ikut kode toko → unik global per tenant.
+  const prefix = `${kode}-`
 
   return withTransaction(async () => {
-    let tid: number
-    let cid: number
-    let pemilikId: number
-    let kasirId: number
-    const prefix = target?.prefix ?? 'DEMO-'
+    // ── 1. Toko ──────────────────────────────────────────────────────────────
+    const tokoRow = await query.ret<{ id: number }>(
+      db.insert(toko).values({
+        kode_toko: kode,
+        nama: 'Toko Demo Stokasir',
+        alamat: 'Jl. Demo No. 1, Kota Contoh',
+        email_pemilik: emailPemilik,
+        is_active: true,
+      }).returning()
+    )
+    const tid = tokoRow!.id
 
-    if (target) {
-      // Mode onboarding: pakai toko/cabang/karyawan tenant yang sudah ada.
-      tid = target.tid
-      cid = target.cid
-      pemilikId = target.pemilikId
-      kasirId = target.kasirId
-    } else {
-      // ── 1. Toko ──────────────────────────────────────────────────────────────
-      const tokoRow = await query.ret<{ id: number }>(
-        db.insert(toko).values({
-          kode_toko: DEMO_KODE_TOKO,
-          nama: 'Toko Demo Stokasir',
-          alamat: 'Jl. Demo No. 1, Kota Contoh',
-          is_active: true,
-        }).returning()
-      )
-      tid = tokoRow!.id
+    // ── 1b. Settings toko demo: lewati onboarding-gate saat pemilik switch ───
+    await query.exec(
+      db.insert(toko_settings).values({ toko_id: tid, key: 'onboarding_selesai', value: 'true' })
+    )
+    await query.exec(
+      db.insert(toko_settings).values({ toko_id: tid, key: 'nama_toko', value: 'Toko Demo Stokasir' })
+    )
 
-      // ── 2. Cabang ─────────────────────────────────────────────────────────────
-      const cabangRow = await query.ret<{ id: number }>(
-        db.insert(cabang).values({
-          toko_id: tid,
-          kode_cabang: 'CAB-01',
-          nama: 'Cabang Utama Demo',
-          is_active: true,
-        }).returning()
-      )
-      cid = cabangRow!.id
+    // ── 2. Cabang ─────────────────────────────────────────────────────────────
+    const cabangRow = await query.ret<{ id: number }>(
+      db.insert(cabang).values({
+        toko_id: tid,
+        kode_cabang: 'CAB-01',
+        nama: 'Cabang Demo',
+        is_active: true,
+      }).returning()
+    )
+    const cid = cabangRow!.id
 
-      // ── 3. Karyawan ───────────────────────────────────────────────────────────
-      const pemilikRow = await query.ret<{ id: number }>(
-        db.insert(karyawan).values({
-          kode_karyawan: `${prefix}KRY-001`,
-          nama: 'Pemilik Demo',
-          role: 'pemilik',
-          username: 'demo-admin',
-          password_hash: hash,
-          tipe_gaji: 'bulanan',
-          gaji_pokok: 5000000,
-          toko_id: tid,
-          cabang_id: null,
-          is_active: true,
-        }).returning()
-      )
-      pemilikId = pemilikRow!.id
+    // ── 3. Karyawan (username unik global → suffix tenant di SaaS) ────────────
+    const pemilikRow = await query.ret<{ id: number }>(
+      db.insert(karyawan).values({
+        kode_karyawan: `${prefix}KRY-001`,
+        nama: 'Pemilik Demo',
+        role: 'pemilik',
+        username: `demo-admin${userSuffix}`,
+        password_hash: hash,
+        tipe_gaji: 'bulanan',
+        gaji_pokok: 5000000,
+        toko_id: tid,
+        cabang_id: null,
+        is_active: true,
+      }).returning()
+    )
+    const pemilikId = pemilikRow!.id
 
-      const kasirRow = await query.ret<{ id: number }>(
-        db.insert(karyawan).values({
-          kode_karyawan: `${prefix}KRY-002`,
-          nama: 'Kasir Demo',
-          role: 'kasir',
-          username: 'demo-kasir',
-          password_hash: hash,
-          tipe_gaji: 'bulanan',
-          gaji_pokok: 2500000,
-          toko_id: tid,
-          cabang_id: cid,
-          is_active: true,
-        }).returning()
-      )
-      kasirId = kasirRow!.id
-    }
+    const kasirRow = await query.ret<{ id: number }>(
+      db.insert(karyawan).values({
+        kode_karyawan: `${prefix}KRY-002`,
+        nama: 'Kasir Demo',
+        role: 'kasir',
+        username: `demo-kasir${userSuffix}`,
+        password_hash: hash,
+        tipe_gaji: 'bulanan',
+        gaji_pokok: 2500000,
+        toko_id: tid,
+        cabang_id: cid,
+        is_active: true,
+      }).returning()
+    )
+    const kasirId = kasirRow!.id
 
     // ── 4. Kas & Bank ─────────────────────────────────────────────────────────
     const kasRow = await query.ret<{ id: number }>(
@@ -879,6 +888,7 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
         warna: '#00e676',
         is_active: true,
         tenant_id: tid,
+        created_by: pemilikId,
       }).returning()
     )
     const shiftSoreRow = await query.ret<{ id: number }>(
@@ -889,6 +899,7 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
         warna: '#40c4ff',
         is_active: true,
         tenant_id: tid,
+        created_by: pemilikId,
       }).returning()
     )
     const shiftPagiId = shiftPagiRow!.id
@@ -1255,8 +1266,9 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
           nama: a.nama, kategori: a.kat,
           nilai_beli: a.beli, nilai_sekarang: a.sekarang,
           tanggal_beli: a.tgl, kondisi: 'baik',
-          lokasi: 'Cabang Utama Demo', is_active: true,
+          lokasi: 'Cabang Demo', is_active: true,
           tenant_id: tid,
+          created_by: pemilikId,
         })
       )
     }
@@ -1278,6 +1290,7 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
             meter_awal: u.meterAwal,
             meter_akhir: u.meterAkhir,
             tenant_id: tid,
+            created_by: pemilikId,
           })
         )
       }
@@ -1297,6 +1310,7 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
         status: 'aktif',
         catatan: 'KUR mikro untuk penambahan stok dan renovasi',
         tenant_id: tid,
+        created_by: pemilikId,
       })
     )
     await query.exec(
@@ -1312,6 +1326,7 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
         status: 'aktif',
         catatan: 'Deposito dari keuntungan Q1',
         tenant_id: tid,
+        created_by: pemilikId,
       })
     )
 
@@ -1357,6 +1372,7 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
         db.insert(checklist_item).values({
           nama: ci.nama, kategori: ci.kat, urutan: ci.urutan,
           is_active: true, tenant_id: tid,
+          created_by: pemilikId,
         }).returning()
       )
       checkIds.push(r!.id)
@@ -1484,12 +1500,12 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
     // ── 46. F&B: Grup Modifier + Modifier ────────────────────────────────────
     const grpUkuranRow = await query.ret<{ id: number }>(
       db.insert(grup_modifier).values({
-        nama: 'Ukuran Porsi', wajib: true, min_pilih: 1, max_pilih: 1, is_active: true, tenant_id: tid,
+        nama: 'Ukuran Porsi', wajib: true, min_pilih: 1, max_pilih: 1, is_active: true, tenant_id: tid, created_by: pemilikId,
       }).returning()
     )
     const grpToppingRow = await query.ret<{ id: number }>(
       db.insert(grup_modifier).values({
-        nama: 'Topping', wajib: false, min_pilih: 0, max_pilih: 3, is_active: true, tenant_id: tid,
+        nama: 'Topping', wajib: false, min_pilih: 0, max_pilih: 3, is_active: true, tenant_id: tid, created_by: pemilikId,
       }).returning()
     )
     const grpUkuranId = grpUkuranRow!.id
@@ -1637,8 +1653,8 @@ export async function generateDemoData(target?: SeedTarget): Promise<{ toko_id: 
   })
 }
 
-export async function deleteDemoData(): Promise<void> {
-  const demoId = await getDemoTokoId()
+export async function deleteDemoData(kode: string = DEMO_KODE_TOKO): Promise<void> {
+  const demoId = await getDemoTokoId(kode)
   if (!demoId) throw new Error('Data demo tidak ditemukan')
 
   const t = demoId
@@ -1726,59 +1742,4 @@ export async function deleteDemoData(): Promise<void> {
     await execDel('toko_settings', db.delete(toko_settings).where(eq(toko_settings.toko_id, t)))
     await execDel('toko', db.delete(toko).where(eq(toko.id, t)))
   })
-}
-
-// ── Seed contoh data ke tenant aktif (onboarding) ──────────────────────────
-// SINGLE SOURCE: pakai dataset penuh generateDemoData (target mode), bukan subset
-// terpisah. TIDAK membuat toko/karyawan/login baru — reuse pemilik/cabang tenant.
-// Kode di-prefix `CONTOH-${tokoId}-` supaya unik global (kolom kode unik lintas
-// tenant) + jadi guard idempoten.
-export async function seedSampleIntoTenant(
-  tokoId: number,
-  cabangId?: number | null
-): Promise<{ inserted: boolean }> {
-  const prefix = `CONTOH-${tokoId}-`
-
-  // Guard idempoten: exact-match pada kolom unique (paling andal).
-  const existing = await query.find<{ id: number }>(
-    db.select({ id: barang.id }).from(barang).where(eq(barang.kode_barang, `${prefix}BRG-001`))
-  )
-  if (existing) return { inserted: false }
-
-  // Aktor: pemilik toko (wajib ada). Kasir dipakai bila ada, else pakai pemilik
-  // (kita TIDAK membuat login baru di tenant nyata).
-  const pemilik = await query.find<{ id: number }>(
-    db.select({ id: karyawan.id }).from(karyawan)
-      .where(and(eq(karyawan.toko_id, tokoId), eq(karyawan.role, 'pemilik')))
-  )
-  if (!pemilik) throw new Error('Pemilik toko tidak ditemukan untuk seed contoh')
-  const kasir = await query.find<{ id: number }>(
-    db.select({ id: karyawan.id }).from(karyawan)
-      .where(and(eq(karyawan.toko_id, tokoId), eq(karyawan.role, 'kasir')))
-  )
-
-  // Cabang: param → cabang aktif pertama → buat 'Cabang Utama' bila belum ada.
-  let cid = cabangId ?? null
-  if (!cid) {
-    const cab = await query.find<{ id: number }>(
-      db.select({ id: cabang.id }).from(cabang)
-        .where(and(eq(cabang.toko_id, tokoId), eq(cabang.is_active, true)))
-    )
-    cid = cab?.id ?? null
-  }
-  if (!cid) {
-    const cabRow = await query.ret<{ id: number }>(
-      db.insert(cabang).values({ toko_id: tokoId, kode_cabang: 'CAB-01', nama: 'Cabang Utama', is_active: true }).returning()
-    )
-    cid = cabRow!.id
-  }
-
-  await generateDemoData({
-    tid: tokoId,
-    cid,
-    pemilikId: pemilik.id,
-    kasirId: kasir?.id ?? pemilik.id,
-    prefix,
-  })
-  return { inserted: true }
 }

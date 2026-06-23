@@ -9,6 +9,7 @@
 	import AppSidebar from '$lib/components/layout/AppSidebar.svelte';
 	import SyncIndicator from '$lib/components/SyncIndicator.svelte';
 	import BannerLangganan from '$lib/components/layout/BannerLangganan.svelte';
+	import BannerDemo from '$lib/components/layout/BannerDemo.svelte';
 	import PanelLeft from '@lucide/svelte/icons/panel-left';
 	import Banknote from '@lucide/svelte/icons/banknote';
 
@@ -98,6 +99,7 @@
 		</div>
 	</nav>
 	<BannerLangganan />
+	<BannerDemo />
 	<!-- Body: sidebar selalu tampil + konten -->
 	<div class="app-body relative flex min-h-0 flex-1">
 		<AppSidebar

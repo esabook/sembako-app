@@ -3,7 +3,7 @@
 	import { withLoading } from '$lib/utils/async.js';
 	import { toast } from '$lib/stores/ui.store.js';
 	import { user } from '$lib/stores/auth.js';
-	import { onMount } from 'svelte';
+	import { invalidateCabangList } from '$lib/stores/cabang-version.js';
 
 	// Mode SaaS: 1 email = 1 toko → halaman fokus kelola CABANG toko sendiri.
 	const saas = $derived($user?.saas ?? false);
@@ -108,6 +108,7 @@
 				if (res.success) {
 					tokoList = [...tokoList, res.data];
 					closeSlide();
+					invalidateCabangList();
 					toast.sukses('Toko ditambahkan');
 				}
 			},
@@ -126,6 +127,7 @@
 				if (res.success) {
 					tokoList = tokoList.map((x) => (x.id === slideEditId ? res.data : x));
 					closeSlide();
+					invalidateCabangList();
 					toast.sukses('Toko diperbarui');
 				}
 			},
@@ -139,6 +141,7 @@
 				const res = await api.put<Toko>(`/toko/${t.id}`, { is_active: aktif });
 				if (res.success) {
 					tokoList = tokoList.map((x) => (x.id === t.id ? res.data : x));
+					invalidateCabangList();
 					toast.sukses(res.data.is_active ? 'Toko diaktifkan' : 'Toko dinonaktifkan');
 				}
 			},
@@ -178,6 +181,7 @@
 				if (res.success) {
 					cabangByToko[tokoId] = [...(cabangByToko[tokoId] ?? []), res.data];
 					closeSlide();
+					invalidateCabangList();
 					toast.sukses('Cabang ditambahkan');
 				}
 			},
@@ -199,6 +203,7 @@
 				if (res.success) {
 					cabangByToko[tokoId] = cabangByToko[tokoId].map((x) => (x.id === id ? res.data : x));
 					closeSlide();
+					invalidateCabangList();
 					toast.sukses('Cabang diperbarui');
 				}
 			},
@@ -212,6 +217,7 @@
 				const res = await api.put<Cabang>(`/toko/${tokoId}/cabang/${c.id}`, { is_active: aktif });
 				if (res.success) {
 					cabangByToko[tokoId] = cabangByToko[tokoId].map((x) => (x.id === c.id ? res.data : x));
+					invalidateCabangList();
 					toast.sukses(res.data.is_active ? 'Cabang diaktifkan' : 'Cabang dinonaktifkan');
 				}
 			},
@@ -227,9 +233,9 @@
 		);
 	}
 
-	onMount(() => {
-		if (saas) loadCabang(tenantId);
-		else loadToko();
+	$effect(() => {
+		if (saas && tenantId) loadCabang(tenantId);
+		else if (!saas) loadToko();
 	});
 </script>
 
