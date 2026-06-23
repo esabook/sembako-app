@@ -114,13 +114,16 @@
 
 <div class="relative" bind:this={ref}>
 	<button
-		onclick={() => { buka = !buka; if (!buka) bukaKonteks = false; }}
+		onclick={() => {
+			buka = !buka;
+			if (!buka) bukaKonteks = false;
+		}}
 		class="flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors"
 		style="color:var(--text-dim)"
 	>
 		<span
-			class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[0.7em] font-bold"
-			style="background:var(--surface2);color:var(--accent)"
+			class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[0.7em] font-bold"
+			style="background:var(--surface);color:var(--accent)"
 			>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span
 		>
 	</button>
@@ -134,7 +137,7 @@
 			<div class="border-b px-3 py-2.5" style="border-color:var(--border)">
 				<div class="flex items-center gap-2">
 					<span
-						class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+						class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-bold"
 						style="background:var(--surface2);color:var(--accent)"
 						>{$user?.nama?.[0]?.toUpperCase() ?? '?'}</span
 					>
@@ -169,7 +172,7 @@
 					</button>
 
 					{#if bukaKonteks}
-						<div class="border-t p-2 space-y-1.5" style="border-color:var(--border)">
+						<div class="space-y-1.5 border-t p-2" style="border-color:var(--border)">
 							{#if konteksList.length === 0}
 								<div class="px-2 py-2 text-[0.7em]" style="color:var(--text-dim)">Memuat…</div>
 							{:else}
@@ -191,11 +194,12 @@
 										{#if t.cabang.length > 0}
 											<div class="border-t" style="border-color:var(--border)">
 												{#each t.cabang as cb (cb.id)}
-													{@const cabangAktif = tokoAktif && (semuaAktif || $user?.cabang_id === cb.id)}
+													{@const cabangAktif =
+														tokoAktif && (semuaAktif || $user?.cabang_id === cb.id)}
 													<button
 														onclick={() => switchKonteks(t.id, cb.id)}
 														disabled={loadingSwitch}
-														class="flex w-full items-center justify-between py-1.5 pl-4 pr-3 text-left text-[0.7em] transition-colors hover:bg-[var(--surface2)]"
+														class="flex w-full items-center justify-between py-1.5 pr-3 pl-3 text-left text-[0.7em] transition-colors hover:bg-[var(--surface2)]"
 														style={cabangAktif ? 'color:var(--accent)' : 'color:var(--text-dim)'}
 													>
 														<span>{cb.nama}</span>
@@ -231,9 +235,11 @@
 				</button>
 
 				{#if bukaTema}
-					<div class="border-t px-3 pb-2 pt-1.5" style="border-color:var(--border)">
+					<div class="border-t px-3 pt-1.5 pb-2" style="border-color:var(--border)">
 						<div class="mb-1.5 flex items-center justify-between">
-							<span class="text-[0.65em] tracking-wider uppercase" style="color:var(--text-dim)">Mode</span>
+							<span class="text-[0.65em] tracking-wider uppercase" style="color:var(--text-dim)"
+								>Mode</span
+							>
 							<div class="flex gap-0.5">
 								{#each MODE_LIST as m (m.nilai)}
 									<button

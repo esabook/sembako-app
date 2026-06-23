@@ -77,7 +77,7 @@
 
 <div class="screen">
 	<!-- ── Status strip (full-width, top of screen) ───── -->
-	<div class="status-strip">
+	<!-- 	<div class="status-strip">
 		<span class="s-item s-server">
 			<span class="s-dot">●</span>
 			SERVER <span class="s-val">{store.serverIP}</span>
@@ -88,7 +88,7 @@
 		<span class="s-item">VERSI <span class="s-val">1.0</span></span>
 		<span class="s-sep">│</span>
 		<span class="s-item">{store.namaToko}</span>
-	</div>
+	</div> -->
 
 	<!-- ── Modal layer ────────────────────────────────── -->
 	<div class="modal-layer">
@@ -98,19 +98,19 @@
 				<!-- TOP: brand panel -->
 				<div class="brand-panel" class:brand-vis={store.showBrand}>
 					<div class="brand-inner">
-						<div class="brand-head">
+						<a href="/" class="brand-head">
 							<enhanced:img
 								src="$lib/assets/logo.webp"
 								alt=""
 								class="brand-logo"
 								fetchpriority="high"
 							/>
-							<span class="brand-name">{store.namaToko}</span>
-						</div>
+							<span class="brand-name">Stokasir</span>
+						</a>
 						<div class="brand-tagline">POS · GUDANG · PELANGGAN · KEUANGAN · ALERT</div>
 						<p class="hl-desc">
-							Server offline di belakang meja kasir. Login dari laptop atau HP yang tersambung WiFi
-							toko.
+							Server offline di belakang meja kasir. Login dari laptop atau HP yang tersambung ke
+							WiFi toko. Mendukung server online untuk transaksi dimana saja.
 						</p>
 						<span class="grow"></span>
 						<div class="feat-grid">
@@ -238,9 +238,9 @@
 				<button type="button" class="ghost-btn" onclick={() => nextTema($tema)}>
 					TEMA <kbd class="kbd">F2</kbd>
 				</button>
-				<button type="button" class="ghost-btn">
+				<!-- <button type="button" class="ghost-btn">
 					SCAN KARTU <kbd class="kbd">F9</kbd>
-				</button>
+				</button> -->
 				<span class="grow"></span>
 				{#if store.attemptsLeft < 3}
 					<span class="attempts">{store.attemptsLeft} percobaan tersisa</span>
@@ -275,7 +275,7 @@
 	}
 
 	/* ── Status strip (fixed, full width, top) ───────── */
-	.status-strip {
+	/* .status-strip {
 		position: absolute;
 		top: 0;
 		left: 0;
@@ -293,7 +293,7 @@
 		white-space: nowrap;
 		overflow: hidden;
 		z-index: 10;
-	}
+	} */
 
 	/* ── Modal layer ──────────────────────────────────── */
 	.modal-layer {
@@ -317,7 +317,7 @@
 		max-width: 100%;
 		margin: auto 0;
 	}
-	.s-dot {
+	/* .s-dot {
 		color: var(--accent);
 	}
 	.s-val {
@@ -333,7 +333,7 @@
 	}
 	.tnum {
 		font-feature-settings: 'tnum';
-	}
+	} */
 
 	/* ── Modal body ───────────────────────────────────── */
 	.modal-body {
