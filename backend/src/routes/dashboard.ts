@@ -152,6 +152,7 @@ dashboardRouter.get('/', async (c) => {
   const belumAbsen = await query.findAll(db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
     .from(karyawan)
     .where(and(
+      eq(karyawan.toko_id, tenantId),
       eq(karyawan.is_active, true),
       notExists(
         db.select({ _: absensi.id }).from(absensi)

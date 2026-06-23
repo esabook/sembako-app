@@ -4,6 +4,7 @@ import { HTTPException } from 'hono/http-exception'
 import { SignJWT } from 'jose'
 import { eq, and, or } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { env } from '../config/env.ts'
 import { karyawan, toko, cabang } from '../db/schema.ts'
 import type { Role } from '../middleware/auth.ts'
 import { authMiddleware } from '../middleware/auth.ts'
@@ -14,10 +15,9 @@ const JWT_SECRET = new TextEncoder().encode(
 const JWT_EXPIRY_HOURS = Number(process.env.JWT_EXPIRY_HOURS ?? 12)
 const COOKIE_MAX_AGE = JWT_EXPIRY_HOURS * 60 * 60
 
-// Mode SaaS multi-tenant (sama flag dengan gating langganan). Saat aktif,
-// pemilik HANYA boleh akses toko miliknya (email_pemilik), bukan semua toko.
+// Mode SaaS multi-tenant (flag terpusat env.saasGating, sama dgn gating langganan).
+// Saat aktif, pemilik HANYA boleh akses toko miliknya (email_pemilik), bukan semua toko.
 // Mode LAN (default): pemilik = superuser 1 instance → lihat semua toko.
-const SAAS_MODE = process.env.SAAS_GATING === '1'
 
 // In-memory rate limiter: maks 10 percobaan login per IP per 15 menit
 const loginAttempts = new Map<string, { count: number; resetAt: number }>()
@@ -246,6 +246,7 @@ authRouter.get('/me', authMiddleware, (c) => {
       kode_karyawan: user.kode_karyawan,
       tenant_id: user.tenant_id,
       cabang_id: user.cabang_id,
+      saas: env.saasGating,
     },
   })
 })
@@ -259,7 +260,7 @@ async function getAccessibleContext(role: Role, tokoId: number) {
     // Manajer: selalu cuma toko sendiri.
     tokoList = await db.select({ id: toko.id, nama: toko.nama }).from(toko)
       .where(and(eq(toko.id, tokoId), eq(toko.is_active, true)))
-  } else if (SAAS_MODE) {
+  } else if (env.saasGating) {
     // SaaS: pemilik hanya toko miliknya (cocokkan email_pemilik dgn toko aktif).
     const cur = await query.find<{ email_pemilik: string | null }>(
       db.select({ email_pemilik: toko.email_pemilik }).from(toko).where(eq(toko.id, tokoId))

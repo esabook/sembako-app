@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { eq, and } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, isoNow } from '../db/index.ts'
+import { env } from '../config/env.ts'
 import { toko, cabang, karyawan, toko_settings } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import { requirePermission } from '../middleware/auth.ts'
@@ -11,16 +12,30 @@ export const tokoRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 tokoRouter.use('*', authMiddleware)
 
+// Di mode SaaS, pemilik hanya boleh sentuh toko miliknya (tenant aktif).
+// Mode LAN (default): pemilik = superuser → bebas kelola semua toko.
+function assertTokoAccess(user: JWTPayload, tokoId: number) {
+  if (env.saasGating && tokoId !== user.tenant_id) {
+    throw new HTTPException(403, { message: 'Tidak punya akses ke toko ini' })
+  }
+}
+
 // ─── Toko CRUD (hanya pemilik super / setup awal) ────────────────────────────
 
 tokoRouter.get('/', requirePermission('toko.kelola'), async (c) => {
+  const user = c.get('user') as JWTPayload
   const rows = await query.findAll(
-    db.select().from(toko).orderBy(toko.id)
+    env.saasGating
+      ? db.select().from(toko).where(eq(toko.id, user.tenant_id)).orderBy(toko.id)
+      : db.select().from(toko).orderBy(toko.id)
   )
   return c.json({ success: true, data: rows })
 })
 
 tokoRouter.post('/', requirePermission('toko.kelola'), async (c) => {
+  if (env.saasGating) {
+    throw new HTTPException(403, { message: 'Toko hanya dibuat lewat pendaftaran' })
+  }
   const body = await c.req.json<{ kode_toko: string; nama: string; alamat?: string }>()
   if (!body.kode_toko || !body.nama) {
     throw new HTTPException(400, { message: 'kode_toko dan nama wajib diisi' })
@@ -34,6 +49,7 @@ tokoRouter.post('/', requirePermission('toko.kelola'), async (c) => {
 tokoRouter.put('/:id', requirePermission('toko.kelola'), async (c) => {
   const user = c.get('user') as JWTPayload
   const id = Number(c.req.param('id'))
+  assertTokoAccess(user, id)
   const body = await c.req.json<{ nama?: string; alamat?: string; is_active?: boolean }>()
   const row = await query.ret(
     db.update(toko).set({ ...body, updated_at: isoNow() }).where(eq(toko.id, id)).returning()
@@ -63,7 +79,9 @@ tokoRouter.put('/:id', requirePermission('toko.kelola'), async (c) => {
 // ─── Cabang CRUD (pemilik atau manajer toko terkait) ─────────────────────────
 
 tokoRouter.get('/:toko_id/cabang', requirePermission('toko.kelola'), async (c) => {
+  const user = c.get('user') as JWTPayload
   const tokoId = Number(c.req.param('toko_id'))
+  assertTokoAccess(user, tokoId)
   const rows = await query.findAll(
     db.select().from(cabang).where(eq(cabang.toko_id, tokoId)).orderBy(cabang.id)
   )
@@ -71,7 +89,9 @@ tokoRouter.get('/:toko_id/cabang', requirePermission('toko.kelola'), async (c) =
 })
 
 tokoRouter.post('/:toko_id/cabang', requirePermission('toko.kelola'), async (c) => {
+  const user = c.get('user') as JWTPayload
   const tokoId = Number(c.req.param('toko_id'))
+  assertTokoAccess(user, tokoId)
   const body = await c.req.json<{ kode_cabang: string; nama: string; alamat?: string }>()
   if (!body.kode_cabang || !body.nama) {
     throw new HTTPException(400, { message: 'kode_cabang dan nama wajib diisi' })
@@ -88,7 +108,9 @@ tokoRouter.post('/:toko_id/cabang', requirePermission('toko.kelola'), async (c) 
 })
 
 tokoRouter.put('/:toko_id/cabang/:id', requirePermission('toko.kelola'), async (c) => {
+  const user = c.get('user') as JWTPayload
   const tokoId = Number(c.req.param('toko_id'))
+  assertTokoAccess(user, tokoId)
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ nama?: string; alamat?: string; is_active?: boolean }>()
   const row = await query.ret(

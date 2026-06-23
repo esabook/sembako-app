@@ -4,6 +4,7 @@ import { HTTPException } from 'hono/http-exception'
 import { jwtVerify } from 'jose'
 import { eq } from 'drizzle-orm'
 import { db, query } from '../db/index.ts'
+import { env } from '../config/env.ts'
 import { toko } from '../db/schema.ts'
 import type { JWTPayload } from '../routes/auth.ts'
 
@@ -11,8 +12,9 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production'
 )
 
-// Gating hanya aktif di mode cloud/online. Mode LAN/offline → middleware no-op.
-const GATING_ON = process.env.SAAS_GATING === '1'
+// Gating hanya aktif di mode cloud/online (flag terpusat env.saasGating).
+// Mode LAN/offline → middleware no-op.
+const GATING_ON = env.saasGating
 
 // Method mutasi yang dikunci saat langganan nonaktif. GET (read-only) selalu lolos.
 const METHOD_MUTASI = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
