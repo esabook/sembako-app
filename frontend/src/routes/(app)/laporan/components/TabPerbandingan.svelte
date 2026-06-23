@@ -3,6 +3,7 @@
 	import { fmt, tglFmt } from '../laporan.logic';
 
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
+	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 
 	const delta = (a: number, b: number) => b - a;
@@ -32,9 +33,10 @@
 	>
 </div>
 
-{#if store.perbandingan}
-	{@const { p1, p2 } = store.perbandingan}
-	<div style="padding:0 1.25rem 2rem; max-width:760px">
+<ChartKartu kosong={!store.perbandingan} pesanKosong="Pilih dua periode lalu klik Bandingkan.">
+	{#if store.perbandingan}
+		{@const { p1, p2 } = store.perbandingan}
+		<div style="max-width:760px">
 		<div style="text-align:center; margin-bottom:1.5rem">
 			<div style="font-size:1rem; font-weight:700; color:var(--text)">PERBANDINGAN PERIODE</div>
 			<div style="font-size:.8rem; color:var(--text-dim)">
@@ -111,5 +113,6 @@
 		<p style="font-size:.72rem; color:var(--text-dim); margin-top:.6rem">
 			* Margin merupakan estimasi berdasarkan HPP rata-rata saat ini.
 		</p>
-	</div>
-{/if}
+		</div>
+	{/if}
+</ChartKartu>

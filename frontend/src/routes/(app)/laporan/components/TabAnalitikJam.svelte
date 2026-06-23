@@ -2,6 +2,7 @@
 	import type { createLaporanStore } from '../laporan.store.svelte';
 	import { fmt, tglFmt } from '../laporan.logic';
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
+	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -29,11 +30,12 @@
 	{/each}
 </div>
 
-{#if store.analitikJam}
-	{@const aj = store.analitikJam}
-	{@const maxTrx = Math.max(...aj.per_jam.map((r) => r.jumlah_transaksi), 1)}
-	{@const maxOmzet = Math.max(...aj.per_jam.map((r) => r.omzet), 1)}
-	<div style="padding:0 1.25rem 2rem">
+<ChartKartu kosong={!store.analitikJam} pesanKosong="Pilih periode lalu klik Tampilkan.">
+	{#if store.analitikJam}
+		{@const aj = store.analitikJam}
+		{@const maxTrx = Math.max(...aj.per_jam.map((r) => r.jumlah_transaksi), 1)}
+		{@const maxOmzet = Math.max(...aj.per_jam.map((r) => r.omzet), 1)}
+		<div>
 		<div style="text-align:center; margin-bottom:1.5rem">
 			<div style="font-size:1rem; font-weight:700; color:var(--text)">
 				ANALITIK TRANSAKSI PER JAM
@@ -243,5 +245,6 @@
 				</table>
 			</div>
 		</div>
-	</div>
-{/if}
+		</div>
+	{/if}
+</ChartKartu>

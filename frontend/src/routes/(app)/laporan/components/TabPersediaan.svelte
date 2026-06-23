@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, fmtRp, tglFmt } from '../laporan.logic'
+  import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -14,9 +15,10 @@
   <span style="font-size:.75rem; color:var(--text-dim)">Nilai stok kondisi saat ini</span>
 </div>
 
+<ChartKartu kosong={!store.persediaan} pesanKosong="Klik Refresh untuk memuat data.">
 {#if store.persediaan}
   {@const p = store.persediaan}
-  <div style="padding:0 1.25rem 2rem">
+  <div>
     <div style="text-align:center; margin-bottom:1.5rem">
       <div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN NILAI PERSEDIAAN</div>
       <div style="font-size:.8rem; color:var(--text-dim)">Per {tglFmt(p.per_tanggal)}</div>
@@ -66,3 +68,4 @@
     <p style="font-size:.72rem; color:var(--text-dim); margin-top:.6rem">* HPP menggunakan harga beli rata-rata (WAC). Nilai stok adalah estimasi modal tertanam.</p>
   </div>
 {/if}
+</ChartKartu>

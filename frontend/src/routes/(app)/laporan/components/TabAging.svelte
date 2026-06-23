@@ -2,6 +2,7 @@
 	import type { createLaporanStore } from '../laporan.store.svelte';
 	import { fmt, tglFmt } from '../laporan.logic';
 	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
+	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -34,9 +35,10 @@
 	>
 </div>
 
+<ChartKartu kosong={!store.aging} pesanKosong="Pilih tanggal lalu klik Tampilkan.">
 {#if store.aging}
 	{@const aging = store.aging}
-	<div style="padding:0 1.25rem 2rem; max-width:760px">
+	<div style="max-width:760px">
 		<div style="text-align:center; margin-bottom:1.25rem">
 			<div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN AGING</div>
 			<div style="font-size:.8rem; color:var(--text-dim)">Per {tglFmt(aging.per_tanggal)}</div>
@@ -156,3 +158,4 @@
 		>
 	</div>
 {/if}
+</ChartKartu>

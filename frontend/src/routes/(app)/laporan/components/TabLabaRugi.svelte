@@ -2,6 +2,7 @@
 	import type { createLaporanStore } from '../laporan.store.svelte';
 	import { fmt, fmtPct, tglFmt } from '../laporan.logic';
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
+	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -38,9 +39,10 @@
 	{/each}
 </div>
 
-{#if store.labaRugi}
-	{@const labaRugi = store.labaRugi}
-	<div style="padding:0 1.25rem 2rem; max-width:680px">
+<ChartKartu kosong={!store.labaRugi} pesanKosong="Pilih periode lalu klik Tampilkan.">
+	{#if store.labaRugi}
+		{@const labaRugi = store.labaRugi}
+		<div style="max-width:680px">
 		<div style="text-align:center; margin-bottom:1.5rem">
 			<div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN LABA RUGI</div>
 			<div style="font-size:.8rem; color:var(--text-dim)">
@@ -138,4 +140,5 @@
 			</div>
 		</div>
 	</div>
-{/if}
+	{/if}
+</ChartKartu>

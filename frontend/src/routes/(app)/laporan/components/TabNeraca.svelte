@@ -2,6 +2,7 @@
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, tglFmt } from '../laporan.logic'
   import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
+  import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -25,9 +26,10 @@
   <span style="font-size:.72rem; color:var(--text-dim)">* nilai persediaan stok = kondisi saat ini</span>
 </div>
 
+<ChartKartu kosong={!store.neraca} pesanKosong="Pilih tanggal lalu klik Tampilkan.">
 {#if store.neraca}
   {@const neraca = store.neraca}
-  <div style="padding:0 1.25rem 2rem; max-width:680px">
+  <div style="max-width:680px">
     <div style="text-align:center; margin-bottom:1.5rem">
       <div style="font-size:1rem; font-weight:700; color:var(--text)">NERACA</div>
       <div style="font-size:.8rem; color:var(--text-dim)">Per tanggal {tglFmt(neraca.per_tanggal)}</div>
@@ -109,3 +111,4 @@
     </div>
   </div>
 {/if}
+</ChartKartu>

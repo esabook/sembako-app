@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, BULAN_LABEL } from '../laporan.logic'
+  import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -19,9 +20,10 @@
   >Tampilkan</button>
 </div>
 
+<ChartKartu kosong={!store.pajakUmkm} pesanKosong="Pilih tahun lalu klik Tampilkan.">
 {#if store.pajakUmkm}
   {@const px = store.pajakUmkm}
-  <div style="padding:0 1.25rem 2rem; max-width:560px">
+  <div style="max-width:560px">
     <div style="text-align:center; margin-bottom:1.5rem">
       <div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN PAJAK UMKM</div>
       <div style="font-size:.8rem; color:var(--text-dim)">Tahun {px.tahun} — PPh Final 0.5% (PP 23/2018)</div>
@@ -76,3 +78,4 @@
     </p>
   </div>
 {/if}
+</ChartKartu>

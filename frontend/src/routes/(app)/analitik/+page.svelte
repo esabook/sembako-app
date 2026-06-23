@@ -8,6 +8,7 @@
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import ChartGaris from '$lib/components/chart/ChartGaris.svelte';
 	import ChartBatang from '$lib/components/chart/ChartBatang.svelte';
+	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
 
 	type UsageData = {
 		dari: string;
@@ -77,60 +78,53 @@
 		>
 	</div>
 
-	{#if loading}
-		<div
-			class="space-y-3 rounded border p-4"
-			style="background:var(--surface);border-color:var(--border)"
-		>
-			<Skeleton w="35%" h="0.875rem" />
-			<Skeleton w="100%" h="13rem" />
-		</div>
-	{:else if err}
+	{#if err}
 		<p class="text-sm" style="color:var(--danger)">{err}</p>
-	{:else if data}
-		<div class="grid gap-3" style="grid-template-columns:repeat(auto-fill,minmax(175px,1fr))">
-			<div class="rounded border p-4" style="background:var(--surface);border-color:var(--border)">
-				<p class="mb-1 text-xs" style="color:var(--text-dim)">TOTAL EVENT</p>
-				<p class="text-2xl font-bold" style="color:var(--accent)">{data.total}</p>
-				<p class="mt-1 text-xs" style="color:var(--text-dim)">{data.dari} → {data.sampai}</p>
-			</div>
-			<div class="rounded border p-4" style="background:var(--surface);border-color:var(--border)">
-				<p class="mb-1 text-xs" style="color:var(--text-dim)">JENIS AKTIVITAS</p>
-				<p class="text-2xl font-bold">{data.per_aksi.length}</p>
-			</div>
-		</div>
-
-		{#if data.total === 0}
-			<p
-				class="rounded border p-4 text-center text-xs"
-				style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"
+	{:else}
+		{#if loading}
+			<div
+				class="space-y-3 rounded border p-4"
+				style="background:var(--surface);border-color:var(--border)"
 			>
-				Belum ada aktivitas tercatat di rentang ini.
-			</p>
-		{:else}
-			<div class="flex flex-col gap-2">
-				<h3 class="text-xs font-bold tracking-wider uppercase" style="color:var(--text-dim)">
-					Tren Harian
-				</h3>
-				<div
-					class="rounded border p-4"
-					style="background:var(--surface);border-color:var(--border)"
-				>
-					<ChartGaris data={perHari} x="tanggal" y="jumlah" />
-				</div>
+				<Skeleton w="35%" h="0.875rem" />
+				<Skeleton w="100%" h="13rem" />
 			</div>
-
-			<div class="flex flex-col gap-2">
-				<h3 class="text-xs font-bold tracking-wider uppercase" style="color:var(--text-dim)">
-					Per Jenis Aktivitas
-				</h3>
+		{:else if data}
+			<div class="grid gap-3" style="grid-template-columns:repeat(auto-fill,minmax(175px,1fr))">
 				<div
 					class="rounded border p-4"
 					style="background:var(--surface);border-color:var(--border)"
 				>
-					<ChartBatang data={perAksi} x="aksi" y="jumlah" />
+					<p class="mb-1 text-xs" style="color:var(--text-dim)">TOTAL EVENT</p>
+					<p class="text-2xl font-bold" style="color:var(--accent)">{data.total}</p>
+					<p class="mt-1 text-xs" style="color:var(--text-dim)">{data.dari} → {data.sampai}</p>
+				</div>
+				<div
+					class="rounded border p-4"
+					style="background:var(--surface);border-color:var(--border)"
+				>
+					<p class="mb-1 text-xs" style="color:var(--text-dim)">JENIS AKTIVITAS</p>
+					<p class="text-2xl font-bold">{data.per_aksi.length}</p>
 				</div>
 			</div>
 		{/if}
+
+		<ChartKartu
+			judul="Tren Harian"
+			{loading}
+			kosong={!loading && data?.total === 0}
+			pesanKosong="Belum ada aktivitas tercatat di rentang ini."
+		>
+			<ChartGaris data={perHari} x="tanggal" y="jumlah" />
+		</ChartKartu>
+
+		<ChartKartu
+			judul="Per Jenis Aktivitas"
+			{loading}
+			kosong={!loading && data?.total === 0}
+			pesanKosong="Belum ada aktivitas tercatat di rentang ini."
+		>
+			<ChartBatang data={perAksi} x="aksi" y="jumlah" />
+		</ChartKartu>
 	{/if}
 </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, NAMA_BUDGET } from '../laporan.logic'
+  import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -27,9 +28,10 @@
   {/each}
 </div>
 
+<ChartKartu kosong={!store.budgetRealisasi} pesanKosong="Pilih bulan lalu klik Tampilkan.">
 {#if store.budgetRealisasi}
   {@const br = store.budgetRealisasi}
-  <div style="padding:0 1.25rem 2rem; max-width:680px">
+  <div style="max-width:680px">
     <div style="text-align:center; margin-bottom:1.5rem">
       <div style="font-size:1rem; font-weight:700; color:var(--text)">REALISASI BUDGET VS AKTUAL</div>
       <div style="font-size:.8rem; color:var(--text-dim)">Periode {br.periode}</div>
@@ -118,3 +120,4 @@
     </div>
   </div>
 {/if}
+</ChartKartu>
