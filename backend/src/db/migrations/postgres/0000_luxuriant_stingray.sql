@@ -80,10 +80,29 @@ CREATE TABLE "aset_tetap" (
 	"updated_at" text
 );
 --> statement-breakpoint
+CREATE TABLE "bahan_baku" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"kode_bahan" text NOT NULL,
+	"nama" text NOT NULL,
+	"satuan_id" integer,
+	"stok_sekarang" double precision DEFAULT 0 NOT NULL,
+	"stok_minimum" double precision DEFAULT 0 NOT NULL,
+	"harga_beli_rata" bigint DEFAULT 0 NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"created_by" integer,
+	"updated_by" integer,
+	"created_at" text,
+	"updated_at" text,
+	CONSTRAINT "bahan_baku_kode_bahan_unique" UNIQUE("kode_bahan"),
+	CONSTRAINT "chk_bahan_baku_stok" CHECK ("bahan_baku"."stok_sekarang" >= 0)
+);
+--> statement-breakpoint
 CREATE TABLE "barang" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"kode_barang" text NOT NULL,
 	"nama_barang" text NOT NULL,
+	"tipe_produk" text DEFAULT 'physical_good' NOT NULL,
 	"kategori_id" integer,
 	"satuan_dasar_id" integer,
 	"konversi_satuan" text,
@@ -134,6 +153,35 @@ CREATE TABLE "barang_masuk_detail" (
 	"tenant_id" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "barang_modifier_grup" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"barang_id" integer NOT NULL,
+	"grup_modifier_id" integer NOT NULL,
+	"urutan" integer DEFAULT 0 NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "booking" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"no_booking" text NOT NULL,
+	"pelanggan_id" integer,
+	"karyawan_id" integer,
+	"barang_id" integer NOT NULL,
+	"waktu_mulai" text NOT NULL,
+	"waktu_selesai" text,
+	"status" text DEFAULT 'booked' NOT NULL,
+	"penjualan_id" integer,
+	"kredit_id" integer,
+	"catatan" text,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"cabang_id" integer DEFAULT 1 NOT NULL,
+	"created_by" integer,
+	"updated_by" integer,
+	"created_at" text,
+	"updated_at" text,
+	CONSTRAINT "booking_no_booking_unique" UNIQUE("no_booking")
+);
+--> statement-breakpoint
 CREATE TABLE "budget_operasional" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"periode_bulan" text NOT NULL,
@@ -182,14 +230,29 @@ CREATE TABLE "checklist_log" (
 	"updated_at" text
 );
 --> statement-breakpoint
+CREATE TABLE "detail_layanan" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"barang_id" integer NOT NULL,
+	"durasi_menit" integer DEFAULT 30 NOT NULL,
+	"buffer_menit" integer DEFAULT 0 NOT NULL,
+	"dapat_dibooking" boolean DEFAULT true NOT NULL,
+	"komisi_persen" double precision DEFAULT 0 NOT NULL,
+	"komisi_nominal" bigint DEFAULT 0 NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "draft_keranjang" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"kasir_id" integer NOT NULL,
 	"pelanggan_id" integer,
 	"tipe" text DEFAULT 'eceran' NOT NULL,
+	"label" text,
+	"nomor_bill" integer DEFAULT 1 NOT NULL,
+	"subtotal" bigint DEFAULT 0 NOT NULL,
+	"jumlah_item" integer DEFAULT 0 NOT NULL,
+	"meja_id" integer,
 	"created_at" text,
-	"updated_at" text,
-	CONSTRAINT "draft_keranjang_kasir_id_unique" UNIQUE("kasir_id")
+	"updated_at" text
 );
 --> statement-breakpoint
 CREATE TABLE "draft_keranjang_item" (
@@ -214,6 +277,18 @@ CREATE TABLE "evaluasi_karyawan" (
 	"tenant_id" integer DEFAULT 1 NOT NULL,
 	"created_at" text,
 	"updated_at" text
+);
+--> statement-breakpoint
+CREATE TABLE "grup_modifier" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"nama" text NOT NULL,
+	"wajib" boolean DEFAULT false NOT NULL,
+	"min_pilih" integer DEFAULT 0 NOT NULL,
+	"max_pilih" integer DEFAULT 1 NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"created_by" integer,
+	"updated_by" integer
 );
 --> statement-breakpoint
 CREATE TABLE "harga_jadwal" (
@@ -298,6 +373,17 @@ CREATE TABLE "jadwal_kerja" (
 	"updated_at" text
 );
 --> statement-breakpoint
+CREATE TABLE "jadwal_staf" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"karyawan_id" integer NOT NULL,
+	"hari" integer NOT NULL,
+	"jam_mulai" text NOT NULL,
+	"jam_selesai" text NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"cabang_id" integer DEFAULT 1 NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "jurnal_kas" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"tanggal" text NOT NULL,
@@ -337,6 +423,7 @@ CREATE TABLE "karyawan" (
 	"nama" text NOT NULL,
 	"role" text NOT NULL,
 	"username" text NOT NULL,
+	"email" text,
 	"password_hash" text NOT NULL,
 	"gaji_pokok" bigint DEFAULT 0 NOT NULL,
 	"tipe_gaji" text DEFAULT 'bulanan' NOT NULL,
@@ -349,7 +436,8 @@ CREATE TABLE "karyawan" (
 	"created_at" text,
 	"updated_at" text,
 	CONSTRAINT "karyawan_kode_karyawan_unique" UNIQUE("kode_karyawan"),
-	CONSTRAINT "karyawan_username_unique" UNIQUE("username")
+	CONSTRAINT "karyawan_username_unique" UNIQUE("username"),
+	CONSTRAINT "karyawan_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
 CREATE TABLE "kas_bank" (
@@ -394,6 +482,22 @@ CREATE TABLE "kategori" (
 	CONSTRAINT "kategori_nama_unique" UNIQUE("nama")
 );
 --> statement-breakpoint
+CREATE TABLE "komisi_staf" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"karyawan_id" integer NOT NULL,
+	"penjualan_id" integer,
+	"penjualan_detail_id" integer,
+	"barang_id" integer,
+	"nilai_komisi" bigint DEFAULT 0 NOT NULL,
+	"persen" double precision DEFAULT 0 NOT NULL,
+	"tanggal" text NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"created_at" text,
+	"updated_at" text,
+	CONSTRAINT "chk_komisi_nilai" CHECK ("komisi_staf"."nilai_komisi" >= 0)
+);
+--> statement-breakpoint
 CREATE TABLE "komplain_pelanggan" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"pelanggan_id" integer,
@@ -409,6 +513,21 @@ CREATE TABLE "komplain_pelanggan" (
 	"updated_by" integer,
 	"created_at" text,
 	"updated_at" text
+);
+--> statement-breakpoint
+CREATE TABLE "kredit_membership" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"pelanggan_id" integer NOT NULL,
+	"paket_id" integer NOT NULL,
+	"sisa_kuota" integer NOT NULL,
+	"tanggal_mulai" text NOT NULL,
+	"tanggal_expired" text,
+	"penjualan_id" integer,
+	"status" text DEFAULT 'aktif' NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"created_at" text,
+	"updated_at" text,
+	CONSTRAINT "chk_kredit_kuota" CHECK ("kredit_membership"."sisa_kuota" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "kunjungan_sales" (
@@ -454,6 +573,29 @@ CREATE TABLE "log_aktivitas" (
 	"ip_address" text
 );
 --> statement-breakpoint
+CREATE TABLE "meja" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"kode_meja" text NOT NULL,
+	"nama" text,
+	"kapasitas" integer DEFAULT 2 NOT NULL,
+	"status" text DEFAULT 'kosong' NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"cabang_id" integer DEFAULT 1 NOT NULL,
+	"created_at" text,
+	"updated_at" text
+);
+--> statement-breakpoint
+CREATE TABLE "modifier" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"grup_modifier_id" integer NOT NULL,
+	"nama" text NOT NULL,
+	"harga_tambahan" bigint DEFAULT 0 NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "chk_modifier_harga" CHECK ("modifier"."harga_tambahan" >= 0)
+);
+--> statement-breakpoint
 CREATE TABLE "mutasi_stok" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"barang_id" integer NOT NULL,
@@ -497,6 +639,25 @@ CREATE TABLE "notifikasi_log" (
 	"referensi_id" integer
 );
 --> statement-breakpoint
+CREATE TABLE "paket_membership" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"kode_paket" text NOT NULL,
+	"nama" text NOT NULL,
+	"barang_id" integer,
+	"jumlah_sesi" integer NOT NULL,
+	"harga" bigint DEFAULT 0 NOT NULL,
+	"masa_berlaku_hari" integer DEFAULT 0 NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"created_by" integer,
+	"updated_by" integer,
+	"created_at" text,
+	"updated_at" text,
+	CONSTRAINT "paket_membership_kode_paket_unique" UNIQUE("kode_paket"),
+	CONSTRAINT "chk_paket_sesi" CHECK ("paket_membership"."jumlah_sesi" > 0),
+	CONSTRAINT "chk_paket_harga" CHECK ("paket_membership"."harga" >= 0)
+);
+--> statement-breakpoint
 CREATE TABLE "pelanggan" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"kode_pelanggan" text NOT NULL,
@@ -524,6 +685,19 @@ CREATE TABLE "pembayaran_hutang" (
 	"kas_bank_id" integer NOT NULL,
 	"dibayar_oleh" integer,
 	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"created_at" text,
+	"updated_at" text
+);
+--> statement-breakpoint
+CREATE TABLE "pembayaran_langganan" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"toko_id" integer NOT NULL,
+	"periode_bulan" integer DEFAULT 1 NOT NULL,
+	"nominal" bigint DEFAULT 0 NOT NULL,
+	"bukti_path" text,
+	"status" text DEFAULT 'menunggu' NOT NULL,
+	"catatan_admin" text,
+	"diverifikasi_oleh" integer,
 	"created_at" text,
 	"updated_at" text
 );
@@ -587,6 +761,8 @@ CREATE TABLE "penjualan" (
 	"bayar" bigint DEFAULT 0 NOT NULL,
 	"kembalian" bigint DEFAULT 0 NOT NULL,
 	"status" text DEFAULT 'lunas' NOT NULL,
+	"tipe_layanan" text DEFAULT 'retail' NOT NULL,
+	"meja_id" integer,
 	"tenant_id" integer DEFAULT 1 NOT NULL,
 	"cabang_id" integer DEFAULT 1 NOT NULL,
 	"created_at" text,
@@ -608,12 +784,25 @@ CREATE TABLE "penjualan_detail" (
 	"harga_jual" bigint NOT NULL,
 	"diskon_item" bigint DEFAULT 0 NOT NULL,
 	"subtotal" bigint NOT NULL,
+	"status_kds" text,
+	"dilayani_oleh" integer,
+	"booking_id" integer,
+	"catatan" text,
 	"tenant_id" integer DEFAULT 1 NOT NULL,
 	"cabang_id" integer DEFAULT 1 NOT NULL,
 	CONSTRAINT "chk_detail_jumlah_pos" CHECK ("penjualan_detail"."jumlah" > 0),
 	CONSTRAINT "chk_detail_harga_pos" CHECK ("penjualan_detail"."harga_jual" >= 0),
 	CONSTRAINT "chk_detail_diskon_pos" CHECK ("penjualan_detail"."diskon_item" >= 0),
 	CONSTRAINT "chk_detail_subtotal_pos" CHECK ("penjualan_detail"."subtotal" >= 0)
+);
+--> statement-breakpoint
+CREATE TABLE "penjualan_detail_modifier" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"penjualan_detail_id" integer NOT NULL,
+	"modifier_id" integer NOT NULL,
+	"nama_snapshot" text NOT NULL,
+	"harga_snapshot" bigint DEFAULT 0 NOT NULL,
+	"tenant_id" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "periode_laporan" (
@@ -703,6 +892,17 @@ CREATE TABLE "piutang_pelanggan" (
 	CONSTRAINT "chk_piutang_sisa_lte_total" CHECK ("piutang_pelanggan"."sisa_piutang" <= "piutang_pelanggan"."total_piutang")
 );
 --> statement-breakpoint
+CREATE TABLE "platform_admin" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"username" text NOT NULL,
+	"password_hash" text NOT NULL,
+	"nama" text NOT NULL,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_at" text,
+	"updated_at" text,
+	CONSTRAINT "platform_admin_username_unique" UNIQUE("username")
+);
+--> statement-breakpoint
 CREATE TABLE "po_detail" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"po_id" integer NOT NULL,
@@ -765,6 +965,16 @@ CREATE TABLE "purchase_order" (
 	CONSTRAINT "purchase_order_no_po_unique" UNIQUE("no_po")
 );
 --> statement-breakpoint
+CREATE TABLE "resep" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"barang_id" integer NOT NULL,
+	"bahan_baku_id" integer NOT NULL,
+	"jumlah" double precision NOT NULL,
+	"satuan_id" integer,
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "chk_resep_jumlah" CHECK ("resep"."jumlah" > 0)
+);
+--> statement-breakpoint
 CREATE TABLE "retur_penjualan" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"no_retur" text NOT NULL,
@@ -821,6 +1031,7 @@ CREATE TABLE "retur_supplier" (
 	"kas_bank_id" integer,
 	"catatan" text,
 	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"cabang_id" integer DEFAULT 1 NOT NULL,
 	"created_at" text,
 	"updated_at" text,
 	CONSTRAINT "retur_supplier_no_retur_unique" UNIQUE("no_retur")
@@ -833,7 +1044,8 @@ CREATE TABLE "retur_supplier_detail" (
 	"jumlah_retur" double precision NOT NULL,
 	"harga_beli" bigint NOT NULL,
 	"subtotal" bigint NOT NULL,
-	"tenant_id" integer DEFAULT 1 NOT NULL
+	"tenant_id" integer DEFAULT 1 NOT NULL,
+	"cabang_id" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "sanksi_insentif" (
@@ -1018,6 +1230,12 @@ CREATE TABLE "toko" (
 	"nama" text NOT NULL,
 	"alamat" text,
 	"is_active" boolean DEFAULT true NOT NULL,
+	"status_langganan" text DEFAULT 'trial' NOT NULL,
+	"trial_berakhir" text,
+	"aktif_sampai" text,
+	"hapus_terjadwal" text,
+	"email_pemilik" text,
+	"wa_pemilik" text,
 	"created_at" text,
 	"updated_at" text,
 	CONSTRAINT "toko_kode_toko_unique" UNIQUE("kode_toko")
@@ -1061,6 +1279,7 @@ ALTER TABLE "agenda_supplier" ADD CONSTRAINT "agenda_supplier_supplier_id_suppli
 ALTER TABLE "agenda_supplier" ADD CONSTRAINT "agenda_supplier_petugas_id_karyawan_id_fk" FOREIGN KEY ("petugas_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "approval" ADD CONSTRAINT "approval_diminta_oleh_karyawan_id_fk" FOREIGN KEY ("diminta_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "approval" ADD CONSTRAINT "approval_diproses_oleh_karyawan_id_fk" FOREIGN KEY ("diproses_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "bahan_baku" ADD CONSTRAINT "bahan_baku_satuan_id_satuan_id_fk" FOREIGN KEY ("satuan_id") REFERENCES "public"."satuan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "barang" ADD CONSTRAINT "barang_kategori_id_kategori_id_fk" FOREIGN KEY ("kategori_id") REFERENCES "public"."kategori"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "barang" ADD CONSTRAINT "barang_satuan_dasar_id_satuan_id_fk" FOREIGN KEY ("satuan_dasar_id") REFERENCES "public"."satuan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "barang_masuk" ADD CONSTRAINT "barang_masuk_po_id_purchase_order_id_fk" FOREIGN KEY ("po_id") REFERENCES "public"."purchase_order"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -1069,12 +1288,21 @@ ALTER TABLE "barang_masuk" ADD CONSTRAINT "barang_masuk_diterima_oleh_karyawan_i
 ALTER TABLE "barang_masuk_detail" ADD CONSTRAINT "barang_masuk_detail_penerimaan_id_barang_masuk_id_fk" FOREIGN KEY ("penerimaan_id") REFERENCES "public"."barang_masuk"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "barang_masuk_detail" ADD CONSTRAINT "barang_masuk_detail_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "barang_masuk_detail" ADD CONSTRAINT "barang_masuk_detail_satuan_id_satuan_id_fk" FOREIGN KEY ("satuan_id") REFERENCES "public"."satuan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "barang_modifier_grup" ADD CONSTRAINT "barang_modifier_grup_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "barang_modifier_grup" ADD CONSTRAINT "barang_modifier_grup_grup_modifier_id_grup_modifier_id_fk" FOREIGN KEY ("grup_modifier_id") REFERENCES "public"."grup_modifier"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "booking" ADD CONSTRAINT "booking_pelanggan_id_pelanggan_id_fk" FOREIGN KEY ("pelanggan_id") REFERENCES "public"."pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "booking" ADD CONSTRAINT "booking_karyawan_id_karyawan_id_fk" FOREIGN KEY ("karyawan_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "booking" ADD CONSTRAINT "booking_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "booking" ADD CONSTRAINT "booking_penjualan_id_penjualan_id_fk" FOREIGN KEY ("penjualan_id") REFERENCES "public"."penjualan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "booking" ADD CONSTRAINT "booking_kredit_id_kredit_membership_id_fk" FOREIGN KEY ("kredit_id") REFERENCES "public"."kredit_membership"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "budget_operasional" ADD CONSTRAINT "budget_operasional_dibuat_oleh_karyawan_id_fk" FOREIGN KEY ("dibuat_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "cabang" ADD CONSTRAINT "cabang_toko_id_toko_id_fk" FOREIGN KEY ("toko_id") REFERENCES "public"."toko"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "checklist_log" ADD CONSTRAINT "checklist_log_item_id_checklist_item_id_fk" FOREIGN KEY ("item_id") REFERENCES "public"."checklist_item"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "checklist_log" ADD CONSTRAINT "checklist_log_karyawan_id_karyawan_id_fk" FOREIGN KEY ("karyawan_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "detail_layanan" ADD CONSTRAINT "detail_layanan_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "draft_keranjang" ADD CONSTRAINT "draft_keranjang_kasir_id_karyawan_id_fk" FOREIGN KEY ("kasir_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "draft_keranjang" ADD CONSTRAINT "draft_keranjang_pelanggan_id_pelanggan_id_fk" FOREIGN KEY ("pelanggan_id") REFERENCES "public"."pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "draft_keranjang" ADD CONSTRAINT "draft_keranjang_meja_id_meja_id_fk" FOREIGN KEY ("meja_id") REFERENCES "public"."meja"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "draft_keranjang_item" ADD CONSTRAINT "draft_keranjang_item_draft_id_draft_keranjang_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."draft_keranjang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "draft_keranjang_item" ADD CONSTRAINT "draft_keranjang_item_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "draft_keranjang_item" ADD CONSTRAINT "draft_keranjang_item_satuan_id_satuan_id_fk" FOREIGN KEY ("satuan_id") REFERENCES "public"."satuan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -1093,6 +1321,7 @@ ALTER TABLE "inspeksi_toko" ADD CONSTRAINT "inspeksi_toko_petugas_id_karyawan_id
 ALTER TABLE "jadwal_kerja" ADD CONSTRAINT "jadwal_kerja_karyawan_id_karyawan_id_fk" FOREIGN KEY ("karyawan_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "jadwal_kerja" ADD CONSTRAINT "jadwal_kerja_tipe_shift_id_tipe_shift_id_fk" FOREIGN KEY ("tipe_shift_id") REFERENCES "public"."tipe_shift"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "jadwal_kerja" ADD CONSTRAINT "jadwal_kerja_dibuat_oleh_karyawan_id_fk" FOREIGN KEY ("dibuat_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "jadwal_staf" ADD CONSTRAINT "jadwal_staf_karyawan_id_karyawan_id_fk" FOREIGN KEY ("karyawan_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "jurnal_kas" ADD CONSTRAINT "jurnal_kas_kas_bank_id_kas_bank_id_fk" FOREIGN KEY ("kas_bank_id") REFERENCES "public"."kas_bank"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "jurnal_kas" ADD CONSTRAINT "jurnal_kas_dicatat_oleh_karyawan_id_fk" FOREIGN KEY ("dicatat_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kartu_anggota" ADD CONSTRAINT "kartu_anggota_pelanggan_id_pelanggan_id_fk" FOREIGN KEY ("pelanggan_id") REFERENCES "public"."pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -1100,17 +1329,28 @@ ALTER TABLE "karyawan" ADD CONSTRAINT "karyawan_toko_id_toko_id_fk" FOREIGN KEY 
 ALTER TABLE "karyawan" ADD CONSTRAINT "karyawan_cabang_id_cabang_id_fk" FOREIGN KEY ("cabang_id") REFERENCES "public"."cabang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kasbon" ADD CONSTRAINT "kasbon_karyawan_id_karyawan_id_fk" FOREIGN KEY ("karyawan_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kasbon" ADD CONSTRAINT "kasbon_disetujui_oleh_karyawan_id_fk" FOREIGN KEY ("disetujui_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "komisi_staf" ADD CONSTRAINT "komisi_staf_karyawan_id_karyawan_id_fk" FOREIGN KEY ("karyawan_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "komisi_staf" ADD CONSTRAINT "komisi_staf_penjualan_id_penjualan_id_fk" FOREIGN KEY ("penjualan_id") REFERENCES "public"."penjualan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "komisi_staf" ADD CONSTRAINT "komisi_staf_penjualan_detail_id_penjualan_detail_id_fk" FOREIGN KEY ("penjualan_detail_id") REFERENCES "public"."penjualan_detail"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "komisi_staf" ADD CONSTRAINT "komisi_staf_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "komplain_pelanggan" ADD CONSTRAINT "komplain_pelanggan_pelanggan_id_pelanggan_id_fk" FOREIGN KEY ("pelanggan_id") REFERENCES "public"."pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "komplain_pelanggan" ADD CONSTRAINT "komplain_pelanggan_ditangani_oleh_karyawan_id_fk" FOREIGN KEY ("ditangani_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "kredit_membership" ADD CONSTRAINT "kredit_membership_pelanggan_id_pelanggan_id_fk" FOREIGN KEY ("pelanggan_id") REFERENCES "public"."pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "kredit_membership" ADD CONSTRAINT "kredit_membership_paket_id_paket_membership_id_fk" FOREIGN KEY ("paket_id") REFERENCES "public"."paket_membership"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "kredit_membership" ADD CONSTRAINT "kredit_membership_penjualan_id_penjualan_id_fk" FOREIGN KEY ("penjualan_id") REFERENCES "public"."penjualan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kunjungan_sales" ADD CONSTRAINT "kunjungan_sales_pelanggan_id_pelanggan_id_fk" FOREIGN KEY ("pelanggan_id") REFERENCES "public"."pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "kunjungan_sales" ADD CONSTRAINT "kunjungan_sales_petugas_id_karyawan_id_fk" FOREIGN KEY ("petugas_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "lampiran" ADD CONSTRAINT "lampiran_uploaded_by_karyawan_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "log_aktivitas" ADD CONSTRAINT "log_aktivitas_karyawan_id_karyawan_id_fk" FOREIGN KEY ("karyawan_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "modifier" ADD CONSTRAINT "modifier_grup_modifier_id_grup_modifier_id_fk" FOREIGN KEY ("grup_modifier_id") REFERENCES "public"."grup_modifier"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "mutasi_stok" ADD CONSTRAINT "mutasi_stok_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "mutasi_stok" ADD CONSTRAINT "mutasi_stok_dicatat_oleh_karyawan_id_fk" FOREIGN KEY ("dicatat_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "paket_membership" ADD CONSTRAINT "paket_membership_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pembayaran_hutang" ADD CONSTRAINT "pembayaran_hutang_hutang_id_hutang_supplier_id_fk" FOREIGN KEY ("hutang_id") REFERENCES "public"."hutang_supplier"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pembayaran_hutang" ADD CONSTRAINT "pembayaran_hutang_kas_bank_id_kas_bank_id_fk" FOREIGN KEY ("kas_bank_id") REFERENCES "public"."kas_bank"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pembayaran_hutang" ADD CONSTRAINT "pembayaran_hutang_dibayar_oleh_karyawan_id_fk" FOREIGN KEY ("dibayar_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "pembayaran_langganan" ADD CONSTRAINT "pembayaran_langganan_toko_id_toko_id_fk" FOREIGN KEY ("toko_id") REFERENCES "public"."toko"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "pembayaran_langganan" ADD CONSTRAINT "pembayaran_langganan_diverifikasi_oleh_platform_admin_id_fk" FOREIGN KEY ("diverifikasi_oleh") REFERENCES "public"."platform_admin"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pembayaran_piutang" ADD CONSTRAINT "pembayaran_piutang_piutang_id_piutang_pelanggan_id_fk" FOREIGN KEY ("piutang_id") REFERENCES "public"."piutang_pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pembayaran_piutang" ADD CONSTRAINT "pembayaran_piutang_kas_bank_id_kas_bank_id_fk" FOREIGN KEY ("kas_bank_id") REFERENCES "public"."kas_bank"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pembayaran_piutang" ADD CONSTRAINT "pembayaran_piutang_diterima_oleh_karyawan_id_fk" FOREIGN KEY ("diterima_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -1119,9 +1359,14 @@ ALTER TABLE "pengajuan_izin" ADD CONSTRAINT "pengajuan_izin_diproses_oleh_karyaw
 ALTER TABLE "penggajian" ADD CONSTRAINT "penggajian_karyawan_id_karyawan_id_fk" FOREIGN KEY ("karyawan_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "penjualan" ADD CONSTRAINT "penjualan_pelanggan_id_pelanggan_id_fk" FOREIGN KEY ("pelanggan_id") REFERENCES "public"."pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "penjualan" ADD CONSTRAINT "penjualan_kasir_id_karyawan_id_fk" FOREIGN KEY ("kasir_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "penjualan" ADD CONSTRAINT "penjualan_meja_id_meja_id_fk" FOREIGN KEY ("meja_id") REFERENCES "public"."meja"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "penjualan_detail" ADD CONSTRAINT "penjualan_detail_penjualan_id_penjualan_id_fk" FOREIGN KEY ("penjualan_id") REFERENCES "public"."penjualan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "penjualan_detail" ADD CONSTRAINT "penjualan_detail_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "penjualan_detail" ADD CONSTRAINT "penjualan_detail_satuan_id_satuan_id_fk" FOREIGN KEY ("satuan_id") REFERENCES "public"."satuan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "penjualan_detail" ADD CONSTRAINT "penjualan_detail_dilayani_oleh_karyawan_id_fk" FOREIGN KEY ("dilayani_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "penjualan_detail" ADD CONSTRAINT "penjualan_detail_booking_id_booking_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."booking"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "penjualan_detail_modifier" ADD CONSTRAINT "penjualan_detail_modifier_penjualan_detail_id_penjualan_detail_id_fk" FOREIGN KEY ("penjualan_detail_id") REFERENCES "public"."penjualan_detail"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "penjualan_detail_modifier" ADD CONSTRAINT "penjualan_detail_modifier_modifier_id_modifier_id_fk" FOREIGN KEY ("modifier_id") REFERENCES "public"."modifier"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "periode_laporan" ADD CONSTRAINT "periode_laporan_dibuat_oleh_karyawan_id_fk" FOREIGN KEY ("dibuat_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "periode_laporan" ADD CONSTRAINT "periode_laporan_diapprove_oleh_karyawan_id_fk" FOREIGN KEY ("diapprove_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "permintaan_pelanggan" ADD CONSTRAINT "permintaan_pelanggan_pelanggan_id_pelanggan_id_fk" FOREIGN KEY ("pelanggan_id") REFERENCES "public"."pelanggan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -1139,6 +1384,9 @@ ALTER TABLE "promo" ADD CONSTRAINT "promo_dibuat_oleh_karyawan_id_fk" FOREIGN KE
 ALTER TABLE "promo_target" ADD CONSTRAINT "promo_target_promo_id_promo_id_fk" FOREIGN KEY ("promo_id") REFERENCES "public"."promo"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "purchase_order" ADD CONSTRAINT "purchase_order_supplier_id_supplier_id_fk" FOREIGN KEY ("supplier_id") REFERENCES "public"."supplier"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "purchase_order" ADD CONSTRAINT "purchase_order_dibuat_oleh_karyawan_id_fk" FOREIGN KEY ("dibuat_oleh") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "resep" ADD CONSTRAINT "resep_barang_id_barang_id_fk" FOREIGN KEY ("barang_id") REFERENCES "public"."barang"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "resep" ADD CONSTRAINT "resep_bahan_baku_id_bahan_baku_id_fk" FOREIGN KEY ("bahan_baku_id") REFERENCES "public"."bahan_baku"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "resep" ADD CONSTRAINT "resep_satuan_id_satuan_id_fk" FOREIGN KEY ("satuan_id") REFERENCES "public"."satuan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "retur_penjualan" ADD CONSTRAINT "retur_penjualan_penjualan_id_penjualan_id_fk" FOREIGN KEY ("penjualan_id") REFERENCES "public"."penjualan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "retur_penjualan" ADD CONSTRAINT "retur_penjualan_kasir_id_karyawan_id_fk" FOREIGN KEY ("kasir_id") REFERENCES "public"."karyawan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "retur_penjualan" ADD CONSTRAINT "retur_penjualan_kas_bank_id_kas_bank_id_fk" FOREIGN KEY ("kas_bank_id") REFERENCES "public"."kas_bank"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -1176,25 +1424,42 @@ CREATE INDEX "idx_absensi_tanggal" ON "absensi" USING btree ("tanggal");--> stat
 CREATE INDEX "idx_absensi_karyawan" ON "absensi" USING btree ("karyawan_id");--> statement-breakpoint
 CREATE INDEX "idx_approval_ref" ON "approval" USING btree ("referensi_tipe","referensi_id");--> statement-breakpoint
 CREATE INDEX "idx_approval_status" ON "approval" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "idx_bahan_baku_active" ON "bahan_baku" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "idx_barang_active" ON "barang" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "idx_bmd_kadaluarsa" ON "barang_masuk_detail" USING btree ("tgl_kadaluarsa");--> statement-breakpoint
+CREATE UNIQUE INDEX "uidx_barang_modifier" ON "barang_modifier_grup" USING btree ("barang_id","grup_modifier_id");--> statement-breakpoint
+CREATE INDEX "idx_booking_waktu" ON "booking" USING btree ("waktu_mulai");--> statement-breakpoint
+CREATE INDEX "idx_booking_status" ON "booking" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "idx_booking_karyawan" ON "booking" USING btree ("karyawan_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "uidx_cabang_toko_kode" ON "cabang" USING btree ("toko_id","kode_cabang");--> statement-breakpoint
 CREATE INDEX "idx_cabang_toko" ON "cabang" USING btree ("toko_id");--> statement-breakpoint
 CREATE INDEX "idx_checklist_log_tanggal" ON "checklist_log" USING btree ("tanggal");--> statement-breakpoint
 CREATE INDEX "idx_checklist_log_item" ON "checklist_log" USING btree ("item_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "uidx_detail_layanan_barang" ON "detail_layanan" USING btree ("barang_id");--> statement-breakpoint
+CREATE INDEX "idx_draft_kasir" ON "draft_keranjang" USING btree ("kasir_id");--> statement-breakpoint
 CREATE INDEX "idx_eval_karyawan" ON "evaluasi_karyawan" USING btree ("karyawan_id");--> statement-breakpoint
 CREATE INDEX "idx_hutang_status" ON "hutang_supplier" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_hutang_jatuh" ON "hutang_supplier" USING btree ("tanggal_jatuh_tempo");--> statement-breakpoint
+CREATE INDEX "idx_jadwal_staf_karyawan" ON "jadwal_staf" USING btree ("karyawan_id");--> statement-breakpoint
 CREATE INDEX "idx_jurnal_kas_tanggal" ON "jurnal_kas" USING btree ("tanggal");--> statement-breakpoint
 CREATE INDEX "idx_jurnal_kas_akun" ON "jurnal_kas" USING btree ("kas_bank_id");--> statement-breakpoint
 CREATE INDEX "idx_karyawan_active" ON "karyawan" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "idx_karyawan_toko" ON "karyawan" USING btree ("toko_id");--> statement-breakpoint
 CREATE INDEX "idx_kasbon_karyawan_status" ON "kasbon" USING btree ("karyawan_id","status");--> statement-breakpoint
+CREATE INDEX "idx_komisi_karyawan" ON "komisi_staf" USING btree ("karyawan_id");--> statement-breakpoint
+CREATE INDEX "idx_komisi_status" ON "komisi_staf" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "idx_kredit_pelanggan" ON "kredit_membership" USING btree ("pelanggan_id");--> statement-breakpoint
+CREATE INDEX "idx_kredit_status" ON "kredit_membership" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_lampiran_ref" ON "lampiran" USING btree ("referensi_tipe","referensi_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "uidx_meja_kode" ON "meja" USING btree ("tenant_id","cabang_id","kode_meja");--> statement-breakpoint
+CREATE INDEX "idx_meja_status" ON "meja" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "idx_modifier_grup" ON "modifier" USING btree ("grup_modifier_id");--> statement-breakpoint
 CREATE INDEX "idx_mutasi_stok_barang" ON "mutasi_stok" USING btree ("barang_id");--> statement-breakpoint
 CREATE INDEX "idx_mutasi_stok_tanggal" ON "mutasi_stok" USING btree ("tanggal");--> statement-breakpoint
 CREATE INDEX "idx_mutasi_stok_cabang" ON "mutasi_stok" USING btree ("cabang_id");--> statement-breakpoint
 CREATE INDEX "idx_notif_log_ref" ON "notifikasi_log" USING btree ("referensi_tipe","referensi_id","waktu");--> statement-breakpoint
+CREATE INDEX "idx_pembayaran_toko" ON "pembayaran_langganan" USING btree ("toko_id");--> statement-breakpoint
+CREATE INDEX "idx_pembayaran_status" ON "pembayaran_langganan" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_izin_karyawan" ON "pengajuan_izin" USING btree ("karyawan_id");--> statement-breakpoint
 CREATE INDEX "idx_izin_status" ON "pengajuan_izin" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_penggajian_karyawan_bulan" ON "penggajian" USING btree ("karyawan_id","periode_bulan");--> statement-breakpoint
@@ -1202,13 +1467,19 @@ CREATE INDEX "idx_penjualan_tanggal" ON "penjualan" USING btree ("tanggal");--> 
 CREATE INDEX "idx_penjualan_status" ON "penjualan" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_penjualan_kasir" ON "penjualan" USING btree ("kasir_id");--> statement-breakpoint
 CREATE INDEX "idx_penjualan_cabang" ON "penjualan" USING btree ("cabang_id");--> statement-breakpoint
+CREATE INDEX "idx_penjualan_meja" ON "penjualan" USING btree ("meja_id");--> statement-breakpoint
 CREATE INDEX "idx_penjualan_detail_trx" ON "penjualan_detail" USING btree ("penjualan_id");--> statement-breakpoint
+CREATE INDEX "idx_pd_kds" ON "penjualan_detail" USING btree ("status_kds");--> statement-breakpoint
+CREATE INDEX "idx_pdm_detail" ON "penjualan_detail_modifier" USING btree ("penjualan_detail_id");--> statement-breakpoint
 CREATE INDEX "idx_pipeline_tahap" ON "pipeline_grosir" USING btree ("tahap");--> statement-breakpoint
 CREATE INDEX "idx_piutang_status" ON "piutang_pelanggan" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "idx_piutang_jatuh" ON "piutang_pelanggan" USING btree ("tanggal_jatuh_tempo");--> statement-breakpoint
 CREATE UNIQUE INDEX "uq_preferensi_pengguna" ON "preferensi_pengguna" USING btree ("karyawan_id","modul");--> statement-breakpoint
+CREATE UNIQUE INDEX "uidx_resep_menu_bahan" ON "resep" USING btree ("barang_id","bahan_baku_id");--> statement-breakpoint
+CREATE INDEX "idx_resep_barang" ON "resep" USING btree ("barang_id");--> statement-breakpoint
 CREATE INDEX "idx_retur_sup_bm" ON "retur_supplier" USING btree ("barang_masuk_id");--> statement-breakpoint
 CREATE INDEX "idx_retur_sup_supplier" ON "retur_supplier" USING btree ("supplier_id");--> statement-breakpoint
+CREATE INDEX "idx_retur_sup_cabang" ON "retur_supplier" USING btree ("cabang_id");--> statement-breakpoint
 CREATE INDEX "idx_si_karyawan_bulan" ON "sanksi_insentif" USING btree ("karyawan_id","periode_bulan");--> statement-breakpoint
 CREATE INDEX "idx_sop_instance_rule" ON "sop_instance" USING btree ("rule_id");--> statement-breakpoint
 CREATE INDEX "idx_sop_instance_karyawan" ON "sop_instance" USING btree ("karyawan_id");--> statement-breakpoint

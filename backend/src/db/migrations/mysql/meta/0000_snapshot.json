@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "f0d1896e-cd52-418a-ab7b-abefe11d40a9",
+  "id": "38b42a9e-b5ca-487d-a4f4-557c20c24d76",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "absensi": {
@@ -3828,6 +3828,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "password_hash": {
           "name": "password_hash",
           "type": "text",
@@ -3973,6 +3980,12 @@
           "name": "karyawan_username_unique",
           "columns": [
             "username"
+          ]
+        },
+        "karyawan_email_unique": {
+          "name": "karyawan_email_unique",
+          "columns": [
+            "email"
           ]
         }
       },
@@ -10890,6 +10903,13 @@
         },
         "aktif_sampai": {
           "name": "aktif_sampai",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "hapus_terjadwal": {
+          "name": "hapus_terjadwal",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

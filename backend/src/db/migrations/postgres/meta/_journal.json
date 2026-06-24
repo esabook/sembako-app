@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1781390582812,
-      "tag": "0000_gray_kingpin",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1782120022048,
-      "tag": "0001_faulty_steve_rogers",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1782137983628,
-      "tag": "0002_flimsy_owl",
+      "when": 1782322364281,
+      "tag": "0000_luxuriant_stingray",
       "breakpoints": true
     }
   ]

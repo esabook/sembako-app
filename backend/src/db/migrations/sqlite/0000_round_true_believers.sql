@@ -1,5 +1,21 @@
-PRAGMA foreign_keys=OFF;--> statement-breakpoint
-CREATE TABLE `__new_acara_hajatan` (
+CREATE TABLE `absensi` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`karyawan_id` integer NOT NULL,
+	`tanggal` text NOT NULL,
+	`jam_masuk` text,
+	`jam_keluar` text,
+	`shift` text,
+	`status` text DEFAULT 'hadir' NOT NULL,
+	`terlambat_menit` integer,
+	`dicatat_oleh` integer,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`dicatat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `idx_absensi_tanggal` ON `absensi` (`tanggal`);--> statement-breakpoint
+CREATE INDEX `idx_absensi_karyawan` ON `absensi` (`karyawan_id`);--> statement-breakpoint
+CREATE TABLE `acara_hajatan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama_acara` text NOT NULL,
 	`nama_penyelenggara` text NOT NULL,
@@ -18,10 +34,7 @@ CREATE TABLE `__new_acara_hajatan` (
 	FOREIGN KEY (`pelanggan_id`) REFERENCES `pelanggan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_acara_hajatan`("id", "nama_acara", "nama_penyelenggara", "pelanggan_id", "tanggal_acara", "alamat", "estimasi_tamu", "catatan", "status", "total_order", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "nama_acara", "nama_penyelenggara", "pelanggan_id", "tanggal_acara", "alamat", "estimasi_tamu", "catatan", "status", "total_order", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `acara_hajatan`;--> statement-breakpoint
-DROP TABLE `acara_hajatan`;--> statement-breakpoint
-ALTER TABLE `__new_acara_hajatan` RENAME TO `acara_hajatan`;--> statement-breakpoint
-CREATE TABLE `__new_agenda_supplier` (
+CREATE TABLE `agenda_supplier` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`supplier_id` integer,
 	`nama_supplier` text NOT NULL,
@@ -42,10 +55,7 @@ CREATE TABLE `__new_agenda_supplier` (
 	FOREIGN KEY (`petugas_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_agenda_supplier`("id", "supplier_id", "nama_supplier", "tipe", "tanggal", "jam", "lokasi", "petugas_id", "hasil", "catatan", "status", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "supplier_id", "nama_supplier", "tipe", "tanggal", "jam", "lokasi", "petugas_id", "hasil", "catatan", "status", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `agenda_supplier`;--> statement-breakpoint
-DROP TABLE `agenda_supplier`;--> statement-breakpoint
-ALTER TABLE `__new_agenda_supplier` RENAME TO `agenda_supplier`;--> statement-breakpoint
-CREATE TABLE `__new_approval` (
+CREATE TABLE `approval` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`referensi_tipe` text NOT NULL,
 	`referensi_id` integer NOT NULL,
@@ -61,12 +71,9 @@ CREATE TABLE `__new_approval` (
 	FOREIGN KEY (`diproses_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_approval`("id", "referensi_tipe", "referensi_id", "status", "diminta_oleh", "diproses_oleh", "catatan_pengaju", "catatan_proses", "dibuat_at", "diproses_at", "tenant_id") SELECT "id", "referensi_tipe", "referensi_id", "status", "diminta_oleh", "diproses_oleh", "catatan_pengaju", "catatan_proses", "dibuat_at", "diproses_at", "tenant_id" FROM `approval`;--> statement-breakpoint
-DROP TABLE `approval`;--> statement-breakpoint
-ALTER TABLE `__new_approval` RENAME TO `approval`;--> statement-breakpoint
 CREATE INDEX `idx_approval_ref` ON `approval` (`referensi_tipe`,`referensi_id`);--> statement-breakpoint
 CREATE INDEX `idx_approval_status` ON `approval` (`status`);--> statement-breakpoint
-CREATE TABLE `__new_aset_tetap` (
+CREATE TABLE `aset_tetap` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama` text NOT NULL,
 	`kategori` text DEFAULT 'Lainnya' NOT NULL,
@@ -84,13 +91,31 @@ CREATE TABLE `__new_aset_tetap` (
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_aset_tetap`("id", "nama", "kategori", "nilai_beli", "nilai_sekarang", "tanggal_beli", "kondisi", "lokasi", "catatan", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "nama", "kategori", "nilai_beli", "nilai_sekarang", "tanggal_beli", "kondisi", "lokasi", "catatan", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `aset_tetap`;--> statement-breakpoint
-DROP TABLE `aset_tetap`;--> statement-breakpoint
-ALTER TABLE `__new_aset_tetap` RENAME TO `aset_tetap`;--> statement-breakpoint
-CREATE TABLE `__new_barang` (
+CREATE TABLE `bahan_baku` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`kode_bahan` text NOT NULL,
+	`nama` text NOT NULL,
+	`satuan_id` integer,
+	`stok_sekarang` real DEFAULT 0 NOT NULL,
+	`stok_minimum` real DEFAULT 0 NOT NULL,
+	`harga_beli_rata` integer DEFAULT 0 NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`created_by` integer,
+	`updated_by` integer,
+	`created_at` text,
+	`updated_at` text,
+	FOREIGN KEY (`satuan_id`) REFERENCES `satuan`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_bahan_baku_stok" CHECK("bahan_baku"."stok_sekarang" >= 0)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `bahan_baku_kode_bahan_unique` ON `bahan_baku` (`kode_bahan`);--> statement-breakpoint
+CREATE INDEX `idx_bahan_baku_active` ON `bahan_baku` (`is_active`);--> statement-breakpoint
+CREATE TABLE `barang` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`kode_barang` text NOT NULL,
 	`nama_barang` text NOT NULL,
+	`tipe_produk` text DEFAULT 'physical_good' NOT NULL,
 	`kategori_id` integer,
 	`satuan_dasar_id` integer,
 	`konversi_satuan` text,
@@ -115,12 +140,9 @@ CREATE TABLE `__new_barang` (
 	CONSTRAINT "chk_barang_stok" CHECK(stok_sekarang >= 0)
 );
 --> statement-breakpoint
-INSERT INTO `__new_barang`("id", "kode_barang", "nama_barang", "kategori_id", "satuan_dasar_id", "konversi_satuan", "harga_beli_terakhir", "harga_beli_rata", "harga_jual_eceran", "harga_jual_grosir", "stok_minimum", "stok_sekarang", "lokasi_rak", "foto_path", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "kode_barang", "nama_barang", "kategori_id", "satuan_dasar_id", "konversi_satuan", ROUND("harga_beli_terakhir"), ROUND("harga_beli_rata"), ROUND("harga_jual_eceran"), ROUND("harga_jual_grosir"), "stok_minimum", "stok_sekarang", "lokasi_rak", "foto_path", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `barang`;--> statement-breakpoint
-DROP TABLE `barang`;--> statement-breakpoint
-ALTER TABLE `__new_barang` RENAME TO `barang`;--> statement-breakpoint
 CREATE UNIQUE INDEX `barang_kode_barang_unique` ON `barang` (`kode_barang`);--> statement-breakpoint
 CREATE INDEX `idx_barang_active` ON `barang` (`is_active`);--> statement-breakpoint
-CREATE TABLE `__new_barang_masuk` (
+CREATE TABLE `barang_masuk` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`no_penerimaan` text NOT NULL,
 	`po_id` integer,
@@ -138,11 +160,8 @@ CREATE TABLE `__new_barang_masuk` (
 	FOREIGN KEY (`diterima_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_barang_masuk`("id", "no_penerimaan", "po_id", "supplier_id", "tanggal_terima", "no_faktur_supplier", "foto_faktur_path", "total_nilai", "diterima_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "no_penerimaan", "po_id", "supplier_id", "tanggal_terima", "no_faktur_supplier", "foto_faktur_path", ROUND("total_nilai"), "diterima_oleh", "tenant_id", "created_at", "updated_at" FROM `barang_masuk`;--> statement-breakpoint
-DROP TABLE `barang_masuk`;--> statement-breakpoint
-ALTER TABLE `__new_barang_masuk` RENAME TO `barang_masuk`;--> statement-breakpoint
 CREATE UNIQUE INDEX `barang_masuk_no_penerimaan_unique` ON `barang_masuk` (`no_penerimaan`);--> statement-breakpoint
-CREATE TABLE `__new_barang_masuk_detail` (
+CREATE TABLE `barang_masuk_detail` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`penerimaan_id` integer NOT NULL,
 	`barang_id` integer NOT NULL,
@@ -156,11 +175,48 @@ CREATE TABLE `__new_barang_masuk_detail` (
 	FOREIGN KEY (`satuan_id`) REFERENCES `satuan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_barang_masuk_detail`("id", "penerimaan_id", "barang_id", "satuan_id", "jumlah_terima", "harga_beli", "tgl_kadaluarsa", "tenant_id") SELECT "id", "penerimaan_id", "barang_id", "satuan_id", "jumlah_terima", ROUND("harga_beli"), "tgl_kadaluarsa", "tenant_id" FROM `barang_masuk_detail`;--> statement-breakpoint
-DROP TABLE `barang_masuk_detail`;--> statement-breakpoint
-ALTER TABLE `__new_barang_masuk_detail` RENAME TO `barang_masuk_detail`;--> statement-breakpoint
 CREATE INDEX `idx_bmd_kadaluarsa` ON `barang_masuk_detail` (`tgl_kadaluarsa`);--> statement-breakpoint
-CREATE TABLE `__new_budget_operasional` (
+CREATE TABLE `barang_modifier_grup` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`barang_id` integer NOT NULL,
+	`grup_modifier_id` integer NOT NULL,
+	`urutan` integer DEFAULT 0 NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`grup_modifier_id`) REFERENCES `grup_modifier`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `uidx_barang_modifier` ON `barang_modifier_grup` (`barang_id`,`grup_modifier_id`);--> statement-breakpoint
+CREATE TABLE `booking` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`no_booking` text NOT NULL,
+	`pelanggan_id` integer,
+	`karyawan_id` integer,
+	`barang_id` integer NOT NULL,
+	`waktu_mulai` text NOT NULL,
+	`waktu_selesai` text,
+	`status` text DEFAULT 'booked' NOT NULL,
+	`penjualan_id` integer,
+	`kredit_id` integer,
+	`catatan` text,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
+	`created_by` integer,
+	`updated_by` integer,
+	`created_at` text,
+	`updated_at` text,
+	FOREIGN KEY (`pelanggan_id`) REFERENCES `pelanggan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`penjualan_id`) REFERENCES `penjualan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`kredit_id`) REFERENCES `kredit_membership`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `booking_no_booking_unique` ON `booking` (`no_booking`);--> statement-breakpoint
+CREATE INDEX `idx_booking_waktu` ON `booking` (`waktu_mulai`);--> statement-breakpoint
+CREATE INDEX `idx_booking_status` ON `booking` (`status`);--> statement-breakpoint
+CREATE INDEX `idx_booking_karyawan` ON `booking` (`karyawan_id`);--> statement-breakpoint
+CREATE TABLE `budget_operasional` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`periode_bulan` text NOT NULL,
 	`kategori` text NOT NULL,
@@ -173,10 +229,21 @@ CREATE TABLE `__new_budget_operasional` (
 	FOREIGN KEY (`dibuat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_budget_operasional`("id", "periode_bulan", "kategori", "nilai_budget", "catatan", "dibuat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "periode_bulan", "kategori", ROUND("nilai_budget"), "catatan", "dibuat_oleh", "tenant_id", "created_at", "updated_at" FROM `budget_operasional`;--> statement-breakpoint
-DROP TABLE `budget_operasional`;--> statement-breakpoint
-ALTER TABLE `__new_budget_operasional` RENAME TO `budget_operasional`;--> statement-breakpoint
-CREATE TABLE `__new_checklist_item` (
+CREATE TABLE `cabang` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`toko_id` integer NOT NULL,
+	`kode_cabang` text NOT NULL,
+	`nama` text NOT NULL,
+	`alamat` text,
+	`is_active` integer DEFAULT true NOT NULL,
+	`created_at` text,
+	`updated_at` text,
+	FOREIGN KEY (`toko_id`) REFERENCES `toko`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `uidx_cabang_toko_kode` ON `cabang` (`toko_id`,`kode_cabang`);--> statement-breakpoint
+CREATE INDEX `idx_cabang_toko` ON `cabang` (`toko_id`);--> statement-breakpoint
+CREATE TABLE `checklist_item` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama` text NOT NULL,
 	`kategori` text DEFAULT 'kebersihan' NOT NULL,
@@ -189,10 +256,7 @@ CREATE TABLE `__new_checklist_item` (
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_checklist_item`("id", "nama", "kategori", "urutan", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "nama", "kategori", "urutan", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `checklist_item`;--> statement-breakpoint
-DROP TABLE `checklist_item`;--> statement-breakpoint
-ALTER TABLE `__new_checklist_item` RENAME TO `checklist_item`;--> statement-breakpoint
-CREATE TABLE `__new_checklist_log` (
+CREATE TABLE `checklist_log` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`item_id` integer NOT NULL,
 	`tanggal` text NOT NULL,
@@ -206,27 +270,40 @@ CREATE TABLE `__new_checklist_log` (
 	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_checklist_log`("id", "item_id", "tanggal", "karyawan_id", "selesai", "catatan", "tenant_id", "created_at", "updated_at") SELECT "id", "item_id", "tanggal", "karyawan_id", "selesai", "catatan", "tenant_id", "created_at", "updated_at" FROM `checklist_log`;--> statement-breakpoint
-DROP TABLE `checklist_log`;--> statement-breakpoint
-ALTER TABLE `__new_checklist_log` RENAME TO `checklist_log`;--> statement-breakpoint
 CREATE INDEX `idx_checklist_log_tanggal` ON `checklist_log` (`tanggal`);--> statement-breakpoint
 CREATE INDEX `idx_checklist_log_item` ON `checklist_log` (`item_id`);--> statement-breakpoint
-CREATE TABLE `__new_draft_keranjang` (
+CREATE TABLE `detail_layanan` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`barang_id` integer NOT NULL,
+	`durasi_menit` integer DEFAULT 30 NOT NULL,
+	`buffer_menit` integer DEFAULT 0 NOT NULL,
+	`dapat_dibooking` integer DEFAULT true NOT NULL,
+	`komisi_persen` real DEFAULT 0 NOT NULL,
+	`komisi_nominal` integer DEFAULT 0 NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `uidx_detail_layanan_barang` ON `detail_layanan` (`barang_id`);--> statement-breakpoint
+CREATE TABLE `draft_keranjang` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`kasir_id` integer NOT NULL,
 	`pelanggan_id` integer,
 	`tipe` text DEFAULT 'eceran' NOT NULL,
+	`label` text,
+	`nomor_bill` integer DEFAULT 1 NOT NULL,
+	`subtotal` integer DEFAULT 0 NOT NULL,
+	`jumlah_item` integer DEFAULT 0 NOT NULL,
+	`meja_id` integer,
 	`created_at` text,
 	`updated_at` text,
 	FOREIGN KEY (`kasir_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`pelanggan_id`) REFERENCES `pelanggan`(`id`) ON UPDATE no action ON DELETE no action
+	FOREIGN KEY (`pelanggan_id`) REFERENCES `pelanggan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`meja_id`) REFERENCES `meja`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_draft_keranjang`("id", "kasir_id", "pelanggan_id", "tipe", "created_at", "updated_at") SELECT "id", "kasir_id", "pelanggan_id", "tipe", "created_at", "updated_at" FROM `draft_keranjang`;--> statement-breakpoint
-DROP TABLE `draft_keranjang`;--> statement-breakpoint
-ALTER TABLE `__new_draft_keranjang` RENAME TO `draft_keranjang`;--> statement-breakpoint
-CREATE UNIQUE INDEX `draft_keranjang_kasir_id_unique` ON `draft_keranjang` (`kasir_id`);--> statement-breakpoint
-CREATE TABLE `__new_draft_keranjang_item` (
+CREATE INDEX `idx_draft_kasir` ON `draft_keranjang` (`kasir_id`);--> statement-breakpoint
+CREATE TABLE `draft_keranjang_item` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`draft_id` integer NOT NULL,
 	`barang_id` integer NOT NULL,
@@ -240,10 +317,7 @@ CREATE TABLE `__new_draft_keranjang_item` (
 	FOREIGN KEY (`satuan_id`) REFERENCES `satuan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_draft_keranjang_item`("id", "draft_id", "barang_id", "tipe_harga", "satuan_id", "jumlah", "harga_jual", "diskon_item") SELECT "id", "draft_id", "barang_id", "tipe_harga", "satuan_id", "jumlah", ROUND("harga_jual"), ROUND("diskon_item") FROM `draft_keranjang_item`;--> statement-breakpoint
-DROP TABLE `draft_keranjang_item`;--> statement-breakpoint
-ALTER TABLE `__new_draft_keranjang_item` RENAME TO `draft_keranjang_item`;--> statement-breakpoint
-CREATE TABLE `__new_evaluasi_karyawan` (
+CREATE TABLE `evaluasi_karyawan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer NOT NULL,
 	`periode` text NOT NULL,
@@ -258,11 +332,20 @@ CREATE TABLE `__new_evaluasi_karyawan` (
 	FOREIGN KEY (`dinilai_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_evaluasi_karyawan`("id", "karyawan_id", "periode", "nilai", "catatan", "dinilai_oleh", "tanggal", "tenant_id", "created_at", "updated_at") SELECT "id", "karyawan_id", "periode", "nilai", "catatan", "dinilai_oleh", "tanggal", "tenant_id", "created_at", "updated_at" FROM `evaluasi_karyawan`;--> statement-breakpoint
-DROP TABLE `evaluasi_karyawan`;--> statement-breakpoint
-ALTER TABLE `__new_evaluasi_karyawan` RENAME TO `evaluasi_karyawan`;--> statement-breakpoint
 CREATE INDEX `idx_eval_karyawan` ON `evaluasi_karyawan` (`karyawan_id`);--> statement-breakpoint
-CREATE TABLE `__new_harga_jadwal` (
+CREATE TABLE `grup_modifier` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`nama` text NOT NULL,
+	`wajib` integer DEFAULT false NOT NULL,
+	`min_pilih` integer DEFAULT 0 NOT NULL,
+	`max_pilih` integer DEFAULT 1 NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`created_by` integer,
+	`updated_by` integer
+);
+--> statement-breakpoint
+CREATE TABLE `harga_jadwal` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`barang_id` integer NOT NULL,
 	`harga_eceran_baru` integer NOT NULL,
@@ -278,10 +361,7 @@ CREATE TABLE `__new_harga_jadwal` (
 	FOREIGN KEY (`dibuat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_harga_jadwal`("id", "barang_id", "harga_eceran_baru", "harga_grosir_baru", "berlaku_mulai", "berlaku_sampai", "status", "dibuat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "barang_id", ROUND("harga_eceran_baru"), ROUND("harga_grosir_baru"), "berlaku_mulai", "berlaku_sampai", "status", "dibuat_oleh", "tenant_id", "created_at", "updated_at" FROM `harga_jadwal`;--> statement-breakpoint
-DROP TABLE `harga_jadwal`;--> statement-breakpoint
-ALTER TABLE `__new_harga_jadwal` RENAME TO `harga_jadwal`;--> statement-breakpoint
-CREATE TABLE `__new_histori_harga_beli` (
+CREATE TABLE `histori_harga_beli` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`barang_id` integer NOT NULL,
 	`supplier_id` integer,
@@ -295,10 +375,7 @@ CREATE TABLE `__new_histori_harga_beli` (
 	FOREIGN KEY (`dicatat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_histori_harga_beli`("id", "barang_id", "supplier_id", "barang_masuk_id", "harga_beli", "tanggal_berlaku", "dicatat_oleh", "tenant_id") SELECT "id", "barang_id", "supplier_id", "barang_masuk_id", ROUND("harga_beli"), "tanggal_berlaku", "dicatat_oleh", "tenant_id" FROM `histori_harga_beli`;--> statement-breakpoint
-DROP TABLE `histori_harga_beli`;--> statement-breakpoint
-ALTER TABLE `__new_histori_harga_beli` RENAME TO `histori_harga_beli`;--> statement-breakpoint
-CREATE TABLE `__new_histori_harga_jual` (
+CREATE TABLE `histori_harga_jual` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`barang_id` integer NOT NULL,
 	`harga_eceran` integer NOT NULL,
@@ -311,10 +388,7 @@ CREATE TABLE `__new_histori_harga_jual` (
 	FOREIGN KEY (`diubah_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_histori_harga_jual`("id", "barang_id", "harga_eceran", "harga_grosir", "tanggal_berlaku", "tanggal_berakhir", "diubah_oleh", "tenant_id") SELECT "id", "barang_id", ROUND("harga_eceran"), ROUND("harga_grosir"), "tanggal_berlaku", "tanggal_berakhir", "diubah_oleh", "tenant_id" FROM `histori_harga_jual`;--> statement-breakpoint
-DROP TABLE `histori_harga_jual`;--> statement-breakpoint
-ALTER TABLE `__new_histori_harga_jual` RENAME TO `histori_harga_jual`;--> statement-breakpoint
-CREATE TABLE `__new_hutang_supplier` (
+CREATE TABLE `hutang_supplier` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`supplier_id` integer NOT NULL,
 	`barang_masuk_id` integer NOT NULL,
@@ -332,12 +406,9 @@ CREATE TABLE `__new_hutang_supplier` (
 	FOREIGN KEY (`barang_masuk_id`) REFERENCES `barang_masuk`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_hutang_supplier`("id", "supplier_id", "barang_masuk_id", "tanggal_hutang", "tanggal_jatuh_tempo", "total_hutang", "sisa_hutang", "status", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "supplier_id", "barang_masuk_id", "tanggal_hutang", "tanggal_jatuh_tempo", ROUND("total_hutang"), ROUND("sisa_hutang"), "status", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `hutang_supplier`;--> statement-breakpoint
-DROP TABLE `hutang_supplier`;--> statement-breakpoint
-ALTER TABLE `__new_hutang_supplier` RENAME TO `hutang_supplier`;--> statement-breakpoint
 CREATE INDEX `idx_hutang_status` ON `hutang_supplier` (`status`);--> statement-breakpoint
 CREATE INDEX `idx_hutang_jatuh` ON `hutang_supplier` (`tanggal_jatuh_tempo`);--> statement-breakpoint
-CREATE TABLE `__new_inspeksi_toko` (
+CREATE TABLE `inspeksi_toko` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`tanggal` text NOT NULL,
 	`jenis` text DEFAULT 'rutin' NOT NULL,
@@ -356,10 +427,7 @@ CREATE TABLE `__new_inspeksi_toko` (
 	FOREIGN KEY (`petugas_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_inspeksi_toko`("id", "tanggal", "jenis", "petugas_id", "area", "temuan", "tindakan", "nilai", "status", "catatan", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "tanggal", "jenis", "petugas_id", "area", "temuan", "tindakan", "nilai", "status", "catatan", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `inspeksi_toko`;--> statement-breakpoint
-DROP TABLE `inspeksi_toko`;--> statement-breakpoint
-ALTER TABLE `__new_inspeksi_toko` RENAME TO `inspeksi_toko`;--> statement-breakpoint
-CREATE TABLE `__new_jadwal_kerja` (
+CREATE TABLE `jadwal_kerja` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer NOT NULL,
 	`tipe_shift_id` integer NOT NULL,
@@ -374,10 +442,20 @@ CREATE TABLE `__new_jadwal_kerja` (
 	FOREIGN KEY (`dibuat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_jadwal_kerja`("id", "karyawan_id", "tipe_shift_id", "tanggal", "catatan", "dibuat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "karyawan_id", "tipe_shift_id", "tanggal", "catatan", "dibuat_oleh", "tenant_id", "created_at", "updated_at" FROM `jadwal_kerja`;--> statement-breakpoint
-DROP TABLE `jadwal_kerja`;--> statement-breakpoint
-ALTER TABLE `__new_jadwal_kerja` RENAME TO `jadwal_kerja`;--> statement-breakpoint
-CREATE TABLE `__new_jurnal_kas` (
+CREATE TABLE `jadwal_staf` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`karyawan_id` integer NOT NULL,
+	`hari` integer NOT NULL,
+	`jam_mulai` text NOT NULL,
+	`jam_selesai` text NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `idx_jadwal_staf_karyawan` ON `jadwal_staf` (`karyawan_id`);--> statement-breakpoint
+CREATE TABLE `jurnal_kas` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`tanggal` text NOT NULL,
 	`kas_bank_id` integer NOT NULL,
@@ -389,18 +467,16 @@ CREATE TABLE `__new_jurnal_kas` (
 	`jumlah` integer NOT NULL,
 	`dicatat_oleh` integer,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	`created_at` text,
 	`updated_at` text,
 	FOREIGN KEY (`kas_bank_id`) REFERENCES `kas_bank`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`dicatat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_jurnal_kas`("id", "tanggal", "kas_bank_id", "jenis", "kategori", "referensi_tipe", "referensi_id", "keterangan", "jumlah", "dicatat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "tanggal", "kas_bank_id", "jenis", "kategori", "referensi_tipe", "referensi_id", "keterangan", ROUND("jumlah"), "dicatat_oleh", "tenant_id", "created_at", "updated_at" FROM `jurnal_kas`;--> statement-breakpoint
-DROP TABLE `jurnal_kas`;--> statement-breakpoint
-ALTER TABLE `__new_jurnal_kas` RENAME TO `jurnal_kas`;--> statement-breakpoint
 CREATE INDEX `idx_jurnal_kas_tanggal` ON `jurnal_kas` (`tanggal`);--> statement-breakpoint
 CREATE INDEX `idx_jurnal_kas_akun` ON `jurnal_kas` (`kas_bank_id`);--> statement-breakpoint
-CREATE TABLE `__new_kartu_anggota` (
+CREATE TABLE `kartu_anggota` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`no_kartu` text NOT NULL,
 	`tier` text DEFAULT 'reguler' NOT NULL,
@@ -416,16 +492,14 @@ CREATE TABLE `__new_kartu_anggota` (
 	FOREIGN KEY (`pelanggan_id`) REFERENCES `pelanggan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_kartu_anggota`("id", "no_kartu", "tier", "diskon_member", "poin", "pelanggan_id", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "no_kartu", "tier", "diskon_member", "poin", "pelanggan_id", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `kartu_anggota`;--> statement-breakpoint
-DROP TABLE `kartu_anggota`;--> statement-breakpoint
-ALTER TABLE `__new_kartu_anggota` RENAME TO `kartu_anggota`;--> statement-breakpoint
 CREATE UNIQUE INDEX `kartu_anggota_no_kartu_unique` ON `kartu_anggota` (`no_kartu`);--> statement-breakpoint
-CREATE TABLE `__new_karyawan` (
+CREATE TABLE `karyawan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`kode_karyawan` text NOT NULL,
 	`nama` text NOT NULL,
 	`role` text NOT NULL,
 	`username` text NOT NULL,
+	`email` text,
 	`password_hash` text NOT NULL,
 	`gaji_pokok` integer DEFAULT 0 NOT NULL,
 	`tipe_gaji` text DEFAULT 'bulanan' NOT NULL,
@@ -433,31 +507,32 @@ CREATE TABLE `__new_karyawan` (
 	`foto_path` text,
 	`pin_absensi` text,
 	`is_active` integer DEFAULT true NOT NULL,
+	`toko_id` integer DEFAULT 1,
+	`cabang_id` integer,
 	`created_at` text,
-	`updated_at` text
+	`updated_at` text,
+	FOREIGN KEY (`toko_id`) REFERENCES `toko`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`cabang_id`) REFERENCES `cabang`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_karyawan`("id", "kode_karyawan", "nama", "role", "username", "password_hash", "gaji_pokok", "tipe_gaji", "kontak", "foto_path", "pin_absensi", "is_active", "created_at", "updated_at") SELECT "id", "kode_karyawan", "nama", "role", "username", "password_hash", ROUND("gaji_pokok"), "tipe_gaji", "kontak", "foto_path", "pin_absensi", "is_active", "created_at", "updated_at" FROM `karyawan`;--> statement-breakpoint
-DROP TABLE `karyawan`;--> statement-breakpoint
-ALTER TABLE `__new_karyawan` RENAME TO `karyawan`;--> statement-breakpoint
 CREATE UNIQUE INDEX `karyawan_kode_karyawan_unique` ON `karyawan` (`kode_karyawan`);--> statement-breakpoint
 CREATE UNIQUE INDEX `karyawan_username_unique` ON `karyawan` (`username`);--> statement-breakpoint
+CREATE UNIQUE INDEX `karyawan_email_unique` ON `karyawan` (`email`);--> statement-breakpoint
 CREATE INDEX `idx_karyawan_active` ON `karyawan` (`is_active`);--> statement-breakpoint
-CREATE TABLE `__new_kas_bank` (
+CREATE INDEX `idx_karyawan_toko` ON `karyawan` (`toko_id`);--> statement-breakpoint
+CREATE TABLE `kas_bank` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama` text NOT NULL,
 	`tipe` text NOT NULL,
 	`saldo_awal` integer DEFAULT 0 NOT NULL,
 	`is_active` integer DEFAULT true NOT NULL,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	`created_by` integer,
 	`updated_by` integer
 );
 --> statement-breakpoint
-INSERT INTO `__new_kas_bank`("id", "nama", "tipe", "saldo_awal", "is_active", "tenant_id", "created_by", "updated_by") SELECT "id", "nama", "tipe", ROUND("saldo_awal"), "is_active", "tenant_id", "created_by", "updated_by" FROM `kas_bank`;--> statement-breakpoint
-DROP TABLE `kas_bank`;--> statement-breakpoint
-ALTER TABLE `__new_kas_bank` RENAME TO `kas_bank`;--> statement-breakpoint
-CREATE TABLE `__new_kasbon` (
+CREATE TABLE `kasbon` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer NOT NULL,
 	`tanggal_pinjam` text NOT NULL,
@@ -473,16 +548,46 @@ CREATE TABLE `__new_kasbon` (
 	`updated_at` text,
 	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`disetujui_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "chk_kasbon_jumlah_pos" CHECK("__new_kasbon"."jumlah" > 0),
-	CONSTRAINT "chk_kasbon_sisa_pos" CHECK("__new_kasbon"."sisa_kasbon" >= 0),
-	CONSTRAINT "chk_kasbon_cicilan_pos" CHECK("__new_kasbon"."cicilan_per_bulan" >= 0)
+	CONSTRAINT "chk_kasbon_jumlah_pos" CHECK("kasbon"."jumlah" > 0),
+	CONSTRAINT "chk_kasbon_sisa_pos" CHECK("kasbon"."sisa_kasbon" >= 0),
+	CONSTRAINT "chk_kasbon_cicilan_pos" CHECK("kasbon"."cicilan_per_bulan" >= 0)
 );
 --> statement-breakpoint
-INSERT INTO `__new_kasbon`("id", "karyawan_id", "tanggal_pinjam", "jumlah", "cicilan_per_bulan", "sisa_kasbon", "status", "disetujui_oleh", "tanggal_cair", "catatan", "tenant_id", "created_at", "updated_at") SELECT "id", "karyawan_id", "tanggal_pinjam", ROUND("jumlah"), ROUND("cicilan_per_bulan"), ROUND("sisa_kasbon"), "status", "disetujui_oleh", "tanggal_cair", "catatan", "tenant_id", "created_at", "updated_at" FROM `kasbon`;--> statement-breakpoint
-DROP TABLE `kasbon`;--> statement-breakpoint
-ALTER TABLE `__new_kasbon` RENAME TO `kasbon`;--> statement-breakpoint
 CREATE INDEX `idx_kasbon_karyawan_status` ON `kasbon` (`karyawan_id`,`status`);--> statement-breakpoint
-CREATE TABLE `__new_komplain_pelanggan` (
+CREATE TABLE `kategori` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`nama` text NOT NULL,
+	`kode` text,
+	`contoh` text,
+	`is_preset` integer DEFAULT false NOT NULL,
+	`created_by` integer,
+	`updated_by` integer
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `kategori_nama_unique` ON `kategori` (`nama`);--> statement-breakpoint
+CREATE TABLE `komisi_staf` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`karyawan_id` integer NOT NULL,
+	`penjualan_id` integer,
+	`penjualan_detail_id` integer,
+	`barang_id` integer,
+	`nilai_komisi` integer DEFAULT 0 NOT NULL,
+	`persen` real DEFAULT 0 NOT NULL,
+	`tanggal` text NOT NULL,
+	`status` text DEFAULT 'pending' NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`created_at` text,
+	`updated_at` text,
+	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`penjualan_id`) REFERENCES `penjualan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`penjualan_detail_id`) REFERENCES `penjualan_detail`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_komisi_nilai" CHECK("komisi_staf"."nilai_komisi" >= 0)
+);
+--> statement-breakpoint
+CREATE INDEX `idx_komisi_karyawan` ON `komisi_staf` (`karyawan_id`);--> statement-breakpoint
+CREATE INDEX `idx_komisi_status` ON `komisi_staf` (`status`);--> statement-breakpoint
+CREATE TABLE `komplain_pelanggan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`pelanggan_id` integer,
 	`nama_pelanggan` text,
@@ -501,10 +606,27 @@ CREATE TABLE `__new_komplain_pelanggan` (
 	FOREIGN KEY (`ditangani_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_komplain_pelanggan`("id", "pelanggan_id", "nama_pelanggan", "kategori", "deskripsi", "tanggal", "status", "resolusi", "ditangani_oleh", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "pelanggan_id", "nama_pelanggan", "kategori", "deskripsi", "tanggal", "status", "resolusi", "ditangani_oleh", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `komplain_pelanggan`;--> statement-breakpoint
-DROP TABLE `komplain_pelanggan`;--> statement-breakpoint
-ALTER TABLE `__new_komplain_pelanggan` RENAME TO `komplain_pelanggan`;--> statement-breakpoint
-CREATE TABLE `__new_kunjungan_sales` (
+CREATE TABLE `kredit_membership` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`pelanggan_id` integer NOT NULL,
+	`paket_id` integer NOT NULL,
+	`sisa_kuota` integer NOT NULL,
+	`tanggal_mulai` text NOT NULL,
+	`tanggal_expired` text,
+	`penjualan_id` integer,
+	`status` text DEFAULT 'aktif' NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`created_at` text,
+	`updated_at` text,
+	FOREIGN KEY (`pelanggan_id`) REFERENCES `pelanggan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`paket_id`) REFERENCES `paket_membership`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`penjualan_id`) REFERENCES `penjualan`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_kredit_kuota" CHECK("kredit_membership"."sisa_kuota" >= 0)
+);
+--> statement-breakpoint
+CREATE INDEX `idx_kredit_pelanggan` ON `kredit_membership` (`pelanggan_id`);--> statement-breakpoint
+CREATE INDEX `idx_kredit_status` ON `kredit_membership` (`status`);--> statement-breakpoint
+CREATE TABLE `kunjungan_sales` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`pelanggan_id` integer,
 	`nama_warung` text NOT NULL,
@@ -524,10 +646,7 @@ CREATE TABLE `__new_kunjungan_sales` (
 	FOREIGN KEY (`petugas_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_kunjungan_sales`("id", "pelanggan_id", "nama_warung", "alamat", "petugas_id", "tanggal", "tujuan", "hasil", "catatan", "status_tindak_lanjut", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "pelanggan_id", "nama_warung", "alamat", "petugas_id", "tanggal", "tujuan", "hasil", "catatan", "status_tindak_lanjut", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `kunjungan_sales`;--> statement-breakpoint
-DROP TABLE `kunjungan_sales`;--> statement-breakpoint
-ALTER TABLE `__new_kunjungan_sales` RENAME TO `kunjungan_sales`;--> statement-breakpoint
-CREATE TABLE `__new_lampiran` (
+CREATE TABLE `lampiran` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`referensi_tipe` text NOT NULL,
 	`referensi_id` integer NOT NULL,
@@ -542,11 +661,8 @@ CREATE TABLE `__new_lampiran` (
 	FOREIGN KEY (`uploaded_by`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_lampiran`("id", "referensi_tipe", "referensi_id", "tipe", "path", "thumb_path", "nama_asli", "ukuran", "uploaded_by", "dibuat_at", "tenant_id") SELECT "id", "referensi_tipe", "referensi_id", "tipe", "path", "thumb_path", "nama_asli", "ukuran", "uploaded_by", "dibuat_at", "tenant_id" FROM `lampiran`;--> statement-breakpoint
-DROP TABLE `lampiran`;--> statement-breakpoint
-ALTER TABLE `__new_lampiran` RENAME TO `lampiran`;--> statement-breakpoint
 CREATE INDEX `idx_lampiran_ref` ON `lampiran` (`referensi_tipe`,`referensi_id`);--> statement-breakpoint
-CREATE TABLE `__new_log_aktivitas` (
+CREATE TABLE `log_aktivitas` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer,
 	`aksi` text NOT NULL,
@@ -558,10 +674,54 @@ CREATE TABLE `__new_log_aktivitas` (
 	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_log_aktivitas`("id", "karyawan_id", "aksi", "modul", "referensi_id", "detail_json", "waktu", "ip_address") SELECT "id", "karyawan_id", "aksi", "modul", "referensi_id", "detail_json", "waktu", "ip_address" FROM `log_aktivitas`;--> statement-breakpoint
-DROP TABLE `log_aktivitas`;--> statement-breakpoint
-ALTER TABLE `__new_log_aktivitas` RENAME TO `log_aktivitas`;--> statement-breakpoint
-CREATE TABLE `__new_notifikasi_config` (
+CREATE TABLE `meja` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`kode_meja` text NOT NULL,
+	`nama` text,
+	`kapasitas` integer DEFAULT 2 NOT NULL,
+	`status` text DEFAULT 'kosong' NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
+	`created_at` text,
+	`updated_at` text
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `uidx_meja_kode` ON `meja` (`tenant_id`,`cabang_id`,`kode_meja`);--> statement-breakpoint
+CREATE INDEX `idx_meja_status` ON `meja` (`status`);--> statement-breakpoint
+CREATE TABLE `modifier` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`grup_modifier_id` integer NOT NULL,
+	`nama` text NOT NULL,
+	`harga_tambahan` integer DEFAULT 0 NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`grup_modifier_id`) REFERENCES `grup_modifier`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_modifier_harga" CHECK("modifier"."harga_tambahan" >= 0)
+);
+--> statement-breakpoint
+CREATE INDEX `idx_modifier_grup` ON `modifier` (`grup_modifier_id`);--> statement-breakpoint
+CREATE TABLE `mutasi_stok` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`barang_id` integer NOT NULL,
+	`tanggal` text NOT NULL,
+	`jenis` text NOT NULL,
+	`referensi_tipe` text,
+	`referensi_id` integer,
+	`jumlah_sebelum` real NOT NULL,
+	`jumlah_perubahan` real NOT NULL,
+	`jumlah_sesudah` real NOT NULL,
+	`dicatat_oleh` integer,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`dicatat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `idx_mutasi_stok_barang` ON `mutasi_stok` (`barang_id`);--> statement-breakpoint
+CREATE INDEX `idx_mutasi_stok_tanggal` ON `mutasi_stok` (`tanggal`);--> statement-breakpoint
+CREATE INDEX `idx_mutasi_stok_cabang` ON `mutasi_stok` (`cabang_id`);--> statement-breakpoint
+CREATE TABLE `notifikasi_config` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`jenis` text NOT NULL,
 	`aktif` integer DEFAULT false NOT NULL,
@@ -575,11 +735,8 @@ CREATE TABLE `__new_notifikasi_config` (
 	`tenant_id` integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
-INSERT INTO `__new_notifikasi_config`("id", "jenis", "aktif", "channel", "threshold", "jam_kirim", "hari_kirim", "penerima_wa", "terakhir_dikirim", "updated_at", "tenant_id") SELECT "id", "jenis", "aktif", "channel", "threshold", "jam_kirim", "hari_kirim", "penerima_wa", "terakhir_dikirim", "updated_at", "tenant_id" FROM `notifikasi_config`;--> statement-breakpoint
-DROP TABLE `notifikasi_config`;--> statement-breakpoint
-ALTER TABLE `__new_notifikasi_config` RENAME TO `notifikasi_config`;--> statement-breakpoint
 CREATE UNIQUE INDEX `notifikasi_config_jenis_unique` ON `notifikasi_config` (`jenis`);--> statement-breakpoint
-CREATE TABLE `__new_notifikasi_log` (
+CREATE TABLE `notifikasi_log` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`jenis` text NOT NULL,
 	`channel` text DEFAULT 'dashboard' NOT NULL,
@@ -592,11 +749,28 @@ CREATE TABLE `__new_notifikasi_log` (
 	`referensi_id` integer
 );
 --> statement-breakpoint
-INSERT INTO `__new_notifikasi_log`("id", "jenis", "channel", "pesan", "penerima", "status", "tenant_id", "waktu", "referensi_tipe", "referensi_id") SELECT "id", "jenis", "channel", "pesan", "penerima", "status", "tenant_id", "waktu", "referensi_tipe", "referensi_id" FROM `notifikasi_log`;--> statement-breakpoint
-DROP TABLE `notifikasi_log`;--> statement-breakpoint
-ALTER TABLE `__new_notifikasi_log` RENAME TO `notifikasi_log`;--> statement-breakpoint
 CREATE INDEX `idx_notif_log_ref` ON `notifikasi_log` (`referensi_tipe`,`referensi_id`,`waktu`);--> statement-breakpoint
-CREATE TABLE `__new_pelanggan` (
+CREATE TABLE `paket_membership` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`kode_paket` text NOT NULL,
+	`nama` text NOT NULL,
+	`barang_id` integer,
+	`jumlah_sesi` integer NOT NULL,
+	`harga` integer DEFAULT 0 NOT NULL,
+	`masa_berlaku_hari` integer DEFAULT 0 NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`created_by` integer,
+	`updated_by` integer,
+	`created_at` text,
+	`updated_at` text,
+	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_paket_sesi" CHECK("paket_membership"."jumlah_sesi" > 0),
+	CONSTRAINT "chk_paket_harga" CHECK("paket_membership"."harga" >= 0)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `paket_membership_kode_paket_unique` ON `paket_membership` (`kode_paket`);--> statement-breakpoint
+CREATE TABLE `pelanggan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`kode_pelanggan` text NOT NULL,
 	`nama` text NOT NULL,
@@ -614,11 +788,8 @@ CREATE TABLE `__new_pelanggan` (
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_pelanggan`("id", "kode_pelanggan", "nama", "gender", "tipe", "kontak", "alamat", "limit_piutang", "saldo_piutang", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "kode_pelanggan", "nama", "gender", "tipe", "kontak", "alamat", ROUND("limit_piutang"), ROUND("saldo_piutang"), "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `pelanggan`;--> statement-breakpoint
-DROP TABLE `pelanggan`;--> statement-breakpoint
-ALTER TABLE `__new_pelanggan` RENAME TO `pelanggan`;--> statement-breakpoint
 CREATE UNIQUE INDEX `pelanggan_kode_pelanggan_unique` ON `pelanggan` (`kode_pelanggan`);--> statement-breakpoint
-CREATE TABLE `__new_pembayaran_hutang` (
+CREATE TABLE `pembayaran_hutang` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`hutang_id` integer NOT NULL,
 	`tanggal_bayar` text NOT NULL,
@@ -633,10 +804,24 @@ CREATE TABLE `__new_pembayaran_hutang` (
 	FOREIGN KEY (`dibayar_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_pembayaran_hutang`("id", "hutang_id", "tanggal_bayar", "jumlah_bayar", "kas_bank_id", "dibayar_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "hutang_id", "tanggal_bayar", ROUND("jumlah_bayar"), "kas_bank_id", "dibayar_oleh", "tenant_id", "created_at", "updated_at" FROM `pembayaran_hutang`;--> statement-breakpoint
-DROP TABLE `pembayaran_hutang`;--> statement-breakpoint
-ALTER TABLE `__new_pembayaran_hutang` RENAME TO `pembayaran_hutang`;--> statement-breakpoint
-CREATE TABLE `__new_pembayaran_piutang` (
+CREATE TABLE `pembayaran_langganan` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`toko_id` integer NOT NULL,
+	`periode_bulan` integer DEFAULT 1 NOT NULL,
+	`nominal` integer DEFAULT 0 NOT NULL,
+	`bukti_path` text,
+	`status` text DEFAULT 'menunggu' NOT NULL,
+	`catatan_admin` text,
+	`diverifikasi_oleh` integer,
+	`created_at` text,
+	`updated_at` text,
+	FOREIGN KEY (`toko_id`) REFERENCES `toko`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`diverifikasi_oleh`) REFERENCES `platform_admin`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `idx_pembayaran_toko` ON `pembayaran_langganan` (`toko_id`);--> statement-breakpoint
+CREATE INDEX `idx_pembayaran_status` ON `pembayaran_langganan` (`status`);--> statement-breakpoint
+CREATE TABLE `pembayaran_piutang` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`piutang_id` integer NOT NULL,
 	`tanggal_bayar` text NOT NULL,
@@ -651,10 +836,7 @@ CREATE TABLE `__new_pembayaran_piutang` (
 	FOREIGN KEY (`diterima_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_pembayaran_piutang`("id", "piutang_id", "tanggal_bayar", "jumlah_bayar", "kas_bank_id", "diterima_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "piutang_id", "tanggal_bayar", ROUND("jumlah_bayar"), "kas_bank_id", "diterima_oleh", "tenant_id", "created_at", "updated_at" FROM `pembayaran_piutang`;--> statement-breakpoint
-DROP TABLE `pembayaran_piutang`;--> statement-breakpoint
-ALTER TABLE `__new_pembayaran_piutang` RENAME TO `pembayaran_piutang`;--> statement-breakpoint
-CREATE TABLE `__new_pengajuan_izin` (
+CREATE TABLE `pengajuan_izin` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer NOT NULL,
 	`jenis` text NOT NULL,
@@ -672,12 +854,9 @@ CREATE TABLE `__new_pengajuan_izin` (
 	FOREIGN KEY (`diproses_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_pengajuan_izin`("id", "karyawan_id", "jenis", "tanggal_mulai", "tanggal_selesai", "alasan", "bukti_path", "status", "diproses_oleh", "catatan_proses", "tenant_id", "created_at", "updated_at") SELECT "id", "karyawan_id", "jenis", "tanggal_mulai", "tanggal_selesai", "alasan", "bukti_path", "status", "diproses_oleh", "catatan_proses", "tenant_id", "created_at", "updated_at" FROM `pengajuan_izin`;--> statement-breakpoint
-DROP TABLE `pengajuan_izin`;--> statement-breakpoint
-ALTER TABLE `__new_pengajuan_izin` RENAME TO `pengajuan_izin`;--> statement-breakpoint
 CREATE INDEX `idx_izin_karyawan` ON `pengajuan_izin` (`karyawan_id`);--> statement-breakpoint
 CREATE INDEX `idx_izin_status` ON `pengajuan_izin` (`status`);--> statement-breakpoint
-CREATE TABLE `__new_penggajian` (
+CREATE TABLE `penggajian` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer NOT NULL,
 	`periode_bulan` text NOT NULL,
@@ -695,11 +874,8 @@ CREATE TABLE `__new_penggajian` (
 	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_penggajian`("id", "karyawan_id", "periode_bulan", "hari_kerja", "hari_hadir", "gaji_pokok", "tunjangan", "potongan_kasbon", "potongan_lain", "total_gaji", "status", "tenant_id", "created_at", "updated_at") SELECT "id", "karyawan_id", "periode_bulan", "hari_kerja", "hari_hadir", ROUND("gaji_pokok"), ROUND("tunjangan"), ROUND("potongan_kasbon"), ROUND("potongan_lain"), ROUND("total_gaji"), "status", "tenant_id", "created_at", "updated_at" FROM `penggajian`;--> statement-breakpoint
-DROP TABLE `penggajian`;--> statement-breakpoint
-ALTER TABLE `__new_penggajian` RENAME TO `penggajian`;--> statement-breakpoint
 CREATE INDEX `idx_penggajian_karyawan_bulan` ON `penggajian` (`karyawan_id`,`periode_bulan`);--> statement-breakpoint
-CREATE TABLE `__new_penjualan` (
+CREATE TABLE `penjualan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`no_transaksi` text NOT NULL,
 	`pelanggan_id` integer,
@@ -713,26 +889,29 @@ CREATE TABLE `__new_penjualan` (
 	`bayar` integer DEFAULT 0 NOT NULL,
 	`kembalian` integer DEFAULT 0 NOT NULL,
 	`status` text DEFAULT 'lunas' NOT NULL,
+	`tipe_layanan` text DEFAULT 'retail' NOT NULL,
+	`meja_id` integer,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	`created_at` text,
 	`updated_at` text,
 	FOREIGN KEY (`pelanggan_id`) REFERENCES `pelanggan`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`kasir_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "chk_penjualan_subtotal" CHECK("__new_penjualan"."subtotal" >= 0),
-	CONSTRAINT "chk_penjualan_total" CHECK("__new_penjualan"."total" >= 0),
-	CONSTRAINT "chk_penjualan_diskon" CHECK("__new_penjualan"."diskon_total" >= 0),
-	CONSTRAINT "chk_penjualan_bayar" CHECK("__new_penjualan"."bayar" >= 0),
-	CONSTRAINT "chk_penjualan_kembalian" CHECK("__new_penjualan"."kembalian" >= 0)
+	FOREIGN KEY (`meja_id`) REFERENCES `meja`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_penjualan_subtotal" CHECK("penjualan"."subtotal" >= 0),
+	CONSTRAINT "chk_penjualan_total" CHECK("penjualan"."total" >= 0),
+	CONSTRAINT "chk_penjualan_diskon" CHECK("penjualan"."diskon_total" >= 0),
+	CONSTRAINT "chk_penjualan_bayar" CHECK("penjualan"."bayar" >= 0),
+	CONSTRAINT "chk_penjualan_kembalian" CHECK("penjualan"."kembalian" >= 0)
 );
 --> statement-breakpoint
-INSERT INTO `__new_penjualan`("id", "no_transaksi", "pelanggan_id", "tanggal", "tipe", "kasir_id", "subtotal", "diskon_total", "total", "metode_bayar", "bayar", "kembalian", "status", "tenant_id", "created_at", "updated_at") SELECT "id", "no_transaksi", "pelanggan_id", "tanggal", "tipe", "kasir_id", ROUND("subtotal"), ROUND("diskon_total"), ROUND("total"), "metode_bayar", ROUND("bayar"), ROUND("kembalian"), "status", "tenant_id", "created_at", "updated_at" FROM `penjualan`;--> statement-breakpoint
-DROP TABLE `penjualan`;--> statement-breakpoint
-ALTER TABLE `__new_penjualan` RENAME TO `penjualan`;--> statement-breakpoint
 CREATE UNIQUE INDEX `penjualan_no_transaksi_unique` ON `penjualan` (`no_transaksi`);--> statement-breakpoint
 CREATE INDEX `idx_penjualan_tanggal` ON `penjualan` (`tanggal`);--> statement-breakpoint
 CREATE INDEX `idx_penjualan_status` ON `penjualan` (`status`);--> statement-breakpoint
 CREATE INDEX `idx_penjualan_kasir` ON `penjualan` (`kasir_id`);--> statement-breakpoint
-CREATE TABLE `__new_penjualan_detail` (
+CREATE INDEX `idx_penjualan_cabang` ON `penjualan` (`cabang_id`);--> statement-breakpoint
+CREATE INDEX `idx_penjualan_meja` ON `penjualan` (`meja_id`);--> statement-breakpoint
+CREATE TABLE `penjualan_detail` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`penjualan_id` integer NOT NULL,
 	`barang_id` integer NOT NULL,
@@ -741,21 +920,38 @@ CREATE TABLE `__new_penjualan_detail` (
 	`harga_jual` integer NOT NULL,
 	`diskon_item` integer DEFAULT 0 NOT NULL,
 	`subtotal` integer NOT NULL,
+	`status_kds` text,
+	`dilayani_oleh` integer,
+	`booking_id` integer,
+	`catatan` text,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	FOREIGN KEY (`penjualan_id`) REFERENCES `penjualan`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`satuan_id`) REFERENCES `satuan`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "chk_detail_jumlah_pos" CHECK("__new_penjualan_detail"."jumlah" > 0),
-	CONSTRAINT "chk_detail_harga_pos" CHECK("__new_penjualan_detail"."harga_jual" >= 0),
-	CONSTRAINT "chk_detail_diskon_pos" CHECK("__new_penjualan_detail"."diskon_item" >= 0),
-	CONSTRAINT "chk_detail_subtotal_pos" CHECK("__new_penjualan_detail"."subtotal" >= 0)
+	FOREIGN KEY (`dilayani_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`booking_id`) REFERENCES `booking`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_detail_jumlah_pos" CHECK("penjualan_detail"."jumlah" > 0),
+	CONSTRAINT "chk_detail_harga_pos" CHECK("penjualan_detail"."harga_jual" >= 0),
+	CONSTRAINT "chk_detail_diskon_pos" CHECK("penjualan_detail"."diskon_item" >= 0),
+	CONSTRAINT "chk_detail_subtotal_pos" CHECK("penjualan_detail"."subtotal" >= 0)
 );
 --> statement-breakpoint
-INSERT INTO `__new_penjualan_detail`("id", "penjualan_id", "barang_id", "satuan_id", "jumlah", "harga_jual", "diskon_item", "subtotal", "tenant_id") SELECT "id", "penjualan_id", "barang_id", "satuan_id", "jumlah", ROUND("harga_jual"), ROUND("diskon_item"), ROUND("subtotal"), "tenant_id" FROM `penjualan_detail`;--> statement-breakpoint
-DROP TABLE `penjualan_detail`;--> statement-breakpoint
-ALTER TABLE `__new_penjualan_detail` RENAME TO `penjualan_detail`;--> statement-breakpoint
 CREATE INDEX `idx_penjualan_detail_trx` ON `penjualan_detail` (`penjualan_id`);--> statement-breakpoint
-CREATE TABLE `__new_periode_laporan` (
+CREATE INDEX `idx_pd_kds` ON `penjualan_detail` (`status_kds`);--> statement-breakpoint
+CREATE TABLE `penjualan_detail_modifier` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`penjualan_detail_id` integer NOT NULL,
+	`modifier_id` integer NOT NULL,
+	`nama_snapshot` text NOT NULL,
+	`harga_snapshot` integer DEFAULT 0 NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`penjualan_detail_id`) REFERENCES `penjualan_detail`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`modifier_id`) REFERENCES `modifier`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE INDEX `idx_pdm_detail` ON `penjualan_detail_modifier` (`penjualan_detail_id`);--> statement-breakpoint
+CREATE TABLE `periode_laporan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`periode_mulai` text NOT NULL,
 	`periode_selesai` text NOT NULL,
@@ -770,10 +966,7 @@ CREATE TABLE `__new_periode_laporan` (
 	FOREIGN KEY (`diapprove_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_periode_laporan`("id", "periode_mulai", "periode_selesai", "tipe_laporan", "status", "data_json", "dibuat_oleh", "diapprove_oleh", "created_at", "updated_at") SELECT "id", "periode_mulai", "periode_selesai", "tipe_laporan", "status", "data_json", "dibuat_oleh", "diapprove_oleh", "created_at", "updated_at" FROM `periode_laporan`;--> statement-breakpoint
-DROP TABLE `periode_laporan`;--> statement-breakpoint
-ALTER TABLE `__new_periode_laporan` RENAME TO `periode_laporan`;--> statement-breakpoint
-CREATE TABLE `__new_permintaan_pelanggan` (
+CREATE TABLE `permintaan_pelanggan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`pelanggan_id` integer,
 	`nama_pelanggan` text,
@@ -794,10 +987,7 @@ CREATE TABLE `__new_permintaan_pelanggan` (
 	FOREIGN KEY (`ditangani_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_permintaan_pelanggan`("id", "pelanggan_id", "nama_pelanggan", "nama_barang", "barang_id", "qty_minta", "catatan", "status", "tanggal", "ditangani_oleh", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "pelanggan_id", "nama_pelanggan", "nama_barang", "barang_id", "qty_minta", "catatan", "status", "tanggal", "ditangani_oleh", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `permintaan_pelanggan`;--> statement-breakpoint
-DROP TABLE `permintaan_pelanggan`;--> statement-breakpoint
-ALTER TABLE `__new_permintaan_pelanggan` RENAME TO `permintaan_pelanggan`;--> statement-breakpoint
-CREATE TABLE `__new_pinjaman_investasi` (
+CREATE TABLE `pinjaman_investasi` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`tipe` text NOT NULL,
 	`nama` text NOT NULL,
@@ -816,10 +1006,7 @@ CREATE TABLE `__new_pinjaman_investasi` (
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_pinjaman_investasi`("id", "tipe", "nama", "jumlah_pokok", "bunga_persen", "cicilan_per_bulan", "tanggal_mulai", "jatuh_tempo", "sisa_pokok", "status", "catatan", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "tipe", "nama", "jumlah_pokok", "bunga_persen", "cicilan_per_bulan", "tanggal_mulai", "jatuh_tempo", "sisa_pokok", "status", "catatan", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `pinjaman_investasi`;--> statement-breakpoint
-DROP TABLE `pinjaman_investasi`;--> statement-breakpoint
-ALTER TABLE `__new_pinjaman_investasi` RENAME TO `pinjaman_investasi`;--> statement-breakpoint
-CREATE TABLE `__new_pipeline_grosir` (
+CREATE TABLE `pipeline_grosir` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama_pelanggan` text NOT NULL,
 	`pelanggan_id` integer,
@@ -839,11 +1026,8 @@ CREATE TABLE `__new_pipeline_grosir` (
 	FOREIGN KEY (`petugas_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_pipeline_grosir`("id", "nama_pelanggan", "pelanggan_id", "nilai_estimasi", "tahap", "petugas_id", "produk_minat", "catatan", "tanggal_masuk", "tanggal_update", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "nama_pelanggan", "pelanggan_id", "nilai_estimasi", "tahap", "petugas_id", "produk_minat", "catatan", "tanggal_masuk", "tanggal_update", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `pipeline_grosir`;--> statement-breakpoint
-DROP TABLE `pipeline_grosir`;--> statement-breakpoint
-ALTER TABLE `__new_pipeline_grosir` RENAME TO `pipeline_grosir`;--> statement-breakpoint
 CREATE INDEX `idx_pipeline_tahap` ON `pipeline_grosir` (`tahap`);--> statement-breakpoint
-CREATE TABLE `__new_piutang_pelanggan` (
+CREATE TABLE `piutang_pelanggan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`pelanggan_id` integer NOT NULL,
 	`penjualan_id` integer NOT NULL,
@@ -859,17 +1043,25 @@ CREATE TABLE `__new_piutang_pelanggan` (
 	`updated_at` text,
 	FOREIGN KEY (`pelanggan_id`) REFERENCES `pelanggan`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`penjualan_id`) REFERENCES `penjualan`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "chk_piutang_total_pos" CHECK("__new_piutang_pelanggan"."total_piutang" > 0),
-	CONSTRAINT "chk_piutang_sisa_pos" CHECK("__new_piutang_pelanggan"."sisa_piutang" >= 0),
-	CONSTRAINT "chk_piutang_sisa_lte_total" CHECK("__new_piutang_pelanggan"."sisa_piutang" <= "__new_piutang_pelanggan"."total_piutang")
+	CONSTRAINT "chk_piutang_total_pos" CHECK("piutang_pelanggan"."total_piutang" > 0),
+	CONSTRAINT "chk_piutang_sisa_pos" CHECK("piutang_pelanggan"."sisa_piutang" >= 0),
+	CONSTRAINT "chk_piutang_sisa_lte_total" CHECK("piutang_pelanggan"."sisa_piutang" <= "piutang_pelanggan"."total_piutang")
 );
 --> statement-breakpoint
-INSERT INTO `__new_piutang_pelanggan`("id", "pelanggan_id", "penjualan_id", "tanggal_piutang", "tanggal_jatuh_tempo", "total_piutang", "sisa_piutang", "status", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "pelanggan_id", "penjualan_id", "tanggal_piutang", "tanggal_jatuh_tempo", ROUND("total_piutang"), ROUND("sisa_piutang"), "status", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `piutang_pelanggan`;--> statement-breakpoint
-DROP TABLE `piutang_pelanggan`;--> statement-breakpoint
-ALTER TABLE `__new_piutang_pelanggan` RENAME TO `piutang_pelanggan`;--> statement-breakpoint
 CREATE INDEX `idx_piutang_status` ON `piutang_pelanggan` (`status`);--> statement-breakpoint
 CREATE INDEX `idx_piutang_jatuh` ON `piutang_pelanggan` (`tanggal_jatuh_tempo`);--> statement-breakpoint
-CREATE TABLE `__new_po_detail` (
+CREATE TABLE `platform_admin` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`username` text NOT NULL,
+	`password_hash` text NOT NULL,
+	`nama` text NOT NULL,
+	`is_active` integer DEFAULT true NOT NULL,
+	`created_at` text,
+	`updated_at` text
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `platform_admin_username_unique` ON `platform_admin` (`username`);--> statement-breakpoint
+CREATE TABLE `po_detail` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`po_id` integer NOT NULL,
 	`barang_id` integer NOT NULL,
@@ -883,10 +1075,7 @@ CREATE TABLE `__new_po_detail` (
 	FOREIGN KEY (`satuan_id`) REFERENCES `satuan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_po_detail`("id", "po_id", "barang_id", "satuan_id", "jumlah_pesan", "jumlah_diterima", "harga_beli_estimasi", "tenant_id") SELECT "id", "po_id", "barang_id", "satuan_id", "jumlah_pesan", "jumlah_diterima", ROUND("harga_beli_estimasi"), "tenant_id" FROM `po_detail`;--> statement-breakpoint
-DROP TABLE `po_detail`;--> statement-breakpoint
-ALTER TABLE `__new_po_detail` RENAME TO `po_detail`;--> statement-breakpoint
-CREATE TABLE `__new_preferensi_pengguna` (
+CREATE TABLE `preferensi_pengguna` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer NOT NULL,
 	`modul` text NOT NULL,
@@ -895,11 +1084,8 @@ CREATE TABLE `__new_preferensi_pengguna` (
 	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_preferensi_pengguna`("id", "karyawan_id", "modul", "nilai_json", "updated_at") SELECT "id", "karyawan_id", "modul", "nilai_json", "updated_at" FROM `preferensi_pengguna`;--> statement-breakpoint
-DROP TABLE `preferensi_pengguna`;--> statement-breakpoint
-ALTER TABLE `__new_preferensi_pengguna` RENAME TO `preferensi_pengguna`;--> statement-breakpoint
 CREATE UNIQUE INDEX `uq_preferensi_pengguna` ON `preferensi_pengguna` (`karyawan_id`,`modul`);--> statement-breakpoint
-CREATE TABLE `__new_promo` (
+CREATE TABLE `promo` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama` text NOT NULL,
 	`deskripsi` text,
@@ -920,10 +1106,16 @@ CREATE TABLE `__new_promo` (
 	FOREIGN KEY (`dibuat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_promo`("id", "nama", "deskripsi", "tipe", "nilai", "tipe_nilai", "min_qty", "min_total", "berlaku_mulai", "berlaku_sampai", "max_penggunaan", "jumlah_dipakai", "aktif", "dibuat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "nama", "deskripsi", "tipe", "nilai", "tipe_nilai", "min_qty", ROUND("min_total"), "berlaku_mulai", "berlaku_sampai", "max_penggunaan", "jumlah_dipakai", "aktif", "dibuat_oleh", "tenant_id", "created_at", "updated_at" FROM `promo`;--> statement-breakpoint
-DROP TABLE `promo`;--> statement-breakpoint
-ALTER TABLE `__new_promo` RENAME TO `promo`;--> statement-breakpoint
-CREATE TABLE `__new_purchase_order` (
+CREATE TABLE `promo_target` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`promo_id` integer NOT NULL,
+	`target_tipe` text NOT NULL,
+	`target_id` integer NOT NULL,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`promo_id`) REFERENCES `promo`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `purchase_order` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`no_po` text NOT NULL,
 	`supplier_id` integer NOT NULL,
@@ -939,11 +1131,23 @@ CREATE TABLE `__new_purchase_order` (
 	FOREIGN KEY (`dibuat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_purchase_order`("id", "no_po", "supplier_id", "tanggal_po", "tanggal_estimasi_datang", "status", "total_nilai", "dibuat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "no_po", "supplier_id", "tanggal_po", "tanggal_estimasi_datang", "status", ROUND("total_nilai"), "dibuat_oleh", "tenant_id", "created_at", "updated_at" FROM `purchase_order`;--> statement-breakpoint
-DROP TABLE `purchase_order`;--> statement-breakpoint
-ALTER TABLE `__new_purchase_order` RENAME TO `purchase_order`;--> statement-breakpoint
 CREATE UNIQUE INDEX `purchase_order_no_po_unique` ON `purchase_order` (`no_po`);--> statement-breakpoint
-CREATE TABLE `__new_retur_penjualan` (
+CREATE TABLE `resep` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`barang_id` integer NOT NULL,
+	`bahan_baku_id` integer NOT NULL,
+	`jumlah` real NOT NULL,
+	`satuan_id` integer,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`bahan_baku_id`) REFERENCES `bahan_baku`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`satuan_id`) REFERENCES `satuan`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "chk_resep_jumlah" CHECK("resep"."jumlah" > 0)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `uidx_resep_menu_bahan` ON `resep` (`barang_id`,`bahan_baku_id`);--> statement-breakpoint
+CREATE INDEX `idx_resep_barang` ON `resep` (`barang_id`);--> statement-breakpoint
+CREATE TABLE `retur_penjualan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`no_retur` text NOT NULL,
 	`penjualan_id` integer NOT NULL,
@@ -955,6 +1159,7 @@ CREATE TABLE `__new_retur_penjualan` (
 	`kas_bank_id` integer,
 	`catatan` text,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	`created_at` text,
 	`updated_at` text,
 	FOREIGN KEY (`penjualan_id`) REFERENCES `penjualan`(`id`) ON UPDATE no action ON DELETE no action,
@@ -962,11 +1167,8 @@ CREATE TABLE `__new_retur_penjualan` (
 	FOREIGN KEY (`kas_bank_id`) REFERENCES `kas_bank`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_retur_penjualan`("id", "no_retur", "penjualan_id", "tanggal", "kasir_id", "total_retur", "alasan", "metode_refund", "kas_bank_id", "catatan", "tenant_id", "created_at", "updated_at") SELECT "id", "no_retur", "penjualan_id", "tanggal", "kasir_id", ROUND("total_retur"), "alasan", "metode_refund", "kas_bank_id", "catatan", "tenant_id", "created_at", "updated_at" FROM `retur_penjualan`;--> statement-breakpoint
-DROP TABLE `retur_penjualan`;--> statement-breakpoint
-ALTER TABLE `__new_retur_penjualan` RENAME TO `retur_penjualan`;--> statement-breakpoint
 CREATE UNIQUE INDEX `retur_penjualan_no_retur_unique` ON `retur_penjualan` (`no_retur`);--> statement-breakpoint
-CREATE TABLE `__new_retur_penjualan_detail` (
+CREATE TABLE `retur_penjualan_detail` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`retur_id` integer NOT NULL,
 	`barang_id` integer NOT NULL,
@@ -975,15 +1177,13 @@ CREATE TABLE `__new_retur_penjualan_detail` (
 	`harga_jual` integer NOT NULL,
 	`subtotal` integer NOT NULL,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	FOREIGN KEY (`retur_id`) REFERENCES `retur_penjualan`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`satuan_id`) REFERENCES `satuan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_retur_penjualan_detail`("id", "retur_id", "barang_id", "satuan_id", "jumlah_retur", "harga_jual", "subtotal", "tenant_id") SELECT "id", "retur_id", "barang_id", "satuan_id", "jumlah_retur", ROUND("harga_jual"), ROUND("subtotal"), "tenant_id" FROM `retur_penjualan_detail`;--> statement-breakpoint
-DROP TABLE `retur_penjualan_detail`;--> statement-breakpoint
-ALTER TABLE `__new_retur_penjualan_detail` RENAME TO `retur_penjualan_detail`;--> statement-breakpoint
-CREATE TABLE `__new_retur_penjualan_tukar` (
+CREATE TABLE `retur_penjualan_tukar` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`retur_id` integer NOT NULL,
 	`barang_id` integer NOT NULL,
@@ -992,15 +1192,13 @@ CREATE TABLE `__new_retur_penjualan_tukar` (
 	`harga_jual` integer NOT NULL,
 	`subtotal` integer NOT NULL,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	FOREIGN KEY (`retur_id`) REFERENCES `retur_penjualan`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`satuan_id`) REFERENCES `satuan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_retur_penjualan_tukar`("id", "retur_id", "barang_id", "satuan_id", "jumlah", "harga_jual", "subtotal", "tenant_id") SELECT "id", "retur_id", "barang_id", "satuan_id", "jumlah", ROUND("harga_jual"), ROUND("subtotal"), "tenant_id" FROM `retur_penjualan_tukar`;--> statement-breakpoint
-DROP TABLE `retur_penjualan_tukar`;--> statement-breakpoint
-ALTER TABLE `__new_retur_penjualan_tukar` RENAME TO `retur_penjualan_tukar`;--> statement-breakpoint
-CREATE TABLE `__new_retur_supplier` (
+CREATE TABLE `retur_supplier` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`no_retur` text NOT NULL,
 	`barang_masuk_id` integer NOT NULL,
@@ -1014,6 +1212,7 @@ CREATE TABLE `__new_retur_supplier` (
 	`kas_bank_id` integer,
 	`catatan` text,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	`created_at` text,
 	`updated_at` text,
 	FOREIGN KEY (`barang_masuk_id`) REFERENCES `barang_masuk`(`id`) ON UPDATE no action ON DELETE no action,
@@ -1023,13 +1222,11 @@ CREATE TABLE `__new_retur_supplier` (
 	FOREIGN KEY (`kas_bank_id`) REFERENCES `kas_bank`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_retur_supplier`("id", "no_retur", "barang_masuk_id", "supplier_id", "tanggal", "dicatat_oleh", "total_retur", "alasan", "metode_refund", "hutang_id", "kas_bank_id", "catatan", "tenant_id", "created_at", "updated_at") SELECT "id", "no_retur", "barang_masuk_id", "supplier_id", "tanggal", "dicatat_oleh", ROUND("total_retur"), "alasan", "metode_refund", "hutang_id", "kas_bank_id", "catatan", "tenant_id", "created_at", "updated_at" FROM `retur_supplier`;--> statement-breakpoint
-DROP TABLE `retur_supplier`;--> statement-breakpoint
-ALTER TABLE `__new_retur_supplier` RENAME TO `retur_supplier`;--> statement-breakpoint
 CREATE UNIQUE INDEX `retur_supplier_no_retur_unique` ON `retur_supplier` (`no_retur`);--> statement-breakpoint
 CREATE INDEX `idx_retur_sup_bm` ON `retur_supplier` (`barang_masuk_id`);--> statement-breakpoint
 CREATE INDEX `idx_retur_sup_supplier` ON `retur_supplier` (`supplier_id`);--> statement-breakpoint
-CREATE TABLE `__new_retur_supplier_detail` (
+CREATE INDEX `idx_retur_sup_cabang` ON `retur_supplier` (`cabang_id`);--> statement-breakpoint
+CREATE TABLE `retur_supplier_detail` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`retur_id` integer NOT NULL,
 	`barang_id` integer NOT NULL,
@@ -1037,14 +1234,12 @@ CREATE TABLE `__new_retur_supplier_detail` (
 	`harga_beli` integer NOT NULL,
 	`subtotal` integer NOT NULL,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	FOREIGN KEY (`retur_id`) REFERENCES `retur_supplier`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_retur_supplier_detail`("id", "retur_id", "barang_id", "jumlah_retur", "harga_beli", "subtotal", "tenant_id") SELECT "id", "retur_id", "barang_id", "jumlah_retur", ROUND("harga_beli"), ROUND("subtotal"), "tenant_id" FROM `retur_supplier_detail`;--> statement-breakpoint
-DROP TABLE `retur_supplier_detail`;--> statement-breakpoint
-ALTER TABLE `__new_retur_supplier_detail` RENAME TO `retur_supplier_detail`;--> statement-breakpoint
-CREATE TABLE `__new_sanksi_insentif` (
+CREATE TABLE `sanksi_insentif` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer NOT NULL,
 	`tipe` text NOT NULL,
@@ -1061,11 +1256,19 @@ CREATE TABLE `__new_sanksi_insentif` (
 	FOREIGN KEY (`dicatat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_sanksi_insentif`("id", "karyawan_id", "tipe", "jenis", "jumlah", "tanggal", "keterangan", "periode_bulan", "dicatat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "karyawan_id", "tipe", "jenis", ROUND("jumlah"), "tanggal", "keterangan", "periode_bulan", "dicatat_oleh", "tenant_id", "created_at", "updated_at" FROM `sanksi_insentif`;--> statement-breakpoint
-DROP TABLE `sanksi_insentif`;--> statement-breakpoint
-ALTER TABLE `__new_sanksi_insentif` RENAME TO `sanksi_insentif`;--> statement-breakpoint
 CREATE INDEX `idx_si_karyawan_bulan` ON `sanksi_insentif` (`karyawan_id`,`periode_bulan`);--> statement-breakpoint
-CREATE TABLE `__new_shift_kasir` (
+CREATE TABLE `satuan` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`nama` text NOT NULL,
+	`singkatan` text NOT NULL,
+	`contoh` text,
+	`is_preset` integer DEFAULT false NOT NULL,
+	`created_by` integer,
+	`updated_by` integer
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `satuan_nama_unique` ON `satuan` (`nama`);--> statement-breakpoint
+CREATE TABLE `shift_kasir` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`karyawan_id` integer NOT NULL,
 	`tanggal` text NOT NULL,
@@ -1080,6 +1283,7 @@ CREATE TABLE `__new_shift_kasir` (
 	`catatan` text,
 	`status` text DEFAULT 'buka' NOT NULL,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	`created_by` integer,
 	`updated_by` integer,
 	`created_at` text,
@@ -1087,10 +1291,7 @@ CREATE TABLE `__new_shift_kasir` (
 	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_shift_kasir`("id", "karyawan_id", "tanggal", "jam_buka", "jam_tutup", "kas_awal", "kas_fisik", "kas_sistem", "selisih_kas", "jumlah_transaksi", "total_penjualan", "catatan", "status", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "karyawan_id", "tanggal", "jam_buka", "jam_tutup", ROUND("kas_awal"), ROUND("kas_fisik"), ROUND("kas_sistem"), ROUND("selisih_kas"), "jumlah_transaksi", ROUND("total_penjualan"), "catatan", "status", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `shift_kasir`;--> statement-breakpoint
-DROP TABLE `shift_kasir`;--> statement-breakpoint
-ALTER TABLE `__new_shift_kasir` RENAME TO `shift_kasir`;--> statement-breakpoint
-CREATE TABLE `__new_sop_instance` (
+CREATE TABLE `sop_instance` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`rule_id` integer NOT NULL,
 	`karyawan_id` integer,
@@ -1103,13 +1304,10 @@ CREATE TABLE `__new_sop_instance` (
 	FOREIGN KEY (`karyawan_id`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_sop_instance`("id", "rule_id", "karyawan_id", "status", "payload_json", "hasil_json", "dibuat_at", "diselesaikan_at") SELECT "id", "rule_id", "karyawan_id", "status", "payload_json", "hasil_json", "dibuat_at", "diselesaikan_at" FROM `sop_instance`;--> statement-breakpoint
-DROP TABLE `sop_instance`;--> statement-breakpoint
-ALTER TABLE `__new_sop_instance` RENAME TO `sop_instance`;--> statement-breakpoint
 CREATE INDEX `idx_sop_instance_rule` ON `sop_instance` (`rule_id`);--> statement-breakpoint
 CREATE INDEX `idx_sop_instance_karyawan` ON `sop_instance` (`karyawan_id`);--> statement-breakpoint
 CREATE INDEX `idx_sop_instance_status` ON `sop_instance` (`status`);--> statement-breakpoint
-CREATE TABLE `__new_sop_rule` (
+CREATE TABLE `sop_rule` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama` text NOT NULL,
 	`event_name` text NOT NULL,
@@ -1123,11 +1321,8 @@ CREATE TABLE `__new_sop_rule` (
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_sop_rule`("id", "nama", "event_name", "tipe", "deskripsi", "config_json", "is_active", "urutan", "tenant_id", "created_at", "updated_at") SELECT "id", "nama", "event_name", "tipe", "deskripsi", "config_json", "is_active", "urutan", "tenant_id", "created_at", "updated_at" FROM `sop_rule`;--> statement-breakpoint
-DROP TABLE `sop_rule`;--> statement-breakpoint
-ALTER TABLE `__new_sop_rule` RENAME TO `sop_rule`;--> statement-breakpoint
 CREATE INDEX `idx_sop_rule_event` ON `sop_rule` (`event_name`);--> statement-breakpoint
-CREATE TABLE `__new_stok_opname` (
+CREATE TABLE `stok_opname` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`no_opname` text NOT NULL,
 	`tanggal_mulai` text NOT NULL,
@@ -1135,16 +1330,30 @@ CREATE TABLE `__new_stok_opname` (
 	`status` text DEFAULT 'draft' NOT NULL,
 	`diapprove_oleh` integer,
 	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
 	`created_at` text,
 	`updated_at` text,
 	FOREIGN KEY (`diapprove_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_stok_opname`("id", "no_opname", "tanggal_mulai", "tanggal_selesai", "status", "diapprove_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "no_opname", "tanggal_mulai", "tanggal_selesai", "status", "diapprove_oleh", "tenant_id", "created_at", "updated_at" FROM `stok_opname`;--> statement-breakpoint
-DROP TABLE `stok_opname`;--> statement-breakpoint
-ALTER TABLE `__new_stok_opname` RENAME TO `stok_opname`;--> statement-breakpoint
 CREATE UNIQUE INDEX `stok_opname_no_opname_unique` ON `stok_opname` (`no_opname`);--> statement-breakpoint
-CREATE TABLE `__new_supplier` (
+CREATE TABLE `stok_opname_detail` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`opname_id` integer NOT NULL,
+	`barang_id` integer NOT NULL,
+	`stok_sistem` real NOT NULL,
+	`stok_fisik` real,
+	`selisih` real,
+	`alasan_selisih` text,
+	`dihitung_oleh` integer,
+	`tenant_id` integer DEFAULT 1 NOT NULL,
+	`cabang_id` integer DEFAULT 1 NOT NULL,
+	FOREIGN KEY (`opname_id`) REFERENCES `stok_opname`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`barang_id`) REFERENCES `barang`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`dihitung_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE TABLE `supplier` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`kode_supplier` text NOT NULL,
 	`nama_supplier` text NOT NULL,
@@ -1160,11 +1369,8 @@ CREATE TABLE `__new_supplier` (
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_supplier`("id", "kode_supplier", "nama_supplier", "kontak", "alamat", "terms_bayar", "limit_hutang", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "kode_supplier", "nama_supplier", "kontak", "alamat", "terms_bayar", ROUND("limit_hutang"), "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `supplier`;--> statement-breakpoint
-DROP TABLE `supplier`;--> statement-breakpoint
-ALTER TABLE `__new_supplier` RENAME TO `supplier`;--> statement-breakpoint
 CREATE UNIQUE INDEX `supplier_kode_supplier_unique` ON `supplier` (`kode_supplier`);--> statement-breakpoint
-CREATE TABLE `__new_tagihan_utilitas` (
+CREATE TABLE `tagihan_utilitas` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`jenis` text DEFAULT 'listrik' NOT NULL,
 	`periode_bulan` text NOT NULL,
@@ -1180,10 +1386,7 @@ CREATE TABLE `__new_tagihan_utilitas` (
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_tagihan_utilitas`("id", "jenis", "periode_bulan", "jumlah", "tanggal_bayar", "meter_awal", "meter_akhir", "catatan", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "jenis", "periode_bulan", "jumlah", "tanggal_bayar", "meter_awal", "meter_akhir", "catatan", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `tagihan_utilitas`;--> statement-breakpoint
-DROP TABLE `tagihan_utilitas`;--> statement-breakpoint
-ALTER TABLE `__new_tagihan_utilitas` RENAME TO `tagihan_utilitas`;--> statement-breakpoint
-CREATE TABLE `__new_tamu_birokrasi` (
+CREATE TABLE `tamu_birokrasi` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama_tamu` text NOT NULL,
 	`instansi` text,
@@ -1199,10 +1402,7 @@ CREATE TABLE `__new_tamu_birokrasi` (
 	FOREIGN KEY (`dicatat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_tamu_birokrasi`("id", "nama_tamu", "instansi", "keperluan", "tanggal", "jam_masuk", "jam_keluar", "keterangan", "dicatat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "nama_tamu", "instansi", "keperluan", "tanggal", "jam_masuk", "jam_keluar", "keterangan", "dicatat_oleh", "tenant_id", "created_at", "updated_at" FROM `tamu_birokrasi`;--> statement-breakpoint
-DROP TABLE `tamu_birokrasi`;--> statement-breakpoint
-ALTER TABLE `__new_tamu_birokrasi` RENAME TO `tamu_birokrasi`;--> statement-breakpoint
-CREATE TABLE `__new_target_penjualan` (
+CREATE TABLE `target_penjualan` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`periode_bulan` text NOT NULL,
 	`target_omzet` integer DEFAULT 0 NOT NULL,
@@ -1216,11 +1416,8 @@ CREATE TABLE `__new_target_penjualan` (
 	FOREIGN KEY (`dibuat_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_target_penjualan`("id", "periode_bulan", "target_omzet", "target_transaksi", "target_margin_pct", "catatan", "dibuat_oleh", "tenant_id", "created_at", "updated_at") SELECT "id", "periode_bulan", ROUND("target_omzet"), "target_transaksi", "target_margin_pct", "catatan", "dibuat_oleh", "tenant_id", "created_at", "updated_at" FROM `target_penjualan`;--> statement-breakpoint
-DROP TABLE `target_penjualan`;--> statement-breakpoint
-ALTER TABLE `__new_target_penjualan` RENAME TO `target_penjualan`;--> statement-breakpoint
 CREATE UNIQUE INDEX `target_penjualan_periode_bulan_unique` ON `target_penjualan` (`periode_bulan`);--> statement-breakpoint
-CREATE TABLE `__new_tipe_shift` (
+CREATE TABLE `tipe_shift` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`nama` text NOT NULL,
 	`jam_mulai` text NOT NULL,
@@ -1234,21 +1431,34 @@ CREATE TABLE `__new_tipe_shift` (
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_tipe_shift`("id", "nama", "jam_mulai", "jam_selesai", "warna", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at") SELECT "id", "nama", "jam_mulai", "jam_selesai", "warna", "is_active", "tenant_id", "created_by", "updated_by", "created_at", "updated_at" FROM `tipe_shift`;--> statement-breakpoint
-DROP TABLE `tipe_shift`;--> statement-breakpoint
-ALTER TABLE `__new_tipe_shift` RENAME TO `tipe_shift`;--> statement-breakpoint
-CREATE TABLE `__new_toko_settings` (
+CREATE TABLE `toko` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`key` text NOT NULL,
-	`value` text,
+	`kode_toko` text NOT NULL,
+	`nama` text NOT NULL,
+	`alamat` text,
+	`is_active` integer DEFAULT true NOT NULL,
+	`status_langganan` text DEFAULT 'trial' NOT NULL,
+	`trial_berakhir` text,
+	`aktif_sampai` text,
+	`hapus_terjadwal` text,
+	`email_pemilik` text,
+	`wa_pemilik` text,
+	`created_at` text,
 	`updated_at` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_toko_settings`("id", "key", "value", "updated_at") SELECT "id", "key", "value", "updated_at" FROM `toko_settings`;--> statement-breakpoint
-DROP TABLE `toko_settings`;--> statement-breakpoint
-ALTER TABLE `__new_toko_settings` RENAME TO `toko_settings`;--> statement-breakpoint
-CREATE UNIQUE INDEX `toko_settings_key_unique` ON `toko_settings` (`key`);--> statement-breakpoint
-CREATE TABLE `__new_tukar_shift` (
+CREATE UNIQUE INDEX `toko_kode_toko_unique` ON `toko` (`kode_toko`);--> statement-breakpoint
+CREATE TABLE `toko_settings` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`toko_id` integer DEFAULT 1 NOT NULL,
+	`key` text NOT NULL,
+	`value` text,
+	`updated_at` text,
+	FOREIGN KEY (`toko_id`) REFERENCES `toko`(`id`) ON UPDATE no action ON DELETE no action
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `uidx_toko_settings_key` ON `toko_settings` (`toko_id`,`key`);--> statement-breakpoint
+CREATE TABLE `tukar_shift` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`pengaju_id` integer NOT NULL,
 	`jadwal_id` integer NOT NULL,
@@ -1268,7 +1478,11 @@ CREATE TABLE `__new_tukar_shift` (
 	FOREIGN KEY (`diproses_oleh`) REFERENCES `karyawan`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_tukar_shift`("id", "pengaju_id", "jadwal_id", "penerima_id", "jadwal_penerima_id", "alasan", "status", "diproses_oleh", "catatan_proses", "tenant_id", "created_at", "updated_at") SELECT "id", "pengaju_id", "jadwal_id", "penerima_id", "jadwal_penerima_id", "alasan", "status", "diproses_oleh", "catatan_proses", "tenant_id", "created_at", "updated_at" FROM `tukar_shift`;--> statement-breakpoint
-DROP TABLE `tukar_shift`;--> statement-breakpoint
-ALTER TABLE `__new_tukar_shift` RENAME TO `tukar_shift`;--> statement-breakpoint
-PRAGMA foreign_keys=ON;
+CREATE TABLE `wa_templates` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`kode` text NOT NULL,
+	`teks` text NOT NULL,
+	`aktif` integer DEFAULT true NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `wa_templates_kode_unique` ON `wa_templates` (`kode`);

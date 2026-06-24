@@ -455,6 +455,7 @@ CREATE TABLE `karyawan` (
 	`nama` text NOT NULL,
 	`role` text NOT NULL,
 	`username` text NOT NULL,
+	`email` text,
 	`password_hash` text NOT NULL,
 	`gaji_pokok` bigint NOT NULL DEFAULT 0,
 	`tipe_gaji` text NOT NULL DEFAULT ('bulanan'),
@@ -468,7 +469,8 @@ CREATE TABLE `karyawan` (
 	`updated_at` text,
 	CONSTRAINT `karyawan_id` PRIMARY KEY(`id`),
 	CONSTRAINT `karyawan_kode_karyawan_unique` UNIQUE(`kode_karyawan`),
-	CONSTRAINT `karyawan_username_unique` UNIQUE(`username`)
+	CONSTRAINT `karyawan_username_unique` UNIQUE(`username`),
+	CONSTRAINT `karyawan_email_unique` UNIQUE(`email`)
 );
 --> statement-breakpoint
 CREATE TABLE `kas_bank` (
@@ -1320,6 +1322,7 @@ CREATE TABLE `toko` (
 	`status_langganan` text NOT NULL DEFAULT ('trial'),
 	`trial_berakhir` text,
 	`aktif_sampai` text,
+	`hapus_terjadwal` text,
 	`email_pemilik` text,
 	`wa_pemilik` text,
 	`created_at` text,
