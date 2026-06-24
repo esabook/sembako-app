@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Self-service profil + lifecycle toko. Semua role: edit info + ganti password.
+	// Self-service profil + lifecycle toko. Semua role: edit info + ganti password + ganti PIN.
 	// Pemilik: zona bahaya (nonaktif / hapus toko 30 hari) dgn konfirmasi password + survei.
 	// Saat toko nonaktif / dijadwalkan hapus (isReadonly): form dikunci, zona bahaya disembunyikan,
 	// hanya banner pemulihan (aktifkan / batalkan) yang aktif.
@@ -8,6 +8,7 @@
 	import { user } from '$lib/stores/auth';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
+	import { rupiah } from '$lib/utils/format';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 
 	type Profil = {
@@ -19,6 +20,9 @@
 		email: string | null;
 		kontak: string | null;
 		foto_path: string | null;
+		gaji_pokok: number;
+		tipe_gaji: string;
+		has_pin: boolean;
 		status_toko: string | null;
 		hapus_terjadwal: string | null;
 		sisa_hari_hapus: number | null;
@@ -38,15 +42,20 @@
 
 	// Form info akun
 	let nama = $state('');
-	let email = $state('');
-	let kontak = $state('');
 	let simpanInfo = $state(false);
 
 	// Form password
+	let pwTampil = $state(false);
 	let pwLama = $state('');
 	let pwBaru = $state('');
 	let pwKonfirmasi = $state('');
 	let simpanPw = $state(false);
+
+	// Form PIN
+	let pinLama = $state('');
+	let pinBaru = $state('');
+	let pinKonfirmasi = $state('');
+	let simpanPin = $state(false);
 
 	// Modal destruktif
 	let dlgMode = $state<null | 'hapus' | 'nonaktif'>(null);
@@ -60,14 +69,20 @@
 		!!profil && (profil.status_toko === 'deactivated' || profil.sisa_hari_hapus !== null)
 	);
 
+	function inisial(nama: string) {
+		return nama
+			.split(' ')
+			.slice(0, 2)
+			.map((w) => w[0]?.toUpperCase() ?? '')
+			.join('');
+	}
+
 	async function muat() {
 		loading = true;
 		const res = await api.get<Profil>('/akun/profil');
 		if (res.success) {
 			profil = res.data;
 			nama = res.data.nama;
-			email = res.data.email ?? '';
-			kontak = res.data.kontak ?? '';
 		} else {
 			toast.error(res.error || 'Gagal memuat profil');
 		}
@@ -77,11 +92,7 @@
 	async function simpanInfoAkun(e: Event) {
 		e.preventDefault();
 		simpanInfo = true;
-		const res = await api.put('/akun/profil', {
-			nama: nama.trim(),
-			email: email.trim() || null,
-			kontak: kontak.trim() || null
-		});
+		const res = await api.put('/akun/profil', { nama: nama.trim() });
 		simpanInfo = false;
 		if (res.success) {
 			toast.sukses('Profil diperbarui.');
@@ -101,8 +112,27 @@
 		if (res.success) {
 			toast.sukses('Password diubah.');
 			pwLama = pwBaru = pwKonfirmasi = '';
+			pwTampil = false;
 		} else {
 			toast.error(res.error || 'Gagal mengubah password');
+		}
+	}
+
+	async function gantiPin(e: Event) {
+		e.preventDefault();
+		if (!/^\d{4}$/.test(pinBaru)) return toast.error('PIN harus 4 digit angka');
+		if (pinBaru !== pinKonfirmasi) return toast.error('Konfirmasi PIN tidak cocok');
+		simpanPin = true;
+		const body: Record<string, string> = { baru: pinBaru };
+		if (profil?.has_pin) body.lama = pinLama;
+		const res = await api.post('/akun/ganti-pin', body);
+		simpanPin = false;
+		if (res.success) {
+			toast.sukses('PIN absensi diubah.');
+			pinLama = pinBaru = pinKonfirmasi = '';
+			await muat();
+		} else {
+			toast.error(res.error || 'Gagal mengubah PIN');
 		}
 	}
 
@@ -163,6 +193,37 @@
 		<p class="mt-0.5 text-xs" style="color:var(--text-dim)">Kelola data diri & keamanan akun</p>
 	</div>
 
+	<!-- Banner privasi akun -->
+	<div
+		class="flex items-start gap-3 rounded border p-3 text-xs"
+		style="background:color-mix(in srgb,var(--info,#3b82f6) 8%,transparent);border-color:color-mix(in srgb,var(--info,#3b82f6) 30%,transparent);color:var(--text-dim)"
+	>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			class="mt-0.5 shrink-0"
+			style="color:var(--info,#3b82f6)"
+		>
+			<circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line
+				x1="12"
+				y1="16"
+				x2="12.01"
+				y2="16"
+			/>
+		</svg>
+		<span>
+			<strong style="color:var(--text)">Akun ini bersifat rahasia pribadi.</strong>
+			Jangan bagikan username, password, atau PIN kepada orang lain — termasuk sesama karyawan.
+		</span>
+	</div>
+
 	{#if loading}
 		<div
 			class="space-y-3 rounded border p-4"
@@ -217,6 +278,38 @@
 			</div>
 		{/if}
 
+		<!-- Foto + identitas ringkas -->
+		<div
+			class="flex items-center gap-4 rounded border p-4"
+			style="background:var(--surface);border-color:var(--border)"
+		>
+			{#if profil.foto_path}
+				<img
+					src={profil.foto_path}
+					alt={profil.nama}
+					class="h-16 w-16 shrink-0 rounded-full object-cover"
+					style="border:2px solid var(--border)"
+				/>
+			{:else}
+				<div
+					class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-lg font-bold"
+					style="background:color-mix(in srgb,var(--primary) 15%,transparent);color:var(--primary)"
+				>
+					{inisial(profil.nama)}
+				</div>
+			{/if}
+			<div class="min-w-0 flex-1">
+				<p class="truncate text-sm font-semibold">{profil.nama}</p>
+				<p class="text-xs capitalize" style="color:var(--text-dim)">{profil.role}</p>
+				<p class="mt-1 text-xs" style="color:var(--text-dim)">
+					Gaji pokok:
+					<strong style="color:var(--text)"
+						>{rupiah(profil.gaji_pokok)} / {profil.tipe_gaji}</strong
+					>
+				</p>
+			</div>
+		</div>
+
 		<!-- Info Akun -->
 		<form
 			onsubmit={simpanInfoAkun}
@@ -238,15 +331,31 @@
 				<label class="flex flex-col gap-1 text-sm">
 					<span style="color:var(--text-dim)">Email</span>
 					<input
-						bind:value={email}
+						value={profil.email ?? ''}
 						type="email"
 						class="input input-sm w-full"
-						placeholder="email@contoh.com"
+						placeholder="—"
+						readonly
+						tabindex="-1"
+						style="opacity:0.6;cursor:not-allowed"
 					/>
+					<span class="text-xs" style="color:var(--text-dim)">
+						Hubungi admin untuk mengubah email.
+					</span>
 				</label>
 				<label class="flex flex-col gap-1 text-sm">
 					<span style="color:var(--text-dim)">Kontak</span>
-					<input bind:value={kontak} class="input input-sm w-full" placeholder="No. HP / WA" />
+					<input
+						value={profil.kontak ?? ''}
+						class="input input-sm w-full"
+						placeholder="—"
+						readonly
+						tabindex="-1"
+						style="opacity:0.6;cursor:not-allowed"
+					/>
+					<span class="text-xs" style="color:var(--text-dim)">
+						Hubungi admin untuk mengubah kontak.
+					</span>
 				</label>
 				<div>
 					<button type="submit" class="btn btn-sm btn-primary" disabled={simpanInfo}>
@@ -256,44 +365,117 @@
 			</fieldset>
 		</form>
 
-		<!-- Ganti Password -->
+		<!-- Ganti PIN Absensi -->
 		<form
-			onsubmit={gantiPassword}
+			onsubmit={gantiPin}
 			class="flex flex-col gap-3 rounded border p-4"
 			style="background:var(--surface);border-color:var(--border)"
 		>
 			<fieldset disabled={isReadonly} class="contents">
 				<h3 class="text-xs font-bold tracking-wider uppercase" style="color:var(--text-dim)">
-					Ganti Password
+					PIN Absensi
 				</h3>
+				<p class="text-xs" style="color:var(--text-dim)">
+					{profil.has_pin ? 'PIN sudah diatur. Masukkan PIN lama untuk mengubah.' : 'Belum ada PIN. Buat PIN 4 digit untuk absensi kiosk.'}
+				</p>
+				{#if profil.has_pin}
+					<input
+						bind:value={pinLama}
+						type="password"
+						inputmode="numeric"
+						maxlength="4"
+						class="input input-sm w-full"
+						placeholder="PIN lama (4 digit)"
+						required
+					/>
+				{/if}
 				<input
-					bind:value={pwLama}
+					bind:value={pinBaru}
 					type="password"
+					inputmode="numeric"
+					maxlength="4"
 					class="input input-sm w-full"
-					placeholder="Password lama"
+					placeholder="PIN baru (4 digit)"
 					required
 				/>
 				<input
-					bind:value={pwBaru}
+					bind:value={pinKonfirmasi}
 					type="password"
+					inputmode="numeric"
+					maxlength="4"
 					class="input input-sm w-full"
-					placeholder="Password baru (min 6)"
-					required
-				/>
-				<input
-					bind:value={pwKonfirmasi}
-					type="password"
-					class="input input-sm w-full"
-					placeholder="Ulangi password baru"
+					placeholder="Ulangi PIN baru"
 					required
 				/>
 				<div>
-					<button type="submit" class="btn btn-sm btn-primary" disabled={simpanPw}
-						>Ubah Password</button
-					>
+					<button type="submit" class="btn btn-sm btn-primary" disabled={simpanPin}>
+						{profil.has_pin ? 'Ubah PIN' : 'Buat PIN'}
+					</button>
 				</div>
 			</fieldset>
 		</form>
+
+		<!-- Ganti Password (collapsed) -->
+		<div
+			class="flex flex-col rounded border"
+			style="background:var(--surface);border-color:var(--border)"
+		>
+			<button
+				type="button"
+				class="flex items-center justify-between p-4 text-left"
+				onclick={() => (pwTampil = !pwTampil)}
+			>
+				<h3 class="text-xs font-bold tracking-wider uppercase" style="color:var(--text-dim)">
+					Ganti Password
+				</h3>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="14"
+					height="14"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					style="color:var(--text-dim);transition:transform .2s;transform:rotate({pwTampil ? 180 : 0}deg)"
+				>
+					<polyline points="6 9 12 15 18 9" />
+				</svg>
+			</button>
+			{#if pwTampil}
+				<form onsubmit={gantiPassword} class="flex flex-col gap-3 border-t p-4" style="border-color:var(--border)">
+					<fieldset disabled={isReadonly} class="contents">
+						<input
+							bind:value={pwLama}
+							type="password"
+							class="input input-sm w-full"
+							placeholder="Password lama"
+							required
+						/>
+						<input
+							bind:value={pwBaru}
+							type="password"
+							class="input input-sm w-full"
+							placeholder="Password baru (min 6)"
+							required
+						/>
+						<input
+							bind:value={pwKonfirmasi}
+							type="password"
+							class="input input-sm w-full"
+							placeholder="Ulangi password baru"
+							required
+						/>
+						<div>
+							<button type="submit" class="btn btn-sm btn-primary" disabled={simpanPw}
+								>Ubah Password</button
+							>
+						</div>
+					</fieldset>
+				</form>
+			{/if}
+		</div>
 
 		<!-- Zona Bahaya — pemilik only, disembunyikan saat terkunci -->
 		{#if isPemilik && !isReadonly}

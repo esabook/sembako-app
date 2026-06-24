@@ -39,6 +39,9 @@ akunRouter.get('/profil', async (c) => {
 		email: string | null;
 		kontak: string | null;
 		foto_path: string | null;
+		gaji_pokok: number;
+		tipe_gaji: string;
+		pin_absensi: string | null;
 	}>(
 		db
 			.select({
@@ -49,7 +52,10 @@ akunRouter.get('/profil', async (c) => {
 				username: karyawan.username,
 				email: karyawan.email,
 				kontak: karyawan.kontak,
-				foto_path: karyawan.foto_path
+				foto_path: karyawan.foto_path,
+				gaji_pokok: karyawan.gaji_pokok,
+				tipe_gaji: karyawan.tipe_gaji,
+				pin_absensi: karyawan.pin_absensi
 			})
 			.from(karyawan)
 			.where(eq(karyawan.id, user.id))
@@ -63,10 +69,12 @@ akunRouter.get('/profil', async (c) => {
 			.where(eq(toko.id, user.tenant_id))
 	);
 
+	const { pin_absensi, ...kData } = k;
 	return c.json({
 		success: true,
 		data: {
-			...k,
+			...kData,
+			has_pin: !!pin_absensi,
 			status_toko: t?.status_langganan ?? null,
 			hapus_terjadwal: t?.hapus_terjadwal ?? null,
 			sisa_hari_hapus: sisaHari(t?.hapus_terjadwal ?? null)
@@ -135,6 +143,29 @@ akunRouter.post('/ganti-password', async (c) => {
 	await query.exec(
 		db.update(karyawan).set({ password_hash: hash }).where(eq(karyawan.id, user.id))
 	);
+
+	return c.json({ success: true, data: null });
+});
+
+akunRouter.post('/ganti-pin', async (c) => {
+	const user = c.get('user');
+	const body = await c.req.json<{ lama?: string; baru: string }>();
+	if (!body.baru || !/^\d{4}$/.test(body.baru))
+		throw new HTTPException(400, { message: 'PIN baru harus 4 digit angka' });
+
+	const k = await query.find<{ pin_absensi: string | null }>(
+		db.select({ pin_absensi: karyawan.pin_absensi }).from(karyawan).where(eq(karyawan.id, user.id))
+	);
+	if (!k) throw new HTTPException(404, { message: 'Akun tidak ditemukan' });
+
+	if (k.pin_absensi) {
+		if (!body.lama) throw new HTTPException(400, { message: 'PIN lama wajib diisi' });
+		if (!(await Bun.password.verify(body.lama, k.pin_absensi)))
+			throw new HTTPException(401, { message: 'PIN lama salah' });
+	}
+
+	const hash = await Bun.password.hash(body.baru);
+	await query.exec(db.update(karyawan).set({ pin_absensi: hash }).where(eq(karyawan.id, user.id)));
 
 	return c.json({ success: true, data: null });
 });
