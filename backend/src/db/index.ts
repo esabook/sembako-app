@@ -16,12 +16,18 @@ const url = process.env.DATABASE_URL ?? './data.db'
 export const dialect = url.startsWith('postgres') ? 'postgres'
   : url.startsWith('mysql') ? 'mysql'
   : (url.startsWith('libsql://') || url.startsWith('https://')) ? 'libsql'
+  : url.startsWith('d1://') ? 'd1'
   : 'sqlite'
 
 // Canonical TS type — runtime may be PG/MySQL instance but API is the same
 type AnyDB = ReturnType<typeof drizzleSQLite<typeof schema>>
 
 function initDB() {
+  // CF Workers D1 — real db injected later via setD1Db(); return stub
+  if (dialect === 'd1') {
+    const stub = {} as AnyDB
+    return { db: stub, withTransaction: (fn: any) => fn(stub), sqlite: undefined as unknown as Database }
+  }
   if (dialect === 'postgres') {
     const client = postgres(url)
     const db = drizzlePg(client, { schema }) as unknown as AnyDB
@@ -73,6 +79,16 @@ function initDB() {
   return { db, withTransaction, sqlite: sqliteRaw }
 }
 
-const { db, withTransaction, sqlite } = initDB()
+const { db: _db, withTransaction: _withTransaction, sqlite } = initDB()
 
-export { db, withTransaction, sqlite }
+export let db = _db
+export let withTransaction = _withTransaction
+export { sqlite }
+
+// CF Workers D1 override — called once on first request in worker.ts.
+// ESM live bindings: all importers automatically see the updated db/withTransaction.
+export function setD1Db(d1Db: AnyDB) {
+  db = d1Db
+  withTransaction = <T>(fn: (tx: AnyDB) => Promise<T>) =>
+    (d1Db as any).transaction((tx: any) => fn(tx as AnyDB))
+}

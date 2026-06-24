@@ -1,4 +1,3 @@
-import sharp from 'sharp'
 import { HTTPException } from 'hono/http-exception'
 import { storagePut } from './storage.ts'
 
@@ -34,20 +33,27 @@ export async function saveUpload(file: File, opts: UploadOptions): Promise<Saved
   const buf = Buffer.from(await file.arrayBuffer())
 
   try {
-    let pipeline = sharp(buf)
-    if (opts.mode.type === 'contain') {
-      pipeline = pipeline.resize(opts.mode.w, opts.mode.h, { fit: 'inside', withoutEnlargement: true })
-    } else if (opts.mode.type === 'cover') {
-      pipeline = pipeline.resize(opts.mode.w, opts.mode.h, { fit: 'cover' })
+    let mainBuf: Buffer
+
+    // sharp is a native binary — unavailable in CF Workers; passthrough raw bytes
+    const sharpMod = await import('sharp').catch(() => null)
+    if (sharpMod) {
+      let pipeline = sharpMod.default(buf)
+      if (opts.mode.type === 'contain') {
+        pipeline = pipeline.resize(opts.mode.w, opts.mode.h, { fit: 'inside', withoutEnlargement: true })
+      } else if (opts.mode.type === 'cover') {
+        pipeline = pipeline.resize(opts.mode.w, opts.mode.h, { fit: 'cover' })
+      }
+      mainBuf = await pipeline.jpeg({ quality }).toBuffer()
+    } else {
+      mainBuf = buf
     }
 
-    const mainBuf = await pipeline.jpeg({ quality }).toBuffer()
     const path = await storagePut(key, mainBuf)
-
     const result: SavedUpload = { path }
 
-    if (opts.thumbnail) {
-      const thumbBuf = await sharp(buf)
+    if (opts.thumbnail && sharpMod) {
+      const thumbBuf = await sharpMod.default(buf)
         .resize(opts.thumbnail.w, opts.thumbnail.h, { fit: 'cover' })
         .jpeg({ quality: opts.thumbnail.quality ?? 75 })
         .toBuffer()

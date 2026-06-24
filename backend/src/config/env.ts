@@ -10,18 +10,22 @@ function req(key: string): string {
 const isProd = process.env.NODE_ENV === 'production'
 
 function jwtSecret(): string {
-	const s = req('JWT_SECRET')
+	const s = process.env.JWT_SECRET
+	// In CF Workers, JWT_SECRET comes from wrangler secret — available at request
+	// time via process.env after worker.ts middleware sets it. Return placeholder
+	// at module init; routes always read env.jwtSecret which is a getter below.
+	if (!s) return '__cf_pending__'
 	if (isProd && s.length < 32) {
 		throw new Error('JWT_SECRET minimal 32 karakter di production')
 	}
 	return s
 }
 
-export const env = Object.freeze({
+export const env = {
 	isProd,
 
-	// Auth
-	jwtSecret: jwtSecret(),
+	// Auth — getter so CF Workers picks up JWT_SECRET set by middleware at request time
+	get jwtSecret() { return jwtSecret() },
 	jwtExpiryHours: Number(process.env.JWT_EXPIRY_HOURS ?? 12),
 
 	// HTTP
@@ -36,7 +40,8 @@ export const env = Object.freeze({
 	saasGating: process.env.SAAS_GATING === '1',
 
 	// Database (multi-dialect — dialect dideteksi di db/index.ts dari URL ini)
-	databaseUrl: req('DATABASE_URL'),
+	// Getter: CF Workers set process.env via middleware at request time, bukan module init
+	get databaseUrl() { return req('DATABASE_URL') },
 	tursoAuthToken: process.env.TURSO_AUTH_TOKEN ?? '',
 	migrationsDir: process.env.MIGRATIONS_DIR ?? './src/db/migrations/sqlite',
 
@@ -51,4 +56,4 @@ export const env = Object.freeze({
 		secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? '',
 		publicUrl: process.env.S3_PUBLIC_URL ?? ''
 	}
-})
+}
