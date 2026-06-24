@@ -1,4 +1,7 @@
-import adapter from 'svelte-adapter-bun';
+import adapterBun from 'svelte-adapter-bun';
+import adapterCloudflare from '@sveltejs/adapter-cloudflare';
+
+const isCloudflare = process.env.DEPLOY_TARGET === 'cloudflare';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -16,11 +19,13 @@ const config = {
 		handler(warning);
 	},
 	kit: {
-		adapter: adapter({
-			// Pre-compress static assets (gzip + brotli) — server langsung serve .gz/.br
-			// Mengurangi CPU runtime saat serve ke banyak HP sekaligus
-			precompress: true,
-		}),
+		adapter: isCloudflare
+			? adapterCloudflare()
+			: adapterBun({
+					// Pre-compress static assets (gzip + brotli) — server langsung serve .gz/.br
+					// Mengurangi CPU runtime saat serve ke banyak HP sekaligus
+					precompress: true,
+			  }),
 		// Inline CSS <40KB ke <style> di <head> — hapus request CSS render-blocking
 		// (FCP/LCP landing prerender lebih cepat; cocok prinsip RINGAN/OFFLINE/LAN).
 		// Bundle global app.css ~21KB ikut ter-inline; brotli precompress tetap jalan.

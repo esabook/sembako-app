@@ -34,3 +34,4 @@ data/
 .gemini/
 .agents/
 .vscode/
+backend/.wrangler/

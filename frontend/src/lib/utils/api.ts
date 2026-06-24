@@ -1,7 +1,9 @@
-// Relatif URL agar works dari device mana pun (HP, laptop, dll)
-// Di dev: Vite proxy forward /api → localhost:3000
-// Di prod: Nginx forward /api → localhost:3000
-const BASE_URL = import.meta.env.PUBLIC_API_URL ?? '/api'
+import { env } from '$env/dynamic/public'
+
+// Di dev: Vite proxy /api → localhost:3000
+// Di prod Nginx/Pi: Nginx forward /api → localhost:3000
+// Di CF Pages: PUBLIC_API_URL dari wrangler.toml [vars] dibaca runtime
+const BASE_URL = env.PUBLIC_API_URL ?? '/api'
 
 type ApiResponse<T> = { success: true; data: T } | { success: false; error: string }
 

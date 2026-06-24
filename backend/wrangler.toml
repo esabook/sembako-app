@@ -9,15 +9,15 @@ compatibility_flags = ["nodejs_compat"]
 # Ganti YOUR_D1_DATABASE_ID setelah: bunx wrangler d1 create stokasir
 [[d1_databases]]
 binding = "DB"
-database_name = "stokasir"
-database_id = "YOUR_D1_DATABASE_ID"
+# database_name = "stokasir"
+# database_id = "YOUR_D1_DATABASE_ID"
 migrations_dir = "src/db/migrations/sqlite"
 
 [vars]
 DATABASE_URL = "d1://"
 JWT_EXPIRY_HOURS = "12"
-FRONTEND_URL = "https://your-frontend.pages.dev"
-SAAS_GATING = "0"
+# FRONTEND_URL = "https://28e83828.stokasir-frontend.pages.dev"
+SAAS_GATING = "1"
 STORAGE_DRIVER = "r2"
 UPLOAD_DIR = ""
 S3_ENDPOINT = ""
@@ -26,8 +26,8 @@ S3_BUCKET = ""
 S3_ACCESS_KEY_ID = ""
 S3_SECRET_ACCESS_KEY = ""
 S3_PUBLIC_URL = ""
-PLATFORM_ADMIN_USER = "superadmin"
-PLATFORM_ADMIN_PASSWORD = "ganti-ini"
+# PLATFORM_ADMIN_USER = "superadmin"
+# PLATFORM_ADMIN_PASSWORD = "ganti-ini"
 
 # Secrets — simpan via: bunx wrangler secret put JWT_SECRET
 # JWT_SECRET wajib di-set sebagai secret (bukan [vars])

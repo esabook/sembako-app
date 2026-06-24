@@ -1,0 +1,14 @@
+name = "stokasir-frontend"
+pages_build_output_dir = ".svelte-kit/cloudflare"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+PUBLIC_DEPLOYMENT_MODE = "online"
+# PUBLIC_API_URL — isi URL backend CF Workers setelah deploy
+# PUBLIC_API_URL = "https://xxxxx.xxxxx.workers.dev"
+# PUBLIC_UMAMI_SRC = "https://host.hhh/script.js"
+# PUBLIC_UMAMI_ID  = ""
+
+[env.preview.vars]
+PUBLIC_DEPLOYMENT_MODE = "online"
