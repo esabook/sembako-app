@@ -1,0 +1,1 @@
+ALTER TABLE `toko` ADD `hapus_terjadwal` text;

@@ -33,9 +33,10 @@ export const toko = table('toko', {
   alamat: txt('alamat'),
   is_active: bool('is_active').notNull().default(true),
   // ─── SaaS billing (cloud) — diabaikan di mode LAN, gating cek mode online ───
-  status_langganan: txt('status_langganan', { enum: ['trial', 'aktif', 'suspended'] }).notNull().default('trial'),
+  status_langganan: txt('status_langganan', { enum: ['trial', 'aktif', 'suspended', 'deactivated', 'deleted'] }).notNull().default('trial'),
   trial_berakhir: txt('trial_berakhir'), // ISO, diisi saat daftar = isoNow()+14d
   aktif_sampai: txt('aktif_sampai'),     // ISO, diisi saat approve = isoNow()+30d
+  hapus_terjadwal: txt('hapus_terjadwal'), // ISO target purge = request+30d; null = tak terjadwal
   email_pemilik: txt('email_pemilik'),
   wa_pemilik: txt('wa_pemilik'),
   ...timestamps,

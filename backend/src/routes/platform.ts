@@ -9,7 +9,7 @@
 // Login publik; sisanya dijaga platformMiddleware. Prefix /platform di-whitelist
 // langgananMiddleware sehingga tak kena gating 402.
 
-import { and, count, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie, setCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
@@ -147,10 +147,57 @@ platformRouter.get('/toko', platformMiddleware, async (c) => {
 	);
 	const cmap = new Map(counts.map((r) => [r.toko_id, Number(r.n)]));
 
-	let data = rows.map((t) => ({ ...t, bukti_menunggu: cmap.get(t.id) ?? 0 }));
+	// Alasan lifecycle terakhir per toko (dari log_aktivitas, JS-side pick latest).
+	const lifeLogs = await query.findAll<{ toko_id: number | null; detail_json: unknown }>(
+		db
+			.select({ toko_id: log_aktivitas.referensi_id, detail_json: log_aktivitas.detail_json })
+			.from(log_aktivitas)
+			.where(inArray(log_aktivitas.aksi, ['toko_nonaktif', 'toko_hapus_dijadwalkan']))
+			.orderBy(desc(log_aktivitas.waktu))
+	);
+	const amap = new Map<number, string[]>();
+	for (const l of lifeLogs) {
+		if (l.toko_id !== null && !amap.has(l.toko_id)) {
+			const det = l.detail_json as { alasan?: string[] } | null;
+			amap.set(l.toko_id, det?.alasan ?? []);
+		}
+	}
+
+	let data = rows.map((t) => ({
+		...t,
+		bukti_menunggu: cmap.get(t.id) ?? 0,
+		alasan_terakhir: amap.get(t.id) ?? []
+	}));
 	if (status) data = data.filter((t) => t.status_langganan === status);
 
 	return c.json({ success: true, data });
+});
+
+// ── POST /toko/:id/status — override status langganan (admin) ──────────────
+const STATUS_VALID = ['trial', 'aktif', 'suspended', 'deactivated', 'deleted'] as const;
+type StatusToko = (typeof STATUS_VALID)[number];
+
+platformRouter.post('/toko/:id/status', platformMiddleware, async (c) => {
+	const id = Number(c.req.param('id'));
+	const body = await c.req.json<{ status: StatusToko }>();
+	if (!STATUS_VALID.includes(body.status)) {
+		throw new HTTPException(400, { message: 'Status tidak valid' });
+	}
+
+	// deleted/deactivated → kunci akses; reaktivasi → buka + batal jadwal hapus.
+	const dikunci = body.status === 'deleted' || body.status === 'deactivated';
+	await query.exec(
+		db
+			.update(toko)
+			.set({
+				status_langganan: body.status,
+				is_active: !dikunci,
+				...(dikunci ? {} : { hapus_terjadwal: null })
+			})
+			.where(eq(toko.id, id))
+	);
+
+	return c.json({ success: true, data: { id, status: body.status } });
 });
 
 // ── GET /pembayaran — antrian verifikasi bukti ────────────────────────────
