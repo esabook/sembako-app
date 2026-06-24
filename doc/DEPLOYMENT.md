@@ -1,331 +1,118 @@
-# Deployment Guide — Stokasir App
+# doc/DEPLOYMENT.md
 
-Panduan deploy ke Raspberry Pi / mini computer untuk produksi.
+> Panduan ini sudah dipindah dan dipisah per concern:
+>
+> - **Backend** → [`doc/backend/deploy_localhost.md`](backend/deploy_localhost.md)
+> - **Frontend** → [`doc/frontend/deploy_localhost.md`](frontend/deploy_localhost.md)
 
----
+> Deploy ke cloud (Turso/Supabase/Railway/Fly.io)? Lanjut baca dibawah:
 
-## Target Hardware
+# Env Vars & Deployment
 
-| Spesifikasi | Minimum | Ideal |
+Template: `backend/.env.example` dan `frontend/.env.example`.
+
+## Backend (`backend/.env`)
+
+```text
+# Wajib
+JWT_SECRET=           # 32+ karakter random, ganti di production
+PORT=3000
+FRONTEND_URL=http://localhost:5173   # CSV untuk multi-origin
+
+# Database — pilih satu
+DATABASE_URL=file:./data.db          # SQLite lokal (default, Pi/dev)
+# DATABASE_URL=libsql://[db].[org].turso.io    # Turso
+# TURSO_AUTH_TOKEN=...                          # wajib jika Turso/libSQL self-hosted
+# DATABASE_URL=postgresql://user:pass@host/db  # Supabase / Neon / self-hosted
+# DATABASE_URL=mysql://user:pass@host/db       # PlanetScale / self-hosted
+
+# File storage
+STORAGE_DRIVER=local    # 'local' (default) | 's3'
+UPLOAD_DIR=./uploads    # hanya dipakai jika STORAGE_DRIVER=local
+
+# S3 / R2 / MinIO — hanya jika STORAGE_DRIVER=s3
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+S3_BUCKET=stokasir-uploads
+S3_REGION=auto
+S3_ENDPOINT=            # kosong = AWS default; isi untuk R2/MinIO
+S3_PUBLIC_URL=          # base URL publik untuk akses file (https://cdn.example.com)
+
+# Opsional
+JWT_EXPIRY_HOURS=12
+```
+
+## Frontend (`frontend/.env`)
+
+```text
+PUBLIC_DEPLOYMENT_MODE=offline   # 'offline' (LAN/Pi) | 'online' (cloud VPS)
+PUBLIC_API_URL=                  # kosong = /api via Nginx proxy
+```
+
+Wajib rebuild frontend (`bun run build`) setelah ganti nilai `PUBLIC_*`.
+
+## Perbedaan mode frontend
+
+| | `offline` (default) | `online` |
 |---|---|---|
-| Hardware | Raspberry Pi 4 RAM 2GB | Raspberry Pi 4 RAM 4GB / Pi 5 |
-| OS | Raspberry Pi OS Lite 64-bit | Ubuntu Server 22.04 LTS ARM64 |
-| Storage | SD card (OS) + USB SSD (data) | SD card (OS) + USB SSD (data) |
+| SW cache endpoints | 5 (semua kasir-critical) | 1 (pengaturan/publik saja) |
+| Pesan offline | "WiFi toko dan server menyala" | "koneksi internet" |
 
-**Jangan pakai:** Raspberry Pi Zero / 1 / 2 / 3, atau OS versi Desktop.
+## Deploy Checklist
 
-Cek arsitektur sebelum mulai:
+### SQLite / Raspberry Pi (offline LAN)
+1. `bun run db:migrate` — apply SQLite migrations
+2. `bun run db:seed` — seed toko-1, cabang-1, admin user
+3. `bun run build` (frontend dengan `PUBLIC_DEPLOYMENT_MODE=offline`)
+4. Jalankan backend + serve frontend via Nginx
 
-```bash
-uname -m
-# aarch64 = ARM64 → Bun bisa dipakai
-# armv7l  = ARM32 → ganti ke Node.js LTS
+### Turso (cloud libSQL — recommended untuk cloud)
+1. Buat DB di turso.tech → dapat DATABASE_URL + TURSO_AUTH_TOKEN
+2. Set env: `DATABASE_URL=libsql://... TURSO_AUTH_TOKEN=... JWT_SECRET=... FRONTEND_URL=...`
+3. `bun run db:migrate` — apply SQLite migrations (Turso kompatibel)
+4. `bun run db:seed`
+5. Deploy backend + frontend (Fly.io / Railway / VPS)
+
+### PostgreSQL (Supabase / Neon / self-hosted)
+1. Set env: `DATABASE_URL=postgresql://...`
+2. `bun run db:migrate` — apply `postgres/0000_gray_kingpin.sql` (72 tabel)
+3. `bun run db:seed`
+4. Deploy
+
+### Cloud File Storage (opsional — untuk uploads persisten)
+```
+STORAGE_DRIVER=s3
+S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com   # contoh Cloudflare R2
+S3_BUCKET=stokasir-uploads
+S3_REGION=auto
+S3_PUBLIC_URL=https://cdn.example.com
 ```
 
----
+## Backup & Restore
 
-## Estimasi RAM
-
-```
-OS (Raspberry Pi OS Lite)    ~180MB
-Nginx                         ~10MB
-Backend (Hono + SQLite)       ~30MB
-Frontend (SvelteKit node)     ~40MB
-PM2 daemon                    ~30MB
-SQLite WAL cache              ~16MB
-─────────────────────────────────────
-TOTAL                        ~306MB
-```
-
-Pi 4 RAM 2GB → sisa ~1.7GB ✓
-
----
-
-## Setup Awal Pi (Lakukan Sekali)
-
-### 1. Mount USB SSD
-
-```bash
-sudo mkdir -p /mnt/data
-sudo mount /dev/sda1 /mnt/data
-
-# Auto mount saat boot
-echo '/dev/sda1 /mnt/data ext4 defaults,noatime 0 2' | sudo tee -a /etc/fstab
-# noatime = tidak update access time saat baca → hemat write
-
-# Buat struktur folder
-mkdir -p /mnt/data/stokasir/uploads/{produk,invoice,karyawan}
-mkdir -p /mnt/data/stokasir/backup
-```
-
-> SD card rentan rusak akibat write intensif. SQLite **wajib** di USB SSD.
-
-### 2. OS Tuning
-
-```bash
-# Kurangi GPU memory (tidak butuh display)
-sudo raspi-config
-# → Performance → GPU Memory → 16
-
-# Matikan service tidak perlu
-sudo systemctl disable bluetooth
-sudo systemctl disable avahi-daemon
-sudo systemctl disable triggerhappy
-
-# Kurangi agresivitas swap
-echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
-
-# Swap di USB SSD (bukan SD card)
-sudo fallocate -l 1G /mnt/data/swapfile
-sudo chmod 600 /mnt/data/swapfile
-sudo mkswap /mnt/data/swapfile
-sudo swapon /mnt/data/swapfile
-echo '/mnt/data/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
-```
-
-### 3. Install Dependensi
-
-```bash
-# Bun (jika ARM64)
-curl -fsSL https://bun.sh/install | bash
-
-# PM2
-npm install -g pm2
-
-# Nginx
-sudo apt install -y nginx
-```
-
----
-
-## Konfigurasi Aplikasi
-
-### Environment Variables
-
-| Variable | Development | Production (Pi) |
+| Dialect | Backup format | Keterangan |
 |---|---|---|
-| `DATABASE_URL` | `./data.db` | `file:/mnt/data/stokasir/data.db` |
-| `UPLOAD_DIR` | `./uploads` | `/mnt/data/stokasir/uploads` |
-| `PORT` | `3000` | `3000` |
-| `HOST` | `localhost` | `0.0.0.0` |
-| `PUBLIC_API_URL` | `http://localhost:3000` | `http://[IP_PI]/api` |
+| SQLite | `.db` binary | Download via pengaturan → Backup |
+| Turso/libSQL | `.json.gz` streaming | NDJSON per baris, gzip on-the-fly |
+| PostgreSQL | `.json.gz` streaming | Sama seperti libSQL |
 
-### SvelteKit Adapter
+**Include media** (`?include_media=1`): jika `STORAGE_DRIVER=local`, sertakan semua file di `uploads/` sebagai base64 dalam `.json.gz`.
 
-```javascript
-// frontend/svelte.config.js
-import adapter from '@sveltejs/adapter-node'
+Restore `.json.gz`: disable FK → truncate semua tabel → re-insert batch 200 → restore file gambar.
 
-export default {
-  kit: {
-    adapter: adapter({
-      out: 'build',
-      precompress: true,   // gzip assets saat build, hemat bandwidth WiFi
-    })
-  }
-}
-```
+Untuk Turso: alternatif gunakan `turso db dump` via CLI atau Turso dashboard.
 
----
-
-## PM2 — Process Manager
-
-Buat file konfigurasi di root project:
-
-```javascript
-// ecosystem.config.js
-module.exports = {
-  apps: [
-    {
-      name: 'stokasir-backend',
-      script: 'src/index.ts',
-      interpreter: 'bun',
-      cwd: '/home/eg17/stokasir/backend',
-      instances: 1,
-      exec_mode: 'fork',
-      max_memory_restart: '200M',
-      env: {
-        NODE_ENV: 'production',
-        PORT: '3000',
-        DATABASE_URL: 'file:/mnt/data/stokasir/data.db',
-        UPLOAD_DIR: '/mnt/data/stokasir/uploads'
-      },
-      error_file: '/home/eg17/logs/backend-err.log',
-      out_file:   '/home/eg17/logs/backend-out.log',
-    },
-    {
-      name: 'stokasir-frontend',
-      script: 'build/index.js',
-      interpreter: 'bun',
-      cwd: '/home/eg17/stokasir/frontend',
-      instances: 1,
-      exec_mode: 'fork',
-      max_memory_restart: '150M',
-      env: {
-        NODE_ENV: 'production',
-        PORT: '5173',
-        HOST: '0.0.0.0',
-        PUBLIC_API_URL: 'http://192.168.1.x/api'
-      },
-      error_file: '/home/eg17/logs/frontend-err.log',
-      out_file:   '/home/eg17/logs/frontend-out.log',
-    }
-  ]
-}
-```
+## Migrations
 
 ```bash
-# Jalankan pertama kali
-pm2 start ecosystem.config.js
+# Generate migration baru setelah ubah schema.ts
+cd backend && bun run db:generate
 
-# Auto start saat Pi boot
-pm2 startup    # ikuti instruksi yang muncul
-pm2 save
-
-# Perintah harian
-pm2 status        # cek status
-pm2 monit         # monitor RAM & CPU realtime
-pm2 logs          # lihat log
-pm2 restart all   # restart semua
+# Apply migration
+cd backend && bun run db:migrate
 ```
 
----
-
-## Nginx — Reverse Proxy
-
-```bash
-sudo nano /etc/nginx/sites-available/stokasir
-```
-
-```nginx
-server {
-    listen 80;
-    server_name _;
-
-    # Gzip — hemat bandwidth WiFi
-    gzip on;
-    gzip_types text/plain text/css application/javascript
-               application/json image/svg+xml;
-    gzip_min_length 1000;
-
-    # Foto & aset statis — cache 30 hari di browser
-    location /uploads/ {
-        alias /mnt/data/stokasir/uploads/;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # JS/CSS build — cache 7 hari
-    location ~* \.(js|css|woff2|ico)$ {
-        proxy_pass http://localhost:5173;
-        expires 7d;
-        add_header Cache-Control "public, immutable";
-    }
-
-    # API backend
-    location /api/ {
-        proxy_pass http://localhost:3000/;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    # Frontend
-    location / {
-        proxy_pass http://localhost:5173;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-    }
-}
-```
-
-```bash
-sudo ln -s /etc/nginx/sites-available/stokasir /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl enable nginx
-sudo systemctl restart nginx
-```
-
----
-
-## Deploy dari Laptop
-
-> **Jangan build di Pi** — CPU kecil, proses lama dan panas. Build di laptop lalu kirim via rsync.
-
-```bash
-# Build frontend di laptop
-cd frontend && bun run build && cd ..
-
-# Kirim ke Pi (skip node_modules, database, uploads)
-rsync -avz \
-  --exclude 'node_modules' \
-  --exclude '.svelte-kit' \
-  --exclude 'data.db' \
-  --exclude 'uploads' \
-  ./ eg17@[IP_PI]:/home/eg17/stokasir/
-
-# Install production dependencies di Pi
-ssh eg17@[IP_PI] "cd /home/eg17/stokasir/backend && bun install --production"
-
-# Restart service
-ssh eg17@[IP_PI] "sudo systemctl restart stokasir-backend stokasir-frontend"
-```
-
----
-
-## Backup Otomatis
-
-Buat script backup di Pi:
-
-```bash
-nano /home/eg17/backup-db.sh
-```
-
-```bash
-#!/bin/bash
-TANGGAL=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/mnt/data/stokasir/backup"
-DB_FILE="/mnt/data/stokasir/data.db"
-
-mkdir -p $BACKUP_DIR
-
-# SQLite online backup — aman tanpa matikan app
-sqlite3 $DB_FILE ".backup $BACKUP_DIR/data_$TANGGAL.db"
-
-# Hapus backup lebih dari 7 hari
-find $BACKUP_DIR -name "*.db" -mtime +7 -delete
-
-echo "$(date): Backup selesai → data_$TANGGAL.db"
-```
-
-```bash
-chmod +x /home/eg17/backup-db.sh
-
-# Jadwalkan via cron — tiap hari jam 02:00
-crontab -e
-# Tambahkan baris ini:
-0 2 * * * /home/eg17/backup-db.sh >> /home/eg17/logs/backup.log 2>&1
-```
-
----
-
-## Akses dari Device Lain
-
-Setelah deploy, semua device di WiFi yang sama akses via:
-
-```
-http://[IP_PI]/        ← web app
-http://[IP_PI]/api/    ← API backend
-```
-
-Cari IP Pi:
-
-```bash
-hostname -I
-```
-
-**Tips:** Set IP Pi jadi static di pengaturan router agar tidak berubah saat reboot.
+Migration output:
+- SQLite/Turso → `src/db/migrations/sqlite/`
+- PostgreSQL → `src/db/migrations/postgres/`
+- MySQL → `src/db/migrations/mysql/`
