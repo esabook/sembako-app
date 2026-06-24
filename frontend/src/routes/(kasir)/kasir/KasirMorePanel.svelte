@@ -9,6 +9,8 @@
 	import Shrink from '@lucide/svelte/icons/shrink';
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import ChefHat from '@lucide/svelte/icons/chef-hat';
+	import IdCardLanyard from '@lucide/svelte/icons/id-card-lanyard';
+	import AbsensiModal from './AbsensiModal.svelte';
 
 	type StokMenipis = {
 		id: number;
@@ -19,6 +21,8 @@
 	};
 
 	let { open = $bindable(false) }: { open?: boolean } = $props();
+
+	let absensiOpen = $state(false);
 
 	let stokMenipis = $state<StokMenipis[]>([]);
 
@@ -61,6 +65,8 @@
 		return () => document.removeEventListener('fullscreenchange', onFSChange);
 	});
 </script>
+
+<AbsensiModal bind:open={absensiOpen} />
 
 {#if open}
 	<div
@@ -137,7 +143,7 @@
 						class="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"
 						style="background:var(--bg)"
 					>
-						<LayoutGrid size="0.8rem" />
+						<LayoutGrid size="1rem" />
 						<span>Meja / Floor Map</span>
 					</button>
 					<button
@@ -145,7 +151,7 @@
 						class="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"
 						style="background:var(--bg)"
 					>
-						<ChefHat size="0.8rem" />
+						<ChefHat size="1rem" />
 						<span>Layar Dapur (KDS)</span>
 					</button>
 					<button
@@ -156,20 +162,28 @@
 						aria-label={isFullscreen ? 'Keluar fullscreen' : 'Masuk fullscreen'}
 					>
 						{#if isFullscreen}
-							<Shrink size="0.8rem" />
+							<Shrink size="1rem" />
 							<span>Keluar fullscreen</span>
 						{:else}
-							<Fullscreen size="0.8rem" />
+							<Fullscreen size="1rem" />
 							<span>Masuk fullscreen</span>
 						{/if}
+					</button>
+					<button
+						onclick={() => { open = false; absensiOpen = true; }}
+						class="mt-4 flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"
+						style="background:var(--bg)"
+					>
+						<IdCardLanyard size="1rem" />
+						<span>Absensi Kiosk</span>
 					</button>
 					<button
 						onclick={exitPOS}
 						class="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"
 						style="background:var(--bg)"
 					>
-						<LogOut size="0.8rem" />
-						<span>Dashboard</span>
+						<LogOut size="1rem" />
+						<span>Buka Dashboard</span>
 					</button>
 				</div>
 			</div>
