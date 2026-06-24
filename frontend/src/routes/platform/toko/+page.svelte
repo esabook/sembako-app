@@ -6,6 +6,7 @@
 	import { imgUrl } from '$lib/utils/upload';
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
+	import Activity from '@lucide/svelte/icons/activity';
 
 	type Toko = {
 		id: number;
@@ -110,6 +111,10 @@
 			Stokasir · Admin
 		</span>
 		<div class="flex items-center gap-2">
+			<a class="btn btn-ghost btn-sm" href="/platform/analytics/toko">
+				<Activity class="size-4" />
+				<span class="hidden sm:inline">Analytics</span>
+			</a>
 			<button class="btn btn-ghost btn-sm" onclick={load} disabled={loading}>
 				<RefreshCw class="size-4" />
 				<span class="hidden sm:inline">Muat ulang</span>
