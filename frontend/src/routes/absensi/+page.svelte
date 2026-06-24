@@ -1,13 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
 
 	type Phase = 'select' | 'pin' | 'loading' | 'confirm' | 'success' | 'error';
 	type StatusHariIni = 'belum' | 'masuk' | 'selesai';
+	type AuthMode = 'pin' | 'password';
 
 	let phase = $state<Phase>('select');
-	let karyawanList = $state<{ id: number; nama: string }[]>([]);
+	let karyawanList = $state<{ id: number; nama: string; has_pin: boolean }[]>([]);
 	let selected = $state<{ id: number; nama: string } | null>(null);
 	let digits = $state('');
+	let passwordInput = $state('');
+	let authMode = $state<AuthMode>('pin');
 	let statusHariIni = $state<StatusHariIni>('belum');
 	let pesan = $state('');
 	let jam = $state('');
@@ -46,21 +52,29 @@
 		return () => clearInterval(id);
 	});
 
-	function pilihKaryawan(k: { id: number; nama: string }) {
+	function pilihKaryawan(k: { id: number; nama: string; has_pin: boolean }) {
 		selected = k;
 		digits = '';
+		passwordInput = '';
+		authMode = k.has_pin ? 'pin' : 'password';
 		phase = 'pin';
 	}
 
+	function switchMode() {
+		authMode = authMode === 'pin' ? 'password' : 'pin';
+		digits = '';
+		passwordInput = '';
+	}
+
 	function tapDigit(d: string) {
-		if (phase !== 'pin') return;
+		if (phase !== 'pin' || authMode !== 'pin') return;
 		if (digits.length >= 4) return;
 		digits += d;
 		if (digits.length === 4) verifyPin();
 	}
 
 	function tapBackspace() {
-		if (phase !== 'pin') return;
+		if (phase !== 'pin' || authMode !== 'pin') return;
 		digits = digits.slice(0, -1);
 	}
 
@@ -69,6 +83,7 @@
 		phase = 'select';
 		selected = null;
 		digits = '';
+		passwordInput = '';
 		pesan = '';
 		if (reloadList) muatKaryawan();
 	}
@@ -95,6 +110,28 @@
 		} catch (e) {
 			pesan = e instanceof Error ? e.message : 'Terjadi kesalahan';
 			digits = '';
+			phase = 'error';
+			scheduleReset(2500);
+		}
+	}
+
+	async function verifyPassword() {
+		if (!selected || !passwordInput) return;
+		phase = 'loading';
+		try {
+			const res = await fetch('/api/absensi-kiosk/check-password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ karyawan_id: selected.id, password: passwordInput })
+			});
+			const json = await res.json();
+			passwordInput = '';
+			if (!json.success) throw new Error(json.error ?? 'Password salah');
+			statusHariIni = json.data.status_hari_ini;
+			phase = 'confirm';
+		} catch (e) {
+			pesan = e instanceof Error ? e.message : 'Terjadi kesalahan';
+			passwordInput = '';
 			phase = 'error';
 			scheduleReset(2500);
 		}
@@ -147,8 +184,8 @@
 
 <svelte:window
 	onkeydown={(e) => {
-		if (phase === 'pin' && e.key >= '0' && e.key <= '9') tapDigit(e.key);
-		else if (phase === 'pin' && e.key === 'Backspace') tapBackspace();
+		if (phase === 'pin' && authMode === 'pin' && e.key >= '0' && e.key <= '9') tapDigit(e.key);
+		else if (phase === 'pin' && authMode === 'pin' && e.key === 'Backspace') tapBackspace();
 		else if (e.key === 'Escape') reset();
 	}}
 />
@@ -161,6 +198,9 @@
 	>
 		<div class="text-sm font-bold tracking-wider" style="color:var(--text-dim)">
 			ABSENSI KARYAWAN
+			{#if data.user}
+				<span class="ml-2 font-normal" style="color:var(--text-dim);opacity:0.6">· {data.user.nama}</span>
+			{/if}
 		</div>
 		<div class="flex items-center gap-4">
 			<span class="text-sm capitalize" style="color:var(--text-dim)">{tgl}</span>
@@ -175,9 +215,7 @@
 			<div class="flex w-full max-w-lg flex-col items-center gap-4">
 				<p class="text-sm" style="color:var(--text-dim)">Pilih nama Anda</p>
 				{#if karyawanList.length === 0}
-					<p class="text-xs" style="color:var(--text-dim)">
-						Belum ada karyawan dengan PIN. Atur PIN di halaman Karyawan.
-					</p>
+					<p class="text-xs" style="color:var(--text-dim)">Belum ada karyawan aktif.</p>
 				{:else}
 					<div class="grid w-full grid-cols-2 gap-3">
 						{#each karyawanList as k (k.id)}
@@ -193,40 +231,69 @@
 				{/if}
 			</div>
 
-			<!-- ── MASUK PIN ──────────────────────────────────────────────────── -->
-		{:else if phase === 'pin' || (phase === 'loading' && digits === '')}
+			<!-- ── AUTENTIKASI ────────────────────────────────────────────────── -->
+		{:else if phase === 'pin' || (phase === 'loading' && (digits === '' && passwordInput === ''))}
 			<div class="flex flex-col items-center gap-5">
 				<div class="text-center">
-					<p class="mb-1 text-xs" style="color:var(--text-dim)">Masuk PIN untuk</p>
+					<p class="mb-1 text-xs" style="color:var(--text-dim)">
+						{authMode === 'pin' ? 'Masuk PIN untuk' : 'Masuk password untuk'}
+					</p>
 					<p class="text-2xl font-bold">{selected?.nama}</p>
 				</div>
 
-				<div class="flex gap-4">
-					{#each pinSlots as slot, i (i)}
-						<span
-							class="text-4xl font-bold"
-							style="color:{slot === '●' ? 'var(--accent)' : 'var(--border)'}">{slot}</span
-						>
-					{/each}
-				</div>
-
-				<div class="grid grid-cols-3 gap-3">
-					{#each ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as key, i (i)}
-						{#if key === ''}
-							<div></div>
-						{:else}
-							<button
-								onclick={() => (key === '⌫' ? tapBackspace() : tapDigit(key))}
-								disabled={phase === 'loading'}
-								class="flex items-center justify-center rounded-xl text-2xl font-bold transition-all active:scale-95"
-								style="width:80px;height:80px;background:var(--surface);border:1px solid var(--border);color:var(--text)"
-								>{key}</button
+				{#if authMode === 'pin'}
+					<!-- Numpad PIN -->
+					<div class="flex gap-4">
+						{#each pinSlots as slot, i (i)}
+							<span
+								class="text-4xl font-bold"
+								style="color:{slot === '●' ? 'var(--accent)' : 'var(--border)'}">{slot}</span
 							>
-						{/if}
-					{/each}
-				</div>
+						{/each}
+					</div>
 
-				<button onclick={() => reset()} class="mt-1 text-xs" style="color:var(--text-dim)"
+					<div class="grid grid-cols-3 gap-3">
+						{#each ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'] as key, i (i)}
+							{#if key === ''}
+								<div></div>
+							{:else}
+								<button
+									onclick={() => (key === '⌫' ? tapBackspace() : tapDigit(key))}
+									disabled={phase === 'loading'}
+									class="flex items-center justify-center rounded-xl text-2xl font-bold transition-all active:scale-95"
+									style="width:80px;height:80px;background:var(--surface);border:1px solid var(--border);color:var(--text)"
+									>{key}</button
+								>
+							{/if}
+						{/each}
+					</div>
+				{:else}
+					<!-- Input password -->
+					<input
+						type="password"
+						bind:value={passwordInput}
+						onkeydown={(e) => { if (e.key === 'Enter') verifyPassword() }}
+						placeholder="Masukkan password"
+						disabled={phase === 'loading'}
+						class="w-64 rounded-xl px-4 py-3 text-center text-lg tracking-widest"
+						style="background:var(--surface);border:1px solid var(--border);color:var(--text);outline:none"
+					/>
+					<button
+						onclick={verifyPassword}
+						disabled={phase === 'loading' || !passwordInput}
+						class="rounded-xl px-10 py-4 text-base font-bold transition-all active:scale-95 disabled:opacity-40"
+						style="background:var(--accent);color:var(--bg)"
+					>
+						Masuk
+					</button>
+				{/if}
+
+				<!-- Toggle mode -->
+				<button onclick={switchMode} class="text-xs" style="color:var(--text-dim)">
+					{authMode === 'pin' ? 'Gunakan password' : 'Gunakan PIN'}
+				</button>
+
+				<button onclick={() => reset()} class="text-xs" style="color:var(--text-dim)"
 					>← Kembali pilih nama</button
 				>
 			</div>

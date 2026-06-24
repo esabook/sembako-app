@@ -1,11 +1,15 @@
 import { Hono } from 'hono'
-import { eq, and, isNotNull } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query } from '../db/index.ts'
 import { karyawan, absensi, jadwal_kerja, tipe_shift } from '../db/schema.ts'
 import { bus } from '../lib/event-bus.ts'
+import { authMiddleware } from '../middleware/auth.ts'
+import type { JWTPayload } from './auth.ts'
 
-export const absensiKioskRouter = new Hono()
+export const absensiKioskRouter = new Hono<{ Variables: { user: JWTPayload } }>()
+
+absensiKioskRouter.use('*', authMiddleware)
 
 function getWaktuJakarta(): { tanggal: string; jam: string } {
   const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' })
@@ -18,24 +22,25 @@ function diffMenit(jamA: string, jamB: string): number {
   return (hb * 60 + mb) - (ha * 60 + ma)
 }
 
-// GET /absensi-kiosk/karyawan — daftar karyawan aktif yang sudah punya PIN (publik)
+// GET /absensi-kiosk/karyawan — daftar karyawan aktif dalam tenant yang login
 absensiKioskRouter.get('/karyawan', async (c) => {
-  const tokoId = c.req.query('toko_id') ? Number(c.req.query('toko_id')) : null
-  const list = await query.findAll(db
-    .select({ id: karyawan.id, nama: karyawan.nama })
+  const user = c.get('user')
+  const tenantId = user.tenant_id
+  const list = await query.findAll<{ id: number; nama: string; pin_absensi: string | null }>(db
+    .select({ id: karyawan.id, nama: karyawan.nama, pin_absensi: karyawan.pin_absensi })
     .from(karyawan)
     .where(and(
       eq(karyawan.is_active, true),
-      isNotNull(karyawan.pin_absensi),
-      tokoId ? eq(karyawan.toko_id, tokoId) : undefined,
+      eq(karyawan.toko_id, tenantId),
     ))
     .orderBy(karyawan.nama)
     )
-  return c.json({ success: true, data: list })
+  return c.json({ success: true, data: list.map(k => ({ id: k.id, nama: k.nama, has_pin: k.pin_absensi !== null })) })
 })
 
 // POST /absensi-kiosk/check-pin — verifikasi PIN untuk karyawan tertentu
 absensiKioskRouter.post('/check-pin', async (c) => {
+  const user = c.get('user')
   const body = await c.req.json<{ karyawan_id?: number; pin?: string }>()
   const pin = body.pin ?? ''
   if (!body.karyawan_id) throw new HTTPException(400, { message: 'karyawan_id wajib' })
@@ -49,11 +54,47 @@ absensiKioskRouter.post('/check-pin', async (c) => {
     .where(and(eq(karyawan.id, body.karyawan_id), eq(karyawan.is_active, true)))
     )
 
-  if (!k || !k.pin_absensi) throw new HTTPException(401, { message: 'PIN tidak valid' })
+  if (!k || k.toko_id !== user.tenant_id) throw new HTTPException(403, { message: 'Akses tidak diizinkan' })
+  if (!k.pin_absensi) throw new HTTPException(401, { message: 'PIN tidak valid' })
   if (!await Bun.password.verify(pin, k.pin_absensi)) throw new HTTPException(401, { message: 'PIN salah' })
 
   const { tanggal } = getWaktuJakarta()
-  const tenantId = k.toko_id ?? 1
+  const tenantId = k.toko_id
+  const existing = await query.find<{ jam_masuk: string | null; jam_keluar: string | null }>(db
+    .select({ jam_masuk: absensi.jam_masuk, jam_keluar: absensi.jam_keluar })
+    .from(absensi)
+    .where(and(eq(absensi.karyawan_id, k.id), eq(absensi.tanggal, tanggal), eq(absensi.tenant_id, tenantId)))
+    )
+
+  let status_hari_ini: 'belum' | 'masuk' | 'selesai'
+  if (!existing) status_hari_ini = 'belum'
+  else if (!existing.jam_keluar) status_hari_ini = 'masuk'
+  else status_hari_ini = 'selesai'
+
+  return c.json({
+    success: true,
+    data: { id: k.id, nama: k.nama, role: k.role, status_hari_ini },
+  })
+})
+
+// POST /absensi-kiosk/check-password — verifikasi password login untuk karyawan tertentu
+absensiKioskRouter.post('/check-password', async (c) => {
+  const user = c.get('user')
+  const body = await c.req.json<{ karyawan_id?: number; password?: string }>()
+  if (!body.karyawan_id) throw new HTTPException(400, { message: 'karyawan_id wajib' })
+  if (!body.password) throw new HTTPException(400, { message: 'password wajib' })
+
+  const k = await query.find<{ id: number; nama: string; role: string; password_hash: string; toko_id: number | null }>(db
+    .select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role, password_hash: karyawan.password_hash, toko_id: karyawan.toko_id })
+    .from(karyawan)
+    .where(and(eq(karyawan.id, body.karyawan_id), eq(karyawan.is_active, true)))
+    )
+
+  if (!k || k.toko_id !== user.tenant_id) throw new HTTPException(403, { message: 'Akses tidak diizinkan' })
+  if (!await Bun.password.verify(body.password, k.password_hash)) throw new HTTPException(401, { message: 'Password salah' })
+
+  const { tanggal } = getWaktuJakarta()
+  const tenantId = k.toko_id
   const existing = await query.find<{ jam_masuk: string | null; jam_keluar: string | null }>(db
     .select({ jam_masuk: absensi.jam_masuk, jam_keluar: absensi.jam_keluar })
     .from(absensi)
@@ -73,6 +114,7 @@ absensiKioskRouter.post('/check-pin', async (c) => {
 
 // POST /absensi-kiosk/masuk
 absensiKioskRouter.post('/masuk', async (c) => {
+  const user = c.get('user')
   const body = await c.req.json<{ karyawan_id?: number }>()
   if (!body.karyawan_id) throw new HTTPException(400, { message: 'karyawan_id wajib' })
 
@@ -89,7 +131,9 @@ absensiKioskRouter.post('/masuk', async (c) => {
     .from(karyawan)
     .where(eq(karyawan.id, body.karyawan_id))
     )
-  const tenantId = k2?.toko_id ?? 1
+
+  if (!k2 || k2.toko_id !== user.tenant_id) throw new HTTPException(403, { message: 'Akses tidak diizinkan' })
+  const tenantId = k2.toko_id
 
   const existing = await query.find(db
     .select({ id: absensi.id })
@@ -133,13 +177,20 @@ absensiKioskRouter.post('/masuk', async (c) => {
 
 // POST /absensi-kiosk/pulang
 absensiKioskRouter.post('/pulang', async (c) => {
+  const user = c.get('user')
   const body = await c.req.json<{ karyawan_id?: number }>()
   if (!body.karyawan_id) throw new HTTPException(400, { message: 'karyawan_id wajib' })
 
   const { tanggal, jam } = getWaktuJakarta()
 
-  const kp = await query.find<{ toko_id: number | null }>(db.select({ toko_id: karyawan.toko_id }).from(karyawan).where(eq(karyawan.id, body.karyawan_id)))
-  const tenantId = kp?.toko_id ?? 1
+  const kp = await query.find<{ toko_id: number | null }>(db
+    .select({ toko_id: karyawan.toko_id })
+    .from(karyawan)
+    .where(eq(karyawan.id, body.karyawan_id))
+    )
+
+  if (!kp || kp.toko_id !== user.tenant_id) throw new HTTPException(403, { message: 'Akses tidak diizinkan' })
+  const tenantId = kp.toko_id
 
   const existing = await query.find<{ id: number; jam_keluar: string | null }>(db
     .select({ id: absensi.id, jam_keluar: absensi.jam_keluar })
