@@ -4,7 +4,11 @@ import adapter from 'svelte-adapter-bun';
 const config = {
 	compilerOptions: {
 		// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true)
+		runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true),
+		// Async runes (await in $derived/markup) — experimental, subject to breaking changes.
+		// Enables per-tab skeleton via <svelte:boundary pending> without manual loading state.
+		// Flag is global: affects ALL components. Verify regresi kasir/gudang/keuangan after enable.
+		experimental: { async: true }
 	},
 	onwarn(warning, handler) {
 		// Label-di-atas-input adalah pola UI yang valid untuk app internal ini

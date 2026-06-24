@@ -5,7 +5,7 @@
 
 {#if $isLoading || $navigating}
 	<div
-		class="fixed inset-x-0 top-0 z-[60] h-[1px] overflow-hidden"
+		class="fixed inset-x-0 top-0 z-[60] h-[4px] overflow-hidden"
 		style="background:var(--surface2)"
 	>
 		<div class="bar"></div>
