@@ -31,7 +31,9 @@
 	import Check from '@lucide/svelte/icons/check';
 	import Utensils from '@lucide/svelte/icons/utensils';
 	import Activity from '@lucide/svelte/icons/activity';
+	import CircleUserRound from '@lucide/svelte/icons/circle-user-round';
 	import type { Component } from 'svelte';
+	import X from '@lucide/svelte/icons/x';
 
 	const ICONS: Record<string, Component> = {
 		LayoutGrid,
@@ -52,7 +54,8 @@
 		Scissors,
 		Settings,
 		Utensils,
-		Activity
+		Activity,
+		CircleUserRound
 	};
 
 	let {
@@ -199,7 +202,7 @@
 	);
 
 	$effect(() => {
-		sidebarWidthOut = ICON_W;
+		sidebarWidthOut = isMobile ? 0 : ICON_W;
 		sidebarAbsoluteOut = sidebarState === 'hover';
 	});
 
@@ -227,7 +230,7 @@
 
 <aside
 	class={isMobile
-		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r pt-2 shadow-xl transition-transform duration-50 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
+		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r shadow-xl transition-transform duration-50 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
 		: `app-sidebar flex shrink-0 flex-col border-r pt-2 ${sidebarReady && !isDragging ? 'transition-all duration-50' : ''} ${isDragging ? 'is-dragging' : ''} ${sidebarState === 'hover' ? (hoverExpanded ? 'hover-mode hover-expanded' : 'hover-mode') : 'relative'}`}
 	style="background:var(--surface);border-color:var(--border);width:{sidebarWidth}rem "
 	onmouseenter={sidebarState === 'hover' && !isMobile
@@ -253,10 +256,10 @@
 			<button
 				onclick={() => (mobileOpen = false)}
 				aria-label="Tutup menu"
-				class="flex h-[1rem] w-[1rem] items-center justify-center rounded-full transition-colors hover:bg-[var(--surface2)]"
+				class="flex items-center justify-center rounded-full p-1 transition-colors hover:bg-[var(--bg)]"
 				style="color:var(--text-dim)"
 			>
-				<PanelLeftClose />
+				<X size="1rem" />
 			</button>
 		</header>
 	{/if}
@@ -295,8 +298,8 @@
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<nav
 		bind:this={navEl}
-		class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-		style="scrollbar-gutter: stable"
+		class="scrollbar-hide min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-10"
+		style="scrollbar-gutter: auto"
 	>
 		{#each visibleNav as item (item.href)}
 			{@const isActive = page.url.pathname.startsWith(item.href)}

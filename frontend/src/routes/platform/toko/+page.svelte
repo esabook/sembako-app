@@ -7,6 +7,8 @@
 	import LogOut from '@lucide/svelte/icons/log-out';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
 	import Activity from '@lucide/svelte/icons/activity';
+	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
+	import List from '@lucide/svelte/icons/list';
 
 	type Toko = {
 		id: number;
@@ -18,6 +20,7 @@
 		email_pemilik: string | null;
 		wa_pemilik: string | null;
 		bukti_menunggu: number;
+		alasan_terakhir: string[];
 	};
 	type Bayar = {
 		id: number;
@@ -37,12 +40,17 @@
 	let filterStatus = $state('');
 	let prosesId = $state<number | null>(null);
 	let catatan = $state<Record<number, string>>({});
+	let viewMode = $state<'list' | 'card'>('list');
 
 	const STATUS_BADGE: Record<string, string> = {
 		aktif: 'badge-success',
 		trial: 'badge-info',
-		suspended: 'badge-error'
+		suspended: 'badge-error',
+		deactivated: 'badge-warning',
+		deleted: 'badge-neutral'
 	};
+
+	const STATUS_OPSI = ['trial', 'aktif', 'suspended', 'deactivated', 'deleted'];
 
 	function sisaHari(t: Toko): number | null {
 		const acuan = t.status_langganan === 'aktif' ? t.aktif_sampai : t.trial_berakhir;
@@ -87,6 +95,19 @@
 			await load();
 		} else {
 			toast.error(res.error || 'Gagal memproses verifikasi.');
+		}
+	}
+
+	async function ubahStatus(id: number, status: string) {
+		if (prosesId) return;
+		prosesId = id;
+		const res = await padmin.post(`/platform/toko/${id}/status`, { status });
+		prosesId = null;
+		if (res.success) {
+			toast.sukses(`Status toko diubah → ${status}.`);
+			await load();
+		} else {
+			toast.error(res.error || 'Gagal mengubah status.');
 		}
 	}
 
@@ -208,69 +229,203 @@
 
 		<!-- Daftar toko -->
 		<section class="mt-8">
-			<div class="flex items-center justify-between gap-2">
-				<h2 class="text-lg font-semibold">Semua Toko</h2>
-				<select bind:value={filterStatus} class="select select-sm w-40">
-					<option value="">Semua status</option>
-					<option value="trial">Trial</option>
-					<option value="aktif">Aktif</option>
-					<option value="suspended">Suspended</option>
-				</select>
+			<div class="flex flex-wrap items-center justify-between gap-2">
+				<h2 class="text-lg font-semibold">
+					Semua Toko
+					<span class="ml-1 text-sm font-normal" style="color:var(--text-dim)"
+						>({tokoTampil.length})</span
+					>
+				</h2>
+				<div class="flex items-center gap-2">
+					<select bind:value={filterStatus} class="select select-sm w-36">
+						<option value="">Semua status</option>
+						<option value="trial">Trial</option>
+						<option value="aktif">Aktif</option>
+						<option value="suspended">Suspended</option>
+						<option value="deactivated">Deactivated</option>
+						<option value="deleted">Deleted</option>
+					</select>
+					<!-- View toggle -->
+					<div class="flex overflow-hidden rounded-lg border" style="border-color:var(--border)">
+						<button
+							class="btn btn-ghost btn-sm rounded-none border-r px-2"
+							style="border-color:var(--border);{viewMode === 'list' ? 'background:var(--surface-raised)' : ''}"
+							onclick={() => (viewMode = 'list')}
+							title="Tampilan list"
+						>
+							<List class="size-4" />
+						</button>
+						<button
+							class="btn btn-ghost btn-sm rounded-none px-2"
+							style="{viewMode === 'card' ? 'background:var(--surface-raised)' : ''}"
+							onclick={() => (viewMode = 'card')}
+							title="Tampilan card"
+						>
+							<LayoutGrid class="size-4" />
+						</button>
+					</div>
+				</div>
 			</div>
 
-			<div class="mt-3 overflow-x-auto rounded-2xl border" style="border-color:var(--border)">
-				<table class="table-sm table">
-					<thead>
-						<tr>
-							<th>Toko</th>
-							<th>Status</th>
-							<th>Sisa</th>
-							<th>Pemilik</th>
-							<th class="text-center">Bukti</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each tokoTampil as t (t.id)}
+			<!-- LIST / TABLE mode -->
+			{#if viewMode === 'list'}
+				<div class="mt-3 overflow-x-auto rounded-2xl border" style="border-color:var(--border)">
+					<table class="table-sm table min-w-[680px]">
+						<thead>
 							<tr>
-								<td>
-									<div class="font-medium">{t.nama}</div>
-									<div class="text-xs" style="color:var(--text-dim)">{t.kode_toko}</div>
-								</td>
-								<td>
-									<span class="badge {STATUS_BADGE[t.status_langganan] ?? 'badge-ghost'}">
-										{t.status_langganan}
-									</span>
-								</td>
-								<td>
-									{#if sisaHari(t) !== null}
-										<span style={(sisaHari(t) ?? 0) < 0 ? 'color:var(--danger)' : ''}>
-											{sisaHari(t)} hari
+								<th>Toko</th>
+								<th>Status</th>
+								<th>Sisa</th>
+								<th>Pemilik</th>
+								<th>Alasan</th>
+								<th class="text-center">Bukti</th>
+								<th>Ubah Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each tokoTampil as t (t.id)}
+								<tr>
+									<td>
+										<div class="font-medium">{t.nama}</div>
+										<div class="text-xs" style="color:var(--text-dim)">{t.kode_toko}</div>
+									</td>
+									<td>
+										<span class="badge {STATUS_BADGE[t.status_langganan] ?? 'badge-ghost'}">
+											{t.status_langganan}
 										</span>
-									{:else}
-										<span style="color:var(--text-dim)">—</span>
-									{/if}
-								</td>
-								<td>
-									<div class="text-xs">{t.email_pemilik ?? '—'}</div>
-									<div class="text-xs" style="color:var(--text-dim)">{t.wa_pemilik ?? ''}</div>
-								</td>
-								<td class="text-center">
-									{#if t.bukti_menunggu}
-										<span class="badge badge-warning">{t.bukti_menunggu}</span>
-									{:else}
-										<span style="color:var(--text-dim)">—</span>
-									{/if}
-								</td>
-							</tr>
-						{/each}
-						{#if !tokoTampil.length}
-							<tr>
-								<td colspan="5" class="text-center" style="color:var(--text-dim)">Tidak ada toko.</td>
-							</tr>
-						{/if}
-					</tbody>
-				</table>
-			</div>
+									</td>
+									<td>
+										{#if sisaHari(t) !== null}
+											<span style={(sisaHari(t) ?? 0) < 0 ? 'color:var(--danger)' : ''}>
+												{sisaHari(t)} hari
+											</span>
+										{:else}
+											<span style="color:var(--text-dim)">—</span>
+										{/if}
+									</td>
+									<td>
+										<div class="text-xs">{t.email_pemilik ?? '—'}</div>
+										<div class="text-xs" style="color:var(--text-dim)">{t.wa_pemilik ?? ''}</div>
+									</td>
+									<td class="max-w-[160px]">
+										{#if t.alasan_terakhir.length}
+											<div class="flex flex-wrap gap-1">
+												{#each t.alasan_terakhir as a (a)}
+													<span
+														class="badge badge-ghost badge-xs whitespace-nowrap text-[10px]"
+														>{a}</span
+													>
+												{/each}
+											</div>
+										{:else}
+											<span style="color:var(--text-dim)">—</span>
+										{/if}
+									</td>
+									<td class="text-center">
+										{#if t.bukti_menunggu}
+											<span class="badge badge-warning">{t.bukti_menunggu}</span>
+										{:else}
+											<span style="color:var(--text-dim)">—</span>
+										{/if}
+									</td>
+									<td>
+										<select
+											class="select select-xs w-32"
+											value={t.status_langganan}
+											disabled={prosesId === t.id}
+											onchange={(e) => ubahStatus(t.id, e.currentTarget.value)}
+										>
+											{#each STATUS_OPSI as s (s)}
+												<option value={s}>{s}</option>
+											{/each}
+										</select>
+									</td>
+								</tr>
+							{/each}
+							{#if !tokoTampil.length}
+								<tr>
+									<td colspan="7" class="text-center" style="color:var(--text-dim)"
+										>Tidak ada toko.</td
+									>
+								</tr>
+							{/if}
+						</tbody>
+					</table>
+				</div>
+
+			<!-- CARD mode -->
+			{:else}
+				<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+					{#each tokoTampil as t (t.id)}
+						<div
+							class="flex flex-col gap-3 rounded-2xl border p-4"
+							style="border-color:var(--border);background:var(--surface)"
+						>
+							<!-- Header -->
+							<div class="flex items-start justify-between gap-2">
+								<div>
+									<div class="font-semibold">{t.nama}</div>
+									<div class="text-xs" style="color:var(--text-dim)">{t.kode_toko}</div>
+								</div>
+								<span class="badge shrink-0 {STATUS_BADGE[t.status_langganan] ?? 'badge-ghost'}">
+									{t.status_langganan}
+								</span>
+							</div>
+
+							<!-- Info baris -->
+							<div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+								<span style="color:var(--text-dim)">Pemilik</span>
+								<span>{t.email_pemilik ?? '—'}</span>
+								{#if t.wa_pemilik}
+									<span style="color:var(--text-dim)">WA</span>
+									<span>{t.wa_pemilik}</span>
+								{/if}
+								{#if sisaHari(t) !== null}
+									<span style="color:var(--text-dim)">Sisa</span>
+									<span style={(sisaHari(t) ?? 0) < 0 ? 'color:var(--danger)' : ''}
+										>{sisaHari(t)} hari</span
+									>
+								{/if}
+								{#if t.bukti_menunggu}
+									<span style="color:var(--text-dim)">Bukti</span>
+									<span class="badge badge-warning badge-sm">{t.bukti_menunggu} menunggu</span>
+								{/if}
+							</div>
+
+							<!-- Alasan lifecycle -->
+							{#if t.alasan_terakhir.length}
+								<div class="border-t pt-2" style="border-color:var(--border)">
+									<p class="mb-1 text-[10px] font-semibold uppercase" style="color:var(--text-dim)">
+										Alasan
+									</p>
+									<div class="flex flex-wrap gap-1">
+										{#each t.alasan_terakhir as a (a)}
+											<span class="badge badge-ghost badge-xs text-[10px]">{a}</span>
+										{/each}
+									</div>
+								</div>
+							{/if}
+
+							<!-- Ubah status -->
+							<div class="border-t pt-2" style="border-color:var(--border)">
+								<select
+									class="select select-xs w-full"
+									value={t.status_langganan}
+									disabled={prosesId === t.id}
+									onchange={(e) => ubahStatus(t.id, e.currentTarget.value)}
+								>
+									{#each STATUS_OPSI as s (s)}
+										<option value={s}>{s}</option>
+									{/each}
+								</select>
+							</div>
+						</div>
+					{/each}
+					{#if !tokoTampil.length}
+						<p class="col-span-full text-sm" style="color:var(--text-dim)">Tidak ada toko.</p>
+					{/if}
+				</div>
+			{/if}
 		</section>
 	{/if}
 </main>

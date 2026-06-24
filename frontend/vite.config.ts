@@ -27,7 +27,7 @@ export default defineConfig({
         },
     ],
     ssr: {
-        noExternal: ['bits-ui', '@internationalized/date'],
+        noExternal: ['bits-ui', '@internationalized/date', 'layercake'],
     },
     build: {
         sourcemap: false,

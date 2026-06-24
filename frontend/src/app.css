@@ -105,7 +105,9 @@
 }
 
 /* ─── DaisyUI overrides — apple spec ───────────── */
-.input, .select, .textarea {
+.input,
+.select,
+.textarea {
   --depth: 0;
   border: 1px solid var(--border);
   box-shadow: none !important;

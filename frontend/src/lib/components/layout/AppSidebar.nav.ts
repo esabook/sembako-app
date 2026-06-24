@@ -207,6 +207,12 @@ export const NAV: NavItem[] = [
 		]
 	},
 	{
+		href: '/profile',
+		label: 'Profil & Akun',
+		roles: ['pemilik', 'manajer', 'kasir', 'gudang', 'sales', 'pelayanan'],
+		icon: 'CircleUserRound'
+	},
+	{
 		href: '/pengaturan',
 		label: 'Pengaturan',
 		roles: ['pemilik'],

@@ -130,7 +130,7 @@
 
 	{#if buka}
 		<div
-			class="absolute top-full right-0 z-50 mt-1 w-52 rounded border shadow-lg"
+			class="absolute top-full right-0 z-0 mt-1 w-52 rounded border shadow-lg"
 			style="background:var(--surface);border-color:var(--border)"
 		>
 			<!-- Header: info user -->

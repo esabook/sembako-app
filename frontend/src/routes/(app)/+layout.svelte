@@ -30,7 +30,11 @@
 	const boleKasir = $derived(KASIR_ROLES.includes($user?.role ?? ''));
 
 	async function bukaKasirPOS() {
-		try { await document.documentElement.requestFullscreen(); } catch { /* ignored */ }
+		try {
+			await document.documentElement.requestFullscreen();
+		} catch {
+			/* ignored */
+		}
 		goto('/kasir');
 	}
 
@@ -55,14 +59,14 @@
 </script>
 
 <div
-	class="app-root h-dvh flex flex-col overflow-hidden"
+	class="app-root flex h-dvh flex-col overflow-hidden"
 	style="background:var(--bg);color:var(--text);font-family:{FONT_CSS[
 		$font
 	]};font-size:{$ukuranFont}px"
 >
 	<!-- Top Navbar -->
 	<nav
-		class="app-nav sticky top-0 z-50 flex h-11 shrink-0 items-center gap-2 border-b px-1.5 text-sm"
+		class="app-nav sticky top-0 z-40 flex h-11 shrink-0 items-center gap-2 border-b px-1.5 text-sm"
 		style="background:var(--surface);border-color:var(--border)"
 	>
 		<!-- Mobile: tombol buka sidebar (SVG + nama toko) -->
