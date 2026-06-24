@@ -11,7 +11,8 @@
 		required = false,
 		id = undefined,
 		standalone = false,
-		onchange,
+		isWFull = true,
+		onchange
 	}: {
 		value?: string | number | null;
 		options?: Option[] | RawOption[];
@@ -21,6 +22,7 @@
 		required?: boolean;
 		id?: string;
 		standalone?: boolean;
+		isWFull?: boolean;
 		onchange?: (v: string | number) => void;
 	} = $props();
 
@@ -47,7 +49,9 @@
 		{required}
 		value={value !== null && value !== undefined ? String(value) : ''}
 		onchange={handle}
-		class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1 disabled:opacity-50"
+		class="{isWFull
+			? 'w-full'
+			: ''} rounded border px-2 py-1.5 text-sm transition-colors outline-none focus:ring-1 disabled:opacity-50"
 		style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)"
 	>
 		{#if placeholder}

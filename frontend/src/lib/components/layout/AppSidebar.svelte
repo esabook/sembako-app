@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { tinykeys } from 'tinykeys';
-	import { NAV } from './AppSidebar.nav';
+	import { NAV_GROUPS } from './AppSidebar.nav';
 	import type { SubNavItem } from './AppSidebar.nav';
 	// Lucide icons
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
@@ -34,6 +34,7 @@
 	import CircleUserRound from '@lucide/svelte/icons/circle-user-round';
 	import type { Component } from 'svelte';
 	import X from '@lucide/svelte/icons/x';
+	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 
 	const ICONS: Record<string, Component> = {
 		LayoutGrid,
@@ -78,6 +79,16 @@
 	let hoverExpanded = $state(false);
 	let showPopup = $state(false);
 	let navEl = $state<HTMLElement | null>(null);
+	const GROUP_COLLAPSE_KEY = 'sidebar_groups_collapsed';
+	let collapsedGroups = $state<Set<string>>(new Set());
+
+	function toggleGroup(key: string) {
+		const next = new Set(collapsedGroups);
+		if (next.has(key)) next.delete(key);
+		else next.add(key);
+		collapsedGroups = next;
+		localStorage.setItem(GROUP_COLLAPSE_KEY, JSON.stringify([...next]));
+	}
 
 	// --- Resizable sidebar ---
 	const ICON_W = 2.75;
@@ -151,6 +162,8 @@
 		if (saved === 'expanded' || saved === 'icon' || saved === 'hover') sidebarState = saved;
 		const savedW = localStorage.getItem(SIDEBAR_W_KEY);
 		if (savedW) customWidth = clamp(parseFloat(savedW));
+		const savedGroups = localStorage.getItem(GROUP_COLLAPSE_KEY);
+		if (savedGroups) collapsedGroups = new Set(JSON.parse(savedGroups));
 		sidebarReady = true;
 
 		const cleanupKeys = tinykeys(window, {
@@ -186,7 +199,11 @@
 		return $user !== null && roles.includes($user.role);
 	}
 
-	let visibleNav = $derived(NAV.filter((item) => bolehAkses(item.roles)));
+	let visibleGroups = $derived(
+		NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => bolehAkses(i.roles)) })).filter(
+			(g) => g.items.length > 0
+		)
+	);
 	const showLabels = $derived(
 		isMobile || sidebarState === 'expanded' || (sidebarState === 'hover' && hoverExpanded)
 	);
@@ -301,55 +318,76 @@
 		class="scrollbar-hide min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-10"
 		style="scrollbar-gutter: auto"
 	>
-		{#each visibleNav as item (item.href)}
-			{@const isActive = page.url.pathname.startsWith(item.href)}
-			{@const hasSub = isActive && showLabels && item.sub?.length}
-			<a
-				href={item.href}
-				title={!showLabels ? item.label : undefined}
-				onclick={() => {
-					if (isMobile) mobileOpen = false;
-				}}
-				class="hover-nav-item relative flex h-9 items-center text-sm transition-colors"
-				style={isActive
-					? 'color:var(--accent);background:var(--surface2)'
-					: 'color:var(--text-dim)'}
-				aria-current={isActive ? 'page' : undefined}
-			>
-				<span
-					class="absolute top-0 bottom-0 left-0 shrink-0 {isActive ? 'w-[2px]' : 'w-0'}"
-					style={isActive ? 'background:var(--accent)' : ''}
-				></span>
+		{#each visibleGroups as group, gi (group.key)}
+			{@const isCollapsed = showLabels && collapsedGroups.has(group.key)}
 
-				<span class="nav-icon-wrap ml-3 shrink-0 {isActive ? 'opacity-100' : 'opacity-70'}">
-					{#if ICONS[item.icon]}
-						{@const Icon = ICONS[item.icon]}
-						<Icon class="nav-icon" />
+			<!-- Group header -->
+			{#if showLabels}
+				<button
+					onclick={() => toggleGroup(group.key)}
+					class="group-header {gi > 0 ? 'group-header--sep' : ''}"
+					aria-expanded={!isCollapsed}
+				>
+					<span class="group-label">{group.label}</span>
+					<ChevronDown class="group-chevron {isCollapsed ? 'group-chevron--collapsed' : ''}" />
+				</button>
+			{:else if gi > 0}
+				<div class="group-divider-icon"></div>
+			{/if}
+
+			<!-- Group items -->
+			{#if !isCollapsed}
+				{#each group.items as item (item.href)}
+					{@const isActive = page.url.pathname.startsWith(item.href)}
+					{@const hasSub = isActive && showLabels && item.sub?.length}
+					<a
+						href={item.href}
+						title={!showLabels ? item.label : undefined}
+						onclick={() => {
+							if (isMobile) mobileOpen = false;
+						}}
+						class="hover-nav-item relative flex h-9 items-center text-sm transition-colors"
+						style={isActive
+							? 'color:var(--accent);background:var(--surface2)'
+							: 'color:var(--text-dim)'}
+						aria-current={isActive ? 'page' : undefined}
+					>
+						<span
+							class="absolute top-0 bottom-0 left-0 shrink-0 {isActive ? 'w-[2px]' : 'w-0'}"
+							style={isActive ? 'background:var(--accent)' : ''}
+						></span>
+
+						<span class="nav-icon-wrap ml-3 shrink-0 {isActive ? 'opacity-100' : 'opacity-70'}">
+							{#if ICONS[item.icon]}
+								{@const Icon = ICONS[item.icon]}
+								<Icon class="nav-icon" />
+							{/if}
+						</span>
+
+						{#if showLabels}
+							<span class="ml-2 truncate font-medium">{item.label}</span>
+						{/if}
+					</a>
+
+					<!-- Sub-nav: muncul saat parent aktif & expanded -->
+					{#if hasSub}
+						<div class="sub-nav">
+							{#each item.sub! as sub (sub.key)}
+								{@const isTab = activeTab === sub.key || page.url.pathname === sub.href}
+								<button
+									onclick={() => handleSubClick(item.href, sub)}
+									class="sub-nav-item"
+									style={(isActive
+										? 'border-color:color-mix(in srgb, var(--accent) 50%, transparent 50%)'
+										: '') + (isTab ? 'color:var(--accent);border-color:var(--accent)' : '')}
+									aria-current={isTab ? 'page' : undefined}
+								>
+									{sub.label}
+								</button>
+							{/each}
+						</div>
 					{/if}
-				</span>
-
-				{#if showLabels}
-					<span class="ml-2 truncate font-medium">{item.label}</span>
-				{/if}
-			</a>
-
-			<!-- Sub-nav: muncul saat parent aktif & expanded -->
-			{#if hasSub}
-				<div class="sub-nav">
-					{#each item.sub! as sub (sub.key)}
-						{@const isTab = activeTab === sub.key || page.url.pathname === sub.href}
-						<button
-							onclick={() => handleSubClick(item.href, sub)}
-							class="sub-nav-item"
-							style={(isActive
-								? 'border-color:color-mix(in srgb, var(--accent) 50%, transparent 50%)'
-								: '') + (isTab ? 'color:var(--accent);border-color:var(--accent)' : '')}
-							aria-current={isTab ? 'page' : undefined}
-						>
-							{sub.label}
-						</button>
-					{/each}
-				</div>
+				{/each}
 			{/if}
 		{/each}
 	</nav>
@@ -455,6 +493,51 @@
 		100% {
 			transform: scale(1) rotate(0deg);
 		}
+	}
+
+	.group-header {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		padding: 0.5rem 0.75rem 0.2rem;
+		background: none;
+		border: none;
+		cursor: pointer;
+		gap: 0.25rem;
+	}
+
+	.group-header--sep {
+		border-top: 1px solid var(--border);
+		margin-top: 0.25rem;
+	}
+
+	.group-label {
+		flex: 1;
+		text-align: left;
+		font-size: 0.625rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--text-dim);
+		opacity: 0.7;
+	}
+
+	:global(.group-chevron) {
+		width: 0.625rem;
+		height: 0.625rem;
+		color: var(--text-dim);
+		opacity: 0.5;
+		transition: transform 150ms ease;
+		flex-shrink: 0;
+	}
+
+	:global(.group-chevron--collapsed) {
+		transform: rotate(-90deg);
+	}
+
+	.group-divider-icon {
+		border-top: 1px solid var(--border);
+		margin: 0.25rem 0.75rem;
 	}
 
 	.sub-nav {

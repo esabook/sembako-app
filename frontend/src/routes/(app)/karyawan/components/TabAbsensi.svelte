@@ -5,6 +5,7 @@
 	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 	import type { createKaryawanStore } from '../karyawan.store.svelte.js';
 	import { STATUS_COLOR, hitungDurasi } from '../karyawan.logic.js';
+	import IdCardLanyard from '@lucide/svelte/icons/id-card-lanyard';
 
 	let { store }: { store: ReturnType<typeof createKaryawanStore> } = $props();
 
@@ -82,9 +83,10 @@
 	{#if store.isManager}
 		<Select
 			bind:value={store.filterKaryawanId}
-			options={store.karyawanList.map(k => ({ value: k.id, label: k.nama }))}
+			options={store.karyawanList.map((k) => ({ value: k.id, label: k.nama }))}
 			placeholder="Semua karyawan"
 			standalone
+			isWFull={false}
 		/>
 		<div class="flex gap-1 text-sm">
 			<button
@@ -110,10 +112,10 @@
 					style="border-color:var(--border);color:var(--text-dim)">↓ CSV</button
 				>
 			{/if}
-			<button
-				onclick={() => store.bukaFormAbsensi()}
-				class="rounded px-3 py-1 text-sm font-bold"
-				style="background:var(--accent);color:var(--bg)">+ Tambah</button
+			<button onclick={() => store.bukaFormAbsensi()} class="btn btn-primary">+ Tambah</button>
+			<a href="/absensi" target="_blank" class="btn flex items-center btn-primary">
+				<IdCardLanyard size="1rem" />
+				Absensi Kiosk</a
 			>
 		</div>
 	{/if}
@@ -256,7 +258,7 @@
 						<Select
 							id="fa-karyw"
 							bind:value={store.formAbsensi.karyawan_id}
-							options={store.karyawanList.map(k => ({ value: String(k.id), label: k.nama }))}
+							options={store.karyawanList.map((k) => ({ value: String(k.id), label: k.nama }))}
 							placeholder="-- Pilih --"
 						/>
 					</div>
@@ -271,7 +273,7 @@
 							{ value: 'hadir', label: 'Hadir' },
 							{ value: 'izin', label: 'Izin' },
 							{ value: 'sakit', label: 'Sakit' },
-							{ value: 'alpa', label: 'Alpa' },
+							{ value: 'alpa', label: 'Alpa' }
 						]}
 					/>
 				</div>
