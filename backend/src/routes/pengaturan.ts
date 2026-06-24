@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { eq, and } from 'drizzle-orm'
 import { networkInterfaces } from 'node:os'
 import { db, sqlite, query, withTransaction, isoNow, dialect } from '../db/index.ts'
-import { toko_settings, preferensi_pengguna } from '../db/schema.ts'
+import { toko, toko_settings, preferensi_pengguna } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
 import { HTTPException } from 'hono/http-exception'
@@ -24,9 +24,17 @@ export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 // ── GET /pengaturan/publik — tanpa auth, untuk login page ─────────────────
 pengaturanRouter.get('/publik', async (c) => {
-  const rows = await query.findAll<typeof toko_settings.$inferSelect>(db.select().from(toko_settings))
-  const row = rows.find((r) => r.key === 'nama_toko')
-  return c.json({ success: true, data: { nama_toko: row?.value ?? 'Stokasir' } })
+  const tokoId = Number(c.req.query('toko_id') ?? 1)
+  const rows = await query.findAll<typeof toko_settings.$inferSelect>(
+    db.select().from(toko_settings).where(eq(toko_settings.toko_id, tokoId))
+  )
+  const setting = rows.find((r) => r.key === 'nama_toko')
+  if (setting?.value) {
+    return c.json({ success: true, data: { nama_toko: setting.value } })
+  }
+  // fallback: baca toko.nama langsung (tenant baru belum punya toko_settings.nama_toko)
+  const tokoRow = await query.find<{ nama: string }>(db.select({ nama: toko.nama }).from(toko).where(eq(toko.id, tokoId)))
+  return c.json({ success: true, data: { nama_toko: tokoRow?.nama ?? 'Stokasir' } })
 })
 
 // ── GET /pengaturan/server-info — info jaringan & sistem ──────────────────
@@ -239,6 +247,21 @@ pengaturanRouter.get('/', async (c) => {
   return c.json({ success: true, data: result })
 })
 
+async function upsertSetting(tenantId: number, key: string, value: string) {
+  const existing = await query.find(
+    db.select().from(toko_settings).where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key)))
+  )
+  if (existing) {
+    await query.exec(
+      db.update(toko_settings)
+        .set({ value, updated_at: isoNow() })
+        .where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key)))
+    )
+  } else {
+    await query.exec(db.insert(toko_settings).values({ toko_id: tenantId, key, value }))
+  }
+}
+
 // ── PUT /pengaturan/:key ───────────────────────────────────────────────────
 
 pengaturanRouter.put('/:key', requirePermission('pengaturan.kelola'), async (c) => {
@@ -251,18 +274,10 @@ pengaturanRouter.put('/:key', requirePermission('pengaturan.kelola'), async (c) 
     return c.json({ success: false, error: `Key '${key}' tidak dikenal` }, 400)
   }
 
-  const existing = await query.find(db.select().from(toko_settings).where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key))))
+  await upsertSetting(tenantId, key, body.value)
 
-  if (existing) {
-    await query.exec(db.update(toko_settings)
-      .set({
-        value: body.value,
-        updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
-      })
-      .where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key)))
-    )
-  } else {
-    await query.exec(db.insert(toko_settings).values({ toko_id: tenantId, key, value: body.value }))
+  if (key === 'nama_toko') {
+    await query.exec(db.update(toko).set({ nama: body.value, updated_at: isoNow() }).where(eq(toko.id, tenantId)))
   }
 
   return c.json({ success: true, data: { key, value: body.value } })
@@ -278,19 +293,11 @@ pengaturanRouter.post('/bulk', requirePermission('pengaturan.kelola'), async (c)
 
   for (const [key, value] of Object.entries(body)) {
     if (!(key in DEFAULTS)) continue
+    await upsertSetting(tenantId, key, value)
+  }
 
-    const existing = await query.find(db.select().from(toko_settings).where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key))))
-    if (existing) {
-      await query.exec(db.update(toko_settings)
-        .set({
-          value,
-          updated_at: new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }),
-        })
-        .where(and(eq(toko_settings.toko_id, tenantId), eq(toko_settings.key, key)))
-      )
-    } else {
-      await query.exec(db.insert(toko_settings).values({ toko_id: tenantId, key, value }))
-    }
+  if (body.nama_toko) {
+    await query.exec(db.update(toko).set({ nama: body.nama_toko, updated_at: isoNow() }).where(eq(toko.id, tenantId)))
   }
 
   return c.json({ success: true, data: body })

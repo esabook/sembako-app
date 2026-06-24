@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { createPengaturanStore } from '../pengaturan.store.svelte'
+	import { emailInput } from '$lib/actions/email'
 
 	let { store }: { store: ReturnType<typeof createPengaturanStore> } = $props()
 </script>
@@ -49,7 +50,7 @@
 			<label for="email" class="text-xs" style="color:var(--text-dim)">Email</label>
 			<input
 				id="email"
-				type="email"
+				use:emailInput
 				bind:value={store.form.email}
 				placeholder="toko@email.com"
 				class="w-full rounded border px-3 py-2 text-sm"

@@ -20,7 +20,7 @@
 	let showFullscreenGate = $state(false);
 
 	onMount(() => {
-		void api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
+		void api.get<{ nama_toko: string }>(`/pengaturan/publik?toko_id=${data.user?.tenant_id ?? 1}`).then((res) => {
 			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
 		});
 

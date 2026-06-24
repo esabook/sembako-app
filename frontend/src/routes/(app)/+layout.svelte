@@ -41,7 +41,7 @@
 	$effect(() => {
 		const cabangId = $user?.cabang_id;
 
-		api.get<{ nama_toko: string }>('/pengaturan/publik').then((res) => {
+		api.get<{ nama_toko: string }>(`/pengaturan/publik?toko_id=${$user?.tenant_id ?? 1}`).then((res) => {
 			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
 		});
 

@@ -188,7 +188,7 @@
 												? 'background:var(--surface2);color:var(--accent)'
 												: 'color:var(--text)'}
 										>
-											<span>{saas ? 'Semua Cabang' : t.nama}</span>
+											<span>{t.nama ?? 'Semua Cabang'}</span>
 											{#if semuaAktif}<span class="text-[0.8em]">✓</span>{/if}
 										</button>
 										{#if t.cabang.length > 0}

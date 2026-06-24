@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { toast } from '$lib/stores/ui.store';
+	import { emailInput } from '$lib/actions/email';
 
 	let email = $state('');
 	let wa = $state('');
@@ -36,6 +37,7 @@
 			<input
 				type="email"
 				bind:value={email}
+				use:emailInput
 				placeholder="nama@gmail.com"
 				class="input w-full text-sm"
 				aria-label="Email"
