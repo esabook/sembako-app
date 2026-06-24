@@ -1,6 +1,6 @@
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { db, dialect, query } from './db/index.ts'
-import { karyawan, kas_bank, toko } from './db/schema.ts'
+import { karyawan, kas_bank, toko, platform_admin } from './db/schema.ts'
 import { count } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { compress } from 'hono/compress'
@@ -213,6 +213,24 @@ if ((seedCheck?.total ?? 0) === 0) {
     { nama: 'Bank BRI', tipe: 'bank', saldo_awal: 0 },
   ]))
   console.log('Seed awal OK — login: admin / admin123')
+}
+
+// Auto-seed platform admin — idempoten, dicek terpisah dari karyawan supaya
+// db lama (yang sudah punya karyawan tapi belum punya admin platform) ikut
+// dapat baris ini saat restart. Cegah human-error "Username/password salah"
+// di /platform/login karena seed.ts manual tak pernah dijalankan.
+const platformCheck = await query.find<{ total: number }>(
+  db.select({ total: count() }).from(platform_admin)
+)
+if ((platformCheck?.total ?? 0) === 0) {
+  const padminUser = (process.env.PLATFORM_ADMIN_USER ?? 'superadmin').toLowerCase()
+  const padminPass = process.env.PLATFORM_ADMIN_PASSWORD ?? 'admin123'
+  await query.exec(db.insert(platform_admin).values({
+    username: padminUser,
+    password_hash: await Bun.password.hash(padminPass),
+    nama: 'Super Admin',
+  }))
+  console.log(`Seed platform admin OK — login /platform: ${padminUser} / ${padminPass}`)
 }
 
 const PORT = env.port
