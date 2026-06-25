@@ -18,6 +18,10 @@ async function proxy(event: RequestEvent): Promise<Response> {
 
 	const headers: Record<string, string> = { 'Content-Type': 'application/json' }
 
+	// Forward Pages cookie ke backend (penting untuk GET /auth/me, accessible-context, dll)
+	const existingToken = cookies.get('auth_token')
+	if (existingToken) headers['Cookie'] = `auth_token=${existingToken}`
+
 	let body: string | undefined
 	if (request.method !== 'GET' && request.method !== 'HEAD') {
 		body = await request.text().catch(() => '')
