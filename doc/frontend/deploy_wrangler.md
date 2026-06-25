@@ -11,14 +11,30 @@ Frontend di-deploy sebagai **Cloudflare Pages + Functions** — halaman statis d
 - Akun Cloudflare (free cukup)
 - `wrangler` sudah terinstall sebagai devDependency di `backend/`
 - Login: `bunx wrangler login` (dari folder mana saja)
-- Backend sudah di-deploy ke CF Workers (butuh URL-nya untuk `PUBLIC_API_URL`)
+- Backend sudah di-deploy ke CF Workers (butuh URL-nya untuk `BACKEND_URL`)
+
+---
+
+## Arsitektur Proxy
+
+Frontend **tidak** meng-hardcode URL backend ke JS bundle. Semua request API dikirim ke `/api/*` → Pages Function proxy → Workers backend.
+
+```
+Browser → /api/* → Pages Function (_worker.js)
+                        → BACKEND_URL (env var server-side)
+                        → https://stokasir-backend.xxx.workers.dev
+```
+
+Keuntungan: URL backend tidak ter-bake di bundle, cukup set `BACKEND_URL` di wrangler.toml tanpa rebuild.
 
 ---
 
 ## Urutan Deploy (Chicken-Egg)
 
-Frontend butuh URL backend (`PUBLIC_API_URL`), backend butuh URL frontend (`FRONTEND_URL`).
-Solusi: URL backend bisa diprediksi **sebelum** deploy — format-nya selalu sama.
+Frontend butuh URL backend (`BACKEND_URL`), backend butuh URL frontend (`FRONTEND_URL`).
+
+URL backend bisa diprediksi **sebelum** deploy — format-nya selalu sama:
+`https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev`
 
 **Cek subdomain CF kamu:** `dash.cloudflare.com` → Workers & Pages → Overview → lihat `*.workers.dev`
 
@@ -27,38 +43,37 @@ Urutan yang benar:
 ```
 1. Deploy backend (FRONTEND_URL = placeholder)
       → dapat URL: https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev
-2. Set PUBLIC_API_URL → build + deploy frontend
-      → dapat URL: https://stokasir-frontend.pages.dev
-3. Update FRONTEND_URL di backend → redeploy backend
+2. Set BACKEND_URL di frontend/wrangler.toml → build + deploy frontend
+      → dapat URL: https://stokasir-frontend.pages.dev (atau nama project kamu)
+3. Update FRONTEND_URL di backend/wrangler.toml → redeploy backend
 ```
 
 Total: 2x deploy backend, 1x deploy frontend.
-Backend deploy pertama tetap normal — CORS hanya gagal jika ada request dari frontend, tapi frontend belum ada.
 
 ---
 
 ## Setup Awal (Sekali)
 
-### 1. Set PUBLIC_API_URL di wrangler.toml
+### 1. Set BACKEND_URL di wrangler.toml
 
 Edit `frontend/wrangler.toml`, isi URL backend CF Workers:
 
 ```toml
 [vars]
 PUBLIC_DEPLOYMENT_MODE = "online"
-PUBLIC_API_URL = "https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev"
+BACKEND_URL = "https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev"
 ```
 
-> **Catatan:** `PUBLIC_API_URL` di-bake saat build (`import.meta.env`). Perubahan wrangler.toml di bagian `[vars]` untuk key ini tidak otomatis berlaku — harus rebuild. Lihat [Env Vars](#env-vars) di bawah.
+`BACKEND_URL` adalah server-side private var — tidak terekspos ke browser.
 
 ### 2. Update FRONTEND_URL di backend
 
-CF Pages assign URL default `https://stokasir-frontend.pages.dev` saat deploy pertama.
+CF Pages assign URL default saat deploy pertama.
 Update `backend/wrangler.toml`:
 
 ```toml
 [vars]
-FRONTEND_URL = "https://stokasir-frontend.pages.dev"
+FRONTEND_URL = "https://stokasir-frontend.pages.dev,https://stokasir.pages.dev"
 ```
 
 Lalu redeploy backend:
@@ -96,7 +111,6 @@ cd frontend
 bun run build:cf:prod
 
 # Deploy ke produksi
-# (deploy pertama: wrangler otomatis buat project baru di Cloudflare jika belum ada)
 bunx wrangler pages deploy .svelte-kit/cloudflare --project-name=stokasir-frontend
 
 # Deploy ke preview (tidak mengganti produksi)
@@ -107,45 +121,30 @@ bunx wrangler pages deploy .svelte-kit/cloudflare --project-name=stokasir-fronte
 
 ## Env Vars
 
-### Klasifikasi
+### Semua vars di wrangler.toml
 
-| Cara set | Key | Kapan dibaca | Contoh |
-|----------|-----|-------------|--------|
-| Build-time (script env) | `PUBLIC_API_URL` | Di-bake ke JS saat `vite build` | URL backend |
-| Runtime `[vars]` (wrangler.toml) | `PUBLIC_DEPLOYMENT_MODE` | Dibaca server saat request | `"online"` |
-| Runtime `[vars]` (wrangler.toml) | `PUBLIC_UMAMI_SRC/ID` | Dibaca server saat request | URL Umami |
+| Key | Scope | Kapan dibaca | Keterangan |
+|-----|-------|-------------|-----------|
+| `PUBLIC_DEPLOYMENT_MODE` | Runtime `[vars]` | Server saat request | `"online"` aktifkan marketing |
+| `BACKEND_URL` | Runtime `[vars]` | Server saat request (proxy) | URL Workers backend — private |
+| `PUBLIC_UMAMI_SRC` | Runtime `[vars]` | Server saat request | URL script Umami analytics |
+| `PUBLIC_UMAMI_ID` | Runtime `[vars]` | Server saat request | Dataset ID Umami |
 
-**Aturan penting:**
-- `PUBLIC_API_URL` pakai `import.meta.env` → wajib di-set di environment **sebelum build**, bukan hanya di `[vars]`
-- `PUBLIC_DEPLOYMENT_MODE` pakai `$env/dynamic/public` → dibaca dari `platform.env` saat runtime, cukup set di `[vars]`
+**Semua vars dibaca via `$env/dynamic/public` atau `platform.env` — cukup set di `[vars]`, tidak perlu rebuild.**
 
-### Set PUBLIC_API_URL untuk build
+### Preview environment
 
-Cara 1 — export sebelum build:
-```bash
-export PUBLIC_API_URL="https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev"
-bun run build:cf:prod
+`[env.preview.vars]` di `frontend/wrangler.toml` untuk deploy ke branch `preview`:
+
+```toml
+[env.preview.vars]
+PUBLIC_DEPLOYMENT_MODE = "online"
+BACKEND_URL = "https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev"
 ```
 
-Cara 2 — file `.env.cf` (jangan di-commit):
-```bash
-# frontend/.env.cf
-PUBLIC_API_URL=https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev
-```
-```bash
-env $(cat .env.cf) bun run build:cf:prod
-```
+### Set vars via dashboard (override wrangler.toml)
 
-Cara 3 — GitHub Actions (CI/CD), set sebagai repository secret lalu inject ke env build.
-
-### Set vars runtime via dashboard
-
-Cloudflare Dashboard → Pages → stokasir-frontend → Settings → Environment variables:
-
-```
-PUBLIC_UMAMI_SRC   = https://analytics.example.com/script.js   [optional]
-PUBLIC_UMAMI_ID    = xxxx-xxxx-xxxx                             [optional]
-```
+Cloudflare Dashboard → Pages → stokasir-frontend → Settings → Environment variables.
 
 > Vars di dashboard **override** wrangler.toml untuk production/preview environment.
 
@@ -167,7 +166,7 @@ bunx wrangler pages dev .svelte-kit/cloudflare --port=4173
 
 Akses di `http://localhost:4173`.
 
-> Ini berbeda dari `bun run dev` (Vite dev server). Gunakan `wrangler pages dev` untuk test edge behavior, cookies, SSR.
+> Ini berbeda dari `bun run dev` (Vite dev server). Gunakan `wrangler pages dev` untuk test edge behavior, cookies, SSR, dan proxy `/api/*`.
 
 ---
 
@@ -179,7 +178,7 @@ Setelah custom domain aktif, update `FRONTEND_URL` di `backend/wrangler.toml` da
 
 ---
 
-## Arsitektur
+## Arsitektur File
 
 ### Adapter
 
@@ -194,7 +193,7 @@ Dikontrol via `DEPLOY_TARGET=cloudflare` di `svelte.config.js`.
 
 | File | Fungsi |
 |------|--------|
-| `_worker.js` | Entry point SSR Functions (semua SSR routes) |
+| `_worker.js` | Entry point SSR Functions (semua SSR routes + proxy `/api/*`) |
 | `_routes.json` | Auto-generated — mana request ke Functions, mana ke static |
 | `_headers` | Cache rules untuk static assets |
 | `_app/immutable/*` | JS/CSS chunks dengan content hash — `max-age=31536000, immutable` |
@@ -231,13 +230,9 @@ Cek logs:
 bunx wrangler pages deployment tail --project-name=stokasir-frontend
 ```
 
-### PUBLIC_API_URL kosong / `/api` tidak jalan
+### Request ke /api/* gagal / 502
 
-`PUBLIC_API_URL` harus di-set sebelum build. Verifikasi:
-```bash
-# Cek apakah URL ter-bake di output
-grep -r "workers.dev" .svelte-kit/cloudflare/_worker.js | head -3
-```
+`BACKEND_URL` belum diset atau salah. Cek via wrangler pages dev dulu.
 
 ### CORS error dari frontend ke backend
 

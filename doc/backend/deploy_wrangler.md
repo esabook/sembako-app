@@ -24,14 +24,30 @@ Copy `database_id` dari output, paste ke `backend/wrangler.toml`:
 database_id = "PASTE_ID_DI_SINI"
 ```
 
-### 2. Set secret JWT
+### 2. Buat KV namespace
+
+```bash
+bunx wrangler kv namespace create stokasir-cache
+```
+
+Copy `id` dari output, paste ke `backend/wrangler.toml`:
+
+```toml
+[[kv_namespaces]]
+binding = "KV"
+id = "PASTE_ID_DI_SINI"
+```
+
+KV dipakai untuk: rate limiting auth, cache kategori/satuan/barang list, cache dashboard.
+
+### 3. Set secret JWT
 
 ```bash
 bunx wrangler secret put JWT_SECRET
 # masukkan string min 32 karakter
 ```
 
-### 3. Update vars di wrangler.toml
+### 4. Update vars di wrangler.toml
 
 Edit `backend/wrangler.toml` sesuai environment produksi:
 
@@ -124,22 +140,45 @@ Didaftarkan di `wrangler.toml`:
 
 ### [vars] di wrangler.toml (bukan rahasia)
 
-| Key | Default | Keterangan |
-|-----|---------|-----------|
+| Key | Nilai prod | Keterangan |
+|-----|------------|-----------|
 | `DATABASE_URL` | `d1://` | Sentinel — jangan diubah untuk CF mode |
 | `JWT_EXPIRY_HOURS` | `12` | Durasi token JWT |
-| `FRONTEND_URL` | — | CORS origin, pisah koma jika multi |
-| `SAAS_GATING` | `0` | `1` = aktifkan mode SaaS, cek langganan |
+| `FRONTEND_URL` | (URL Pages, pisah koma) | CORS origin, bisa multi nilai |
+| `SAAS_GATING` | `1` | `1` = aktifkan mode SaaS, cek langganan |
+| `NODE_ENV` | `production` | Environment mode |
 | `STORAGE_DRIVER` | `r2` | `local` / `r2` / `s3` |
+| `UPLOAD_DIR` | `""` | Kosong di CF mode (pakai R2) |
+| `S3_ENDPOINT` | `""` | Kosong jika pakai R2 native |
+| `S3_REGION` | `auto` | Region R2/S3 |
+| `S3_BUCKET` | `""` | Nama bucket |
+| `S3_PUBLIC_URL` | `""` | URL publik bucket |
 | `PLATFORM_ADMIN_USER` | `superadmin` | Username admin platform |
+| `PLATFORM_ADMIN_PASSWORD` | (set langsung) | Password admin platform |
 
 ### Secrets (via `wrangler secret put`)
 
 | Key | Keterangan |
 |-----|-----------|
 | `JWT_SECRET` | Wajib, min 32 karakter |
-| `PLATFORM_ADMIN_PASSWORD` | Bisa juga di [vars] jika tidak sensitif |
 | `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Jika pakai R2/S3 untuk uploads |
+
+---
+
+## Observability
+
+`wrangler.toml` mengaktifkan logging otomatis:
+
+```toml
+[observability.logs]
+enabled = true
+invocation_logs = true
+```
+
+Lihat logs live:
+```bash
+bunx wrangler tail
+```
 
 ---
 
