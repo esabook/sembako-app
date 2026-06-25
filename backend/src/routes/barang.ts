@@ -9,6 +9,7 @@ import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
 import { saveUpload } from '../utils/upload.ts'
 import { getAuditBy } from '../utils/audit.ts'
+import { getCache } from '../lib/cache.ts'
 
 export const barangRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -18,7 +19,12 @@ barangRouter.use('*', tenantMiddleware)
 // ── Kategori ──────────────────────────────────────────────────────────────
 
 barangRouter.get('/kategori', async (c) => {
+  const cache = getCache(c.env as { KV?: unknown })
+  const cached = await cache.get('kategori:all')
+  if (cached) return c.json({ success: true, data: JSON.parse(cached) })
+
   const rows = await query.findAll(db.select().from(kategori))
+  await cache.put('kategori:all', JSON.stringify(rows), { expirationTtl: 3600 })
   return c.json({ success: true, data: rows })
 })
 
@@ -27,6 +33,7 @@ barangRouter.post('/kategori', requirePermission('stok.edit'), async (c) => {
   if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama kategori wajib diisi' })
 
   const row = await query.ret(db.insert(kategori).values({ nama: body.nama.trim(), kode: body.kode?.trim().toUpperCase() || null, contoh: body.contoh?.trim() || null }).returning())
+  await getCache(c.env as { KV?: unknown }).delete('kategori:all')
   return c.json({ success: true, data: row }, 201)
 })
 
@@ -37,6 +44,7 @@ barangRouter.put('/kategori/:id', requirePermission('stok.edit'), async (c) => {
 
   const row = await query.ret(db.update(kategori).set({ nama: body.nama.trim(), kode: body.kode?.trim().toUpperCase() || null, contoh: body.contoh?.trim() || null }).where(eq(kategori.id, id)).returning())
   if (!row) throw new HTTPException(404, { message: 'Kategori tidak ditemukan' })
+  await getCache(c.env as { KV?: unknown }).delete('kategori:all')
   return c.json({ success: true, data: row })
 })
 
@@ -48,6 +56,7 @@ barangRouter.delete('/kategori/:id', requirePermission('stok.edit'), async (c) =
   const dipakai = await query.find(db.select({ id: barang.id }).from(barang).where(eq(barang.kategori_id, id)))
   if (dipakai) throw new HTTPException(400, { message: 'Kategori masih dipakai oleh barang' })
   await query.exec(db.delete(kategori).where(eq(kategori.id, id)))
+  await getCache(c.env as { KV?: unknown }).delete('kategori:all')
   return c.json({ success: true, data: null })
 })
 
@@ -66,13 +75,19 @@ barangRouter.post('/kategori/import-preset', requirePermission('stok.edit'), asy
       updated++
     }
   }
+  await getCache(c.env as { KV?: unknown }).delete('kategori:all')
   return c.json({ success: true, data: { inserted, updated } })
 })
 
 // ── Satuan ────────────────────────────────────────────────────────────────
 
 barangRouter.get('/satuan', async (c) => {
+  const cache = getCache(c.env as { KV?: unknown })
+  const cached = await cache.get('satuan:all')
+  if (cached) return c.json({ success: true, data: JSON.parse(cached) })
+
   const rows = await query.findAll(db.select().from(satuan))
+  await cache.put('satuan:all', JSON.stringify(rows), { expirationTtl: 3600 })
   return c.json({ success: true, data: rows })
 })
 
@@ -87,6 +102,7 @@ barangRouter.post('/satuan', requirePermission('stok.edit'), async (c) => {
     singkatan: body.singkatan.trim(),
     contoh: body.contoh?.trim() || null,
   }).returning())
+  await getCache(c.env as { KV?: unknown }).delete('satuan:all')
   return c.json({ success: true, data: row }, 201)
 })
 
@@ -100,6 +116,7 @@ barangRouter.put('/satuan/:id', requirePermission('stok.edit'), async (c) => {
   const row = await query.ret(db.update(satuan).set({ nama: body.nama.trim(), singkatan: body.singkatan.trim(), contoh: body.contoh?.trim() || null })
     .where(eq(satuan.id, id)).returning())
   if (!row) throw new HTTPException(404, { message: 'Satuan tidak ditemukan' })
+  await getCache(c.env as { KV?: unknown }).delete('satuan:all')
   return c.json({ success: true, data: row })
 })
 
@@ -111,6 +128,7 @@ barangRouter.delete('/satuan/:id', requirePermission('stok.edit'), async (c) => 
   const dipakai = await query.find(db.select({ id: barang.id }).from(barang).where(eq(barang.satuan_dasar_id, id)))
   if (dipakai) throw new HTTPException(400, { message: 'Satuan masih dipakai oleh barang' })
   await query.exec(db.delete(satuan).where(eq(satuan.id, id)))
+  await getCache(c.env as { KV?: unknown }).delete('satuan:all')
   return c.json({ success: true, data: null })
 })
 
@@ -128,16 +146,33 @@ barangRouter.post('/satuan/import-preset', requirePermission('stok.edit'), async
       updated++
     }
   }
+  await getCache(c.env as { KV?: unknown }).delete('satuan:all')
   return c.json({ success: true, data: { inserted, updated } })
 })
 
 // ── Barang ────────────────────────────────────────────────────────────────
+
+async function invalidateBarangCache(env: { KV?: unknown }, tenantId: number) {
+  const cache = getCache(env)
+  await Promise.all([
+    cache.delete(`barang:${tenantId}:1`),
+    cache.delete(`barang:${tenantId}:0`),
+  ])
+}
 
 barangRouter.get('/', async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const q = c.req.query('q')
   const aktif = c.req.query('aktif') !== '0'
+
+  // Cache list tanpa search — stok boleh stale 60 detik, validasi nyata saat transaksi
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `barang:${tenantId}:${aktif ? '1' : '0'}`
+  if (!q) {
+    const cached = await cache.get(cacheKey)
+    if (cached) return c.json({ success: true, data: JSON.parse(cached) })
+  }
 
   const rows = await query.findAll(db
     .select({
@@ -171,6 +206,7 @@ barangRouter.get('/', async (c) => {
     )
     )
 
+  if (!q) await cache.put(cacheKey, JSON.stringify(rows), { expirationTtl: 60 })
   return c.json({ success: true, data: rows })
 })
 
@@ -248,6 +284,7 @@ barangRouter.post('/', requirePermission('stok.edit'), async (c) => {
     tenant_id: tenantId,
   }).returning())
 
+  await invalidateBarangCache(c.env as { KV?: unknown }, tenantId)
   return c.json({ success: true, data: row }, 201)
 })
 
@@ -273,6 +310,7 @@ barangRouter.put('/:id', requirePermission('stok.edit'), async (c) => {
     .returning()
     )
 
+  await invalidateBarangCache(c.env as { KV?: unknown }, tenantId)
   return c.json({ success: true, data: row })
 })
 
@@ -292,6 +330,7 @@ barangRouter.delete('/:id', requirePermission('stok.hapus'), async (c) => {
     .where(eq(barang.id, id))
   )
 
+  await invalidateBarangCache(c.env as { KV?: unknown }, existing.tenant_id ?? 1)
   catatLog(user.id, 'nonaktifkan', 'barang', id, { nama_barang: existing.nama_barang, kode: existing.kode_barang })
   return c.json({ success: true, data: null })
 })
@@ -484,6 +523,11 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
       }
     }
   })
+
+  const tenantId = (c.get('user') as JWTPayload).tenant_id ?? 1
+  await invalidateBarangCache(c.env as { KV?: unknown }, tenantId)
+  if (kategoriDibuat.length) await getCache(c.env as { KV?: unknown }).delete('kategori:all')
+  if (satuanDibuat.length) await getCache(c.env as { KV?: unknown }).delete('satuan:all')
 
   return c.json({
     success: true,

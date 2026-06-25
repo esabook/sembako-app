@@ -9,6 +9,7 @@ import {
 } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
+import { getCache } from '../lib/cache.ts'
 
 export const dashboardRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 dashboardRouter.use('*', authMiddleware)
@@ -19,6 +20,12 @@ dashboardRouter.get('/', async (c) => {
   const tenantId = user.tenant_id ?? 1
   const cabangId = user.cabang_id ?? null
   const today = new Date().toISOString().slice(0, 10)
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `dashboard:${tenantId}:${cabangId ?? 0}:${today}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json({ success: true, data: JSON.parse(cached) })
+
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
   const day30ago = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
   const day7later = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
@@ -176,23 +183,23 @@ dashboardRouter.get('/', async (c) => {
   .where(and(eq(hutang_supplier.tenant_id, tenantId), sql`${hutang_supplier.status} != 'lunas'`))
   )
 
-  return c.json({
-    success: true,
-    data: {
-      today,
-      penjualan_hari_ini: penjualanHariIni,
-      penjualan_kemarin: penjualanKemarin,
-      penjualan_30hari: penjualan30hari,
-      saldo_kas: { akun: akunKas, total: totalSaldo },
-      stok_kritis: stokKritis,
-      piutang_macet: { list: piutangMacet, total: totalPiutangMacet },
-      hutang_jatuh_tempo: { list: hutangJatuhTempo, total: totalHutangJatuhTempo },
-      top_barang: topBarang,
-      belum_absen: belumAbsen,
-      ringkasan: {
-        total_piutang: totalPiutang?.total ?? 0,
-        total_hutang: totalHutang?.total ?? 0,
-      },
+  const data = {
+    today,
+    penjualan_hari_ini: penjualanHariIni,
+    penjualan_kemarin: penjualanKemarin,
+    penjualan_30hari: penjualan30hari,
+    saldo_kas: { akun: akunKas, total: totalSaldo },
+    stok_kritis: stokKritis,
+    piutang_macet: { list: piutangMacet, total: totalPiutangMacet },
+    hutang_jatuh_tempo: { list: hutangJatuhTempo, total: totalHutangJatuhTempo },
+    top_barang: topBarang,
+    belum_absen: belumAbsen,
+    ringkasan: {
+      total_piutang: totalPiutang?.total ?? 0,
+      total_hutang: totalHutang?.total ?? 0,
     },
-  })
+  }
+
+  await cache.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 })
+  return c.json({ success: true, data })
 })
