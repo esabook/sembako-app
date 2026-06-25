@@ -89,6 +89,7 @@ export { sqlite }
 // ESM live bindings: all importers automatically see the updated db/withTransaction.
 export function setD1Db(d1Db: AnyDB) {
   db = d1Db
-  withTransaction = <T>(fn: (tx: AnyDB) => Promise<T>) =>
-    (d1Db as any).transaction((tx: any) => fn(tx as AnyDB))
+  // Drizzle D1 .transaction() uses BEGIN/COMMIT which D1 rejects via prepare().run().
+  // Run without explicit transaction — each statement is auto-committed by D1.
+  withTransaction = <T>(fn: (tx: AnyDB) => Promise<T>) => fn(d1Db)
 }

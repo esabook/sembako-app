@@ -1,8 +1,9 @@
 import { redirect } from '@sveltejs/kit'
 import type { PageServerLoad } from './$types'
 import { onboardingSelesai } from '$lib/server/auth'
+import { backendUrl } from '$lib/server/config'
 
-const API_URL = process.env.BACKEND_URL ?? 'http://localhost:3000'
+const API_URL = backendUrl
 
 export const load: PageServerLoad = async ({ cookies }) => {
 	const token = cookies.get('auth_token')

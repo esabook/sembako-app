@@ -5,8 +5,11 @@ import { HTTPException } from 'hono/http-exception';
 import { SignJWT } from 'jose';
 import { env } from '../config/env.ts';
 import { db, isoNow, query, withTransaction } from '../db/index.ts';
+import { hashPassword, verifyPassword } from '../utils/password.ts';
 
-const COOKIE_SECURE = env.isProd;
+// Evaluated per-request so CF Workers process.env (set by worker.ts middleware) is current.
+// Module-level env.isProd freezes at module init before worker.ts sets process.env from c.env.
+const cookieProd = () => process.env.NODE_ENV === 'production';
 
 import { cabang, karyawan, toko } from '../db/schema.ts';
 import type { Role } from '../middleware/auth.ts';
@@ -97,7 +100,7 @@ authRouter.post('/login', async (c) => {
 		throw new HTTPException(401, { message: 'Username / email atau password salah' });
 	}
 
-	const valid = await Bun.password.verify(body.password, user.password_hash);
+	const valid = await verifyPassword(body.password, user.password_hash);
 	if (!valid) {
 		throw new HTTPException(401, { message: 'Username atau password salah' });
 	}
@@ -134,8 +137,9 @@ authRouter.post('/login', async (c) => {
 
 	setCookie(c, 'auth_token', token, {
 		httpOnly: true,
-		secure: COOKIE_SECURE,
-		sameSite: 'Strict',
+		secure: cookieProd(),
+		sameSite: cookieProd() ? 'None' : 'Strict',
+		partitioned: cookieProd(),
 		maxAge: COOKIE_MAX_AGE,
 		path: '/'
 	});
@@ -204,7 +208,7 @@ authRouter.post('/daftar', async (c) => {
 	// Auto-generate username dari prefix email + suffix waktu (dijamin unik)
 	const emailPrefix = (email.split('@')[0] ?? 'user').replace(/[^a-z0-9._-]/g, '_').slice(0, 20);
 
-	const hash = await Bun.password.hash(b.password);
+	const hash = await hashPassword(b.password);
 	const trialBerakhir = new Date(Date.now() + TRIAL_HARI * 24 * 60 * 60 * 1000).toISOString();
 	// Kode unik berbasis waktu — hindari tabrakan tanpa query max id
 	const suffix = Date.now().toString(36).toUpperCase();
@@ -400,8 +404,9 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 
 	setCookie(c, 'auth_token', token, {
 		httpOnly: true,
-		secure: COOKIE_SECURE,
-		sameSite: 'Strict',
+		secure: cookieProd(),
+		sameSite: cookieProd() ? 'None' : 'Strict',
+		partitioned: cookieProd(),
 		maxAge: COOKIE_MAX_AGE,
 		path: '/'
 	});

@@ -1,8 +1,8 @@
 import { redirect } from '@sveltejs/kit'
 import type { LayoutServerLoad } from './$types'
+import { backendUrl } from '$lib/server/config'
 
-// Server-side: langsung ke backend, tidak lewat Vite proxy
-const API_URL = process.env.BACKEND_URL ?? 'http://localhost:3000'
+const API_URL = backendUrl
 
 export const load: LayoutServerLoad = async ({ cookies }) => {
 	const token = cookies.get('auth_token')
@@ -38,17 +38,23 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
 
 	// Baca status onboarding agar revisit setelah selesai langsung ke layar sukses.
 	let sudahSelesai = false
+	let konteksList: { id: number; nama: string; cabang: { id: number; nama: string }[] }[] = []
 	try {
-		const setRes = await fetch(`${API_URL}/pengaturan`, {
-			headers: { Cookie: `auth_token=${token}` }
-		})
+		const [setRes, ctxRes] = await Promise.all([
+			fetch(`${API_URL}/pengaturan`, { headers: { Cookie: `auth_token=${token}` } }),
+			fetch(`${API_URL}/auth/accessible-context`, { headers: { Cookie: `auth_token=${token}` } })
+		])
 		if (setRes.ok) {
 			const setJson = await setRes.json()
 			sudahSelesai = setJson.success && setJson.data?.onboarding_selesai === 'true'
+		}
+		if (ctxRes.ok) {
+			const ctxJson = await ctxRes.json()
+			if (ctxJson.success) konteksList = ctxJson.data
 		}
 	} catch {
 		// abaikan — anggap belum selesai
 	}
 
-	return { user, sudahSelesai }
+	return { user, sudahSelesai, konteksList }
 }

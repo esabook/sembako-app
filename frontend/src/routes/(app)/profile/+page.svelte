@@ -173,7 +173,7 @@
 		dlgMode = null;
 		if (mode === 'nonaktif') {
 			toast.sukses('Toko dinonaktifkan.');
-			await api.post('/auth/logout', {});
+			await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
 			await invalidateAll();
 			goto('/');
 		} else {

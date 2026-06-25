@@ -1,6 +1,5 @@
 import { goto } from '$app/navigation'
 import { user } from '$lib/stores/auth'
-import { withLoading } from '$lib/utils/async'
 import { loginApi, fetchNamaToko, fetchServerIP } from './login.api'
 import { formatWaktu } from './login.logic'
 import type { User } from '$lib/stores/auth'
@@ -17,25 +16,28 @@ export function createLoginStore() {
 	let timeStr = $state('--:--:--')
 	let dateStr = $state('')
 	let loading = $state(false)
+	let error = $state('')
 
 	async function login(e: Event) {
 		e.preventDefault()
 		if (attemptsLeft <= 0) return
+		error = ''
 		loading = true
-		const hasil = await withLoading(() => loginApi(username, password), {
-			loadingKey: 'login',
-			loadingPesan: 'Memproses...',
-			modul: 'auth',
-			aksi: 'login',
-			bisaRetry: false
-		})
-		loading = false
-		if (!hasil) {
+		try {
+			const hasil = await loginApi(username, password)
+			user.set(hasil as User)
+			goto('/dashboard')
+		} catch (err) {
 			attemptsLeft = Math.max(0, attemptsLeft - 1)
-			return
+			const msg = err instanceof Error ? err.message : String(err)
+			const s = msg.toLowerCase()
+			if (s.includes('failed to fetch') || s.includes('networkerror'))
+				error = 'Koneksi ke server gagal. Cek jaringan WiFi.'
+			else
+				error = msg || 'Username atau password salah.'
+		} finally {
+			loading = false
 		}
-		user.set(hasil as User)
-		goto('/dashboard')
 	}
 
 	function muatInfo(hostname: string) {
@@ -68,12 +70,14 @@ export function createLoginStore() {
 		},
 		set username(v: string) {
 			username = v
+			error = ''
 		},
 		get password() {
 			return password
 		},
 		set password(v: string) {
 			password = v
+			error = ''
 		},
 		get showPassword() {
 			return showPassword
@@ -110,6 +114,9 @@ export function createLoginStore() {
 		},
 		get loading() {
 			return loading
+		},
+		get error() {
+			return error
 		},
 		login,
 		muatInfo,

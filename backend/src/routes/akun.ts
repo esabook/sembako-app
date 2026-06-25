@@ -16,6 +16,7 @@ import { karyawan, toko } from '../db/schema.ts';
 import { authMiddleware } from '../middleware/auth.ts';
 import { catatLog } from '../utils/log.ts';
 import type { JWTPayload } from './auth.ts';
+import { hashPassword, verifyPassword } from '../utils/password.ts';
 
 const GRACE_HARI = 30;
 
@@ -136,10 +137,10 @@ akunRouter.post('/ganti-password', async (c) => {
 	);
 	if (!k) throw new HTTPException(404, { message: 'Akun tidak ditemukan' });
 
-	const valid = await Bun.password.verify(body.lama, k.password_hash);
+	const valid = await verifyPassword(body.lama, k.password_hash);
 	if (!valid) throw new HTTPException(401, { message: 'Password lama salah' });
 
-	const hash = await Bun.password.hash(body.baru);
+	const hash = await hashPassword(body.baru);
 	await query.exec(
 		db.update(karyawan).set({ password_hash: hash }).where(eq(karyawan.id, user.id))
 	);
@@ -160,11 +161,11 @@ akunRouter.post('/ganti-pin', async (c) => {
 
 	if (k.pin_absensi) {
 		if (!body.lama) throw new HTTPException(400, { message: 'PIN lama wajib diisi' });
-		if (!(await Bun.password.verify(body.lama, k.pin_absensi)))
+		if (!(await verifyPassword(body.lama, k.pin_absensi)))
 			throw new HTTPException(401, { message: 'PIN lama salah' });
 	}
 
-	const hash = await Bun.password.hash(body.baru);
+	const hash = await hashPassword(body.baru);
 	await query.exec(db.update(karyawan).set({ pin_absensi: hash }).where(eq(karyawan.id, user.id)));
 
 	return c.json({ success: true, data: null });
@@ -186,7 +187,7 @@ async function pastikanPassword(userId: number, password: string | undefined) {
 			.from(karyawan)
 			.where(eq(karyawan.id, userId))
 	);
-	if (!k || !(await Bun.password.verify(password, k.password_hash))) {
+	if (!k || !(await verifyPassword(password, k.password_hash))) {
 		throw new HTTPException(401, { message: 'Password salah' });
 	}
 }

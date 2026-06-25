@@ -64,11 +64,14 @@
 		if (loadingSwitch) return;
 		loadingSwitch = true;
 		try {
-			const res = await api.post<{ tenant_id: number; cabang_id: number | null }>(
-				'/auth/switch-context',
-				{ toko_id: tokoId, cabang_id: cabangId }
-			);
-			if (res.success) {
+			const res = await fetch('/api/auth/switch-context', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ toko_id: tokoId, cabang_id: cabangId })
+			});
+			const json = await res.json() as { success: boolean };
+			if (json.success) {
 				buka = false;
 				bukaKonteks = false;
 				location.reload();
@@ -80,7 +83,7 @@
 
 	async function logout() {
 		buka = false;
-		await api.post('/auth/logout', {});
+		await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
 		user.set(null);
 		goto('/login');
 	}

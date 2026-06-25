@@ -25,6 +25,7 @@ import {
 } from '../db/schema.ts';
 import type { PlatformPayload } from '../middleware/platform.ts';
 import { platformMiddleware } from '../middleware/platform.ts';
+import { verifyPassword } from '../utils/password.ts';
 
 const JWT_SECRET = new TextEncoder().encode(
 	process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production'
@@ -32,6 +33,8 @@ const JWT_SECRET = new TextEncoder().encode(
 const JWT_EXPIRY_HOURS = Number(process.env.JWT_EXPIRY_HOURS ?? 12);
 const COOKIE_MAX_AGE = JWT_EXPIRY_HOURS * 60 * 60;
 const COOKIE_SECURE = env.isProd;
+const COOKIE_SAMESITE = env.isProd ? 'None' : 'Strict';
+const COOKIE_PARTITIONED = env.isProd;
 
 // Rate limit login admin: maks 10 percobaan per IP per 15 menit.
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -75,7 +78,7 @@ platformRouter.post('/login', async (c) => {
 		throw new HTTPException(401, { message: 'Username atau password salah' });
 	}
 
-	const valid = await Bun.password.verify(body.password, admin.password_hash);
+	const valid = await verifyPassword(body.password, admin.password_hash);
 	if (!valid) throw new HTTPException(401, { message: 'Username atau password salah' });
 
 	const payload: PlatformPayload = { is_platform: true, id: admin.id!, nama: admin.nama };
@@ -88,7 +91,8 @@ platformRouter.post('/login', async (c) => {
 	setCookie(c, 'platform_token', token, {
 		httpOnly: true,
 		secure: COOKIE_SECURE,
-		sameSite: 'Strict',
+		sameSite: COOKIE_SAMESITE,
+		partitioned: COOKIE_PARTITIONED,
 		maxAge: COOKIE_MAX_AGE,
 		path: '/'
 	});

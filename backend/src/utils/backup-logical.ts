@@ -128,11 +128,13 @@ export async function restoreFromBackup(rawStream: ReadableStream<Uint8Array>): 
     } catch { /* ignore */ }
   }
 
-  // Restore uploaded files
-  for (const { p, d } of fileEntries) {
-    const full = join(UPLOAD_DIR, p)
-    await mkdir(dirname(full), { recursive: true })
-    await Bun.write(full, Buffer.from(d, 'base64'))
+  // Restore uploaded files — Bun only (LAN). CF Workers: file entries skipped.
+  if (typeof Bun !== 'undefined') {
+    for (const { p, d } of fileEntries) {
+      const full = join(UPLOAD_DIR, p)
+      await mkdir(dirname(full), { recursive: true })
+      await Bun.write(full, Buffer.from(d, 'base64'))
+    }
   }
 
   return { tables: byTable.size, files: fileEntries.length }

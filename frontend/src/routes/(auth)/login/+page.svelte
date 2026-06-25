@@ -40,6 +40,9 @@
 	}
 
 	onMount(() => {
+		const params = new URLSearchParams(window.location.search);
+		const emailParam = params.get('email');
+		if (emailParam) store.username = emailParam;
 		usernameInput?.focus();
 		store.tick(new Date());
 		store.muatInfo(window.location.hostname);
@@ -221,6 +224,10 @@
 							</label>
 							<button type="button" class="forgot-btn">Lupa password?</button>
 						</div>
+
+						{#if store.error}
+							<div class="form-error" role="alert">{store.error}</div>
+						{/if}
 					</form>
 
 					<span class="grow"></span>
@@ -607,6 +614,18 @@
 	}
 	.pw-btn:hover {
 		color: var(--text);
+	}
+
+	/* Inline error */
+	.form-error {
+		margin-top: 10px;
+		padding: 8px 12px;
+		background: color-mix(in srgb, var(--danger) 10%, transparent);
+		border-left: 2px solid var(--danger);
+		color: var(--danger);
+		font-size: 12px;
+		letter-spacing: 0.02em;
+		line-height: 1.4;
 	}
 
 	/* Options row */

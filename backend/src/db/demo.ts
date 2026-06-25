@@ -1,5 +1,6 @@
 import { eq, count } from 'drizzle-orm'
 import { db, withTransaction, query } from './index.ts'
+import { hashPassword } from '../utils/password.ts'
 import {
   toko, toko_settings, cabang, karyawan, kas_bank,
   satuan, kategori, barang, supplier, pelanggan,
@@ -108,7 +109,7 @@ export async function generateDemoData(opts: DemoOpts = {}): Promise<{ toko_id: 
   const existing = await getDemoTokoId(kode)
   if (existing) throw new Error('Data demo sudah ada. Hapus dulu sebelum generate ulang.')
 
-  const hash = await Bun.password.hash('demo123')
+  const hash = await hashPassword('demo123')
   // Prefix kode (barang/transaksi/dst) ikut kode toko → unik global per tenant.
   const prefix = `${kode}-`
 

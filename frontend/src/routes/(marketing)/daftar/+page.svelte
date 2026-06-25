@@ -45,7 +45,7 @@
 		const ok = await bukaDemo({
 			email,
 			password,
-			nama_toko: 'StokasirDemo',
+			nama_toko: 'Toko Demo',
 			nama_pemilik: email.split('@')[0]?.trim() || 'PemilikDemo',
 			wa: wa.trim() || '08000000000'
 		});
@@ -174,6 +174,7 @@
 				<button
 					type="button"
 					onclick={toggleShow}
+					tabindex="-1"
 					class="flex shrink-0 items-center px-2 py-2"
 					style="color:var(--text-dim)"
 				>

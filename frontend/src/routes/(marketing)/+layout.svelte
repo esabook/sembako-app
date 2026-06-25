@@ -50,7 +50,7 @@
 
 	async function logout() {
 		buka = false;
-		await api.post('/auth/logout', {});
+		await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
 		await invalidateAll();
 		goto('/');
 	}

@@ -9,6 +9,7 @@ import { HTTPException } from 'hono/http-exception';
 import { logger } from 'hono/logger';
 import { env } from './config/env.ts';
 import { db, dialect, query } from './db/index.ts';
+import { hashPassword } from './utils/password.ts';
 import { karyawan, kas_bank, platform_admin, toko } from './db/schema.ts';
 import { initAnalyticsTap } from './lib/analytics-tap.ts';
 import { initHooks } from './lib/hooks.ts';
@@ -113,8 +114,9 @@ app.get('/health', (c) => c.json({ success: true, data: { status: 'ok' } }));
 app.get('/openapi.json', (c) => c.json(openAPISpec));
 app.get('/doc', Scalar({ spec: { url: '/openapi.json' }, pageTitle: 'Stokasir API' }));
 
-// Serve uploaded files
+// Serve uploaded files — Bun only (LAN). CF Workers uses R2/S3, served elsewhere.
 app.get('/uploads/*', async (c) => {
+	if (typeof Bun === 'undefined') return c.notFound();
 	const relativePath = c.req.path.replace(/^\/uploads\//, '');
 	const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../uploads');
 	const file = Bun.file(join(uploadDir, relativePath));
@@ -199,7 +201,7 @@ initScheduler();
 // Auto-seed: buat admin default hanya jika belum ada karyawan sama sekali (db segar)
 const seedCheck = await query.find<{ total: number }>(db.select({ total: count() }).from(karyawan));
 if ((seedCheck?.total ?? 0) === 0) {
-	const hash = await Bun.password.hash('admin123');
+	const hash = await hashPassword('admin123');
 	// Toko default (id=1) wajib ada dulu — karyawan.toko_id FK ke toko.id
 	await query.exec(
 		db.insert(toko).values({
@@ -239,7 +241,7 @@ if ((platformCheck?.total ?? 0) === 0) {
 	await query.exec(
 		db.insert(platform_admin).values({
 			username: padminUser,
-			password_hash: await Bun.password.hash(padminPass),
+			password_hash: await hashPassword(padminPass),
 			nama: 'Super Admin'
 		})
 	);

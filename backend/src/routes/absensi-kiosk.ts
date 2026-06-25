@@ -6,6 +6,7 @@ import { karyawan, absensi, jadwal_kerja, tipe_shift } from '../db/schema.ts'
 import { bus } from '../lib/event-bus.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import type { JWTPayload } from './auth.ts'
+import { verifyPassword } from '../utils/password.ts'
 
 export const absensiKioskRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -56,7 +57,7 @@ absensiKioskRouter.post('/check-pin', async (c) => {
 
   if (!k || k.toko_id !== user.tenant_id) throw new HTTPException(403, { message: 'Akses tidak diizinkan' })
   if (!k.pin_absensi) throw new HTTPException(401, { message: 'PIN tidak valid' })
-  if (!await Bun.password.verify(pin, k.pin_absensi)) throw new HTTPException(401, { message: 'PIN salah' })
+  if (!await verifyPassword(pin, k.pin_absensi)) throw new HTTPException(401, { message: 'PIN salah' })
 
   const { tanggal } = getWaktuJakarta()
   const tenantId = k.toko_id
@@ -91,7 +92,7 @@ absensiKioskRouter.post('/check-password', async (c) => {
     )
 
   if (!k || k.toko_id !== user.tenant_id) throw new HTTPException(403, { message: 'Akses tidak diizinkan' })
-  if (!await Bun.password.verify(body.password, k.password_hash)) throw new HTTPException(401, { message: 'Password salah' })
+  if (!await verifyPassword(body.password, k.password_hash)) throw new HTTPException(401, { message: 'Password salah' })
 
   const { tanggal } = getWaktuJakarta()
   const tenantId = k.toko_id

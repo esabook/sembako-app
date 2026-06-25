@@ -15,7 +15,7 @@
 
 	let { data } = $props();
 
-	const LANGKAH = ['Profil Toko', 'Barang Pertama', 'Undang Karyawan', 'Mode Demo'];
+	const LANGKAH = ['Profil Toko', 'Undang Karyawan', 'Mode Demo'];
 	let step = $state(0);
 	let menyimpan = $state(false);
 	// Revisit setelah selesai → langsung layar sukses, jangan ulang wizard.
@@ -25,7 +25,7 @@
 	// Setelah switch, reload: layout.server hitung ulang sudahSelesai untuk toko itu
 	// → kalau sudah onboarding otomatis tampil layar sukses.
 	type TokoItem = { id: number; nama: string; cabang: { id: number; nama: string }[] };
-	let konteksList = $state<TokoItem[]>([]);
+	const konteksList = $derived((data.konteksList ?? []) as TokoItem[]);
 	let pindahToko = $state(false);
 	let bukaPicker = $state(false);
 	let pickerRef = $state<HTMLDivElement>();
@@ -47,23 +47,14 @@
 	let alamat = $state('');
 	let telepon = $state('');
 
-	// Step 2 — barang pertama
-	let kodeBarang = $state('');
-	let namaBarang = $state('');
-	let kategoriId = $state<number | null>(null);
-	let satuanId = $state<number | null>(null);
-	let hargaEceran = $state<number>(0);
-	let kategoriOpts = $state<{ value: number; label: string }[]>([]);
-	let satuanOpts = $state<{ value: number; label: string }[]>([]);
-
-	// Step 3 — undang karyawan
+	// Step 1 — undang karyawan
 	let kodeKaryawan = $state('');
 	let namaKaryawan = $state('');
 	let username = $state('');
 	let password = $state('');
 	let role = $state<'kasir' | 'gudang' | 'manajer'>('kasir');
 
-	// Step 4 — data contoh
+	// Step 2 — data contoh
 	let isiDemo = $state(true);
 
 	function tutupPickerLuar(e: MouseEvent) {
@@ -76,13 +67,8 @@
 	});
 
 	onMount(async () => {
-		// Selalu muat konteks toko agar picker tahu apakah ada toko lain.
-		const ctx = await api.get<TokoItem[]>('/auth/accessible-context');
-		if (ctx.success) konteksList = ctx.data;
 		// Nama toko asli dari registrasi (kolom toko.nama) — sumber kebenaran.
-		const namaTokoAsli = ctx.success
-			? (ctx.data.find((t) => t.id === data.user?.tenant_id)?.nama ?? '')
-			: '';
+		const namaTokoAsli = konteksList.find((t) => t.id === data.user?.tenant_id)?.nama ?? '';
 
 		if (sukses) return; // sudah selesai → tak perlu muat data wizard
 		const res = await api.get<Record<string, string>>('/pengaturan');
@@ -93,14 +79,12 @@
 			namaToko = setNama && setNama !== 'Stokasir' ? setNama : namaTokoAsli || setNama || '';
 			alamat = res.data.alamat ?? '';
 			telepon = res.data.telepon ?? '';
+
+			if (namaToko == 'Toko Demo') {
+				step = 2;
+				isiDemo = true;
+			}
 		}
-		const [kat, sat] = await Promise.all([
-			api.get<{ id: number; nama: string }[]>('/barang/kategori'),
-			api.get<{ id: number; nama: string; singkatan: string }[]>('/barang/satuan')
-		]);
-		if (kat.success) kategoriOpts = kat.data.map((k) => ({ value: k.id, label: k.nama }));
-		if (sat.success)
-			satuanOpts = sat.data.map((s) => ({ value: s.id, label: `${s.nama} (${s.singkatan})` }));
 	});
 
 	async function simpanProfil(): Promise<boolean> {
@@ -121,33 +105,6 @@
 				suksesPesan: 'Profil toko disimpan',
 				modul: 'pengaturan',
 				aksi: 'simpan profil onboarding'
-			}
-		);
-		menyimpan = false;
-		return !!hasil;
-	}
-
-	async function simpanBarang(): Promise<boolean> {
-		if (!namaBarang.trim() || !kodeBarang.trim()) return true; // kosong → lewati saja
-		menyimpan = true;
-		const hasil = await withLoading(
-			async () => {
-				const res = await api.post('/barang', {
-					kode_barang: kodeBarang.trim(),
-					nama_barang: namaBarang.trim(),
-					kategori_id: kategoriId ?? undefined,
-					satuan_dasar_id: satuanId ?? undefined,
-					harga_jual_eceran: hargaEceran || 0
-				});
-				if (!res.success) throw new Error(res.error);
-				return true;
-			},
-			{
-				loadingKey: 'ob-barang',
-				suksesOtomatis: true,
-				suksesPesan: 'Barang pertama ditambahkan',
-				modul: 'barang',
-				aksi: 'tambah barang onboarding'
 			}
 		);
 		menyimpan = false;
@@ -190,9 +147,9 @@
 				if (isiDemo) {
 					// Mode demo = sandbox toko terpisah. Generate lalu masuk konteks demo.
 					// Toko asli tetap bersih; keluar mode demo = switch balik ke home_tenant.
-					let demoTokoId: number | null = null;
-					const status = await api.get<{ exists: boolean; toko_id?: number }>('/demo/status');
-					if (status.success && status.data.exists) demoTokoId = status.data.toko_id ?? null;
+					const statusDemo = await api.get<{ exists: boolean; toko_id?: number }>('/demo/status');
+					let demoTokoId: number | null =
+						statusDemo.success && statusDemo.data.exists ? (statusDemo.data.toko_id ?? null) : null;
 					if (!demoTokoId) {
 						const gen = await api.post<{ toko_id: number }>('/demo/generate', {});
 						if (!gen.success) throw new Error(gen.error);
@@ -229,8 +186,7 @@
 	async function lanjut() {
 		let ok = true;
 		if (step === 0) ok = await simpanProfil();
-		else if (step === 1) ok = await simpanBarang();
-		else if (step === 2) ok = await simpanKaryawan();
+		else if (step === 1) ok = await simpanKaryawan();
 		if (ok && step < LANGKAH.length - 1) step += 1;
 	}
 
@@ -314,19 +270,6 @@
 				</div>
 			</SectionCard>
 		{:else if step === 1}
-			<SectionCard judul="Barang Pertama">
-				<p class="mb-3 text-xs" style="color:var(--text-dim)">
-					Opsional — bisa dilewati dan diisi nanti.
-				</p>
-				<div class="grid gap-3 sm:grid-cols-2">
-					<Input label="Kode Barang" bind:value={kodeBarang} />
-					<Input label="Nama Barang" bind:value={namaBarang} />
-					<Select label="Kategori" bind:value={kategoriId} options={kategoriOpts} />
-					<Select label="Satuan" bind:value={satuanId} options={satuanOpts} />
-					<Input label="Harga Jual Eceran (Rp)" type="number" bind:value={hargaEceran} />
-				</div>
-			</SectionCard>
-		{:else if step === 2}
 			<SectionCard judul="Undang Karyawan">
 				<p class="mb-3 text-xs" style="color:var(--text-dim)">
 					Opsional — tambah kasir/gudang sekarang atau nanti.

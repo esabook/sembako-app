@@ -7,6 +7,7 @@ import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 import { saveUpload } from '../utils/upload.ts'
+import { hashPassword, verifyPassword } from '../utils/password.ts'
 
 export const karyawanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -301,8 +302,8 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
     throw new HTTPException(400, { message: 'Kode, nama, username, dan password wajib diisi' })
   }
 
-  const hash = await Bun.password.hash(body.password)
-  const pinHash = body.pin_absensi?.length === 4 ? await Bun.password.hash(body.pin_absensi) : null
+  const hash = await hashPassword(body.password)
+  const pinHash = body.pin_absensi?.length === 4 ? await hashPassword(body.pin_absensi) : null
 
   let row
   try {
@@ -362,11 +363,11 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
   }
 
   if (body.password) {
-    updates.password_hash = await Bun.password.hash(body.password)
+    updates.password_hash = await hashPassword(body.password)
     delete (updates as Record<string, unknown>).password
   }
   if (typeof body.pin_absensi === 'string') {
-    updates.pin_absensi = body.pin_absensi.length === 4 ? await Bun.password.hash(body.pin_absensi) : null
+    updates.pin_absensi = body.pin_absensi.length === 4 ? await hashPassword(body.pin_absensi) : null
   }
 
   let row

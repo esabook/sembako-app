@@ -1,12 +1,18 @@
 import { api } from '$lib/utils/api'
 
 export async function loginApi(username: string, password: string) {
-	const res = await api.post<{ id: number; nama: string; role: string }>('/auth/login', {
-		username,
-		password
+	// Gunakan proxy SvelteKit (/api/auth/login) bukan backend langsung.
+	// Cookie dari workers.dev tidak dikirim browser ke pages.dev (cross-origin);
+	// proxy re-issue cookie di pages.dev sehingga SSR bisa baca.
+	const res = await fetch('/api/auth/login', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		body: JSON.stringify({ username, password })
 	})
-	if (!res.success) throw new Error(res.error)
-	return res.data
+	const json = await res.json() as { success: boolean; data?: { id: number; nama: string; role: string }; error?: string }
+	if (!json.success) throw new Error(json.error ?? 'Login gagal')
+	return json.data!
 }
 
 export async function fetchNamaToko(): Promise<string> {
