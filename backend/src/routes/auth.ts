@@ -5,6 +5,7 @@ import { HTTPException } from 'hono/http-exception';
 import { SignJWT } from 'jose';
 import { env } from '../config/env.ts';
 import { db, isoNow, query, withTransaction } from '../db/index.ts';
+import { checkRateLimit, getCache } from '../lib/cache.ts';
 import { hashPassword, verifyPassword } from '../utils/password.ts';
 
 // Evaluated per-request so CF Workers process.env (set by worker.ts middleware) is current.
@@ -25,38 +26,6 @@ const COOKIE_MAX_AGE = JWT_EXPIRY_HOURS * 60 * 60;
 // Saat aktif, pemilik HANYA boleh akses toko miliknya (email_pemilik), bukan semua toko.
 // Mode LAN (default): pemilik = superuser 1 instance → lihat semua toko.
 
-// In-memory rate limiter: maks 10 percobaan login per IP per 15 menit
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-function checkRateLimit(ip: string): boolean {
-	const now = Date.now();
-	const windowMs = 15 * 60 * 1000;
-	const max = 10;
-	const entry = loginAttempts.get(ip);
-	if (!entry || entry.resetAt < now) {
-		loginAttempts.set(ip, { count: 1, resetAt: now + windowMs });
-		return true;
-	}
-	if (entry.count >= max) return false;
-	entry.count++;
-	return true;
-}
-
-// Rate limiter terpisah untuk registrasi: maks 5 daftar per IP per jam (cegah spam)
-const registerAttempts = new Map<string, { count: number; resetAt: number }>();
-function checkRegisterLimit(ip: string): boolean {
-	const now = Date.now();
-	const windowMs = 60 * 60 * 1000;
-	const max = 5;
-	const entry = registerAttempts.get(ip);
-	if (!entry || entry.resetAt < now) {
-		registerAttempts.set(ip, { count: 1, resetAt: now + windowMs });
-		return true;
-	}
-	if (entry.count >= max) return false;
-	entry.count++;
-	return true;
-}
-
 const TRIAL_HARI = Number(process.env.TRIAL_HARI ?? 14);
 
 export type JWTPayload = {
@@ -75,7 +44,8 @@ export const authRouter = new Hono<{ Variables: { user: JWTPayload } }>();
 
 authRouter.post('/login', async (c) => {
 	const ip = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
-	if (!checkRateLimit(ip)) {
+	const kv = getCache(c.env as { KV?: unknown });
+	if (!await checkRateLimit(kv, `rl:login:${ip}`, 10, 900)) {
 		throw new HTTPException(429, {
 			message: 'Terlalu banyak percobaan login. Coba lagi dalam 15 menit.'
 		});
@@ -169,7 +139,8 @@ type DaftarBody = {
 
 authRouter.post('/daftar', async (c) => {
 	const ip = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
-	if (!checkRegisterLimit(ip)) {
+	const kv = getCache(c.env as { KV?: unknown });
+	if (!await checkRateLimit(kv, `rl:daftar:${ip}`, 5, 3600)) {
 		throw new HTTPException(429, { message: 'Terlalu banyak pendaftaran. Coba lagi dalam 1 jam.' });
 	}
 

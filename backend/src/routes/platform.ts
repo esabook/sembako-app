@@ -17,6 +17,7 @@ import { SignJWT } from 'jose';
 import { env } from '../config/env.ts';
 import { purgeTokoById } from '../db/demo.ts';
 import { db, query } from '../db/index.ts';
+import { checkRateLimit, getCache } from '../lib/cache.ts';
 import {
 	karyawan,
 	log_aktivitas,
@@ -37,20 +38,6 @@ const COOKIE_SECURE = env.isProd;
 const COOKIE_SAMESITE = env.isProd ? 'None' : 'Strict';
 const COOKIE_PARTITIONED = env.isProd;
 
-// Rate limit login admin: maks 10 percobaan per IP per 15 menit.
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-function checkRateLimit(ip: string): boolean {
-	const now = Date.now();
-	const entry = loginAttempts.get(ip);
-	if (!entry || entry.resetAt < now) {
-		loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
-		return true;
-	}
-	if (entry.count >= 10) return false;
-	entry.count++;
-	return true;
-}
-
 const HARI_MS = 86_400_000;
 
 export const platformRouter = new Hono<{ Variables: { admin: PlatformPayload } }>();
@@ -58,7 +45,8 @@ export const platformRouter = new Hono<{ Variables: { admin: PlatformPayload } }
 // ── POST /login ───────────────────────────────────────────────────────────
 platformRouter.post('/login', async (c) => {
 	const ip = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
-	if (!checkRateLimit(ip)) {
+	const kv = getCache(c.env as { KV?: unknown });
+	if (!await checkRateLimit(kv, `rl:platform:${ip}`, 10, 900)) {
 		throw new HTTPException(429, {
 			message: 'Terlalu banyak percobaan. Coba lagi dalam 15 menit.'
 		});
