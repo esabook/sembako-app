@@ -1,4 +1,4 @@
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, inArray, or } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie, setCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
@@ -317,20 +317,24 @@ async function getAccessibleContext(role: Role, tokoId: number) {
 			.where(eq(toko.is_active, true));
 	}
 
-	const result: { id: number; nama: string; cabang: { id: number; nama: string }[] }[] = [];
-	for (const t of tokoList) {
-		if (!t.id) continue;
-		const cabangList = await db
-			.select({ id: cabang.id, nama: cabang.nama })
-			.from(cabang)
-			.where(and(eq(cabang.toko_id, t.id), eq(cabang.is_active, true)));
-		result.push({
-			id: t.id,
-			nama: t.nama,
-			cabang: cabangList.map((c) => ({ id: c.id!, nama: c.nama }))
-		});
+	const tokoIds = tokoList.map((t) => t.id).filter((id): id is number => id !== null);
+	const allCabang = tokoIds.length
+		? await db
+				.select({ id: cabang.id, nama: cabang.nama, toko_id: cabang.toko_id })
+				.from(cabang)
+				.where(and(inArray(cabang.toko_id, tokoIds), eq(cabang.is_active, true)))
+		: [];
+	const cabangByToko = new Map<number, { id: number; nama: string }[]>();
+	for (const c of allCabang) {
+		if (c.toko_id === null) continue;
+		const list = cabangByToko.get(c.toko_id) ?? [];
+		list.push({ id: c.id!, nama: c.nama });
+		cabangByToko.set(c.toko_id, list);
 	}
-	return result;
+	return tokoIds.map((id) => {
+		const t = tokoList.find((t) => t.id === id)!;
+		return { id, nama: t.nama, cabang: cabangByToko.get(id) ?? [] };
+	});
 }
 
 authRouter.get('/accessible-context', authMiddleware, async (c) => {

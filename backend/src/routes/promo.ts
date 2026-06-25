@@ -118,9 +118,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
     }).returning()))!
 
     if (body.targets?.length) {
-      for (const t of body.targets) {
-        await query.exec(db.insert(promo_target).values({ promo_id: p.id, target_tipe: t.target_tipe, target_id: t.target_id }))
-      }
+      await query.exec(db.insert(promo_target).values(body.targets.map(t => ({ promo_id: p.id, target_tipe: t.target_tipe, target_id: t.target_id }))))
     }
 
     return p
@@ -177,8 +175,8 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
 
     if (body.targets !== undefined) {
       await query.exec(db.delete(promo_target).where(eq(promo_target.promo_id, id)))
-      for (const t of body.targets) {
-        await query.exec(db.insert(promo_target).values({ promo_id: id, target_tipe: t.target_tipe, target_id: t.target_id }))
+      if (body.targets.length) {
+        await query.exec(db.insert(promo_target).values(body.targets.map(t => ({ promo_id: id, target_tipe: t.target_tipe, target_id: t.target_id }))))
       }
     }
   })

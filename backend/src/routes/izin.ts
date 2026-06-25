@@ -6,7 +6,7 @@
 // POST /izin/:id/tolak               — tolak   (manajer/pemilik)
 
 import { Hono } from 'hono'
-import { eq, and, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { pengajuan_izin, absensi, karyawan } from '../db/schema.ts'
@@ -177,24 +177,23 @@ izinRouter.post('/:id/setujui', async (c) => {
     .where(eq(pengajuan_izin.id, id))
   )
 
-  // Insert baris absensi untuk setiap hari dalam range
-  const statusAbsensi = row.jenis === 'sakit' ? 'sakit' : 'izin'
-  for (const tgl of rangeTanggal(row.tanggal_mulai, row.tanggal_selesai)) {
-    const sudahAda = await query.find(db
-      .select({ id: absensi.id })
-      .from(absensi)
-      .where(and(eq(absensi.karyawan_id, row.karyawan_id), eq(absensi.tanggal, tgl), eq(absensi.tenant_id, tenantId)))
-      )
-
-    if (!sudahAda) {
-      await query.exec(db.insert(absensi).values({
-        karyawan_id: row.karyawan_id,
-        tanggal: tgl,
-        status: statusAbsensi,
-        dicatat_oleh: user.id,
-        tenant_id: tenantId,
-      }))
-    }
+  // Insert baris absensi untuk setiap hari dalam range — 1 read + 1 bulk insert
+  const statusAbsensi: 'sakit' | 'izin' = row.jenis === 'sakit' ? 'sakit' : 'izin'
+  const allDates = rangeTanggal(row.tanggal_mulai, row.tanggal_selesai)
+  const existingRows = await query.findAll<{ tanggal: string }>(
+    db.select({ tanggal: absensi.tanggal }).from(absensi)
+      .where(and(eq(absensi.karyawan_id, row.karyawan_id), inArray(absensi.tanggal, allDates), eq(absensi.tenant_id, tenantId)))
+  )
+  const existingDates = new Set(existingRows.map((r) => r.tanggal))
+  const newDates = allDates.filter((tgl) => !existingDates.has(tgl))
+  if (newDates.length) {
+    await query.exec(db.insert(absensi).values(newDates.map((tgl) => ({
+      karyawan_id: row.karyawan_id,
+      tanggal: tgl,
+      status: statusAbsensi,
+      dicatat_oleh: user.id,
+      tenant_id: tenantId,
+    }))))
   }
 
   const updated = await query.find<typeof pengajuan_izin.$inferSelect>(db.select().from(pengajuan_izin).where(and(eq(pengajuan_izin.id, id), eq(pengajuan_izin.tenant_id, tenantId))))

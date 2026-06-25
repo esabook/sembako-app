@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, desc, and } from 'drizzle-orm'
+import { eq, desc, and, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
@@ -122,6 +122,13 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
   const termsHari = body.terms_bayar ?? sup.terms_bayar
 
+  // Preload semua barang sekali — hindari N query di dalam loop transaksi
+  const barangIds = body.items.map((i) => i.barang_id)
+  const barangRows = await query.findAll<typeof barang.$inferSelect>(
+    db.select().from(barang).where(and(inArray(barang.id, barangIds), eq(barang.tenant_id, tenantId)))
+  )
+  const barangMap = new Map(barangRows.map((b) => [b.id!, { ...b }]))
+
   const result = await withTransaction(async (tx) => {
     // 1. Buat barang_masuk header
     const bm = (await query.ret<{ id: number }>(db.insert(barang_masuk).values({
@@ -137,7 +144,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
     // 2. Detail + mutasi stok
     for (const item of body.items) {
-      const br = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(and(eq(barang.id, item.barang_id), eq(barang.tenant_id, tenantId))))
+      const br = barangMap.get(item.barang_id)
       if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
       await query.exec(db.insert(barang_masuk_detail).values({
@@ -180,6 +187,8 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
         })
         .where(eq(barang.id, item.barang_id))
         )
+      // Update map agar item berikutnya dengan barang sama pakai stok terbaru
+      barangMap.set(item.barang_id, { ...br, stok_sekarang: stokBaru, harga_beli_terakhir: item.harga_beli, harga_beli_rata: Math.round(hargaBeliBaru) })
 
       await query.exec(db.insert(histori_harga_beli).values({
         barang_id: item.barang_id,
