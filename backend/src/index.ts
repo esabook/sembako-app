@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { Scalar } from '@scalar/hono-api-reference';
-import { count } from 'drizzle-orm';
+import { count, eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { Hono } from 'hono';
 import { compress } from 'hono/compress';
@@ -202,12 +202,15 @@ initScheduler();
 const seedCheck = await query.find<{ total: number }>(db.select({ total: count() }).from(karyawan));
 if ((seedCheck?.total ?? 0) === 0) {
 	const hash = await hashPassword('admin123');
-	// Toko default (id=1) wajib ada dulu — karyawan.toko_id FK ke toko.id
+	// Toko default wajib ada dulu — karyawan.toko_id FK ke toko.id
 	await query.exec(
 		db.insert(toko).values({
 			kode_toko: 'TOKO-001',
 			nama: 'Toko Saya'
-		})
+		}).onConflictDoNothing()
+	);
+	const tokoSeed = await query.find<{ id: number }>(
+		db.select({ id: toko.id }).from(toko).where(eq(toko.kode_toko, 'TOKO-001'))
 	);
 	await query.exec(
 		db.insert(karyawan).values({
@@ -216,7 +219,8 @@ if ((seedCheck?.total ?? 0) === 0) {
 			role: 'pemilik',
 			username: 'admin',
 			password_hash: hash,
-			tipe_gaji: 'bulanan'
+			tipe_gaji: 'bulanan',
+			toko_id: tokoSeed!.id
 		})
 	);
 	await query.exec(
