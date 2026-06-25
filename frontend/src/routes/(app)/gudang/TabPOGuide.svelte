@@ -30,7 +30,7 @@
 				{ step: '2', label: 'Kirim ke Supplier', desc: 'Ubah status ke "dikirim". Bisa kirim via WhatsApp dari PO.' },
 				{ step: '3', label: 'Barang Datang', desc: 'Catat di tab Terima Barang. Stok baru bertambah di sini.' },
 				{ step: '4', label: 'PO Lunas', desc: 'Ubah status ke "lunas" setelah hutang dibayar.' },
-			] as row}
+			] as row (row.step)}
 			<div class="flex gap-3 p-2 rounded" style="background:var(--surface2)">
 				<span class="font-bold w-4 shrink-0 text-center" style="color:var(--accent)">{row.step}</span>
 				<div>

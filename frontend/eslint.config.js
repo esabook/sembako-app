@@ -37,8 +37,18 @@ export default defineConfig(
 		}
 	},
 	{
-		// Override or add rule settings here, such as:
-		// 'svelte/button-has-type': 'error'
-		rules: {}
+		rules: {
+			// {#each} tanpa key → Svelte rebuild semua node — wajib (lihat CLAUDE.md anti-patterns)
+			'svelte/require-each-key': 'error',
+
+			// Rule ini hanya flag $effect dengan tepat 1 statement assignment — pola no-freeze
+			// (multi-statement + requestIdleCallback) tidak terdeteksi, jadi aman diaktifkan.
+			'svelte/prefer-writable-derived': 'error',
+
+			// DINONAKTIFKAN: goto() fire-and-forget di permission guard adalah pola resmi
+			// di CLAUDE.md. Rule ini juga memflag <a href> biasa sebagai error (false positive).
+			// Perlu investigasi terpisah sebelum diaktifkan kembali.
+			'svelte/no-navigation-without-resolve': 'off',
+		}
 	}
 );

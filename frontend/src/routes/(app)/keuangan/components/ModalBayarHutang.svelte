@@ -1,0 +1,36 @@
+<script lang="ts">
+  import Modal from '$lib/components/ui/Modal.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Input from '$lib/components/ui/Input.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
+  import { fmt } from '../keuangan.logic'
+  import type { createKeuanganStore } from '../keuangan.store.svelte'
+
+  let { store }: { store: ReturnType<typeof createKeuanganStore> } = $props()
+</script>
+
+{#if store.modalBayarHutang && store.hutangDipilih}
+  <Modal judul="Bayar Hutang" ontutup={() => store.modalBayarHutang = false}>
+    <div class="flex flex-col gap-3">
+      <p class="text-sm" style="color:var(--text-dim)">
+        {store.hutangDipilih.nama_supplier} — Sisa <strong style="color:var(--danger)">Rp {fmt(store.hutangDipilih.sisa_hutang)}</strong>
+      </p>
+      <Input label="Tanggal Bayar" type="text" value={store.formBayarHutang.tanggal_bayar}
+        oninput={(v) => store.formBayarHutang.tanggal_bayar = String(v)} />
+      <div>
+        <span class="mb-1 block text-xs" style="color:var(--text-dim)">Jumlah Bayar</span>
+        <input type="number" bind:value={store.formBayarHutang.jumlah_bayar} min="1"
+          placeholder="0"
+          class="input input-bordered w-full text-sm" />
+      </div>
+      <div>
+        <Select label="Akun Kas/Bank" bind:value={store.formBayarHutang.kas_bank_id}
+          options={store.kasBankList.map(kb => ({ value: kb.id, label: kb.nama }))} />
+      </div>
+    </div>
+    {#snippet footer()}
+      <Button variant="ghost" onclick={() => store.modalBayarHutang = false}>Batal</Button>
+      <Button onclick={() => store.simpanBayarHutang()} loading={store.savingBayarHutang}>Bayar</Button>
+    {/snippet}
+  </Modal>
+{/if}

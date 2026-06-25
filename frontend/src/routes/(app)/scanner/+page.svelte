@@ -59,7 +59,7 @@
 
 	<!-- Mode cards -->
 	<div class="flex flex-col gap-3">
-		{#each MODES as m}
+		{#each MODES as m (m.id)}
 			<button
 				onclick={() => pilihMode(m.id)}
 				class="flex items-start gap-4 rounded-lg border px-5 py-4 text-left transition-colors active:scale-[0.98]"

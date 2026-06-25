@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, and, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, sqlite } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   barang_masuk, barang_masuk_detail,
   barang, mutasi_stok,
@@ -9,14 +9,14 @@ import {
   histori_harga_beli,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
-import sharp from 'sharp'
-import { mkdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { saveUpload } from '../utils/upload.ts'
 
-export const barangMasukRouter = new Hono()
+export const barangMasukRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 barangMasukRouter.use('*', authMiddleware)
+barangMasukRouter.use('*', tenantMiddleware)
 
 function noTerima(): string {
   const d = new Date()
@@ -32,7 +32,9 @@ function tglSekarang(): string {
 // ── GET /barang-masuk ─────────────────────────────────────────────────────
 
 barangMasukRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
-  const rows = db
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const rows = await query.findAll(db
     .select({
       id: barang_masuk.id,
       no_penerimaan: barang_masuk.no_penerimaan,
@@ -45,9 +47,10 @@ barangMasukRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
     })
     .from(barang_masuk)
     .leftJoin(supplier, eq(barang_masuk.supplier_id, supplier.id))
+    .where(eq(barang_masuk.tenant_id, tenantId))
     .orderBy(desc(barang_masuk.tanggal_terima))
     .limit(100)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -55,11 +58,13 @@ barangMasukRouter.get('/', requirePermission('pembelian.lihat'), async (c) => {
 // ── GET /barang-masuk/:id ─────────────────────────────────────────────────
 
 barangMasukRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const bm = db.select().from(barang_masuk).where(eq(barang_masuk.id, id)).get()
+  const bm = await query.find<typeof barang_masuk.$inferSelect>(db.select().from(barang_masuk).where(and(eq(barang_masuk.id, id), eq(barang_masuk.tenant_id, tenantId))))
   if (!bm) throw new HTTPException(404, { message: 'Penerimaan tidak ditemukan' })
 
-  const items = db
+  const items = await query.findAll(db
     .select({
       id: barang_masuk_detail.id,
       barang_id: barang_masuk_detail.barang_id,
@@ -73,7 +78,7 @@ barangMasukRouter.get('/:id', requirePermission('pembelian.lihat'), async (c) =>
     .from(barang_masuk_detail)
     .leftJoin(barang, eq(barang_masuk_detail.barang_id, barang.id))
     .where(eq(barang_masuk_detail.penerimaan_id, id))
-    .all()
+    )
 
   return c.json({ success: true, data: { ...bm, items } })
 })
@@ -90,6 +95,8 @@ type ItemMasuk = {
 
 barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? 1
   const body = await c.req.json<{
     supplier_id: number
     po_id?: number
@@ -102,7 +109,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
   if (!body.supplier_id) throw new HTTPException(400, { message: 'Supplier wajib dipilih' })
   if (!body.items?.length) throw new HTTPException(400, { message: 'Item barang kosong' })
 
-  const sup = db.select().from(supplier).where(eq(supplier.id, body.supplier_id)).get()
+  const sup = await query.find<typeof supplier.$inferSelect>(db.select().from(supplier).where(and(eq(supplier.id, body.supplier_id), eq(supplier.tenant_id, tenantId))))
   if (!sup) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
 
   const tgl = body.tanggal_terima ?? tglSekarang()
@@ -110,14 +117,21 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 
   let totalNilai = 0
   for (const item of body.items) {
-    totalNilai += item.harga_beli * item.jumlah_terima
+    totalNilai += Math.round(item.harga_beli * item.jumlah_terima)
   }
 
   const termsHari = body.terms_bayar ?? sup.terms_bayar
 
-  const result = sqlite.transaction(() => {
+  // Preload semua barang sekali — hindari N query di dalam loop transaksi
+  const barangIds = body.items.map((i) => i.barang_id)
+  const barangRows = await query.findAll<typeof barang.$inferSelect>(
+    db.select().from(barang).where(and(inArray(barang.id, barangIds), eq(barang.tenant_id, tenantId)))
+  )
+  const barangMap = new Map(barangRows.map((b) => [b.id!, { ...b }]))
+
+  const result = await withTransaction(async (tx) => {
     // 1. Buat barang_masuk header
-    const bm = db.insert(barang_masuk).values({
+    const bm = (await query.ret<{ id: number }>(db.insert(barang_masuk).values({
       no_penerimaan: noTrx,
       po_id: body.po_id,
       supplier_id: body.supplier_id,
@@ -125,23 +139,25 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
       no_faktur_supplier: body.no_faktur_supplier,
       total_nilai: totalNilai,
       diterima_oleh: user.id,
-    }).returning().get()
+      tenant_id: tenantId,
+    }).returning()))!
 
     // 2. Detail + mutasi stok
     for (const item of body.items) {
-      const br = db.select().from(barang).where(eq(barang.id, item.barang_id)).get()
-      if (!br) throw new Error(`Barang ID ${item.barang_id} tidak ditemukan`)
+      const br = barangMap.get(item.barang_id)
+      if (!br) throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
 
-      db.insert(barang_masuk_detail).values({
+      await query.exec(db.insert(barang_masuk_detail).values({
         penerimaan_id: bm.id,
         barang_id: item.barang_id,
         satuan_id: item.satuan_id,
         jumlah_terima: item.jumlah_terima,
         harga_beli: item.harga_beli,
         tgl_kadaluarsa: item.tgl_kadaluarsa,
-      }).run()
+        tenant_id: tenantId,
+      }))
 
-      db.insert(mutasi_stok).values({
+      await query.exec(db.insert(mutasi_stok).values({
         barang_id: item.barang_id,
         tanggal: tgl,
         jenis: 'masuk',
@@ -151,23 +167,37 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
         jumlah_perubahan: item.jumlah_terima,
         jumlah_sesudah: br.stok_sekarang + item.jumlah_terima,
         dicatat_oleh: user.id,
-      }).run()
+        tenant_id: tenantId,
+        cabang_id: cabangId,
+      }))
 
-      db.update(barang)
+      // WAC: (stok_lama × rata_lama + jumlah_masuk × harga_baru) / (stok_lama + jumlah_masuk)
+      const stokLama = br.stok_sekarang
+      const rataLama = br.harga_beli_rata > 0 ? br.harga_beli_rata : br.harga_beli_terakhir
+      const stokBaru = stokLama + item.jumlah_terima
+      const hargaBeliBaru = stokBaru > 0
+        ? (stokLama * rataLama + item.jumlah_terima * item.harga_beli) / stokBaru
+        : item.harga_beli
+
+      await query.exec(db.update(barang)
         .set({
-          stok_sekarang: br.stok_sekarang + item.jumlah_terima,
+          stok_sekarang: stokBaru,
           harga_beli_terakhir: item.harga_beli,
+          harga_beli_rata: Math.round(hargaBeliBaru),
         })
         .where(eq(barang.id, item.barang_id))
-        .run()
+        )
+      // Update map agar item berikutnya dengan barang sama pakai stok terbaru
+      barangMap.set(item.barang_id, { ...br, stok_sekarang: stokBaru, harga_beli_terakhir: item.harga_beli, harga_beli_rata: Math.round(hargaBeliBaru) })
 
-      db.insert(histori_harga_beli).values({
+      await query.exec(db.insert(histori_harga_beli).values({
         barang_id: item.barang_id,
         supplier_id: body.supplier_id,
         barang_masuk_id: bm.id,
         harga_beli: item.harga_beli,
         tanggal_berlaku: tgl.slice(0, 10),
-      }).run()
+        tenant_id: tenantId,
+      }))
     }
 
     // 3. Buat hutang supplier
@@ -176,7 +206,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
           .toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 10)
       : null
 
-    db.insert(hutang_supplier).values({
+    await query.exec(db.insert(hutang_supplier).values({
       supplier_id: body.supplier_id,
       barang_masuk_id: bm.id,
       tanggal_hutang: tgl.slice(0, 10),
@@ -184,10 +214,11 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
       total_hutang: totalNilai,
       sisa_hutang: totalNilai,
       status: 'belum',
-    }).run()
+      tenant_id: tenantId,
+    }))
 
     return bm
-  })()
+  })
 
   return c.json({ success: true, data: result }, 201)
 })
@@ -195,30 +226,28 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
 // ── Upload Foto Faktur ────────────────────────────────────────────────────
 
 barangMasukRouter.post('/:id/foto', requirePermission('pembelian.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(barang_masuk).where(eq(barang_masuk.id, id)).get()
+  const existing = await query.find(db.select().from(barang_masuk).where(and(eq(barang_masuk.id, id), eq(barang_masuk.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Penerimaan tidak ditemukan' })
 
   const formData = await c.req.formData()
   const file = formData.get('foto') as File | null
   if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
-  if (!file.type.startsWith('image/')) throw new HTTPException(400, { message: 'File harus berupa gambar' })
 
-  const uploadDir = process.env.UPLOAD_DIR ?? join(import.meta.dir, '../../uploads')
-  const invoiceDir = join(uploadDir, 'invoice')
-  mkdirSync(invoiceDir, { recursive: true })
+  // Invoice disimpan resolusi tinggi agar teks faktur terbaca
+  const { path: fotoPath } = await saveUpload(file, {
+    subdir: 'invoice',
+    prefix: id,
+    mode: { type: 'passthrough' },
+    quality: 90,
+  })
 
-  const filename = `${id}_${Date.now()}.jpg`
-  const buf = Buffer.from(await file.arrayBuffer())
-
-  // Invoice disimpan resolusi tinggi (teks faktur harus terbaca)
-  await sharp(buf).jpeg({ quality: 90 }).toFile(join(invoiceDir, filename))
-
-  const fotoPath = `invoice/${filename}`
-  db.update(barang_masuk)
+  await query.exec(db.update(barang_masuk)
     .set({ foto_faktur_path: fotoPath })
-    .where(eq(barang_masuk.id, id))
-    .run()
+    .where(and(eq(barang_masuk.id, id), eq(barang_masuk.tenant_id, tenantId)))
+  )
 
   return c.json({ success: true, data: { foto_faktur_path: fotoPath } })
 })

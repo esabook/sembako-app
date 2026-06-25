@@ -2,13 +2,17 @@ import type { Context, Next } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { HTTPException } from 'hono/http-exception'
 import { jwtVerify } from 'jose'
+import { eq } from 'drizzle-orm'
+import { db, query } from '../db/index.ts'
+import { karyawan } from '../db/schema.ts'
 import type { JWTPayload } from '../routes/auth.ts'
+import { getCache } from '../lib/cache.ts'
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production'
 )
 
-export type Role = 'pemilik' | 'manajer' | 'kasir' | 'gudang'
+export type Role = 'pemilik' | 'manajer' | 'kasir' | 'gudang' | 'sales' | 'pelayanan'
 export type Permission = string
 
 const ROLE_PERMISSIONS: Record<Role, string[]> = {
@@ -26,6 +30,22 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     'harga_beli.edit',
     'pembelian.buat',
     'pembelian.lihat',
+    'absensi.diri',
+  ],
+  sales: [
+    'stok.lihat',
+    'harga_jual.lihat',
+    'pelanggan.lihat',
+    'pelanggan.edit',
+    'penjualan.lihat',
+    'penjualan.buat',
+    'absensi.diri',
+  ],
+  pelayanan: [
+    'stok.lihat',
+    'harga_jual.lihat',
+    'pelanggan.lihat',
+    'penjualan.lihat',
     'absensi.diri',
   ],
   manajer: [
@@ -62,8 +82,27 @@ export async function authMiddleware(c: Context, next: Next) {
 
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET)
-    c.set('user', payload as JWTPayload)
-  } catch {
+    const user = payload as JWTPayload
+
+    const cache = getCache(c.env as { KV?: unknown })
+    const cacheKey = `user:active:${user.id}`
+    const cached = await cache.get(cacheKey)
+
+    let isActive: boolean
+    if (cached !== null) {
+      isActive = cached === '1'
+    } else {
+      const row = await query.find<{ is_active: boolean }>(
+        db.select({ is_active: karyawan.is_active }).from(karyawan).where(eq(karyawan.id, user.id))
+      )
+      isActive = row?.is_active ?? false
+      await cache.put(cacheKey, isActive ? '1' : '0', { expirationTtl: 600 })
+    }
+
+    if (!isActive) throw new HTTPException(401, { message: 'Akun tidak aktif' })
+    c.set('user', user)
+  } catch (e) {
+    if (e instanceof HTTPException) throw e
     throw new HTTPException(401, { message: 'Token tidak valid atau kedaluwarsa' })
   }
 

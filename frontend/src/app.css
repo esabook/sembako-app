@@ -1,78 +1,152 @@
 @import 'tailwindcss';
+@plugin "daisyui";
 
-/* ─── Font ─────────────────────────────────────── */
 :root {
-  font-family: 'JetBrains Mono', monospace;
+  /* shadcn-svelte vars */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: var(--bg);
+  --destructive: var(--danger);
+  --muted: var(--surface);
+  --muted-foreground: var(--text-dim);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface2);
+  --popover-foreground: var(--text);
+  --ring: var(--accent);
+  --radius-xs: 5px;
+  --radius-sm: 0.5rem;
+  --radius: 0.6875rem;
+  --radius-md: 0.6875rem;
+  --radius-lg: 1.125rem;
+  --radius-pill: 9999px;
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--bg);
+  --color-destructive: var(--danger);
+  --color-muted: var(--surface);
+  --color-muted-foreground: var(--text-dim);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface2);
+  --color-popover-foreground: var(--text);
+  --color-input: var(--border);
+  --color-ring: var(--accent);
+  --color-border: var(--border);
+  /* daisyui v5 token mapping — resolved per-theme via [data-theme] vars */
+  --color-primary-content: var(--bg);
+  --color-secondary: var(--info);
+  --color-secondary-content: var(--bg);
+  --color-accent: var(--accent);
+  --color-accent-content: var(--bg);
+  --color-neutral: var(--surface);
+  --color-neutral-content: var(--text);
+  --color-base-100: var(--bg);
+  --color-base-200: var(--surface);
+  --color-base-300: var(--surface2);
+  --color-base-content: var(--text);
+  --color-info: var(--info);
+  --color-info-content: var(--bg);
+  --color-success: var(--accent);
+  --color-success-content: var(--bg);
+  --color-warning: var(--warn);
+  --color-warning-content: var(--bg);
+  --color-error: var(--danger);
+  --color-error-content: var(--bg);
+  font-family: 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+
+  /* ── apple spacing tokens ───────────────────────── */
+  --sp-xxs: 4px;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 17px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-xxl: 48px;
+  --sp-section: 80px;
+
+  /* ── apple typography tokens ────────────────────── */
+  --font-display: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  --font-body: 'SF Pro Text', system-ui, -apple-system, sans-serif;
+  /* hero: 56px/600/1.07/-0.28px */
+  --fs-hero: 3.5rem;
+  --fw-hero: 600;
+  --lh-hero: 1.07;
+  --ls-hero: -0.28px;
+  /* display-lg: 40px/600/1.10/0 */
+  --fs-display-lg: 2.5rem;
+  --fw-display: 600;
+  --lh-display-lg: 1.10;
+  /* display-md: 34px/600/1.47/-0.374px */
+  --fs-display-md: 2.125rem;
+  --lh-display-md: 1.47;
+  --ls-display: -0.374px;
+  /* lead: 28px/400/1.14 */
+  --fs-lead: 1.75rem;
+  --lh-lead: 1.14;
+  /* tagline: 21px/600/1.19/0.231px */
+  --fs-tagline: 1.3125rem;
+  --lh-tagline: 1.19;
+  --ls-tagline: 0.231px;
+  /* body: 17px/400/1.47/-0.374px */
+  --fs-body: 1.0625rem;
+  --fw-body: 400;
+  --lh-body: 1.47;
+  --ls-body: -0.374px;
+  /* caption: 14px/400/1.43/-0.224px */
+  --fs-caption: 0.875rem;
+  --lh-caption: 1.43;
+  --ls-caption: -0.224px;
+  /* nav: 12px/400/1.0/-0.12px */
+  --fs-nav: 0.75rem;
+  --ls-nav: -0.12px;
 }
 
-/* ─── Tema Dark (default) ───────────────────────── */
-[data-theme='dark'] {
-  --bg: #0a0a0a;
-  --surface: #111111;
-  --surface2: #1a1a1a;
-  --border: #2a2a2a;
-  --text: #d4d4d4;
-  --text-dim: #666666;
-  --accent: #00e676;
-  --warn: #ffb300;
-  --danger: #ff5252;
-  --info: #40c4ff;
+/* ─── DaisyUI overrides — apple spec ───────────── */
+.input,
+.select,
+.textarea {
+  --depth: 0;
+  border: 1px solid var(--border);
+  box-shadow: none !important;
+  letter-spacing: var(--ls-body);
 }
 
-/* ─── Tema Light ────────────────────────────────── */
-[data-theme='light'] {
-  --bg: #f0f0f0;
-  --surface: #ffffff;
-  --surface2: #e8e8e8;
-  --border: #cccccc;
-  --text: #222222;
-  --text-dim: #888888;
-  --accent: #007a3d;
-  --warn: #b37800;
-  --danger: #c62828;
-  --info: #0077aa;
+.input:focus,
+.input:focus-within,
+.select:focus,
+.textarea:focus {
+  border-color: var(--accent);
+  outline: none;
 }
 
-/* ─── Tema Eye Comfort ──────────────────────────── */
-[data-theme='eye'] {
-  --bg: #12100a;
-  --surface: #1c1a12;
-  --surface2: #252218;
-  --border: #35301f;
-  --text: #e8d9a0;
-  --text-dim: #7a6e45;
-  --accent: #d4a017;
-  --warn: #e07020;
-  --danger: #cc4444;
-  --info: #5aaccc;
+.btn {
+  --depth: 0;
+  border: none;
+  box-shadow: none !important;
+  letter-spacing: var(--ls-caption);
+  transition: transform 0.1s ease;
 }
 
-/* ─── Tema BW on White ──────────────────────────── */
-[data-theme='bww'] {
-  --bg: #ffffff;
-  --surface: #ffffff;
-  --surface2: #eeeeee;
-  --border: #000000;
-  --text: #000000;
-  --text-dim: #555555;
-  --accent: #000000;
-  --warn: #333333;
-  --danger: #000000;
-  --info: #333333;
+.btn:active {
+  transform: scale(0.95);
 }
 
-/* ─── Tema BW on Black ──────────────────────────── */
-[data-theme='bwb'] {
-  --bg: #000000;
-  --surface: #000000;
-  --surface2: #111111;
-  --border: #ffffff;
-  --text: #ffffff;
-  --text-dim: #aaaaaa;
-  --accent: #ffffff;
-  --warn: #cccccc;
-  --danger: #ffffff;
-  --info: #cccccc;
+.card {
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+.dropdown-content,
+.menu,
+.modal-box {
+  border-radius: var(--radius-lg);
+}
+
+.toggle {
+  --border: 1px;
 }
 
 /* ─── Base ──────────────────────────────────────── */
@@ -80,4 +154,15 @@ body {
   background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
+}
+
+.lucide {
+  stroke-width: 2px;
+}
+
+/* ─── Cally overrides ───────────────────────────── */
+::part(button) {
+  height: 1.8rem;
+  font-family: inherit;
+  font-size: 0.875rem;
 }

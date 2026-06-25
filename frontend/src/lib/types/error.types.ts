@@ -34,8 +34,9 @@ export interface WithLoadingOpts {
 	loadingPesan?: string;
 	modul: string;
 	aksi: string;
-	errorPesan?: string;
+	errorPesan?: string | ((asli: string) => string);
 	bisaRetry?: boolean;
 	suksesOtomatis?: boolean;
 	suksesPesan?: string;
+	onAntri?: () => void;
 }

@@ -23,7 +23,7 @@ function hapusToast(id: number) {
 export const toast = {
 	subscribe: _toast.subscribe,
 	sukses: (pesan: string) => tambahToast('sukses', pesan, 3000),
-	error: (pesan: string) => tambahToast('error', pesan, null),
+	error: (pesan: string) => tambahToast('error', pesan, 5000),
 	warn: (pesan: string) => tambahToast('warn', pesan, 5000),
 	info: (pesan: string) => tambahToast('info', pesan, 3000),
 	hapus: hapusToast,
@@ -34,7 +34,7 @@ const _loading = writable<LoadingState[]>([]);
 
 export const loading = {
 	subscribe: _loading.subscribe,
-	mulai: (key: string, pesan = 'Memuat...') =>
+	mulai: (key: string, pesan = '') =>
 		_loading.update((list) =>
 			list.some((l) => l.key === key) ? list : [...list, { key, pesan }]
 		),
@@ -43,7 +43,7 @@ export const loading = {
 };
 
 // true jika ada minimal 1 operasi loading berjalan
-export const adaLoading = derived(_loading, ($l) => $l.length > 0);
+export const isLoading = derived(_loading, ($l) => $l.length > 0);
 
 // pesan loading yang paling baru (untuk ditampilkan di LoadingBar)
 export const pesanLoading = derived(_loading, ($l) =>

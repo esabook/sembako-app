@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 
 	let { onDetect, onClose }: { onDetect: (kode: string) => void; onClose?: () => void } = $props();
 
@@ -84,12 +84,14 @@
 		stop();
 	}
 
-	onMount(start);
-	onDestroy(() => {
-		scanning = false;
-		if (animFrameId !== null) { cancelAnimationFrame(animFrameId); animFrameId = null; }
-		stream?.getTracks().forEach((t) => t.stop());
-		stream = null;
+	onMount(() => {
+		start();
+		return () => {
+			scanning = false;
+			if (animFrameId !== null) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+			stream?.getTracks().forEach((t) => t.stop());
+			stream = null;
+		};
 	});
 </script>
 
@@ -107,7 +109,6 @@
 
 		<!-- Viewfinder -->
 		<div class="relative w-full rounded overflow-hidden" style="aspect-ratio:4/3;background:#000;border:2px solid var(--accent)">
-			<!-- svelte-ignore a11y_media_has_caption -->
 			<video bind:this={videoEl} playsinline class="w-full h-full object-cover"></video>
 			<!-- Aiming guide -->
 			<div class="absolute inset-0 flex items-center justify-center pointer-events-none">

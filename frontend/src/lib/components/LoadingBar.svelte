@@ -1,36 +1,48 @@
 <script lang="ts">
-	import { adaLoading, pesanLoading } from '$lib/stores/ui.store';
+	import { isLoading, pesanLoading } from '$lib/stores/ui.store';
+	import { navigating } from '$app/stores';
 </script>
 
-{#if $adaLoading}
-	<div class="fixed inset-x-0 top-0 z-[60] h-0.5 overflow-hidden" style="background:transparent">
-		<div class="bar h-full" style="background:var(--accent)"></div>
+{#if $isLoading || $navigating}
+	<div
+		class="fixed inset-x-0 top-0 z-[60] h-[4px] overflow-hidden"
+		style="background:var(--surface2)"
+	>
+		<div class="bar"></div>
 	</div>
-	{#if $pesanLoading}
+	<!-- {#if $pesanLoading}
 		<div
-			class="fixed left-1/2 top-2 z-[60] -translate-x-1/2 rounded px-3 py-1 text-xs"
+			class="fixed top-8 left-1/2 z-[60] -translate-x-1/2 rounded px-3 py-1 text-xs"
 			style="background:var(--surface);color:var(--text-dim);border:1px solid var(--border)"
 		>
 			{$pesanLoading}
 		</div>
-	{/if}
+	{/if} -->
 {/if}
 
 <style>
 	.bar {
-		width: 40%;
-		animation: slide 1.1s ease-in-out infinite;
-		will-change: transform;
+		width: 100%;
+		height: 100%;
+		background: linear-gradient(
+			90deg,
+			var(--surface2) 0%,
+			var(--text-dim) 15%,
+			var(--accent) 40%,
+			var(--info) 60%,
+			var(--accent) 80%,
+			var(--surface2) 100%
+		);
+		background-size: 200% 100%;
+		animation: shimmer 1.8s ease-in-out infinite;
+		will-change: background-position;
 	}
-	@keyframes slide {
+	@keyframes shimmer {
 		0% {
-			transform: translateX(-100%);
-		}
-		50% {
-			transform: translateX(120%);
+			background-position: 200% 0;
 		}
 		100% {
-			transform: translateX(260%);
+			background-position: -200% 0;
 		}
 	}
 </style>

@@ -1,0 +1,738 @@
+// State UI + semua actions kasir.
+// Tidak ada try/catch langsung — semua async pakai withLoading().
+// Debounce input ada di +page.svelte (DOM concern).
+
+import { writable, derived, get } from 'svelte/store';
+import QRCode from 'qrcode';
+import {
+	keranjang, tipeTransaksi, metodeBayar,
+	pelangganDipilih, nominalBayar, itemAktifIdx,
+	subtotal, diskonMember, kembalian, total,
+	resetKasir, incrementTrxCount,
+} from '$lib/stores/kasir';
+import type { ModifierTerpilih } from '$lib/stores/kasir';
+import { loading, toast } from '$lib/stores/ui.store';
+import { withLoading } from '$lib/utils/async';
+import { bukaWhatsApp } from '$lib/utils/wa';
+import { fetchBarang, fetchPelanggan, submitPenjualan, listBills, getBill, createBill, saveBillItems, deleteBill } from './kasir.api';
+import type { BillSummary } from './kasir.api';
+import type { BarangResult, PelangganResult, ScannerStatus, Snap, PromoAktif } from './kasir.types';
+import { api } from '$lib/utils/api';
+import { playKasirSound } from '$lib/utils/audio';
+
+// ── Promo aktif ──────────────────────────────────────────────────────────────
+
+export const promoAktif = writable<PromoAktif[]>([]);
+
+export async function loadPromoAktif() {
+	const res = await api.get<PromoAktif[]>('/promo/aktif');
+	if (res.success) promoAktif.set(res.data);
+}
+
+function hitungDiskonPromo(br: BarangResult, harga: number, qty: number): number {
+	const promos = get(promoAktif);
+	let best = 0;
+	for (const p of promos) {
+		if (p.tipe === 'total') continue;
+		if (qty < p.min_qty) continue;
+		const match =
+			(p.tipe === 'item' && p.targets.some((t) => t.target_tipe === 'barang' && t.target_id === br.id)) ||
+			(p.tipe === 'kategori' && p.targets.some((t) => t.target_tipe === 'kategori' && t.target_id === br.kategori_id));
+		if (!match) continue;
+		const diskon = p.tipe_nilai === 'persen' ? Math.round(harga * p.nilai / 100) : p.nilai;
+		if (diskon > best) best = diskon;
+	}
+	return Math.min(best, harga);
+}
+
+// Promo tipe 'total' yang berlaku saat ini (dipake di checkout)
+export const promoTotalBerlaku = derived(
+	[promoAktif, total],
+	([$promos, $total]) => $promos.filter((p) => p.tipe === 'total' && $total >= p.min_total)
+);
+
+// Nilai diskon terbaik dari promo tipe 'total'
+export const diskonPromoTotal = derived(
+	[promoTotalBerlaku, total],
+	([$promos, $total]) => {
+		if ($promos.length === 0) return 0;
+		const best = Math.max(...$promos.map((p) =>
+			p.tipe_nilai === 'persen' ? Math.round($total * p.nilai / 100) : p.nilai
+		));
+		return Math.min(best, $total);
+	}
+);
+
+export const totalAkhir = derived(
+	[total, diskonPromoTotal],
+	([$t, $d]) => $t - $d
+);
+
+// ── Multi Open Bill ──────────────────────────────────────────────────────────
+
+export const draftStatus = writable<'idle' | 'saving' | 'saved' | 'error'>('idle');
+export const activeBillId = writable<number | null>(null);
+export const openBills = writable<BillSummary[]>([]);
+
+// ── Dine-in (F&B) ──────────────────────────────────────────────────────────────
+// meja aktif untuk bill ini (null = bukan dine-in). Diisi dari ?meja= di +page.
+export const mejaId = writable<number | null>(null);
+// tipe_layanan dikirim ke checkout: dine_in jika ada meja, selain itu retail
+export const tipeLayanan = derived(mejaId, ($m) => ($m ? 'dine_in' : 'retail') as 'dine_in' | 'retail');
+
+let _draftTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function _flushBillSave() {
+	if (_draftTimer) { clearTimeout(_draftTimer); _draftTimer = null; }
+	const items = get(keranjang);
+	const id = get(activeBillId);
+	if (items.length === 0 || id === null) return;
+	try {
+		await saveBillItems(id, {
+			tipe: get(tipeTransaksi),
+			pelanggan_id: get(pelangganDipilih)?.id ?? null,
+			meja_id: get(mejaId),
+			items: items.map((i) => ({
+				barang_id: i.barang_id,
+				tipe_harga: i.tipe_harga,
+				satuan_id: i.satuan_id,
+				jumlah: i.jumlah,
+				harga_jual: i.harga_jual,
+				diskon_item: i.diskon_item,
+			})),
+		});
+	} catch { /* silent */ }
+}
+
+function scheduleDraftSave() {
+	if (_draftTimer) clearTimeout(_draftTimer);
+	draftStatus.set('saving');
+	_draftTimer = setTimeout(async () => {
+		const items = get(keranjang);
+		try {
+			if (items.length === 0) {
+				const id = get(activeBillId);
+				if (id !== null) {
+					await deleteBill(id);
+					activeBillId.set(null);
+					openBills.update((b) => b.filter((x) => x.id !== id));
+				}
+				draftStatus.set('idle');
+			} else {
+				let id = get(activeBillId);
+				if (id === null) {
+					const created = await createBill(get(mejaId));
+					id = created.id;
+					activeBillId.set(id);
+				}
+				await saveBillItems(id, {
+					tipe: get(tipeTransaksi),
+					pelanggan_id: get(pelangganDipilih)?.id ?? null,
+					meja_id: get(mejaId),
+					items: items.map((i) => ({
+						barang_id: i.barang_id,
+						tipe_harga: i.tipe_harga,
+						satuan_id: i.satuan_id,
+						jumlah: i.jumlah,
+						harga_jual: i.harga_jual,
+						diskon_item: i.diskon_item,
+					})),
+				});
+				draftStatus.set('saved');
+			}
+		} catch {
+			draftStatus.set('error');
+		}
+	}, 1500);
+}
+
+export function initDraftSync(): () => void {
+	const unsub1 = keranjang.subscribe(() => scheduleDraftSave());
+	const unsub2 = tipeTransaksi.subscribe(() => {
+		if (get(keranjang).length > 0) scheduleDraftSave();
+	});
+	return () => {
+		unsub1();
+		unsub2();
+		if (_draftTimer) clearTimeout(_draftTimer);
+	};
+}
+
+export async function loadOpenBills(): Promise<void> {
+	try {
+		const bills = await listBills();
+		openBills.set(bills);
+	} catch { /* silent */ }
+}
+
+export async function switchToBill(id: number): Promise<void> {
+	await _flushBillSave();
+	try {
+		const bill = await getBill(id);
+		if (!bill) return;
+		resetKasir();
+		if (bill.items.length > 0) {
+			keranjang.set(
+				bill.items.map((i) => ({
+					barang_id: i.barang_id,
+					tipe_harga: i.tipe_harga,
+					kode_barang: i.kode_barang,
+					nama_barang: i.nama_barang,
+					satuan_id: i.satuan_id,
+					singkatan_satuan: i.singkatan_satuan ?? '',
+					jumlah: i.jumlah,
+					harga_jual: i.harga_jual,
+					harga_eceran: i.harga_eceran,
+					harga_grosir: i.harga_grosir,
+					diskon_item: i.diskon_item,
+					stok_sekarang: i.stok_sekarang,
+				}))
+			);
+		}
+		tipeTransaksi.set(bill.tipe);
+		mejaId.set(bill.meja_id ?? null);
+		activeBillId.set(id);
+		draftStatus.set('saved');
+	} catch { /* silent */ }
+}
+
+// Buka kasir untuk satu meja: resume bill meja itu kalau ada, kalau tidak mulai bill baru.
+export async function mulaiBillMeja(id: number): Promise<void> {
+	await loadOpenBills();
+	const existing = get(openBills).find((b) => b.meja_id === id);
+	if (existing) {
+		await switchToBill(existing.id);
+	} else {
+		await newBill();
+		mejaId.set(id);
+	}
+}
+
+export async function newBill(): Promise<void> {
+	await _flushBillSave();
+	resetKasir();
+	mejaId.set(null);
+	activeBillId.set(null);
+	draftStatus.set('idle');
+}
+
+export async function closeBill(id: number): Promise<void> {
+	try {
+		await deleteBill(id);
+		openBills.update((b) => b.filter((x) => x.id !== id));
+		if (get(activeBillId) === id) {
+			activeBillId.set(null);
+			resetKasir();
+			draftStatus.set('idle');
+		}
+	} catch { /* silent */ }
+}
+
+// ── UI state ─────────────────────────────────────────────────────────────────
+
+export const kasBankDipilih = writable<number | null>(null);
+
+export const searchVal = writable('');
+export const searchResults = writable<BarangResult[]>([]);
+export const searchSelectedIdx = writable(-1);
+
+export const pelangganQuery = writable('');
+export const pelangganList = writable<PelangganResult[]>([]);
+export const pelangganSelectedIdx = writable(-1);
+
+export const konfirmasiHapusIdx = writable<number | null>(null);
+export const popupSearch = writable(false);
+export const popupCheckout = writable(false);
+export const snap = writable<Snap | null>(null);
+export const noTransaksi = writable<string>('');   // no. trx terakhir selesai
+export const checkoutTime = writable(new Date());
+
+export const scanSessionId = writable('');
+export const scanUrl = writable('');
+export const qrDataUrl = writable('');
+export const qrLarge = writable(false);
+export const scannerStatus = writable<ScannerStatus>('idle');
+
+export const dummyJumlah = writable(1);
+
+// Derived: apakah loading spesifik sedang berjalan
+export const cariLoading = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-cari'));
+export const prosesLoading = derived(loading, ($l) => $l.some((l) => l.key === 'kasir-bayar'));
+
+// ── Long-poll scanner + pre-qty sync (browser-only, tidak reaktif) ───────────
+
+let kasirAbort: AbortController | null = null;
+let _kasirDummySub: (() => void) | null = null;
+let _kasirDummyTimer: ReturnType<typeof setTimeout> | null = null;
+let _lastSyncedDummyFromPhone = 1;
+
+function postPreQty(sid: string, qty: number) {
+	if (!sid) return;
+	void fetch(`/api/scan-relay/kasir-pre-qty/${sid}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ qty }),
+		credentials: 'include',
+	}).catch(() => { });
+}
+
+function resetDummyJumlah(sid: string) {
+	_lastSyncedDummyFromPhone = 1;
+	dummyJumlah.set(1);
+	postPreQty(sid, 1);
+}
+
+async function preQtyPollLoop(sid: string, signal: AbortSignal) {
+	let knownQty: number | null = null;
+	while (!signal.aborted) {
+		try {
+			const url = knownQty === null
+				? `/api/scan-relay/kasir-pre-qty/${sid}`
+				: `/api/scan-relay/kasir-pre-qty/${sid}?known=${knownQty}`;
+			const res = await fetch(url, { signal, credentials: 'include' });
+			if (signal.aborted) break;
+			if (!res.ok) { await new Promise((r) => setTimeout(r, 2000)); continue; }
+			const body = await res.json() as { success: boolean; data: { qty: number } };
+			if (signal.aborted) break;
+			const qty = body.data.qty;
+			knownQty = qty;
+			if (qty !== get(dummyJumlah)) {
+				_lastSyncedDummyFromPhone = qty;
+				dummyJumlah.set(qty);
+			}
+		} catch {
+			if (signal.aborted) break;
+			await new Promise((r) => setTimeout(r, 2000));
+		}
+	}
+}
+
+export function resetKasirDenganDraft() {
+	if (_draftTimer) clearTimeout(_draftTimer);
+	const id = get(activeBillId);
+	if (id !== null) void deleteBill(id).catch(() => { });
+	activeBillId.set(null);
+	mejaId.set(null);
+	draftStatus.set('idle');
+	resetKasir();
+	resetDummyJumlah(get(scanSessionId));
+}
+
+// ── Cari barang ───────────────────────────────────────────────────────────────
+
+export async function cariBarang(q: string) {
+	if (!q.trim()) {
+		searchResults.set([]);
+		searchSelectedIdx.set(-1);
+		return;
+	}
+	const hasil = await withLoading(() => fetchBarang(q), {
+		loadingKey: 'kasir-cari',
+		modul: 'kasir',
+		aksi: 'cari_barang',
+		bisaRetry: true,
+	});
+	if (hasil) {
+		searchResults.set(hasil);
+		searchSelectedIdx.set(hasil.length > 0 ? 0 : -1);
+	}
+}
+
+export function openSearch() {
+	popupSearch.set(true);
+}
+
+export function closeSearch() {
+	popupSearch.set(false);
+	searchVal.set('');
+	searchResults.set([]);
+	searchSelectedIdx.set(-1);
+}
+
+export async function scanDariPhone(kode: string, qty = 1) {
+	const hasil = await withLoading(() => fetchBarang(kode), {
+		loadingKey: 'kasir-scan',
+		modul: 'kasir',
+		aksi: 'scan_barang',
+	});
+	if (!hasil) return;
+	if (!get(popupSearch) && hasil.length === 1) {
+		tambahKeKeranjang(hasil[0]!, qty);
+		return;
+	}
+	searchVal.set(kode);
+	searchResults.set(hasil);
+	searchSelectedIdx.set(hasil.length > 0 ? 0 : -1);
+	if (!get(popupSearch)) openSearch();
+}
+
+// ── Keranjang ─────────────────────────────────────────────────────────────────
+
+export function tambahKeKeranjang(br: BarangResult, qty = 1) {
+	const tipe = get(tipeTransaksi);
+	const harga = tipe === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
+	const jumlahAktual = Math.min(qty, br.stok_sekarang);
+	const diskonPromo = hitungDiskonPromo(br, harga, jumlahAktual);
+	let isUpdate = false;
+	keranjang.update((k) => {
+		const idx = k.findIndex((i) => i.barang_id === br.id && i.tipe_harga === tipe);
+		if (idx >= 0) {
+			isUpdate = true;
+			const u = [...k];
+			const newJumlah = Math.min(u[idx]!.jumlah + qty, u[idx]!.stok_sekarang);
+			u[idx] = { ...u[idx]!, jumlah: newJumlah, diskon_item: hitungDiskonPromo(br, harga, newJumlah) };
+			itemAktifIdx.set(idx);
+			return u;
+		}
+		itemAktifIdx.set(k.length);
+		return [
+			...k,
+			{
+				barang_id: br.id,
+				tipe_harga: tipe,
+				kode_barang: br.kode_barang,
+				nama_barang: br.nama_barang,
+				satuan_id: br.satuan_dasar_id,
+				singkatan_satuan: br.singkatan_satuan ?? '',
+				jumlah: jumlahAktual,
+				harga_jual: harga,
+				harga_eceran: br.harga_jual_eceran,
+				harga_grosir: br.harga_jual_grosir,
+				diskon_item: diskonPromo,
+				stok_sekarang: br.stok_sekarang,
+				foto_path: br.foto_path,
+				tipe_produk: br.tipe_produk ?? 'physical_good',
+			},
+		];
+	});
+	toast.info(isUpdate ? `+${qty} ${br.nama_barang}` : `✓ ${br.nama_barang}`);
+	closeSearch();
+	playKasirSound();
+	resetDummyJumlah(get(scanSessionId));
+}
+
+// Tambah menu_item dengan modifier terpilih + catatan.
+// Selalu jadi baris baru (modifier bisa beda tiap order); harga_jual = harga dasar + Σ modifier.
+export function tambahKeKeranjangModifier(
+	br: BarangResult,
+	qty: number,
+	modifiers: ModifierTerpilih[],
+	catatan: string,
+) {
+	const tipe = get(tipeTransaksi);
+	const hargaDasar = tipe === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
+	const tambahan = modifiers.reduce((s, m) => s + m.harga_snapshot, 0);
+	keranjang.update((k) => {
+		itemAktifIdx.set(k.length);
+		return [
+			...k,
+			{
+				barang_id: br.id,
+				tipe_harga: tipe,
+				kode_barang: br.kode_barang,
+				nama_barang: br.nama_barang,
+				satuan_id: br.satuan_dasar_id,
+				singkatan_satuan: br.singkatan_satuan ?? '',
+				jumlah: qty,
+				harga_jual: hargaDasar + tambahan,
+				harga_eceran: br.harga_jual_eceran,
+				harga_grosir: br.harga_jual_grosir,
+				diskon_item: 0,
+				stok_sekarang: br.stok_sekarang,
+				foto_path: br.foto_path,
+				tipe_produk: br.tipe_produk ?? 'menu_item',
+				modifiers,
+				catatan: catatan || null,
+			},
+		];
+	});
+	toast.info(`✓ ${br.nama_barang}`);
+	closeSearch();
+	playKasirSound();
+	resetDummyJumlah(get(scanSessionId));
+}
+
+export function ubahJumlah(idx: number, delta: number) {
+	keranjang.update((k) => {
+		const u = [...k];
+		const item = u[idx];
+		if (!item) return k;
+		const newQty = item.jumlah + delta;
+		if (newQty <= 0) {
+			u.splice(idx, 1);
+			itemAktifIdx.set(u.length > 0 ? Math.min(idx, u.length - 1) : -1);
+			return u;
+		}
+		u[idx] = { ...item, jumlah: Math.min(newQty, item.stok_sekarang) };
+		return u;
+	});
+}
+
+export function hapusItem(idx: number) {
+	keranjang.update((k) => {
+		const u = [...k];
+		u.splice(idx, 1);
+		return u;
+	});
+	itemAktifIdx.set(-1);
+	konfirmasiHapusIdx.set(null);
+}
+
+export function ubahDiskon(idx: number, val: string) {
+	keranjang.update((k) => {
+		const u = [...k];
+		if (u[idx]) u[idx] = { ...u[idx]!, diskon_item: Number(val) || 0 };
+		return u;
+	});
+}
+
+export function ubahTipeHarga(idx: number, tipe: 'eceran' | 'grosir') {
+	keranjang.update((k) => {
+		const u = [...k];
+		const item = u[idx];
+		if (!item) return k;
+		const harga = tipe === 'grosir' ? item.harga_grosir : item.harga_eceran;
+		u[idx] = { ...item, tipe_harga: tipe, harga_jual: harga };
+		return u;
+	});
+}
+
+// ── Pelanggan ─────────────────────────────────────────────────────────────────
+
+export async function muatPelanggan(q: string) {
+	pelangganQuery.set(q);
+	if (q.length < 3) {
+		pelangganList.set([]);
+		pelangganSelectedIdx.set(-1);
+		return;
+	}
+	const hasil = await withLoading(() => fetchPelanggan(q), {
+		loadingKey: 'kasir-pelanggan',
+		modul: 'kasir',
+		aksi: 'cari_pelanggan',
+	});
+	if (hasil) {
+		pelangganList.set(hasil);
+		pelangganSelectedIdx.set(hasil.length > 0 ? 0 : -1);
+	}
+}
+
+export function pilihPelanggan(p: PelangganResult) {
+	pelangganDipilih.set(p);
+	pelangganList.set([]);
+	pelangganQuery.set('');
+}
+
+// ── Checkout ──────────────────────────────────────────────────────────────────
+
+export function openCheckout() {
+	if (get(keranjang).length === 0) return;
+	snap.set(null);
+	checkoutTime.set(new Date());
+	popupCheckout.set(true);
+}
+
+export function tutupCheckout() {
+	popupCheckout.set(false);
+	snap.set(null);
+	kasBankDipilih.set(null);
+}
+
+export async function prosesBayar() {
+	const $metode = get(metodeBayar);
+	const $pelanggan = get(pelangganDipilih);
+	const $total = get(totalAkhir);
+	const $nominal = get(nominalBayar);
+	const $keranjang = get(keranjang);
+	const $tipe = get(tipeTransaksi);
+	const $waktu = get(checkoutTime);
+
+	if ($metode === 'hutang' && !$pelanggan) {
+		toast.error('Pilih pelanggan untuk transaksi hutang');
+		return;
+	}
+	if ($metode !== 'hutang' && Number($nominal) < $total) {
+		toast.error('Nominal bayar kurang');
+		return;
+	}
+
+	const $diskonMember = get(diskonMember);
+	const $diskonPromo = get(diskonPromoTotal);
+	const diskonTotalKirim = $diskonMember + $diskonPromo;
+
+	const hasil = await withLoading(
+		() =>
+			submitPenjualan({
+				pelanggan_id: $pelanggan?.id,
+				tipe: $tipe,
+				tipe_layanan: get(tipeLayanan),
+				meja_id: get(mejaId),
+				metode_bayar: $metode,
+				bayar: Number($nominal) || $total,
+				diskon_total: diskonTotalKirim > 0 ? diskonTotalKirim : undefined,
+				kas_bank_id: get(kasBankDipilih) ?? undefined,
+				items: $keranjang.map((i) => ({
+					barang_id: i.barang_id,
+					satuan_id: i.satuan_id,
+					jumlah: i.jumlah,
+					harga_jual: i.harga_jual,
+					diskon_item: i.diskon_item,
+					catatan: i.catatan ?? null,
+					modifiers: i.modifiers,
+				})),
+			}),
+		{
+			loadingKey: 'kasir-bayar',
+			loadingPesan: 'Memproses transaksi...',
+			modul: 'kasir',
+			aksi: 'proses_bayar',
+			errorPesan: (asli) => asli || 'Transaksi gagal. Coba lagi.',
+			onAntri: () => {
+				const _id = get(activeBillId);
+				if (_id !== null) void deleteBill(_id).catch(() => { });
+				activeBillId.set(null);
+				mejaId.set(null);
+				draftStatus.set('idle');
+				resetKasir();
+			},
+		}
+	);
+
+	if (!hasil) return;
+
+	const noTrx = hasil.no_transaksi;
+	snap.set({
+		items: [...$keranjang],
+		subtotal: get(subtotal),
+		diskon: get(diskonMember),
+		total: $total,
+		metode: $metode,
+		nominal: Number($nominal) || $total,
+		kembalian: get(kembalian),
+		pelanggan: $pelanggan,
+		tipe: $tipe,
+		noTransaksi: noTrx,
+		waktu: $waktu,
+	});
+	noTransaksi.set(noTrx);
+	incrementTrxCount();
+	const _billId = get(activeBillId);
+	if (_billId !== null) void deleteBill(_billId).catch(() => { });
+	activeBillId.set(null);
+	mejaId.set(null);
+	draftStatus.set('idle');
+	resetKasir();
+	resetDummyJumlah(get(scanSessionId));
+}
+
+// ── Kirim Struk WhatsApp ─────────────────────────────────────────────────────
+
+function rupiah(n: number): string {
+	return new Intl.NumberFormat('id-ID').format(Math.round(n));
+}
+
+export function kirimStrukWA(s: Snap): void {
+	const tgl = s.waktu.toLocaleString('id-ID', {
+		day: '2-digit', month: 'short', year: 'numeric',
+		hour: '2-digit', minute: '2-digit',
+	});
+	const metodeTeks: Record<string, string> = {
+		tunai: 'Tunai', transfer: 'Transfer', qris: 'QRIS', hutang: 'Hutang',
+	};
+	const lines: string[] = [
+		'*STRUK BELANJA*',
+		`No: ${s.noTransaksi}`,
+		`Tgl: ${tgl}`,
+		'─────────────────',
+		...s.items.map((i) => {
+			const sub = (i.harga_jual - (i.diskon_item ?? 0)) * i.jumlah;
+			return `${i.nama_barang}\n  ${i.jumlah} × Rp ${rupiah(i.harga_jual)}${i.diskon_item ? ` -${rupiah(i.diskon_item)}` : ''} = Rp ${rupiah(sub)}`;
+		}),
+		'─────────────────',
+		s.diskon > 0 ? `Subtotal : Rp ${rupiah(s.subtotal)}` : '',
+		s.diskon > 0 ? `Diskon   : -Rp ${rupiah(s.diskon)}` : '',
+		`*Total   : Rp ${rupiah(s.total)}*`,
+		`Bayar    : ${metodeTeks[s.metode] ?? s.metode}${s.metode === 'tunai' ? ` Rp ${rupiah(s.nominal)}` : ''}`,
+		s.metode === 'tunai' && s.kembalian > 0 ? `Kembali  : Rp ${rupiah(s.kembalian)}` : '',
+		'',
+		'Terima kasih atas pembeliannya! 🙏',
+	].filter(Boolean);
+
+	const pesan = lines.join('\n');
+	bukaWhatsApp(s.pelanggan?.kontak ?? null, pesan);
+}
+
+export function kirimNotifHutangWA(s: Snap): void {
+	const tgl = s.waktu.toLocaleString('id-ID', {
+		day: '2-digit', month: 'short', year: 'numeric',
+		hour: '2-digit', minute: '2-digit',
+	});
+	const lines = [
+		'*NOTIFIKASI HUTANG*',
+		`No Transaksi : ${s.noTransaksi}`,
+		`Tanggal      : ${tgl}`,
+		`Total Hutang : *Rp ${rupiah(s.total)}*`,
+		'',
+		'Pembayaran dapat dilakukan langsung ke toko.',
+		'Terima kasih. 🙏',
+	];
+	bukaWhatsApp(s.pelanggan?.kontak ?? null, lines.join('\n'));
+}
+
+// ── Long-poll Scanner ────────────────────────────────────────────────────────
+
+async function kasirPollLoop(sid: string, signal: AbortSignal) {
+	while (!signal.aborted) {
+		try {
+			const res = await fetch(`/api/scan-relay/kasir/${sid}`, { signal, credentials: 'include' });
+			if (signal.aborted) break;
+			if (!res.ok) { scannerStatus.set('disconnected'); await new Promise((r) => setTimeout(r, 2000)); continue; }
+			const body = await res.json() as { success: boolean; data: { kode: string; qty: number } | null };
+			if (signal.aborted) break;
+			scannerStatus.set('connected');
+			if (body.data) {
+				const { kode, qty } = body.data;
+				if (get(popupCheckout) && !get(pelangganDipilih)) {
+					void muatPelanggan(kode);
+				} else {
+					void scanDariPhone(kode, qty);
+				}
+			}
+		} catch {
+			if (signal.aborted) break;
+			scannerStatus.set('disconnected');
+			await new Promise((r) => setTimeout(r, 2000));
+		}
+	}
+}
+
+export async function initKasirScan(userId: number, host: string, protocol: string) {
+	const sid = `kasir${userId}`;
+	const url = `${protocol}//${host}/scan?s=${sid}`;
+	scanSessionId.set(sid);
+	scanUrl.set(url);
+	const dataUrl = await QRCode.toDataURL(url, { width: 128, margin: 1 });
+	qrDataUrl.set(dataUrl);
+
+	kasirAbort = new AbortController();
+	void kasirPollLoop(sid, kasirAbort.signal);
+	void preQtyPollLoop(sid, kasirAbort.signal);
+
+	// dummyJumlah → debounced POST ke /kasir-pre-qty (kasir → phone)
+	_kasirDummySub = dummyJumlah.subscribe((val) => {
+		if (val === _lastSyncedDummyFromPhone) return;
+		if (_kasirDummyTimer) clearTimeout(_kasirDummyTimer);
+		_kasirDummyTimer = setTimeout(() => {
+			_lastSyncedDummyFromPhone = val;
+			postPreQty(sid, val);
+		}, 300);
+	});
+}
+
+export function cleanupKasirScan() {
+	kasirAbort?.abort();
+	kasirAbort = null;
+	_kasirDummySub?.();
+	_kasirDummySub = null;
+	if (_kasirDummyTimer) { clearTimeout(_kasirDummyTimer); _kasirDummyTimer = null; }
+}

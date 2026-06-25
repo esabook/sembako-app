@@ -9,8 +9,8 @@ atau dipersingkat karena pola di bawah ini sudah diverifikasi dari implementasi 
 ## CARA PAKAI FILE INI
 
 Ketika feature-dev ingin eksplorasi codebase (Phase 2), instruksikan agent:
-> "Baca CLAUDE_SKILL_FEATURE_DEV.md terlebih dahulu. Fokus eksplorasi hanya
->  pada hal yang BELUM tercakup di file tersebut."
+> "Baca CLAUDE.md dan CLAUDE_SKILL_FEATURE_DEV.md terlebih dahulu. Fokus eksplorasi
+>  hanya pada hal yang BELUM tercakup di file tersebut."
 
 Ini mempersingkat Phase 2 dari 2-3 agent paralel menjadi 1 agent ringan
 (atau skip sama sekali jika fitur baru mirip dengan yang sudah ada).
@@ -22,10 +22,11 @@ Ini mempersingkat Phase 2 dari 2-3 agent paralel menjadi 1 agent ringan
 ### Stack Aktual
 ```
 Runtime  : Bun (bukan Node)
-DB       : bun:sqlite — bukan better-sqlite3 (meski CLAUDE.md bilang sebaliknya)
-ORM      : drizzle-orm/bun-sqlite
+DB       : SQLite (default) / Turso libSQL / PostgreSQL / MySQL
+ORM      : Drizzle ORM — builders.ts abstraksi multi-dialect (JANGAN import sqlite-core langsung)
 HTTP     : Hono.js
 Auth     : jose JWT di httpOnly cookie `auth_token`
+Tenant   : tenantMiddleware — set tenant_id + cabang_id dari JWT ke context
 ```
 
 ### Buat Route Baru — Checklist
@@ -35,13 +36,15 @@ Auth     : jose JWT di httpOnly cookie `auth_token`
 import { Hono } from 'hono'
 import { eq, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction } from '../db/index.ts'
 import { [tabel] } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
 export const [nama]Router = new Hono<{ Variables: { user: JWTPayload } }>()
 [nama]Router.use('*', authMiddleware)
+[nama]Router.use('*', tenantMiddleware)
 
 // 2. Daftarkan di backend/src/index.ts:
 import { [nama]Router } from './routes/[nama].ts'
@@ -77,51 +80,73 @@ if (!body.nama?.trim()) throw new HTTPException(400, { message: 'Nama wajib diis
 if (typeof body.nilai !== 'number' || body.nilai < 0) throw new HTTPException(400, { message: '...' })
 ```
 
-### Ambil User dari Context
+### Ambil User + Tenant dari Context
 ```typescript
-const user = c.get('user')  // tipe JWTPayload: { sub: number, role, username, ... }
+const user = c.get('user')  // JWTPayload: { sub, id, nama, role, tenant_id, cabang_id }
+const tenantId = user.tenant_id ?? 1
+const cabangId = user.cabang_id ?? null  // null = semua cabang toko ini
+```
+
+### Pola Query Tenant
+```typescript
+// Master data (barang, supplier, pelanggan) — filter tenant saja
+where: eq(t.tenant_id, tenantId)
+
+// Transaksional (penjualan, stok, kas, shift) — filter tenant + cabang
+where: and(
+  eq(t.tenant_id, tenantId),
+  cabangId ? eq(t.cabang_id, cabangId) : undefined,
+)
+
+// INSERT transaksional
+{ tenant_id: tenantId, cabang_id: cabangId ?? 1, ...data }
 ```
 
 ### Transaksi Multi-Tabel
 ```typescript
-import { sqlite } from '../db/index.ts'
+import { withTransaction } from '../db/index.ts'
 
-const trxFn = sqlite.transaction(() => {
-  const a = db.insert(tabelA).values(...).returning().get()
-  db.insert(tabelB).values({ ref_id: a.id }).run()
-  db.update(tabelC).set({ stok: sql`stok - 1` }).where(eq(...)).run()
+const result = await withTransaction(async (tx) => {
+  const a = await query.ret<TipeA>(tx.insert(tabelA).values({...}).returning())
+  await query.exec(tx.insert(tabelB).values({ ref_id: a!.id }))
+  await query.exec(tx.update(tabelC).set({ stok: sql`stok - 1` }).where(eq(...)))
   return a
 })
-const result = trxFn()
+```
+
+### Query Helper (dialect-agnostic)
+```typescript
+import { db, query } from '../db/index.ts'
+
+const rows = await query.findAll(db.select().from(tabel).where(...))
+const row  = await query.find(db.select().from(tabel).where(...))
+const item = await query.ret<Tipe>(db.insert(tabel).values({...}).returning())
+await query.exec(db.update(tabel).set({...}).where(...))
 ```
 
 ### Pola Upsert (insert atau update)
 ```typescript
-const existing = db.select().from(tabel).where(eq(tabel.key, val)).get()
+const existing = await query.find(db.select().from(tabel).where(eq(tabel.key, val)))
 if (existing) {
-  const updated = db.update(tabel).set({ field: newVal }).where(eq(tabel.id, existing.id)).returning().get()
+  const updated = await query.ret<Tipe>(db.update(tabel).set({ field: newVal }).where(eq(tabel.id, existing.id)).returning())
   return c.json({ success: true, data: updated })
 }
-const created = db.insert(tabel).values({ ... }).returning().get()
+const created = await query.ret<Tipe>(db.insert(tabel).values({ ... }).returning())
 return c.json({ success: true, data: created }, 201)
 ```
 
 ### Permission Yang Tersedia
 ```
-stok.lihat/edit/hapus
-harga_jual.lihat/edit
-harga_beli.lihat/edit
-penjualan.buat/lihat/void
-pembelian.buat/lihat
-piutang.lihat/edit
-hutang.lihat/edit
-laporan.lihat/export
-karyawan.lihat/edit
-gaji.lihat/edit
-absensi.diri/semua
-role.kelola
+stok.lihat/edit/hapus         harga_jual.lihat/edit
+harga_beli.lihat/edit         penjualan.buat/lihat/void
+pembelian.buat/lihat          piutang.lihat/edit
+hutang.lihat/edit             laporan.lihat/export
+karyawan.lihat/edit           gaji.lihat/edit
+absensi.diri/kelola           role.kelola
+pengaturan.kelola
 ```
-Roles: `pemilik` → `*` | `manajer` → hampir semua | `kasir`/`gudang` → terbatas.
+`requirePermission('*')` DILARANG — selalu pakai string semantik di atas.
+Roles: `pemilik` → `*` | `manajer` → hampir semua | `kasir`/`gudang`/`sales`/`pelayanan` → terbatas.
 
 ---
 
@@ -130,22 +155,27 @@ Roles: `pemilik` → `*` | `manajer` → hampir semua | `kasir`/`gudang` → ter
 ### Template Tabel Baru
 ```typescript
 // di backend/src/db/schema.ts — tambahkan di bagian bawah
-export const nama_tabel = sqliteTable('nama_tabel', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+// WAJIB pakai builders.ts, bukan import dari drizzle-orm/sqlite-core langsung
+import { table, pkInt, txt, int, money, bool, jsonText, timestamps, idx } from '../db/builders.ts'
+
+export const nama_tabel = table('nama_tabel', {
+  id: pkInt('id'),
 
   // FK ke tabel lain
-  karyawan_id: integer('karyawan_id').references(() => karyawan.id),
+  karyawan_id: int('karyawan_id').references(() => karyawan.id),
 
   // Tipe umum
-  periode_bulan: text('periode_bulan').notNull(),           // YYYY-MM
-  tanggal: text('tanggal').notNull(),                        // YYYY-MM-DD
-  nilai: real('nilai').notNull().default(0),                 // uang/angka desimal
-  jumlah: integer('jumlah').notNull().default(0),            // stok/qty (integer)
-  is_active: integer('is_active', { mode: 'boolean' }).notNull().default(true),
-  tipe: text('tipe', { enum: ['a', 'b', 'c'] }).notNull(),   // enum
-  data: text('data', { mode: 'json' }),                      // JSON fleksibel
+  periode_bulan: txt('periode_bulan').notNull(),             // YYYY-MM
+  tanggal: txt('tanggal').notNull(),                         // YYYY-MM-DD
+  nilai: money('nilai').notNull().default(0),                // uang Rupiah (integer)
+  jumlah: int('jumlah').notNull().default(0),                // stok/qty
+  is_active: bool('is_active').notNull().default(true),
+  tipe: txt('tipe', { enum: ['a', 'b', 'c'] }).notNull(),   // enum
+  data: jsonText('data'),                                    // JSON fleksibel
 
-  ...timestamps,  // created_at + updated_at otomatis
+  ...tenantField,   // tenant_id INTEGER NOT NULL DEFAULT 1
+  ...auditFields,   // created_by + updated_by (nullable)
+  ...timestamps,    // created_at + updated_at otomatis
 })
 ```
 
@@ -175,16 +205,18 @@ sql`kolom IN (${sql.join(arr.map(v => sql`${v}`), sql`, `)})`
 ### Struktur File Per Modul (wajib)
 ```
 src/routes/(app)/[modul]/
-├── +page.svelte        ← UI template. HANYA bind store, event, #if, #each
-├── [modul].types.ts    ← interface, type, const arrays/maps. Tanpa import selain TS built-in
-├── [modul].api.ts      ← fetch ke backend. Selalu unwrap ApiResponse, throw on error
-├── [modul].logic.ts    ← pure functions: format, hitung, validasi. Tanpa fetch/store/DOM
-└── [modul].store.ts    ← createXStore() factory dengan $state runes + withLoading()
+├── +page.svelte             ← UI template. HANYA bind store, event, #if, #each
+├── [modul].types.ts         ← interface, type, const arrays/maps. Tanpa import selain TS built-in
+├── [modul].api.ts           ← fetch ke backend. Selalu unwrap ApiResponse, throw on error
+├── [modul].logic.ts         ← pure functions: format, hitung, validasi. Tanpa fetch/store/DOM
+└── [modul].store.svelte.ts  ← createXStore() factory dengan $state runes + withLoading()
 ```
+
+> Penamaan `.store.svelte.ts` (bukan `.store.ts`) agar Svelte compiler tahu file ini pakai runes (`$state`, `$derived`). File `.store.ts` lama (kasir, gudang) masih pakai Svelte 4 `writable()` — jangan dicampur.
 
 ### Store Factory (Svelte 5 — pola terbaru codebase)
 ```typescript
-// [modul].store.ts
+// [modul].store.svelte.ts
 import { withLoading } from '$lib/utils/async'
 import { fetchSesuatu, simpanSesuatu } from './[modul].api'
 
@@ -334,7 +366,8 @@ Edit `src/routes/(app)/+layout.svelte` — array `NAV`:
 ```typescript
 // +page.svelte atau store
 import { user } from '$lib/stores/auth.js'
-// Akses: $user.role — tipe: 'pemilik' | 'manajer' | 'kasir' | 'gudang'
+// Akses: $user.role — tipe: 'pemilik' | 'manajer' | 'kasir' | 'gudang' | 'sales' | 'pelayanan'
+// Akses tenant: $user.tenant_id, $user.cabang_id
 ```
 
 ---
@@ -368,10 +401,9 @@ Ketika perlu contoh pola spesifik, baca file ini:
 | Route backend sederhana (CRUD) | `backend/src/routes/barang.ts` |
 | Route keuangan (bayar hutang/piutang) | `backend/src/routes/keuangan.ts` |
 | Schema Drizzle lengkap | `backend/src/db/schema.ts` |
-| Store factory Svelte 5 | `frontend/src/routes/(app)/pengaturan/notifikasi/notifikasi.store.ts` |
-| Store kompleks + keyboard + SSE | `frontend/src/routes/(app)/kasir/kasir.store.ts` |
-| Page Svelte 5 lengkap (895 baris) | `frontend/src/routes/(app)/kasir/+page.svelte` |
+| Store factory Svelte 5 runes (terbaru) | `frontend/src/routes/(app)/keuangan/budget/budget.store.svelte.ts` |
+| Store kompleks + keyboard + SSE (Svelte 4 writable) | `frontend/src/routes/(app)/kasir/kasir.store.ts` |
+| Page Svelte 5 lengkap | `frontend/src/routes/(app)/kasir/+page.svelte` |
 | withLoading() implementation | `frontend/src/lib/utils/async.ts` |
 | api.ts wrapper | `frontend/src/lib/utils/api.ts` |
-| Budget & Target (modul terbaru) | `frontend/src/routes/(app)/keuangan/budget/` |
-```
+| Modul lengkap terbaru (Svelte 5 runes) | `frontend/src/routes/(app)/keuangan/budget/` |

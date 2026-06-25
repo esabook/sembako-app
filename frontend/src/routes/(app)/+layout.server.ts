@@ -1,27 +1,14 @@
-import { redirect } from '@sveltejs/kit'
 import type { LayoutServerLoad } from './$types'
+import { requireUser, gateOnboarding } from '$lib/server/auth'
 
-// Server-side: langsung ke backend, tidak lewat Vite proxy
-const API_URL = process.env.BACKEND_URL ?? 'http://localhost:3000'
-
-export const load: LayoutServerLoad = async ({ cookies }) => {
+export const load: LayoutServerLoad = async ({ cookies, url }) => {
 	const token = cookies.get('auth_token')
-	if (!token) {
-		redirect(302, '/login')
+	const user = await requireUser(token)
+
+	// Hindari loop di /onboarding — gate hanya di luar route onboarding.
+	if (!url.pathname.startsWith('/onboarding')) {
+		await gateOnboarding(token as string, user)
 	}
 
-	const res = await fetch(`${API_URL}/auth/me`, {
-		headers: { Cookie: `auth_token=${token}` }
-	})
-
-	if (!res.ok) {
-		redirect(302, '/login')
-	}
-
-	const json = await res.json()
-	if (!json.success) {
-		redirect(302, '/login')
-	}
-
-	return { user: json.data as { id: number; nama: string; role: string } }
+	return { user }
 }

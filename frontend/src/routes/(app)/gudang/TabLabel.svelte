@@ -2,6 +2,20 @@
 	import { onMount } from 'svelte';
 	import JsBarcode from 'jsbarcode';
 	import { api } from '$lib/utils/api.js';
+	import DataTable from '$lib/components/DataTable.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
+	import { debounce } from '$lib/utils/async.js';
+	import { rupiah } from '$lib/utils/format'
+	import Button from '$lib/components/ui/Button.svelte';
+
+	const kolBarang: Column[] = [
+		{ key: 'pilih',            label: '',       width: 24,  sortable: false, hideable: false },
+		{ key: 'nama_barang',      label: 'Nama',   minWidth: 80, sortable: false, hideable: false },
+		{ key: 'harga_jual_eceran', label: 'Harga', width: 80,  sortable: false, hideable: false, align: 'right' },
+	];
+
+	let pageBarang = $state(1);
+	let pageSizeBarang = $state(25);
 
 	type Barang = {
 		id: number;
@@ -31,10 +45,6 @@
 		'80': { w: 302, h: 120, bw: 2,   bh: 52, fs: 10, fsh: 11, pad: 6, label: '80mm (thermal sedang)' },
 		a6:   { w: 397, h: 265, bw: 2.5, bh: 72, fs: 13, fsh: 15, pad: 8, label: 'A6 (printer biasa)' },
 	};
-
-	function rupiah(n: number) {
-		return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-	}
 
 	// Buat SVG barcode sebagai string HTML — tidak perlu bind:this
 	function barcodeSvg(kode: string): string {
@@ -162,25 +172,27 @@
 		win.document.close();
 	}
 
-	let debounceTimer: ReturnType<typeof setTimeout>;
-	function onQueryInput() {
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(muatBarang, 150);
-	}
+	const onQueryInput = debounce(muatBarang, 150);
 
 	onMount(() => {
 		muatBarang();
-		return () => clearTimeout(debounceTimer);
+		return () => onQueryInput.cancel();
 	});
 
 	const antrianItems = $derived([...antrian.values()]);
 	const totalLabel = $derived(antrianItems.reduce((s, i) => s + i.qty, 0));
+
+	let pagedBarang = $derived(
+		pageSizeBarang === 0
+			? barangList
+			: barangList.slice((pageBarang - 1) * pageSizeBarang, pageBarang * pageSizeBarang)
+	);
 </script>
 
-<div class="flex gap-3" style="min-height:64vh">
+<div class="flex flex-col gap-3 lg:flex-row" style="min-height:64vh">
 
 	<!-- Panel kiri: Pilih Barang -->
-	<div class="flex flex-col gap-2" style="width:300px;flex-shrink:0">
+	<div class="flex flex-col gap-2 lg:w-[300px] lg:shrink-0">
 		<div class="text-xs font-bold" style="color:var(--text-dim)">PILIH BARANG</div>
 
 		<div class="relative">
@@ -197,35 +209,41 @@
 			{/if}
 		</div>
 
-		<div class="overflow-y-auto rounded border" style="border-color:var(--border);max-height:calc(100vh - 260px)">
-			{#each barangList as b (b.id)}
-				{@const dipilih = antrian.has(b.id)}
-				<button
-					onclick={() => togglePilih(b)}
-					class="w-full flex items-center gap-2 px-2 py-2 text-left border-b text-xs transition-colors"
-					style="border-color:var(--border);background:{dipilih ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'transparent'};color:var(--text)"
-				>
-					<span style="color:{dipilih ? 'var(--accent)' : 'var(--text-dim)'}">
-						{dipilih ? '☑' : '☐'}
-					</span>
-					<div class="flex-1 min-w-0">
-						<div class="font-mono truncate">{b.nama_barang}</div>
-						<div class="font-mono" style="color:var(--text-dim);font-size:10px">{b.kode_barang}</div>
-					</div>
-					<div class="font-mono" style="color:{dipilih ? 'var(--accent)' : 'var(--text-dim)'}">
-						{rupiah(b.harga_jual_eceran)}
-					</div>
-				</button>
-			{:else}
-				<div class="p-4 text-center text-xs" style="color:var(--text-dim)">
-					{loading ? 'Memuat...' : 'Tidak ada barang'}
-				</div>
-			{/each}
-		</div>
+		<DataTable
+			columns={kolBarang}
+			bind:currentPage={pageBarang}
+			bind:pageSize={pageSizeBarang}
+			totalRows={barangList.length}
+			rowCount={pagedBarang.length}
+			emptyText="Tidak ada barang"
+			maxRows={12}
+		>
+			{#snippet body(_hidden)}
+				{#each pagedBarang as b (b.id)}
+					{@const dipilih = antrian.has(b.id)}
+					<tr
+						onclick={() => togglePilih(b)}
+						class="border-t cursor-pointer"
+						style="border-color:var(--border);background:{dipilih ? 'color-mix(in srgb,var(--accent) 12%,transparent)' : 'transparent'}"
+					>
+						<td class="px-2 py-2 text-xs" style="color:{dipilih ? 'var(--accent)' : 'var(--text-dim)'}">
+							{dipilih ? '☑' : '☐'}
+						</td>
+						<td class="px-2 py-2">
+							<div class="font-mono text-xs truncate" style="color:var(--text)">{b.nama_barang}</div>
+							<div class="font-mono" style="color:var(--text-dim);font-size:10px">{b.kode_barang}</div>
+						</td>
+						<td class="px-2 py-2 text-right font-mono text-xs" style="color:{dipilih ? 'var(--accent)' : 'var(--text-dim)'}">
+							{rupiah(b.harga_jual_eceran)}
+						</td>
+					</tr>
+				{/each}
+			{/snippet}
+		</DataTable>
 	</div>
 
 	<!-- Panel tengah: Antrian + Pengaturan -->
-	<div class="flex flex-col gap-3" style="width:210px;flex-shrink:0">
+	<div class="flex flex-col gap-3 lg:w-[210px] lg:shrink-0">
 
 		<div class="text-xs font-bold" style="color:var(--text-dim)">
 			ANTRIAN
@@ -238,16 +256,16 @@
 			{#each antrianItems as item (item.barang.id)}
 				<div class="flex items-center gap-1 px-2 py-1.5 border-b text-xs" style="border-color:var(--border)">
 					<div class="flex-1 min-w-0 font-mono truncate" style="color:var(--text)">{item.barang.nama_barang}</div>
-					<button onclick={() => ubahQty(item.barang.id, -1)} class="w-5 h-5 flex items-center justify-center rounded text-xs" style="background:var(--surface2);color:var(--text-dim)">−</button>
+					<Button variant="dim" size="xs" onclick={() => ubahQty(item.barang.id, -1)}>−</Button>
 					<input
 						type="number" min="1" max="99"
 						value={item.qty}
 						oninput={(e) => inputQty(item.barang.id, (e.target as HTMLInputElement).value)}
-						class="w-9 text-center rounded border outline-none text-xs font-mono"
-						style="background:var(--surface2);border-color:var(--border);color:var(--text)"
+						placeholder="1"
+						class="input input-bordered w-9 text-center text-xs font-mono"
 					/>
-					<button onclick={() => ubahQty(item.barang.id, 1)} class="w-5 h-5 flex items-center justify-center rounded text-xs font-bold" style="background:var(--surface2);color:var(--accent)">+</button>
-					<button onclick={() => togglePilih(item.barang)} class="w-5 h-5 flex items-center justify-center text-sm" style="color:var(--danger)">×</button>
+					<Button variant="dim" size="xs" onclick={() => ubahQty(item.barang.id, 1)}>+</Button>
+					<Button variant="danger" size="xs" onclick={() => togglePilih(item.barang)}>×</Button>
 				</div>
 			{:else}
 				<div class="p-3 text-center text-xs" style="color:var(--text-dim)">Pilih barang dulu</div>
@@ -259,7 +277,7 @@
 		<div class="p-3 rounded border flex flex-col gap-2" style="border-color:var(--border);background:var(--surface)">
 			<div>
 				<div class="text-xs mb-1" style="color:var(--text-dim)">Ukuran label</div>
-				{#each Object.entries(UKURAN) as [key, val]}
+				{#each Object.entries(UKURAN) as [key, val] (key)}
 					<label class="flex items-center gap-2 cursor-pointer py-0.5">
 						<input type="radio" bind:group={ukuran} value={key} style="accent-color:var(--accent)" />
 						<span class="text-xs" style="color:var(--text)">{val.label}</span>
@@ -285,22 +303,11 @@
 
 		<!-- Tombol -->
 		<div class="flex flex-col gap-2 mt-auto pt-2">
-			<button
-				onclick={cetak}
-				disabled={antrian.size === 0}
-				class="py-2 rounded text-xs font-bold transition-colors"
-				style="background:{antrian.size > 0 ? 'var(--accent)' : 'var(--surface2)'};color:{antrian.size > 0 ? '#000' : 'var(--text-dim)'}"
-			>
-				{#if antrian.size > 0}
-					CETAK {totalLabel} LABEL
-				{:else}
-					CETAK
-				{/if}
-			</button>
+			<Button onclick={cetak} disabled={antrian.size === 0} size="sm">
+				{antrian.size > 0 ? `CETAK ${totalLabel} LABEL` : 'CETAK'}
+			</Button>
 			{#if antrian.size > 0}
-				<button onclick={bersihkan} class="py-1 text-xs rounded" style="color:var(--danger);background:transparent">
-					Bersihkan antrian
-				</button>
+				<Button variant="danger" size="xs" onclick={bersihkan}>Bersihkan antrian</Button>
 			{/if}
 		</div>
 	</div>

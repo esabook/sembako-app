@@ -8,26 +8,27 @@
 		autofocus = false,
 		oninput,
 		onblur,
-		onenter,
+		onenter
 	}: {
-		value?: string;
+		value?: string | number;
 		label?: string | null;
 		placeholder?: string;
 		type?: 'text' | 'password' | 'number' | 'email' | 'tel';
 		disabled?: boolean;
 		autofocus?: boolean;
-		oninput?: (v: string) => void;
+		oninput?: (v: string | number) => void;
 		onblur?: () => void;
-		onenter?: (v: string) => void;
+		onenter?: (v: string | number) => void;
 	} = $props();
 
 	function handleInput(e: Event) {
-		value = (e.target as HTMLInputElement).value;
-		oninput?.(value);
+		const inputValue = (e.target as HTMLInputElement).value;
+		value = inputValue;
+		oninput?.(type === 'number' && inputValue !== '' ? Number(inputValue) : inputValue);
 	}
 
 	function handleKey(e: KeyboardEvent) {
-		if (e.key === 'Enter') onenter?.(value);
+		if (e.key === 'Enter') onenter?.(value as string | number);
 	}
 </script>
 
@@ -40,12 +41,11 @@
 		{type}
 		{placeholder}
 		{disabled}
-		value={value}
+		{value}
 		oninput={handleInput}
 		{onblur}
 		onkeydown={handleKey}
 		{autofocus}
-		class="w-full rounded border px-2 py-1.5 text-sm outline-none disabled:opacity-50"
-		style="background:var(--bg);border-color:var(--border);color:var(--text)"
+		class="input w-full text-sm"
 	/>
 </label>

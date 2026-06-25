@@ -1,0 +1,15 @@
+[Unit]
+Description=Stokasir ESC/POS Printer Agent
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+ExecStart=/usr/local/bin/stokasir-printer-agent --config /etc/stokasir/printer-agent.yaml
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

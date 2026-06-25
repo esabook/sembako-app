@@ -1,55 +1,67 @@
+import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
-import { sql, eq, and, gte, lte, lt, desc, asc } from 'drizzle-orm'
-import { db } from '../db/index.ts'
+import { sql, eq, and, gte, lte, desc, asc, notExists } from 'drizzle-orm'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   penjualan, penjualan_detail, barang,
   hutang_supplier, piutang_pelanggan, pelanggan, supplier,
-  kas_bank, jurnal_kas, absensi, karyawan, mutasi_stok,
+  kas_bank, jurnal_kas, absensi, karyawan,
 } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
+import { getCache } from '../lib/cache.ts'
 
-export const dashboardRouter = new Hono()
+export const dashboardRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 dashboardRouter.use('*', authMiddleware)
+dashboardRouter.use('*', tenantMiddleware)
 
 dashboardRouter.get('/', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = user.cabang_id ?? null
   const today = new Date().toISOString().slice(0, 10)
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `dashboard:${tenantId}:${cabangId ?? 0}:${today}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json({ success: true, data: JSON.parse(cached) })
+
   const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
   const day30ago = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
-  const day7ago = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
   const day7later = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
 
   // ── Penjualan hari ini ──────────────────────────────────────────────────────
-  const penjualanHariIni = db.select({
+  const penjualanHariIni = await query.find(db.select({
     total: sql<number>`COALESCE(SUM(${penjualan.total}), 0)`,
     jumlah_trx: sql<number>`COUNT(*)`,
     rata_per_trx: sql<number>`COALESCE(AVG(${penjualan.total}), 0)`,
   })
   .from(penjualan)
-  .where(and(gte(penjualan.tanggal, today), lte(penjualan.tanggal, today), eq(penjualan.status, 'lunas')))
-  .get()
+  .where(and(eq(penjualan.tenant_id, tenantId), cabangId ? eq(penjualan.cabang_id, cabangId) : undefined, gte(penjualan.tanggal, today), lte(penjualan.tanggal, today), eq(penjualan.status, 'lunas')))
+  )
 
-  const penjualanKemarin = db.select({
+  const penjualanKemarin = await query.find(db.select({
     total: sql<number>`COALESCE(SUM(${penjualan.total}), 0)`,
     jumlah_trx: sql<number>`COUNT(*)`,
   })
   .from(penjualan)
-  .where(and(gte(penjualan.tanggal, yesterday), lte(penjualan.tanggal, yesterday), eq(penjualan.status, 'lunas')))
-  .get()
+  .where(and(eq(penjualan.tenant_id, tenantId), cabangId ? eq(penjualan.cabang_id, cabangId) : undefined, gte(penjualan.tanggal, yesterday), lte(penjualan.tanggal, yesterday), eq(penjualan.status, 'lunas')))
+  )
 
   // ── Penjualan 30 hari (untuk grafik) ───────────────────────────────────────
-  const penjualan30hari = db.select({
+  const penjualan30hari = await query.findAll(db.select({
     tanggal: penjualan.tanggal,
     total: sql<number>`COALESCE(SUM(${penjualan.total}), 0)`,
     jumlah_trx: sql<number>`COUNT(*)`,
   })
   .from(penjualan)
-  .where(and(gte(penjualan.tanggal, day30ago), eq(penjualan.status, 'lunas')))
+  .where(and(eq(penjualan.tenant_id, tenantId), cabangId ? eq(penjualan.cabang_id, cabangId) : undefined, gte(penjualan.tanggal, day30ago), eq(penjualan.status, 'lunas')))
   .groupBy(penjualan.tanggal)
   .orderBy(asc(penjualan.tanggal))
-  .all()
+  )
 
   // ── Saldo kas/bank ──────────────────────────────────────────────────────────
-  const akunKas = db.select({
+  const akunKasRows = await query.findAll<{ id: number; nama: string; tipe: string; saldo_awal: number; masuk: number; keluar: number }>(db.select({
     id: kas_bank.id,
     nama: kas_bank.nama,
     tipe: kas_bank.tipe,
@@ -59,15 +71,14 @@ dashboardRouter.get('/', async (c) => {
   })
   .from(kas_bank)
   .leftJoin(jurnal_kas, eq(jurnal_kas.kas_bank_id, kas_bank.id))
-  .where(eq(kas_bank.is_active, true))
+  .where(and(eq(kas_bank.tenant_id, tenantId), cabangId ? eq(kas_bank.cabang_id, cabangId) : undefined, eq(kas_bank.is_active, true)))
   .groupBy(kas_bank.id)
-  .all()
-  .map(r => ({ ...r, saldo: r.saldo_awal + r.masuk - r.keluar }))
-
+  )
+  const akunKas = akunKasRows.map(r => ({ ...r, saldo: r.saldo_awal + r.masuk - r.keluar }))
   const totalSaldo = akunKas.reduce((s, r) => s + r.saldo, 0)
 
   // ── Stok kritis (stok <= minimum) ──────────────────────────────────────────
-  const stokKritis = db.select({
+  const stokKritis = await query.findAll(db.select({
     id: barang.id,
     kode_barang: barang.kode_barang,
     nama_barang: barang.nama_barang,
@@ -76,15 +87,16 @@ dashboardRouter.get('/', async (c) => {
   })
   .from(barang)
   .where(and(
+    eq(barang.tenant_id, tenantId),
     eq(barang.is_active, true),
     sql`${barang.stok_sekarang} <= ${barang.stok_minimum}`,
   ))
   .orderBy(asc(barang.stok_sekarang))
   .limit(10)
-  .all()
+  )
 
   // ── Piutang lewat jatuh tempo ───────────────────────────────────────────────
-  const piutangMacet = db.select({
+  const piutangMacet = await query.findAll<{ id: number; nama_pelanggan: string | null; kontak: string | null; sisa_piutang: number; tanggal_jatuh_tempo: string | null }>(db.select({
     id: piutang_pelanggan.id,
     nama_pelanggan: pelanggan.nama,
     kontak: pelanggan.kontak,
@@ -94,17 +106,17 @@ dashboardRouter.get('/', async (c) => {
   .from(piutang_pelanggan)
   .leftJoin(pelanggan, eq(piutang_pelanggan.pelanggan_id, pelanggan.id))
   .where(and(
+    eq(piutang_pelanggan.tenant_id, tenantId),
     sql`${piutang_pelanggan.status} != 'lunas'`,
     sql`${piutang_pelanggan.tanggal_jatuh_tempo} < ${today}`,
   ))
   .orderBy(asc(piutang_pelanggan.tanggal_jatuh_tempo))
   .limit(5)
-  .all()
-
+  )
   const totalPiutangMacet = piutangMacet.reduce((s, r) => s + r.sisa_piutang, 0)
 
   // ── Hutang jatuh tempo 7 hari ke depan ─────────────────────────────────────
-  const hutangJatuhTempo = db.select({
+  const hutangJatuhTempo = await query.findAll<{ id: number; nama_supplier: string | null; sisa_hutang: number; tanggal_jatuh_tempo: string | null }>(db.select({
     id: hutang_supplier.id,
     nama_supplier: supplier.nama_supplier,
     sisa_hutang: hutang_supplier.sisa_hutang,
@@ -113,17 +125,17 @@ dashboardRouter.get('/', async (c) => {
   .from(hutang_supplier)
   .leftJoin(supplier, eq(hutang_supplier.supplier_id, supplier.id))
   .where(and(
+    eq(hutang_supplier.tenant_id, tenantId),
     sql`${hutang_supplier.status} != 'lunas'`,
     sql`${hutang_supplier.tanggal_jatuh_tempo} BETWEEN ${today} AND ${day7later}`,
   ))
   .orderBy(asc(hutang_supplier.tanggal_jatuh_tempo))
   .limit(5)
-  .all()
-
+  )
   const totalHutangJatuhTempo = hutangJatuhTempo.reduce((s, r) => s + r.sisa_hutang, 0)
 
   // ── Top 5 barang terlaris 30 hari ───────────────────────────────────────────
-  const topBarang = db.select({
+  const topBarang = await query.findAll(db.select({
     barang_id: penjualan_detail.barang_id,
     nama_barang: barang.nama_barang,
     total_qty: sql<number>`SUM(${penjualan_detail.jumlah})`,
@@ -133,59 +145,61 @@ dashboardRouter.get('/', async (c) => {
   .leftJoin(penjualan, eq(penjualan_detail.penjualan_id, penjualan.id))
   .leftJoin(barang, eq(penjualan_detail.barang_id, barang.id))
   .where(and(
+    eq(penjualan.tenant_id, tenantId),
+    cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
     gte(penjualan.tanggal, day30ago),
     eq(penjualan.status, 'lunas'),
   ))
   .groupBy(penjualan_detail.barang_id, barang.nama_barang)
   .orderBy(desc(sql`SUM(${penjualan_detail.subtotal})`))
   .limit(5)
-  .all()
+  )
 
   // ── Karyawan belum absen hari ini ───────────────────────────────────────────
-  const sudahAbsen = db.select({ karyawan_id: absensi.karyawan_id })
-    .from(absensi)
-    .where(eq(absensi.tanggal, today))
-    .all()
-    .map(r => r.karyawan_id)
-
-  const belumAbsen = db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
+  const belumAbsen = await query.findAll(db.select({ id: karyawan.id, nama: karyawan.nama, role: karyawan.role })
     .from(karyawan)
-    .where(eq(karyawan.is_active, true))
-    .all()
-    .filter(k => !sudahAbsen.includes(k.id))
+    .where(and(
+      eq(karyawan.toko_id, tenantId),
+      eq(karyawan.is_active, true),
+      notExists(
+        db.select({ _: absensi.id }).from(absensi)
+          .where(and(eq(absensi.karyawan_id, karyawan.id), eq(absensi.tanggal, today)))
+      ),
+    ))
+  )
 
   // ── Ringkasan piutang & hutang total ───────────────────────────────────────
-  const totalPiutang = db.select({
+  const totalPiutang = await query.find<{ total: number }>(db.select({
     total: sql<number>`COALESCE(SUM(${piutang_pelanggan.sisa_piutang}), 0)`,
   })
   .from(piutang_pelanggan)
-  .where(sql`${piutang_pelanggan.status} != 'lunas'`)
-  .get()
+  .where(and(eq(piutang_pelanggan.tenant_id, tenantId), sql`${piutang_pelanggan.status} != 'lunas'`))
+  )
 
-  const totalHutang = db.select({
+  const totalHutang = await query.find<{ total: number }>(db.select({
     total: sql<number>`COALESCE(SUM(${hutang_supplier.sisa_hutang}), 0)`,
   })
   .from(hutang_supplier)
-  .where(sql`${hutang_supplier.status} != 'lunas'`)
-  .get()
+  .where(and(eq(hutang_supplier.tenant_id, tenantId), sql`${hutang_supplier.status} != 'lunas'`))
+  )
 
-  return c.json({
-    success: true,
-    data: {
-      today,
-      penjualan_hari_ini: penjualanHariIni,
-      penjualan_kemarin: penjualanKemarin,
-      penjualan_30hari: penjualan30hari,
-      saldo_kas: { akun: akunKas, total: totalSaldo },
-      stok_kritis: stokKritis,
-      piutang_macet: { list: piutangMacet, total: totalPiutangMacet },
-      hutang_jatuh_tempo: { list: hutangJatuhTempo, total: totalHutangJatuhTempo },
-      top_barang: topBarang,
-      belum_absen: belumAbsen,
-      ringkasan: {
-        total_piutang: totalPiutang?.total ?? 0,
-        total_hutang: totalHutang?.total ?? 0,
-      },
+  const data = {
+    today,
+    penjualan_hari_ini: penjualanHariIni,
+    penjualan_kemarin: penjualanKemarin,
+    penjualan_30hari: penjualan30hari,
+    saldo_kas: { akun: akunKas, total: totalSaldo },
+    stok_kritis: stokKritis,
+    piutang_macet: { list: piutangMacet, total: totalPiutangMacet },
+    hutang_jatuh_tempo: { list: hutangJatuhTempo, total: totalHutangJatuhTempo },
+    top_barang: topBarang,
+    belum_absen: belumAbsen,
+    ringkasan: {
+      total_piutang: totalPiutang?.total ?? 0,
+      total_hutang: totalHutang?.total ?? 0,
     },
-  })
+  }
+
+  await cache.put(cacheKey, JSON.stringify(data), { expirationTtl: 120 })
+  return c.json({ success: true, data })
 })

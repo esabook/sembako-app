@@ -12,6 +12,8 @@ backend/uploads/
 # Build output
 frontend/.svelte-kit/
 frontend/build/
+build/*.zip
+build/*.tar.gz
 
 # Env
 .env
@@ -22,3 +24,14 @@ frontend/build/
 
 # OS
 .DS_Store
+scripts/release/
+scripts/.bun-cache/
+scripts/prebuilt/
+.contynu/
+data/
+.codegraph/
+.claude/
+.gemini/
+.agents/
+.vscode/
+backend/.wrangler/

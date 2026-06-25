@@ -1,106 +1,394 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { writable } from 'svelte/store';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { connectScannerSse } from '$lib/utils/scannerSse.js';
-	import Modal from '$lib/components/Modal.svelte';
+	import SlideOver from '$lib/components/SlideOver.svelte';
+	import DataTable from '$lib/components/DataTable.svelte';
+	import type { Column } from '$lib/components/DataTable.svelte';
 	import TabStokGuide from './TabStokGuide.svelte';
+	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import SearchInput from '$lib/components/data/SearchInput.svelte';
+	import Button from '$lib/components/ui/Button.svelte';
+	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 
-	type StokItem = { id: number; kode_barang: string; nama_barang: string; stok_sekarang: number; stok_minimum: number; lokasi_rak: string | null; nama_kategori: string | null; singkatan_satuan: string | null; };
-	type MutasiItem = { id: number; tanggal: string; jenis: string; referensi_tipe: string | null; jumlah_perubahan: number; jumlah_sesudah: number; };
+	type StokItem = {
+		id: number;
+		kode_barang: string;
+		nama_barang: string;
+		stok_sekarang: number;
+		stok_minimum: number;
+		lokasi_rak: string | null;
+		nama_kategori: string | null;
+		singkatan_satuan: string | null;
+	};
+	type MutasiItem = {
+		id: number;
+		tanggal: string;
+		jenis: string;
+		referensi_tipe: string | null;
+		referensi_id: number | null;
+		jumlah_sebelum: number;
+		jumlah_perubahan: number;
+		jumlah_sesudah: number;
+		dicatat_oleh_nama: string | null;
+	};
+
+	type StokMenipis = {
+		id: number;
+		kode_barang: string;
+		nama_barang: string;
+		stok_sekarang: number;
+		stok_minimum: number;
+		satuan: string | null;
+	};
+	type PelangganResult = {
+		id: number;
+		nama: string;
+		kontak: string | null;
+		saldo_piutang: number;
+		gender: 'pria' | 'wanita' | null;
+		no_kartu: string | null;
+		tier: 'reguler' | 'silver' | 'gold' | null;
+		diskon_member: number | null;
+	};
+
+	type Snap = {
+		items: import('$lib/stores/kasir').ItemKeranjang[];
+		subtotal: number;
+		diskon: number;
+		total: number;
+		metode: import('$lib/stores/kasir').MetodeBayar;
+		nominal: number;
+		kembalian: number;
+		pelanggan: PelangganResult | null;
+		tipe: import('$lib/stores/kasir').TipeTransaksi;
+		noTransaksi: string;
+		waktu: Date;
+	};
+
+	const kolStok: Column[] = [
+		{ key: 'kode_barang', label: 'Kode', width: 100, priority: 2 },
+		{ key: 'nama_barang', label: 'Nama', minWidth: 120 },
+		{ key: 'nama_kategori', label: 'Kategori', minWidth: 90, priority: 3 },
+		{ key: 'lokasi_rak', label: 'Rak', width: 80, priority: 3 },
+		{ key: 'stok_sekarang', label: 'Stok', width: 90, align: 'right' },
+		{ key: 'stok_minimum', label: 'Min', width: 70, align: 'right', priority: 2 },
+		{ key: 'status_stok', label: 'Status', width: 110 },
+		{ key: 'aksi', label: '', width: 80, sortable: false, hideable: false, align: 'right' }
+	];
+
+	const snap = writable<Snap | null>(null);
+
+	let pageStok = $state(1);
+	let pageSizeStok = $state(25);
+	let sortKeyStok = $state('nama_barang');
+	let sortDirStok = $state<'asc' | 'desc'>('asc');
 
 	let stokList = $state<StokItem[]>([]);
 	let mutasiList = $state<MutasiItem[]>([]);
 	let mutasiNama = $state('');
+	let mutasiBarangId = $state(0);
 	let showMutasi = $state(false);
+	let mutasiDari = $state('');
+	let mutasiSampai = $state('');
+	let mutasiLoading = $state(false);
 	let query = $state('');
 	let loading = $state(false);
 
-	async function muatStok() { loading = true; const r = await api.get<StokItem[]>('/stok'); if (r.success) stokList = r.data; loading = false; }
+	// ── Stok menipis ─────────────────────────────────────────────────────────
+	let stokMenipis = $state<StokMenipis[]>([]);
+	let stokAlertDismissed = $state(false);
 
-	async function muatMutasi(id: number, nama: string) {
-		mutasiNama = nama;
-		const r = await api.get<MutasiItem[]>(`/stok/${id}/mutasi`);
-		if (r.success) { mutasiList = r.data; showMutasi = true; }
+	function sortStok(list: StokItem[], key: string, dir: 'asc' | 'desc') {
+		if (!key) return list;
+		return [...list].sort((a, b) => {
+			const va = String((a as Record<string, unknown>)[key] ?? '');
+			const vb = String((b as Record<string, unknown>)[key] ?? '');
+			const cmp = va.localeCompare(vb, 'id', { numeric: true });
+			return dir === 'asc' ? cmp : -cmp;
+		});
 	}
 
-	function statusStok(item: { stok_sekarang: number; stok_minimum: number }) { if (item.stok_sekarang <= 0) return { label: 'HABIS', color: 'var(--danger)' }; if (item.stok_sekarang <= item.stok_minimum) return { label: 'HAMPIR HABIS', color: 'var(--warn)' }; return { label: 'AMAN', color: 'var(--accent)' }; }
+	let filteredStok = $derived(
+		!query
+			? stokList
+			: stokList.filter(
+					(s) =>
+						s.nama_barang.toLowerCase().includes(query.toLowerCase()) ||
+						s.kode_barang.includes(query)
+				)
+	);
+	let sortedStok = $derived(sortStok(filteredStok, sortKeyStok, sortDirStok));
+	let pagedStok = $derived(
+		pageSizeStok === 0
+			? sortedStok
+			: sortedStok.slice((pageStok - 1) * pageSizeStok, pageStok * pageSizeStok)
+	);
+
+	async function muatStok() {
+		loading = true;
+		const r = await api.get<StokItem[]>('/stok');
+		if (r.success) stokList = r.data;
+		loading = false;
+	}
+
+	async function muatMutasi(id: number, nama: string) {
+		mutasiBarangId = id;
+		mutasiNama = nama;
+		mutasiDari = '';
+		mutasiSampai = '';
+		mutasiLoading = true;
+		showMutasi = true;
+		const r = await api.get<MutasiItem[]>(`/stok/${id}/mutasi`);
+		if (r.success) mutasiList = r.data;
+		mutasiLoading = false;
+	}
+
+	async function filterMutasi() {
+		mutasiLoading = true;
+		const params = new URLSearchParams();
+		if (mutasiDari) params.set('dari', mutasiDari);
+		if (mutasiSampai) params.set('sampai', mutasiSampai);
+		const r = await api.get<MutasiItem[]>(`/stok/${mutasiBarangId}/mutasi?${params}`);
+		if (r.success) mutasiList = r.data;
+		mutasiLoading = false;
+	}
+
+	function labelReferensi(tipe: string | null): string {
+		const map: Record<string, string> = {
+			penjualan: 'Jual',
+			pembelian: 'Beli',
+			purchase_order: 'PO',
+			retur_penjualan: 'Retur Jual',
+			retur_pembelian: 'Retur Beli',
+			stok_opname: 'Opname',
+			koreksi_manual: 'Koreksi',
+			barang_masuk: 'Terima Barang'
+		};
+		return tipe ? (map[tipe] ?? tipe) : '—';
+	}
+
+	function warnaMutasi(jenis: string): string {
+		if (jenis === 'masuk') return 'var(--accent)';
+		if (jenis === 'keluar') return 'var(--danger)';
+		return 'var(--warn)';
+	}
+
+	function statusStok(item: { stok_sekarang: number; stok_minimum: number }) {
+		if (item.stok_sekarang <= 0) return { label: 'HABIS', color: 'var(--danger)' };
+		if (item.stok_sekarang <= item.stok_minimum)
+			return { label: 'HAMPIR HABIS', color: 'var(--warn)' };
+		return { label: 'AMAN', color: 'var(--accent)' };
+	}
+
+	export async function fetchStokMenipis(): Promise<StokMenipis[]> {
+		const res = await api.get<StokMenipis[]>('/barang/stok-menipis');
+		if (!res.success) throw new Error(res.error);
+		return res.data;
+	}
 
 	onMount(() => {
 		muatStok();
-		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => { query = kode; });
+		fetchStokMenipis()
+			.then((d) => {
+				stokMenipis = d;
+			})
+			.catch(() => {});
+		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => {
+			query = kode;
+		});
+	});
+
+	// ── Refresh stok menipis setelah checkout berhasil ───────────────────────
+	$effect(() => {
+		if ($snap) {
+			stokAlertDismissed = false;
+			fetchStokMenipis()
+				.then((d) => {
+					stokMenipis = d;
+				})
+				.catch(() => {});
+		}
 	});
 </script>
 
 <div class="flex flex-col gap-3">
+	<!-- ─── Alert stok menipis ────────────────────────────────────────────────── -->
+	{#if stokMenipis.length > 0 && !stokAlertDismissed}
+		<div
+			class="mb-2 flex shrink-0 items-center justify-between gap-2 border-b px-4 py-2 text-sm"
+			style="background:color-mix(in srgb,var(--warn) 12%,var(--surface));border-color:var(--warn);color:var(--text)"
+		>
+			<div class="flex min-w-0 items-center gap-2">
+				<span class="shrink-0 font-bold" style="color:var(--warn)">⚠ Stok menipis</span>
+				<span class="truncate" style="color:var(--text-dim)">
+					{stokMenipis
+						.slice(0, 3)
+						.map(
+							(b) =>
+								`${b.nama_barang} (${b.stok_sekarang}/${b.stok_minimum}${b.satuan ? ' ' + b.satuan : ''})`
+						)
+						.join(' · ')}
+					{#if stokMenipis.length > 3}<span>+{stokMenipis.length - 3} lainnya</span>{/if}
+				</span>
+			</div>
+			<button
+				onclick={() => (stokAlertDismissed = true)}
+				class="shrink-0 rounded px-2 py-0.5 text-xs"
+				style="color:var(--text-dim)">✕</button
+			>
+		</div>
+	{/if}
+
 	<div class="flex items-center gap-3">
-		<input type="search" placeholder="Filter nama..." bind:value={query} class="px-3 py-1 rounded border text-sm max-w-xs outline-none" style="background:var(--surface);border-color:var(--border);color:var(--text)" />
-		<span class="text-xs" style="color:var(--text-dim)">{stokList.length} barang aktif</span>
+		<SearchInput
+			bind:value={query}
+			placeholder="Filter nama/kode..."
+			autofocus={false}
+			onsearch={() => {
+				pageStok = 1;
+			}}
+		/>
+		<span class="text-xs" style="color:var(--text-dim)">{filteredStok.length} barang</span>
 	</div>
-	<div class="rounded border overflow-x-auto" style="border-color:var(--border)">
-		<table class="w-full text-sm">
-			<thead><tr style="background:var(--surface2);color:var(--text-dim)">
-				<th class="text-left px-3 py-2 font-medium">Kode</th>
-				<th class="text-left px-3 py-2 font-medium">Nama</th>
-				<th class="text-left px-3 py-2 font-medium">Kategori</th>
-				<th class="text-left px-3 py-2 font-medium">Rak</th>
-				<th class="text-right px-3 py-2 font-medium">Stok</th>
-				<th class="text-right px-3 py-2 font-medium">Min</th>
-				<th class="text-left px-3 py-2 font-medium">Status</th>
-				<th class="px-3 py-2"></th>
-			</tr></thead>
-			<tbody>
-				{#if loading}
-					<tr><td colspan="8" class="px-3 py-4 text-center" style="color:var(--text-dim)">Memuat...</td></tr>
-				{:else}
-					{#each stokList.filter((s) => !query || s.nama_barang.toLowerCase().includes(query.toLowerCase()) || s.kode_barang.includes(query)) as item}
-						{@const st = statusStok(item)}
-						<tr class="border-t" style="border-color:var(--border)">
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
-							<td class="px-3 py-2">{item.nama_barang}</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
-							<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.lokasi_rak ?? '-'}</td>
-							<td class="px-3 py-2 text-right font-bold" style="color:{st.color}">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
-							<td class="px-3 py-2 text-right text-xs" style="color:var(--text-dim)">{item.stok_minimum}</td>
-							<td class="px-3 py-2"><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td>
-							<td class="px-3 py-2 text-right">
-								<button onclick={() => muatMutasi(item.id, item.nama_barang)} class="text-xs" style="color:var(--info)">Riwayat</button>
-							</td>
-						</tr>
-					{/each}
-				{/if}
-			</tbody>
-		</table>
-	</div>
+	<DataTable
+		columns={kolStok}
+		tableId="gudang_stok"
+		bind:sortKey={sortKeyStok}
+		bind:sortDir={sortDirStok}
+		bind:currentPage={pageStok}
+		bind:pageSize={pageSizeStok}
+		totalRows={filteredStok.length}
+		rowCount={pagedStok.length}
+		emptyText="Tidak ada data"
+		maxRows={14}
+	>
+		{#snippet body(hidden)}
+			{#each pagedStok as item (item.id)}
+				{@const st = statusStok(item)}
+				<tr class="border-t" style="border-color:var(--border)">
+					{#if !hidden.has('kode_barang')}
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.kode_barang}</td>
+					{/if}
+					{#if !hidden.has('nama_barang')}
+						<td class="px-3 py-2">{item.nama_barang}</td>
+					{/if}
+					{#if !hidden.has('nama_kategori')}
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)"
+							>{item.nama_kategori ?? '-'}</td
+						>
+					{/if}
+					{#if !hidden.has('lokasi_rak')}
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.lokasi_rak ?? '-'}</td
+						>
+					{/if}
+					{#if !hidden.has('stok_sekarang')}
+						<td class="px-3 py-2 text-right font-bold" style="color:{st.color}"
+							>{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td
+						>
+					{/if}
+					{#if !hidden.has('stok_minimum')}
+						<td class="px-3 py-2 text-right text-xs" style="color:var(--text-dim)"
+							>{item.stok_minimum}</td
+						>
+					{/if}
+					{#if !hidden.has('status_stok')}
+						<td class="px-3 py-2"
+							><span class="text-xs font-bold" style="color:{st.color}">{st.label}</span></td
+						>
+					{/if}
+					{#if !hidden.has('aksi')}
+						<td class="px-3 py-2 text-right">
+							<Button
+								variant="ghost"
+								size="xs"
+								onclick={() => muatMutasi(item.id, item.nama_barang)}>Riwayat</Button
+							>
+						</td>
+					{/if}
+				</tr>
+			{/each}
+		{/snippet}
+	</DataTable>
 </div>
 
-<Modal bind:open={showMutasi} title="Riwayat Mutasi — {mutasiNama}">
-	{#snippet children()}
-	<div class="max-h-80 overflow-y-auto">
-		{#if mutasiList.length === 0}
-			<p class="text-sm text-center py-4" style="color:var(--text-dim)">Belum ada mutasi</p>
-		{:else}
-			<table class="w-full text-xs">
-				<thead><tr style="color:var(--text-dim)">
-					<th class="text-left py-1 font-medium">Tanggal</th>
-					<th class="text-left py-1 font-medium">Jenis</th>
-					<th class="text-right py-1 font-medium">Δ</th>
-					<th class="text-right py-1 font-medium">Sesudah</th>
-				</tr></thead>
-				<tbody>
-					{#each mutasiList as m}
-					<tr class="border-t" style="border-color:var(--border)">
-						<td class="py-1.5" style="color:var(--text-dim)">{m.tanggal.slice(0, 16)}</td>
-						<td class="py-1.5">{m.jenis}</td>
-						<td class="py-1.5 text-right font-bold" style="color:{m.jumlah_perubahan >= 0 ? 'var(--accent)' : 'var(--danger)'}">{m.jumlah_perubahan >= 0 ? '+' : ''}{m.jumlah_perubahan}</td>
-						<td class="py-1.5 text-right">{m.jumlah_sesudah}</td>
-					</tr>
-					{/each}
-				</tbody>
-			</table>
-		{/if}
+<SlideOver bind:open={showMutasi} title="Riwayat Mutasi — {mutasiNama}">
+	<div class="space-y-3">
+		<!-- Filter tanggal -->
+		<div class="flex flex-wrap items-center gap-2">
+			<DateRangePicker bind:from={mutasiDari} bind:to={mutasiSampai} />
+			<Button size="sm" onclick={filterMutasi}>Filter</Button>
+			{#if mutasiDari || mutasiSampai}
+				<Button
+					variant="dim"
+					size="xs"
+					onclick={() => {
+						mutasiDari = '';
+						mutasiSampai = '';
+						filterMutasi();
+					}}>Reset</Button
+				>
+			{/if}
+			<span class="ml-auto text-xs" style="color:var(--text-dim)">{mutasiList.length} baris</span>
+		</div>
+
+		<!-- Tabel -->
+		<div
+			class="max-h-96 overflow-x-auto overflow-y-auto rounded border"
+			style="border-color:var(--border)"
+		>
+			{#if mutasiLoading}
+				<div class="flex justify-center py-6"><Spinner /></div>
+			{:else if mutasiList.length === 0}
+				<p class="py-6 text-center text-xs" style="color:var(--text-dim)">Tidak ada data mutasi</p>
+			{:else}
+				<table class="w-full min-w-[480px] text-xs">
+					<thead class="sticky top-0" style="background:var(--surface2)">
+						<tr style="color:var(--text-dim)">
+							<th class="px-3 py-2 text-left font-medium">Tanggal</th>
+							<th class="px-3 py-2 text-left font-medium">Jenis</th>
+							<th class="px-3 py-2 text-left font-medium">Referensi</th>
+							<th class="px-3 py-2 text-right font-medium">Sebelum</th>
+							<th class="px-3 py-2 text-right font-medium">Δ</th>
+							<th class="px-3 py-2 text-right font-medium">Sesudah</th>
+							<th class="hidden px-3 py-2 text-left font-medium sm:table-cell">Oleh</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each mutasiList as m (m.id)}
+							<tr class="border-t" style="border-color:var(--border)">
+								<td class="px-3 py-1.5 font-mono" style="color:var(--text-dim)"
+									>{m.tanggal.slice(0, 16)}</td
+								>
+								<td class="px-3 py-1.5">
+									<span class="font-bold" style="color:{warnaMutasi(m.jenis)}">{m.jenis}</span>
+								</td>
+								<td class="px-3 py-1.5" style="color:var(--text-dim)">
+									{labelReferensi(m.referensi_tipe)}
+									{#if m.referensi_id}<span class="font-mono">#{m.referensi_id}</span>{/if}
+								</td>
+								<td class="px-3 py-1.5 text-right font-mono" style="color:var(--text-dim)"
+									>{m.jumlah_sebelum}</td
+								>
+								<td
+									class="px-3 py-1.5 text-right font-mono font-bold"
+									style="color:{m.jumlah_perubahan >= 0 ? 'var(--accent)' : 'var(--danger)'}"
+								>
+									{m.jumlah_perubahan >= 0 ? '+' : ''}{m.jumlah_perubahan}
+								</td>
+								<td class="px-3 py-1.5 text-right font-mono font-bold">{m.jumlah_sesudah}</td>
+								<td class="hidden px-3 py-1.5 sm:table-cell" style="color:var(--text-dim)"
+									>{m.dicatat_oleh_nama ?? '—'}</td
+								>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</div>
 	</div>
-	{/snippet}
-</Modal>
+</SlideOver>
 
 <TabStokGuide />

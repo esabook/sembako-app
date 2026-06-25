@@ -1,0 +1,47 @@
+[data-theme='island'] {
+  --bg: #1e1f22;
+  --surface: #2b2d30;
+  --surface2: #393b40;
+  --border: #1e1f22;
+  --text: #dce0e6;
+  --text-dim: #a0a4ab;
+  --accent: #4c9be8;
+  --warn: #e8b84c;
+  --danger: #f28b82;
+  --info: #6cbfe0;
+  --skeleton: #3d3f44;
+}
+
+[data-theme='islandl'] {
+  --bg: #ffffff;
+  --surface: #f2f2f2;
+  --surface2: #e8e8e8;
+  --border: #d0d0d0;
+  --text: #1e1f22;
+  --text-dim: #404550;
+  --accent: #1a73c0;
+  --warn: #b5860b;
+  --danger: #cc3d36;
+  --info: #1d7bb5;
+  --skeleton: #e4e4e6;
+}
+
+[data-theme='island'] .app-root,
+[data-theme='islandl'] .app-root {
+  padding: 6px;
+  gap: 6px;
+}
+
+[data-theme='island'] .app-body,
+[data-theme='islandl'] .app-body {
+  gap: 6px;
+}
+
+[data-theme='island'] .app-nav,
+[data-theme='island'] .app-sidebar,
+[data-theme='island'] .app-main,
+[data-theme='islandl'] .app-nav,
+[data-theme='islandl'] .app-sidebar,
+[data-theme='islandl'] .app-main {
+  border-radius: 10px;
+}

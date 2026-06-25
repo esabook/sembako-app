@@ -1,40 +1,50 @@
+import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, like, and, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { supplier } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 
-export const supplierRouter = new Hono()
+export const supplierRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 supplierRouter.use('*', authMiddleware)
+supplierRouter.use('*', tenantMiddleware)
 
 supplierRouter.get('/', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const q = c.req.query('q')
   const aktif = c.req.query('aktif') !== '0'
 
-  const rows = db
+  const rows = await query.findAll(db
     .select()
     .from(supplier)
     .where(
       and(
+        eq(supplier.tenant_id, tenantId),
         aktif ? eq(supplier.is_active, true) : undefined,
         q ? like(supplier.nama_supplier, `%${q}%`) : undefined,
       )
     )
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
 
 supplierRouter.get('/:id', async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const row = db.select().from(supplier).where(eq(supplier.id, id)).get()
+  const row = await query.find(db.select().from(supplier).where(and(eq(supplier.id, id), eq(supplier.tenant_id, tenantId))))
   if (!row) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
   return c.json({ success: true, data: row })
 })
 
 supplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{
     kode_supplier: string
     nama_supplier: string
@@ -48,44 +58,49 @@ supplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
     throw new HTTPException(400, { message: 'Kode dan nama supplier wajib diisi' })
   }
 
-  const row = db.insert(supplier).values({
+  const row = await query.ret(db.insert(supplier).values({
     kode_supplier: body.kode_supplier.trim(),
     nama_supplier: body.nama_supplier.trim(),
     kontak: body.kontak,
     alamat: body.alamat,
     terms_bayar: body.terms_bayar ?? 0,
     limit_hutang: body.limit_hutang ?? 0,
-  }).returning().get()
+    tenant_id: tenantId,
+  }).returning())
 
   return c.json({ success: true, data: row }, 201)
 })
 
 supplierRouter.put('/:id', requirePermission('pembelian.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<Partial<typeof supplier.$inferInsert>>()
 
-  const existing = db.select().from(supplier).where(eq(supplier.id, id)).get()
+  const existing = await query.find(db.select().from(supplier).where(and(eq(supplier.id, id), eq(supplier.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
 
-  const row = db
+  const row = await query.find(db
     .update(supplier)
-    .set({ ...body, updated_at: sql`(datetime('now','localtime'))` })
-    .where(eq(supplier.id, id))
+    .set({ ...body, updated_at: isoNow() })
+    .where(and(eq(supplier.id, id), eq(supplier.tenant_id, tenantId)))
     .returning()
-    .get()
+    )
 
   return c.json({ success: true, data: row })
 })
 
 supplierRouter.delete('/:id', requirePermission('pembelian.buat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = db.select().from(supplier).where(eq(supplier.id, id)).get()
+  const existing = await query.find(db.select().from(supplier).where(and(eq(supplier.id, id), eq(supplier.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Supplier tidak ditemukan' })
 
-  db.update(supplier)
-    .set({ is_active: false, updated_at: sql`(datetime('now','localtime'))` })
-    .where(eq(supplier.id, id))
-    .run()
+  await query.exec(db.update(supplier)
+    .set({ is_active: false, updated_at: isoNow() })
+    .where(and(eq(supplier.id, id), eq(supplier.tenant_id, tenantId)))
+  )
 
   return c.json({ success: true, data: null })
 })

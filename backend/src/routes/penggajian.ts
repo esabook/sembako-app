@@ -1,13 +1,15 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, sql, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db } from '../db/index.ts'
-import { penggajian, karyawan, absensi, kasbon, jurnal_kas } from '../db/schema.ts'
+import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { penggajian, karyawan, absensi, kasbon, jurnal_kas, sanksi_insentif } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
+import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 
-export const penggajianRouter = new Hono()
+export const penggajianRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 penggajianRouter.use('*', authMiddleware)
+penggajianRouter.use('*', tenantMiddleware)
 
 function hitungHariKerja(tahun: number, bulan: number): number {
   // Hitung hari Senin–Sabtu dalam bulan
@@ -22,16 +24,19 @@ function hitungHariKerja(tahun: number, bulan: number): number {
 
 // GET / — list penggajian (filter: bulan YYYY-MM, karyawan_id, status)
 penggajianRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const bulan = c.req.query('bulan')
   const karyawanId = c.req.query('karyawan_id') ? Number(c.req.query('karyawan_id')) : undefined
   const status = c.req.query('status') as 'draft' | 'approved' | 'dibayar' | undefined
 
   const conds: ReturnType<typeof eq>[] = []
+  conds.push(eq(penggajian.tenant_id, tenantId))
   if (bulan) conds.push(eq(penggajian.periode_bulan, bulan))
   if (karyawanId) conds.push(eq(penggajian.karyawan_id, karyawanId))
   if (status) conds.push(eq(penggajian.status, status))
 
-  const rows = db
+  const rows = await query.findAll(db
     .select({
       id: penggajian.id,
       karyawan_id: penggajian.karyawan_id,
@@ -51,7 +56,7 @@ penggajianRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
     .leftJoin(karyawan, eq(penggajian.karyawan_id, karyawan.id))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(penggajian.periode_bulan, karyawan.nama)
-    .all()
+    )
 
   return c.json({ success: true, data: rows })
 })
@@ -59,6 +64,7 @@ penggajianRouter.get('/', requirePermission('gaji.lihat'), async (c) => {
 // POST /generate — generate penggajian untuk semua karyawan aktif pada bulan tertentu
 penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const body = await c.req.json<{ bulan: string; hari_kerja?: number }>()
 
   if (!body.bulan || !/^\d{4}-\d{2}$/.test(body.bulan)) {
@@ -68,7 +74,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
   const [tahun, bln] = body.bulan.split('-').map(Number) as [number, number]
   const hariKerja = body.hari_kerja ?? hitungHariKerja(tahun, bln)
 
-  const semua_karyawan = db
+  const semua_karyawan = await query.findAll<{ id: number; nama: string; gaji_pokok: number; tipe_gaji: 'harian' | 'bulanan' }>(db
     .select({
       id: karyawan.id,
       nama: karyawan.nama,
@@ -76,66 +82,97 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
       tipe_gaji: karyawan.tipe_gaji,
     })
     .from(karyawan)
-    .where(eq(karyawan.is_active, true))
-    .all()
+    .where(and(eq(karyawan.is_active, true), eq(karyawan.toko_id, tenantId)))
+    )
+
+  // Batch-load semua data yang dibutuhkan sebelum loop — hindari N+1
+  const karyawanIds = semua_karyawan.map((k) => k.id)
+
+  const existingSet = new Set(
+    (await query.findAll<{ karyawan_id: number }>(db.select({ karyawan_id: penggajian.karyawan_id })
+      .from(penggajian)
+      .where(and(eq(penggajian.tenant_id, tenantId), eq(penggajian.periode_bulan, body.bulan)))
+    ))
+      .map((r) => r.karyawan_id)
+  )
+
+  const absensiRows = karyawanIds.length
+    ? await query.findAll<{ karyawan_id: number; hadir: number }>(db.select({ karyawan_id: absensi.karyawan_id, hadir: sql<number>`COUNT(*)` })
+        .from(absensi)
+        .where(and(
+          inArray(absensi.karyawan_id, karyawanIds),
+          eq(absensi.status, 'hadir'),
+          gte(absensi.tanggal, `${body.bulan}-01`),
+          lte(absensi.tanggal, `${body.bulan}-31`),
+        ))
+        .groupBy(absensi.karyawan_id)
+        )
+    : []
+  const absensiMap = new Map(absensiRows.map((r) => [r.karyawan_id, r.hadir]))
+
+  const kasbonAll = karyawanIds.length
+    ? await query.findAll<{ karyawan_id: number; cicilan: number }>(db.select({ karyawan_id: kasbon.karyawan_id, cicilan: kasbon.cicilan_per_bulan })
+        .from(kasbon)
+        .where(and(inArray(kasbon.karyawan_id, karyawanIds), eq(kasbon.status, 'aktif')))
+    )
+    : []
+  const kasbonMap = new Map<number, number>()
+  for (const r of kasbonAll) {
+    kasbonMap.set(r.karyawan_id, (kasbonMap.get(r.karyawan_id) ?? 0) + r.cicilan)
+  }
+
+  const siAll = karyawanIds.length
+    ? await query.findAll<{ karyawan_id: number; tipe: string; jumlah: number }>(db.select({ karyawan_id: sanksi_insentif.karyawan_id, tipe: sanksi_insentif.tipe, jumlah: sanksi_insentif.jumlah })
+        .from(sanksi_insentif)
+        .where(and(
+          inArray(sanksi_insentif.karyawan_id, karyawanIds),
+          eq(sanksi_insentif.periode_bulan, body.bulan),
+        ))
+        )
+    : []
+  const insentifMap = new Map<number, number>()
+  const sanksiMap = new Map<number, number>()
+  for (const r of siAll) {
+    if (r.tipe === 'insentif') insentifMap.set(r.karyawan_id, (insentifMap.get(r.karyawan_id) ?? 0) + r.jumlah)
+    else sanksiMap.set(r.karyawan_id, (sanksiMap.get(r.karyawan_id) ?? 0) + r.jumlah)
+  }
 
   const generated: (typeof penggajian.$inferSelect)[] = []
   const skipped: number[] = []
 
   for (const k of semua_karyawan) {
-    // Cek sudah ada belum
-    const sudahAda = db
-      .select({ id: penggajian.id })
-      .from(penggajian)
-      .where(and(eq(penggajian.karyawan_id, k.id), eq(penggajian.periode_bulan, body.bulan)))
-      .get()
+    if (existingSet.has(k.id)) { skipped.push(k.id); continue }
 
-    if (sudahAda) { skipped.push(k.id); continue }
+    const hariHadir = absensiMap.get(k.id) ?? 0
+    const potonganKasbon = kasbonMap.get(k.id) ?? 0
+    const totalInsentif = insentifMap.get(k.id) ?? 0
+    const totalSanksi = sanksiMap.get(k.id) ?? 0
 
-    // Hitung hari hadir dari absensi
-    const rekapRow = db
-      .select({ hadir: sql<number>`COUNT(*)` })
-      .from(absensi)
-      .where(and(
-        eq(absensi.karyawan_id, k.id),
-        eq(absensi.status, 'hadir'),
-        gte(absensi.tanggal, `${body.bulan}-01`),
-        lte(absensi.tanggal, `${body.bulan}-31`),
-      ))
-      .get()
-    const hariHadir = rekapRow?.hadir ?? 0
-
-    // Total cicilan kasbon aktif bulan ini
-    const kasbonRows = db
-      .select({ cicilan: kasbon.cicilan_per_bulan })
-      .from(kasbon)
-      .where(and(eq(kasbon.karyawan_id, k.id), eq(kasbon.status, 'aktif')))
-      .all()
-    const potonganKasbon = kasbonRows.reduce((s, r) => s + r.cicilan, 0)
-
-    // Hitung total gaji
     const gajiBase =
       k.tipe_gaji === 'harian' ? k.gaji_pokok * hariHadir : k.gaji_pokok
-    const total = Math.max(0, gajiBase - potonganKasbon)
+    const tunjangan = totalInsentif
+    const potonganLain = totalSanksi
+    const total = Math.max(0, gajiBase + tunjangan - potonganKasbon - potonganLain)
 
-    const row = db
+    const row = await query.find<typeof penggajian.$inferSelect>(db
       .insert(penggajian)
       .values({
+        tenant_id: tenantId,
         karyawan_id: k.id,
         periode_bulan: body.bulan,
         hari_kerja: hariKerja,
         hari_hadir: hariHadir,
         gaji_pokok: k.gaji_pokok,
-        tunjangan: 0,
+        tunjangan,
         potongan_kasbon: potonganKasbon,
-        potongan_lain: 0,
+        potongan_lain: potonganLain,
         total_gaji: total,
         status: 'draft',
       })
       .returning()
-      .get()
+      )
 
-    generated.push(row)
+    generated.push(row!)
   }
 
   return c.json({
@@ -147,6 +184,7 @@ penggajianRouter.post('/generate', requirePermission('gaji.edit'), async (c) => 
 // PUT /:id — update tunjangan, potongan_lain, atau status
 penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
   const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{
     tunjangan?: number
@@ -155,82 +193,88 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
     kas_bank_id?: number
   }>()
 
-  const existing = db
+  const existing = await query.find<typeof penggajian.$inferSelect>(db
     .select()
     .from(penggajian)
-    .where(eq(penggajian.id, id))
-    .get()
+    .where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId)))
+    )
   if (!existing) throw new HTTPException(404, { message: 'Data penggajian tidak ditemukan' })
 
   // Recalculate total jika ada perubahan tunjangan/potongan
   const tunjangan = body.tunjangan ?? existing.tunjangan
   const potonganLain = body.potongan_lain ?? existing.potongan_lain
-  const karyw = db.select({ tipe_gaji: karyawan.tipe_gaji }).from(karyawan).where(eq(karyawan.id, existing.karyawan_id)).get()
+  const karyw = await query.find<{ tipe_gaji: 'harian' | 'bulanan' }>(db.select({ tipe_gaji: karyawan.tipe_gaji }).from(karyawan).where(eq(karyawan.id, existing.karyawan_id)))
   const gajiBase =
     karyw?.tipe_gaji === 'harian'
       ? existing.gaji_pokok * existing.hari_hadir
       : existing.gaji_pokok
   const total = Math.max(0, gajiBase + tunjangan - existing.potongan_kasbon - potonganLain)
 
-  const row = db
-    .update(penggajian)
-    .set({
-      tunjangan,
-      potongan_lain: potonganLain,
-      total_gaji: total,
-      status: body.status ?? existing.status,
-      updated_at: sql`(datetime('now','localtime'))`,
-    })
-    .where(eq(penggajian.id, id))
-    .returning()
-    .get()
+  const row = await withTransaction(async (tx) => {
+    const updated = await query.find<typeof penggajian.$inferSelect>(db
+      .update(penggajian)
+      .set({
+        tunjangan,
+        potongan_lain: potonganLain,
+        total_gaji: total,
+        status: body.status ?? existing.status,
+        updated_at: isoNow(),
+      })
+      .where(eq(penggajian.id, id))
+      .returning()
+      )
 
-  // Jika status dibayar: potong kasbon aktif dan catat jurnal kas
-  if (body.status === 'dibayar' && existing.status !== 'dibayar') {
-    // Potong sisa kasbon karyawan yang masih aktif
-    const kasbonAktif = db
-      .select()
-      .from(kasbon)
-      .where(and(eq(kasbon.karyawan_id, existing.karyawan_id), eq(kasbon.status, 'aktif')))
-      .all()
+    if (!updated) throw new HTTPException(500, { message: 'Update penggajian gagal' })
 
-    for (const kb of kasbonAktif) {
-      const sisa = Math.max(0, kb.sisa_kasbon - kb.cicilan_per_bulan)
-      db.update(kasbon)
-        .set({
-          sisa_kasbon: sisa,
-          status: sisa <= 0 ? 'lunas' : 'aktif',
-          updated_at: sql`(datetime('now','localtime'))`,
-        })
-        .where(eq(kasbon.id, kb.id))
-        .run()
+    // Jika status dibayar: potong kasbon aktif dan catat jurnal kas
+    if (body.status === 'dibayar' && existing.status !== 'dibayar') {
+      const kasbonAktif = await query.findAll<typeof kasbon.$inferSelect>(db
+        .select()
+        .from(kasbon)
+        .where(and(eq(kasbon.karyawan_id, existing.karyawan_id), eq(kasbon.status, 'aktif')))
+        )
+
+      for (const kb of kasbonAktif) {
+        const sisa = Math.max(0, kb.sisa_kasbon - kb.cicilan_per_bulan)
+        await query.exec(db.update(kasbon)
+          .set({
+            sisa_kasbon: sisa,
+            status: sisa <= 0 ? 'lunas' : 'aktif',
+            updated_at: isoNow(),
+          })
+          .where(eq(kasbon.id, kb.id!))
+          )
+      }
+
+      if (body.kas_bank_id) {
+        await query.exec(db.insert(jurnal_kas).values({
+          tanggal: new Date().toISOString().slice(0, 10),
+          kas_bank_id: body.kas_bank_id,
+          jenis: 'keluar',
+          kategori: 'gaji',
+          referensi_tipe: 'penggajian',
+          referensi_id: id,
+          keterangan: `Gaji ${existing.periode_bulan}`,
+          jumlah: updated.total_gaji,
+          dicatat_oleh: user.id,
+        }))
+      }
     }
 
-    // Catat jurnal kas jika kas_bank_id disediakan
-    if (body.kas_bank_id) {
-      db.insert(jurnal_kas).values({
-        tanggal: new Date().toISOString().slice(0, 10),
-        kas_bank_id: body.kas_bank_id,
-        jenis: 'keluar',
-        kategori: 'gaji',
-        referensi_tipe: 'penggajian',
-        referensi_id: id,
-        keterangan: `Gaji ${existing.periode_bulan}`,
-        jumlah: row!.total_gaji,
-        dicatat_oleh: user.id,
-      }).run()
-    }
-  }
+    return updated
+  })
 
   return c.json({ success: true, data: row })
 })
 
 // DELETE /:id — hapus draft
 penggajianRouter.delete('/:id', requirePermission('gaji.edit'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
   const id = Number(c.req.param('id'))
-  const existing = db.select({ id: penggajian.id, status: penggajian.status }).from(penggajian).where(eq(penggajian.id, id)).get()
+  const existing = await query.find<{ id: number; status: 'draft' | 'approved' | 'dibayar' }>(db.select({ id: penggajian.id, status: penggajian.status }).from(penggajian).where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId))))
   if (!existing) throw new HTTPException(404, { message: 'Data penggajian tidak ditemukan' })
   if (existing.status !== 'draft') throw new HTTPException(400, { message: 'Hanya draft yang bisa dihapus' })
-  db.delete(penggajian).where(eq(penggajian.id, id)).run()
+  await query.exec(db.delete(penggajian).where(and(eq(penggajian.id, id), eq(penggajian.tenant_id, tenantId))))
   return c.json({ success: true, data: null })
 })

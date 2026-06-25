@@ -1,5 +1,40 @@
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
-import { db } from './index.ts'
+// Bun otomatis load .env dari working directory — pastikan jalankan dari folder backend/
+import { dialect } from './index.ts'
 
-migrate(db, { migrationsFolder: './src/db/migrations' })
+const url = process.env.DATABASE_URL ?? './data.db'
+
+if (dialect === 'postgres') {
+  const { migrate } = await import('drizzle-orm/postgres-js/migrator')
+  const { drizzle } = await import('drizzle-orm/postgres-js')
+  const postgres = (await import('postgres')).default
+  const client = postgres(url, { max: 1 })
+  const db = drizzle(client)
+  await migrate(db, { migrationsFolder: './src/db/migrations/postgres' })
+  await client.end()
+} else if (dialect === 'mysql') {
+  const { migrate } = await import('drizzle-orm/mysql2/migrator')
+  const { drizzle } = await import('drizzle-orm/mysql2')
+  const mysql = await import('mysql2/promise')
+  const conn = await mysql.createConnection(url)
+  const db = drizzle(conn)
+  await migrate(db, { migrationsFolder: './src/db/migrations/mysql' })
+  await conn.end()
+} else if (dialect === 'libsql') {
+  const { migrate } = await import('drizzle-orm/libsql/migrator')
+  const { createClient } = await import('@libsql/client')
+  const { drizzle } = await import('drizzle-orm/libsql')
+  const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN })
+  const db = drizzle(client)
+  await migrate(db, { migrationsFolder: './src/db/migrations/sqlite' })
+  client.close()
+} else {
+  const { migrate } = await import('drizzle-orm/bun-sqlite/migrator')
+  const { db, sqlite } = await import('./index.ts')
+  // PRAGMA foreign_keys must be set OUTSIDE a transaction — Drizzle wraps migration in BEGIN/COMMIT
+  // so we toggle it here, before/after migrate() issues BEGIN.
+  sqlite.run('PRAGMA foreign_keys = OFF')
+  migrate(db as any, { migrationsFolder: './src/db/migrations/sqlite' })
+  sqlite.run('PRAGMA foreign_keys = ON')
+}
+
 console.log('Migrations complete')
