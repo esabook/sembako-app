@@ -4,6 +4,7 @@
 	import { font, FONT_CSS } from '$lib/stores/font.js';
 	import { ukuranFont } from '$lib/stores/ukuran-font.js';
 	import { api } from '$lib/utils/api.js';
+	import { goto } from '$app/navigation';
 	import { initKasirScan, cleanupKasirScan, loadPromoAktif } from './kasir/kasir.store';
 	import KasirTabBar from './kasir/KasirTabBar.svelte';
 	import BannerDemo from '$lib/components/layout/BannerDemo.svelte';
@@ -35,8 +36,16 @@
 			isFullscreen = !!document.fullscreenElement;
 			if (isFullscreen) showFullscreenGate = false;
 		}
+		function onKeydown(e: KeyboardEvent) {
+			if (e.ctrlKey && e.key === 'd') {
+				e.preventDefault();
+				goto('/dashboard');
+			}
+		}
+		document.addEventListener('keydown', onKeydown);
 		document.addEventListener('fullscreenchange', onFSChange);
 		return () => {
+			document.removeEventListener('keydown', onKeydown);
 			document.removeEventListener('fullscreenchange', onFSChange);
 			cleanupKasirScan();
 		};

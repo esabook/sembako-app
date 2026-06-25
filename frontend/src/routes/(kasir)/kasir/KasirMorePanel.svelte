@@ -170,7 +170,10 @@
 						{/if}
 					</button>
 					<button
-						onclick={() => { open = false; absensiOpen = true; }}
+						onclick={() => {
+							open = false;
+							absensiOpen = true;
+						}}
 						class="mt-4 flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-opacity active:opacity-60"
 						style="background:var(--bg)"
 					>
@@ -184,6 +187,9 @@
 					>
 						<LogOut size="1rem" />
 						<span>Buka Dashboard</span>
+						<kbd class="hidden rounded bg-[var(--text))] px-1 text-[var(--bg)] sm:inline">
+							Ctrl+D
+						</kbd>
 					</button>
 				</div>
 			</div>

@@ -39,6 +39,17 @@
 	}
 
 	$effect(() => {
+		function onKeydown(e: KeyboardEvent) {
+			if (e.ctrlKey && e.key === 'k') {
+				e.preventDefault();
+				goto('/kasir');
+			}
+		}
+		document.addEventListener('keydown', onKeydown);
+		return () => document.removeEventListener('keydown', onKeydown);
+	});
+
+	$effect(() => {
 		const cabangId = $user?.cabang_id;
 
 		api
@@ -99,6 +110,9 @@
 				>
 					<Banknote size={14} />
 					<span class="hidden sm:inline">Kasir</span>
+					<kbd class="hidden rounded bg-[var(--bg))] px-1 text-[var(--accent)] sm:inline"
+						>Ctrl+K</kbd
+					>
 				</button>
 			{/if}
 			<NavUser />
