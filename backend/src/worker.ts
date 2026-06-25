@@ -74,6 +74,7 @@ import { utilitasRouter } from './routes/utilitas.ts'
 // Install @cloudflare/workers-types for proper types: bun add -d @cloudflare/workers-types
 type Bindings = {
   DB: any // D1Database
+  KV: any // KVNamespace — optional, absent in LAN mode
   JWT_SECRET: string
   JWT_EXPIRY_HOURS: string
   FRONTEND_URL: string

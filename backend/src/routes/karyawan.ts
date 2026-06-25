@@ -435,5 +435,8 @@ karyawanRouter.delete('/:id', requirePermission('karyawan.edit'), async (c) => {
     .where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId)))
   )
 
+  const kv = (c.env as { KV?: { delete(k: string): Promise<void> } }).KV
+  if (kv) await kv.delete(`user:active:${id}`)
+
   return c.json({ success: true, data: null })
 })
