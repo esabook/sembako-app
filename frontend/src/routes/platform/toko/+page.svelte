@@ -9,6 +9,8 @@
 	import Activity from '@lucide/svelte/icons/activity';
 	import LayoutGrid from '@lucide/svelte/icons/layout-grid';
 	import List from '@lucide/svelte/icons/list';
+	import Eye from '@lucide/svelte/icons/eye';
+	import Trash2 from '@lucide/svelte/icons/trash-2';
 
 	type Toko = {
 		id: number;
@@ -41,6 +43,9 @@
 	let prosesId = $state<number | null>(null);
 	let catatan = $state<Record<number, string>>({});
 	let viewMode = $state<'list' | 'card'>('list');
+	let detailToko = $state<Toko | null>(null);
+	let hapusToko = $state<Toko | null>(null);
+	let konfirmHapus = $state('');
 
 	const STATUS_BADGE: Record<string, string> = {
 		aktif: 'badge-success',
@@ -90,7 +95,9 @@
 		});
 		prosesId = null;
 		if (res.success) {
-			toast.sukses(aksi === 'setuju' ? 'Bukti disetujui — langganan diaktifkan.' : 'Bukti ditolak.');
+			toast.sukses(
+				aksi === 'setuju' ? 'Bukti disetujui — langganan diaktifkan.' : 'Bukti ditolak.'
+			);
 			delete catatan[id];
 			await load();
 		} else {
@@ -108,6 +115,22 @@
 			await load();
 		} else {
 			toast.error(res.error || 'Gagal mengubah status.');
+		}
+	}
+
+	async function hapus() {
+		if (!hapusToko || prosesId) return;
+		const t = hapusToko;
+		prosesId = t.id;
+		const res = await padmin.del(`/platform/toko/${t.id}`, { konfirmasi: konfirmHapus.trim() });
+		prosesId = null;
+		if (res.success) {
+			toast.sukses(`Toko "${t.nama}" dihapus permanen.`);
+			hapusToko = null;
+			konfirmHapus = '';
+			await load();
+		} else {
+			toast.error(res.error || 'Gagal menghapus toko.');
 		}
 	}
 
@@ -157,7 +180,7 @@
 			<h2 class="text-lg font-semibold">
 				Antrian Verifikasi
 				{#if antrian.length}
-					<span class="badge ml-1 badge-warning">{antrian.length}</span>
+					<span class="ml-1 badge px-2 badge-warning">{antrian.length}</span>
 				{/if}
 			</h2>
 			{#if !antrian.length}
@@ -237,7 +260,7 @@
 					>
 				</h2>
 				<div class="flex items-center gap-2">
-					<select bind:value={filterStatus} class="select select-sm w-36">
+					<select bind:value={filterStatus} class="select w-36 select-sm">
 						<option value="">Semua status</option>
 						<option value="trial">Trial</option>
 						<option value="aktif">Aktif</option>
@@ -248,16 +271,18 @@
 					<!-- View toggle -->
 					<div class="flex overflow-hidden rounded-lg border" style="border-color:var(--border)">
 						<button
-							class="btn btn-ghost btn-sm rounded-none border-r px-2"
-							style="border-color:var(--border);{viewMode === 'list' ? 'background:var(--surface-raised)' : ''}"
+							class="btn rounded-none border-r px-2 btn-ghost btn-sm"
+							style="border-color:var(--border);{viewMode === 'list'
+								? 'background:var(--surface-raised)'
+								: ''}"
 							onclick={() => (viewMode = 'list')}
 							title="Tampilan list"
 						>
 							<List class="size-4" />
 						</button>
 						<button
-							class="btn btn-ghost btn-sm rounded-none px-2"
-							style="{viewMode === 'card' ? 'background:var(--surface-raised)' : ''}"
+							class="btn rounded-none px-2 btn-ghost btn-sm"
+							style={viewMode === 'card' ? 'background:var(--surface-raised)' : ''}
 							onclick={() => (viewMode = 'card')}
 							title="Tampilan card"
 						>
@@ -270,7 +295,7 @@
 			<!-- LIST / TABLE mode -->
 			{#if viewMode === 'list'}
 				<div class="mt-3 overflow-x-auto rounded-2xl border" style="border-color:var(--border)">
-					<table class="table-sm table min-w-[680px]">
+					<table class="table min-w-[680px] table-sm">
 						<thead>
 							<tr>
 								<th>Toko</th>
@@ -280,6 +305,7 @@
 								<th>Alasan</th>
 								<th class="text-center">Bukti</th>
 								<th>Ubah Status</th>
+								<th class="text-center">Aksi</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -290,7 +316,7 @@
 										<div class="text-xs" style="color:var(--text-dim)">{t.kode_toko}</div>
 									</td>
 									<td>
-										<span class="badge {STATUS_BADGE[t.status_langganan] ?? 'badge-ghost'}">
+										<span class="badge px-2 {STATUS_BADGE[t.status_langganan] ?? 'badge-ghost'}">
 											{t.status_langganan}
 										</span>
 									</td>
@@ -312,7 +338,7 @@
 											<div class="flex flex-wrap gap-1">
 												{#each t.alasan_terakhir as a (a)}
 													<span
-														class="badge badge-ghost badge-xs whitespace-nowrap text-[10px]"
+														class="badge badge-ghost px-2 badge-xs text-[10px] whitespace-nowrap"
 														>{a}</span
 													>
 												{/each}
@@ -323,14 +349,14 @@
 									</td>
 									<td class="text-center">
 										{#if t.bukti_menunggu}
-											<span class="badge badge-warning">{t.bukti_menunggu}</span>
+											<span class="badge px-2 badge-warning">{t.bukti_menunggu}</span>
 										{:else}
 											<span style="color:var(--text-dim)">—</span>
 										{/if}
 									</td>
 									<td>
 										<select
-											class="select select-xs w-32"
+											class="select w-32 select-xs"
 											value={t.status_langganan}
 											disabled={prosesId === t.id}
 											onchange={(e) => ubahStatus(t.id, e.currentTarget.value)}
@@ -340,11 +366,33 @@
 											{/each}
 										</select>
 									</td>
+									<td>
+										<div class="flex justify-center gap-1">
+											<button
+												class="btn btn-ghost btn-xs"
+												title="Lihat detail"
+												onclick={() => (detailToko = t)}
+											>
+												<Eye class="size-4" />
+											</button>
+											<button
+												class="btn btn-ghost btn-xs"
+												style="color:var(--danger)"
+												title="Hapus permanen"
+												onclick={() => {
+													hapusToko = t;
+													konfirmHapus = '';
+												}}
+											>
+												<Trash2 class="size-4" />
+											</button>
+										</div>
+									</td>
 								</tr>
 							{/each}
 							{#if !tokoTampil.length}
 								<tr>
-									<td colspan="7" class="text-center" style="color:var(--text-dim)"
+									<td colspan="8" class="text-center" style="color:var(--text-dim)"
 										>Tidak ada toko.</td
 									>
 								</tr>
@@ -353,7 +401,7 @@
 					</table>
 				</div>
 
-			<!-- CARD mode -->
+				<!-- CARD mode -->
 			{:else}
 				<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{#each tokoTampil as t (t.id)}
@@ -367,7 +415,9 @@
 									<div class="font-semibold">{t.nama}</div>
 									<div class="text-xs" style="color:var(--text-dim)">{t.kode_toko}</div>
 								</div>
-								<span class="badge shrink-0 {STATUS_BADGE[t.status_langganan] ?? 'badge-ghost'}">
+								<span
+									class="badge shrink-0 px-2 {STATUS_BADGE[t.status_langganan] ?? 'badge-ghost'}"
+								>
 									{t.status_langganan}
 								</span>
 							</div>
@@ -388,7 +438,7 @@
 								{/if}
 								{#if t.bukti_menunggu}
 									<span style="color:var(--text-dim)">Bukti</span>
-									<span class="badge badge-warning badge-sm">{t.bukti_menunggu} menunggu</span>
+									<span class="badge px-2 badge-sm badge-warning">{t.bukti_menunggu} menunggu</span>
 								{/if}
 							</div>
 
@@ -400,7 +450,7 @@
 									</p>
 									<div class="flex flex-wrap gap-1">
 										{#each t.alasan_terakhir as a (a)}
-											<span class="badge badge-ghost badge-xs text-[10px]">{a}</span>
+											<span class="badge badge-ghost px-2 badge-xs text-[10px]">{a}</span>
 										{/each}
 									</div>
 								</div>
@@ -409,7 +459,7 @@
 							<!-- Ubah status -->
 							<div class="border-t pt-2" style="border-color:var(--border)">
 								<select
-									class="select select-xs w-full"
+									class="select w-full select-xs"
 									value={t.status_langganan}
 									disabled={prosesId === t.id}
 									onchange={(e) => ubahStatus(t.id, e.currentTarget.value)}
@@ -418,6 +468,23 @@
 										<option value={s}>{s}</option>
 									{/each}
 								</select>
+							</div>
+
+							<!-- Aksi -->
+							<div class="flex gap-2">
+								<button class="btn flex-1 btn-ghost btn-sm" onclick={() => (detailToko = t)}>
+									<Eye class="size-4" /> Detail
+								</button>
+								<button
+									class="btn flex-1 btn-ghost btn-sm"
+									style="color:var(--danger)"
+									onclick={() => {
+										hapusToko = t;
+										konfirmHapus = '';
+									}}
+								>
+									<Trash2 class="size-4" /> Hapus
+								</button>
 							</div>
 						</div>
 					{/each}
@@ -429,3 +496,105 @@
 		</section>
 	{/if}
 </main>
+
+<!-- Modal detail toko -->
+{#if detailToko}
+	{@const t = detailToko}
+	<div class="modal-open modal" role="dialog">
+		<div class="modal-box" style="background:var(--surface)">
+			<div class="flex items-start justify-between gap-2">
+				<div>
+					<h3 class="text-lg font-bold">{t.nama}</h3>
+					<p class="text-xs" style="color:var(--text-dim)">{t.kode_toko}</p>
+				</div>
+				<span class="badge px-2 {STATUS_BADGE[t.status_langganan] ?? 'badge-ghost'}">
+					{t.status_langganan}
+				</span>
+			</div>
+
+			<div class="mt-4 grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+				<span style="color:var(--text-dim)">Email pemilik</span>
+				<span class="col-span-2 break-all">{t.email_pemilik ?? '—'}</span>
+				<span style="color:var(--text-dim)">WA pemilik</span>
+				<span class="col-span-2">{t.wa_pemilik ?? '—'}</span>
+				<span style="color:var(--text-dim)">Trial berakhir</span>
+				<span class="col-span-2">{t.trial_berakhir ? tanggal(t.trial_berakhir) : '—'}</span>
+				<span style="color:var(--text-dim)">Aktif sampai</span>
+				<span class="col-span-2">{t.aktif_sampai ? tanggal(t.aktif_sampai) : '—'}</span>
+				<span style="color:var(--text-dim)">Sisa hari</span>
+				<span class="col-span-2" style={(sisaHari(t) ?? 0) < 0 ? 'color:var(--danger)' : ''}>
+					{sisaHari(t) !== null ? `${sisaHari(t)} hari` : '—'}
+				</span>
+				<span style="color:var(--text-dim)">Bukti menunggu</span>
+				<span class="col-span-2">{t.bukti_menunggu || '—'}</span>
+			</div>
+
+			{#if t.alasan_terakhir.length}
+				<div class="mt-3 border-t pt-3" style="border-color:var(--border)">
+					<p class="mb-1 text-[10px] font-semibold uppercase" style="color:var(--text-dim)">
+						Alasan terakhir
+					</p>
+					<div class="flex flex-wrap gap-1">
+						{#each t.alasan_terakhir as a (a)}
+							<span class="badge badge-ghost px-2 badge-xs text-[10px]">{a}</span>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<div class="modal-action">
+				<button class="btn btn-sm" onclick={() => (detailToko = null)}>Tutup</button>
+			</div>
+		</div>
+		<button class="modal-backdrop" aria-label="Tutup" onclick={() => (detailToko = null)}></button>
+	</div>
+{/if}
+
+<!-- Modal hapus permanen -->
+{#if hapusToko}
+	{@const t = hapusToko}
+	<div class="modal-open modal" role="dialog">
+		<div class="modal-box" style="background:var(--surface)">
+			<h3 class="text-lg font-bold" style="color:var(--danger)">Hapus toko permanen?</h3>
+			<p class="mt-2 text-sm" style="color:var(--text-dim)">
+				Aksi ini <strong>tidak bisa dibatalkan</strong>. Seluruh data toko
+				<strong>{t.nama}</strong> (barang, transaksi, karyawan, dll) akan dihapus permanen.
+			</p>
+			<p class="mt-3 text-sm">
+				Ketik kode toko <strong>{t.kode_toko}</strong> untuk konfirmasi:
+			</p>
+			<input
+				bind:value={konfirmHapus}
+				placeholder={t.kode_toko}
+				class="input mt-2 w-full text-sm"
+				autocomplete="off"
+			/>
+			<div class="modal-action">
+				<button
+					class="btn btn-sm"
+					onclick={() => {
+						hapusToko = null;
+						konfirmHapus = '';
+					}}
+				>
+					Batal
+				</button>
+				<button
+					class="btn btn-sm btn-error"
+					disabled={prosesId === t.id || konfirmHapus.trim() !== t.kode_toko}
+					onclick={hapus}
+				>
+					Hapus permanen
+				</button>
+			</div>
+		</div>
+		<button
+			class="modal-backdrop"
+			aria-label="Batal"
+			onclick={() => {
+				hapusToko = null;
+				konfirmHapus = '';
+			}}
+		></button>
+	</div>
+{/if}

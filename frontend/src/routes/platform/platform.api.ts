@@ -26,5 +26,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<Res<T>> {
 export const padmin = {
 	get: <T>(path: string) => req<T>(path),
 	post: <T>(path: string, body: unknown) =>
-		req<T>(path, { method: 'POST', body: JSON.stringify(body) })
+		req<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+	del: <T>(path: string, body?: unknown) =>
+		req<T>(path, { method: 'DELETE', body: body ? JSON.stringify(body) : undefined })
 };

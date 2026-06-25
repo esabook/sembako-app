@@ -15,6 +15,7 @@ import { deleteCookie, setCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { SignJWT } from 'jose';
 import { env } from '../config/env.ts';
+import { purgeTokoById } from '../db/demo.ts';
 import { db, query } from '../db/index.ts';
 import {
 	karyawan,
@@ -202,6 +203,27 @@ platformRouter.post('/toko/:id/status', platformMiddleware, async (c) => {
 	);
 
 	return c.json({ success: true, data: { id, status: body.status } });
+});
+
+// ── DELETE /toko/:id — hard purge tenant (irreversible) ────────────────────
+// Hapus toko + SELURUH data tenant via cascade. Beda dari status 'deleted'
+// (soft-lock). Body { konfirmasi: kode_toko } harus cocok agar tak salah hapus.
+platformRouter.delete('/toko/:id', platformMiddleware, async (c) => {
+	const id = Number(c.req.param('id'));
+	const body = await c.req
+		.json<{ konfirmasi?: string }>()
+		.catch(() => ({}) as { konfirmasi?: string });
+
+	const t = await query.find<{ kode_toko: string; nama: string }>(
+		db.select({ kode_toko: toko.kode_toko, nama: toko.nama }).from(toko).where(eq(toko.id, id))
+	);
+	if (!t) throw new HTTPException(404, { message: 'Toko tidak ditemukan' });
+	if (body.konfirmasi !== t.kode_toko) {
+		throw new HTTPException(400, { message: 'Konfirmasi kode toko tidak cocok' });
+	}
+
+	await purgeTokoById(id);
+	return c.json({ success: true, data: { id, nama: t.nama } });
 });
 
 // ── GET /pembayaran — antrian verifikasi bukti ────────────────────────────

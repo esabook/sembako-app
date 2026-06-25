@@ -1,8 +1,12 @@
-import { eq, count } from 'drizzle-orm'
+import { eq, count, inArray, or } from 'drizzle-orm'
 import { db, withTransaction, query } from './index.ts'
 import { hashPassword } from '../utils/password.ts'
 import {
-  toko, toko_settings, cabang, karyawan, kas_bank,
+  toko, toko_settings, cabang, karyawan, kas_bank, pembayaran_langganan,
+  draft_keranjang, draft_keranjang_item, penjualan_detail_modifier,
+  retur_penjualan_tukar, sop_instance, sop_rule, preferensi_pengguna,
+  periode_laporan, log_aktivitas, approval, harga_jadwal, lampiran,
+  pengajuan_izin, target_penjualan, tukar_shift, notifikasi_config, notifikasi_log,
   satuan, kategori, barang, supplier, pelanggan,
   kartu_anggota, histori_harga_beli, histori_harga_jual,
   purchase_order, po_detail,
@@ -1657,9 +1661,12 @@ export async function generateDemoData(opts: DemoOpts = {}): Promise<{ toko_id: 
 export async function deleteDemoData(kode: string = DEMO_KODE_TOKO): Promise<void> {
   const demoId = await getDemoTokoId(kode)
   if (!demoId) throw new Error('Data demo tidak ditemukan')
+  await purgeTokoById(demoId)
+}
 
-  const t = demoId
-
+// Hard-purge satu tenant: hapus semua data + baris toko. Child-first ikut urutan FK.
+// Dipakai deleteDemoData (reset demo) & DELETE /platform/toko/:id (admin platform).
+export async function purgeTokoById(t: number): Promise<void> {
   async function execDel(tableName: string, promise: Promise<unknown>) {
     try {
       await query.exec(promise)
@@ -1671,8 +1678,36 @@ export async function deleteDemoData(kode: string = DEMO_KODE_TOKO): Promise<voi
     }
   }
 
+  // Subquery id karyawan toko ini — untuk tabel yang tak punya tenant_id,
+  // hanya FK ke karyawan (di-scope lewat karyawan toko).
+  const karyawanSub = db.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.toko_id, t))
+  const sopRuleSub = db.select({ id: sop_rule.id }).from(sop_rule).where(eq(sop_rule.tenant_id, t))
+  const draftSub = db
+    .select({ id: draft_keranjang.id })
+    .from(draft_keranjang)
+    .where(inArray(draft_keranjang.kasir_id, karyawanSub))
+
   return withTransaction(async () => {
     // Hapus child-first, ikuti urutan FK
+    // Tabel tanpa tenant_id (di-scope via FK karyawan/draft/rule) + tenant tail
+    // yang sebelumnya luput → hapus paling awal selagi parent masih ada.
+    await execDel('draft_keranjang_item', db.delete(draft_keranjang_item).where(inArray(draft_keranjang_item.draft_id, draftSub)))
+    await execDel('draft_keranjang', db.delete(draft_keranjang).where(inArray(draft_keranjang.kasir_id, karyawanSub)))
+    await execDel('penjualan_detail_modifier', db.delete(penjualan_detail_modifier).where(eq(penjualan_detail_modifier.tenant_id, t)))
+    await execDel('retur_penjualan_tukar', db.delete(retur_penjualan_tukar).where(eq(retur_penjualan_tukar.tenant_id, t)))
+    await execDel('sop_instance', db.delete(sop_instance).where(or(inArray(sop_instance.karyawan_id, karyawanSub), inArray(sop_instance.rule_id, sopRuleSub))))
+    await execDel('sop_rule', db.delete(sop_rule).where(eq(sop_rule.tenant_id, t)))
+    await execDel('preferensi_pengguna', db.delete(preferensi_pengguna).where(inArray(preferensi_pengguna.karyawan_id, karyawanSub)))
+    await execDel('periode_laporan', db.delete(periode_laporan).where(or(inArray(periode_laporan.dibuat_oleh, karyawanSub), inArray(periode_laporan.diapprove_oleh, karyawanSub))))
+    await execDel('log_aktivitas', db.delete(log_aktivitas).where(inArray(log_aktivitas.karyawan_id, karyawanSub)))
+    await execDel('approval', db.delete(approval).where(eq(approval.tenant_id, t)))
+    await execDel('harga_jadwal', db.delete(harga_jadwal).where(eq(harga_jadwal.tenant_id, t)))
+    await execDel('lampiran', db.delete(lampiran).where(eq(lampiran.tenant_id, t)))
+    await execDel('pengajuan_izin', db.delete(pengajuan_izin).where(eq(pengajuan_izin.tenant_id, t)))
+    await execDel('target_penjualan', db.delete(target_penjualan).where(eq(target_penjualan.tenant_id, t)))
+    await execDel('tukar_shift', db.delete(tukar_shift).where(eq(tukar_shift.tenant_id, t)))
+    await execDel('notifikasi_config', db.delete(notifikasi_config).where(eq(notifikasi_config.tenant_id, t)))
+    await execDel('notifikasi_log', db.delete(notifikasi_log).where(eq(notifikasi_log.tenant_id, t)))
     // Jasa
     await execDel('komisi_staf', db.delete(komisi_staf).where(eq(komisi_staf.tenant_id, t)))
     await execDel('booking', db.delete(booking).where(eq(booking.tenant_id, t)))
@@ -1741,6 +1776,7 @@ export async function deleteDemoData(kode: string = DEMO_KODE_TOKO): Promise<voi
     await execDel('karyawan', db.delete(karyawan).where(eq(karyawan.toko_id, t)))
     await execDel('cabang', db.delete(cabang).where(eq(cabang.toko_id, t)))
     await execDel('toko_settings', db.delete(toko_settings).where(eq(toko_settings.toko_id, t)))
+    await execDel('pembayaran_langganan', db.delete(pembayaran_langganan).where(eq(pembayaran_langganan.toko_id, t)))
     await execDel('toko', db.delete(toko).where(eq(toko.id, t)))
   })
 }
