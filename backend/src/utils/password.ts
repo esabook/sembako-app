@@ -12,7 +12,7 @@ function b64(buf: ArrayBuffer) {
 function unb64(s: string) {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0))
 }
-async function pbkdf2(plain: string, salt: Uint8Array, iter: number) {
+async function pbkdf2(plain: string, salt: Uint8Array<ArrayBuffer>, iter: number) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(plain), 'PBKDF2', false, ['deriveBits'])
   return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: iter }, key, 256)
 }
@@ -21,7 +21,7 @@ export async function hashPassword(plain: string): Promise<string> {
   if (isBun) return Bun.password.hash(plain)
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const derived = await pbkdf2(plain, salt, ITER)
-  return `pbkdf2:${b64(salt.buffer)}:${b64(derived)}`
+  return `pbkdf2:${b64(salt.buffer as ArrayBuffer)}:${b64(derived)}`
 }
 
 export async function verifyPassword(plain: string, stored: string): Promise<boolean> {
@@ -29,11 +29,11 @@ export async function verifyPassword(plain: string, stored: string): Promise<boo
   if (stored.startsWith('$2')) return false // bcrypt hash — not verifiable on CF Workers
   const parts = stored.split(':')
   if (parts[0] !== 'pbkdf2' || parts.length !== 3) return false
-  const salt = unb64(parts[1])
-  const expected = unb64(parts[2])
+  const salt = unb64(parts[1]!) as Uint8Array<ArrayBuffer>
+  const expected = unb64(parts[2]!) as Uint8Array<ArrayBuffer>
   const derived = new Uint8Array(await pbkdf2(plain, salt, ITER))
   if (derived.length !== expected.length) return false
   let diff = 0
-  for (let i = 0; i < derived.length; i++) diff |= derived[i] ^ expected[i]
+  for (let i = 0; i < derived.length; i++) diff |= (derived[i] ?? 0) ^ (expected[i] ?? 0)
   return diff === 0
 }
