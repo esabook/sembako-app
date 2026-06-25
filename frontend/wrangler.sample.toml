@@ -1,0 +1,16 @@
+name = "stokasir-frontend"
+pages_build_output_dir = ".svelte-kit/cloudflare"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+PUBLIC_DEPLOYMENT_MODE = "online"
+# PUBLIC_API_URL dikosongkan — client pakai /api/* proxy (Pages Functions)
+# BACKEND_URL: private, dipakai server-side proxy untuk forward ke Workers backend
+BACKEND_URL = "https://yours.you.workers.dev"
+PUBLIC_UMAMI_SRC = "url/script.js"
+PUBLIC_UMAMI_ID  = ""
+
+[env.preview.vars]
+PUBLIC_DEPLOYMENT_MODE = "online"
+BACKEND_URL = "https://yours.you.workers.dev"

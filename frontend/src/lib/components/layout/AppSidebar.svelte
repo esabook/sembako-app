@@ -35,6 +35,8 @@
 	import type { Component } from 'svelte';
 	import X from '@lucide/svelte/icons/x';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import Pin from '@lucide/svelte/icons/pin';
+	import PinOff from '@lucide/svelte/icons/pin-off';
 
 	const ICONS: Record<string, Component> = {
 		LayoutGrid,
@@ -81,6 +83,31 @@
 	let navEl = $state<HTMLElement | null>(null);
 	const GROUP_COLLAPSE_KEY = 'sidebar_groups_collapsed';
 	let collapsedGroups = $state<Set<string>>(new Set());
+
+	// --- Recent & pinned nav ---
+	type RecentEntry = { href: string; label: string; icon: string };
+	const RECENT_KEY = 'sidebar_recent';
+	const PINNED_KEY = 'sidebar_pinned';
+	const RECENT_MAX = 12;
+	let recentEntries = $state<RecentEntry[]>([]);
+	let pinnedHrefs = $state<Set<string>>(new Set());
+
+	function addToRecent(entry: RecentEntry) {
+		const next = [entry, ...recentEntries.filter((e) => e.href !== entry.href)].slice(
+			0,
+			RECENT_MAX
+		);
+		recentEntries = next;
+		localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+	}
+
+	function togglePin(href: string) {
+		const next = new Set(pinnedHrefs);
+		if (next.has(href)) next.delete(href);
+		else next.add(href);
+		pinnedHrefs = next;
+		localStorage.setItem(PINNED_KEY, JSON.stringify([...next]));
+	}
 
 	function toggleGroup(key: string) {
 		const next = new Set(collapsedGroups);
@@ -164,6 +191,22 @@
 		if (savedW) customWidth = clamp(parseFloat(savedW));
 		const savedGroups = localStorage.getItem(GROUP_COLLAPSE_KEY);
 		if (savedGroups) collapsedGroups = new Set(JSON.parse(savedGroups));
+		const savedRecent = localStorage.getItem(RECENT_KEY);
+		if (savedRecent) {
+			const parsed = JSON.parse(savedRecent);
+			recentEntries = Array.isArray(parsed)
+				? parsed.filter(
+						(e: unknown) =>
+							e !== null &&
+							typeof e === 'object' &&
+							'href' in (e as object) &&
+							'label' in (e as object) &&
+							'icon' in (e as object)
+					)
+				: [];
+		}
+		const savedPinned = localStorage.getItem(PINNED_KEY);
+		if (savedPinned) pinnedHrefs = new Set(JSON.parse(savedPinned));
 		sidebarReady = true;
 
 		const cleanupKeys = tinykeys(window, {
@@ -204,6 +247,23 @@
 			(g) => g.items.length > 0
 		)
 	);
+
+	let recentSection = $derived(
+		(() => {
+			const pinned = recentEntries.filter((e) => pinnedHrefs.has(e.href));
+			const nonPinned = recentEntries
+				.filter((e) => !pinnedHrefs.has(e.href))
+				.slice(0, Math.max(0, 6 - pinned.length));
+			return [...pinned, ...nonPinned];
+		})()
+	);
+
+	function isRecentActive(entry: RecentEntry): boolean {
+		const entryUrl = new URL(entry.href, 'http://x');
+		const tabParam = entryUrl.searchParams.get('tab');
+		const pathMatch = page.url.pathname === entryUrl.pathname;
+		return pathMatch && (tabParam ? page.url.searchParams.get('tab') === tabParam : true);
+	}
 	const showLabels = $derived(
 		isMobile || sidebarState === 'expanded' || (sidebarState === 'hover' && hoverExpanded)
 	);
@@ -223,14 +283,13 @@
 		sidebarAbsoluteOut = sidebarState === 'hover';
 	});
 
-	function handleSubClick(href: string, tab: SubNavItem) {
-		if (tab.href) {
-			// Jika sub-item punya href, langsung navigasi ke situ
-			goto(tab.href, { replaceState: true, keepFocus: true, noScroll: true });
-		} else {
-			// Kalau tidak, anggap klik ini untuk set tab aktif di parent
-			goto(`${href}?tab=${tab.key}`, { replaceState: true, keepFocus: true, noScroll: true });
-		}
+	function handleSubClick(
+		parentItem: { href: string; icon: string },
+		tab: SubNavItem & { label: string }
+	) {
+		const actualHref = tab.href ?? `${parentItem.href}?tab=${tab.key}`;
+		addToRecent({ href: actualHref, label: tab.label, icon: parentItem.icon });
+		goto(actualHref, { replaceState: true, keepFocus: true, noScroll: true });
 		if (isMobile) mobileOpen = false;
 	}
 </script>
@@ -274,7 +333,7 @@
 				onclick={() => (mobileOpen = false)}
 				aria-label="Tutup menu"
 				class="flex items-center justify-center rounded-full p-1 transition-colors hover:bg-[var(--bg)]"
-				style="color:var(--text-dim)"
+				style="color:var(--text)"
 			>
 				<X size="1rem" />
 			</button>
@@ -287,7 +346,7 @@
 			title={sidebarState === 'expanded' ? 'Ciutkan (Ctrl+Home)' : 'Perluas (Ctrl+Home)'}
 			aria-label={sidebarState === 'expanded' ? 'Ciutkan menu' : 'Perluas menu'}
 			class="toggle-btn absolute top-3 -right-3 z-[15] flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-colors"
-			style="background:var(--surface);border-color:var(--border);color:var(--text-dim)"
+			style="background:var(--surface);border-color:var(--border);color:var(--text)"
 		>
 			<svg width="0.65em" height="0.65em" viewBox="0 0 24 24" fill="none">
 				{#if sidebarState === 'expanded'}
@@ -318,6 +377,66 @@
 		class="scrollbar-hide min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-10"
 		style="scrollbar-gutter: auto"
 	>
+		{#if recentSection.length > 0}
+			<div
+				class="m-2 rounded pb-2"
+				style="border-color: 2px solid var(--surface);background:color-mix(in srgb,var(--accent) 15%,transparent);"
+			>
+				{#if showLabels}
+					<div class="group-header" style="cursor:default">
+						<span class="group-label">Terkini</span>
+					</div>
+				{/if}
+				{#each recentSection as entry (entry.href)}
+					{@const isActive = isRecentActive(entry)}
+					<a
+						href={entry.href}
+						title={!showLabels ? entry.label : undefined}
+						onclick={() => {
+							addToRecent(entry);
+							if (isMobile) mobileOpen = false;
+						}}
+						class="hover-nav-item relative flex items-center py-1 text-[0.75rem] transition-colors"
+						style={isActive
+							? 'color:var(--accent);background:var(--surface2)'
+							: 'color:var(--text)'}
+						aria-current={isActive ? 'page' : undefined}
+					>
+						<span
+							class="absolute top-0 bottom-0 left-0 shrink-0 {isActive ? 'w-[2px]' : 'w-0'}"
+							style={isActive ? 'background:var(--accent)' : ''}
+						></span>
+						<span class="nav-icon-wrap ml-3 shrink-0 {isActive ? 'opacity-100' : 'opacity-70'}">
+							{#if ICONS[entry.icon]}
+								{@const Icon = ICONS[entry.icon]}
+								<Icon class="nav-icon" />
+							{/if}
+						</span>
+						{#if showLabels}
+							<span class="ml-2 truncate font-medium">{entry.label}</span>
+							<button
+								onclick={(e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									togglePin(entry.href);
+								}}
+								class="pin-btn {pinnedHrefs.has(entry.href)
+									? 'pin-btn--active'
+									: ''} mr-2 ml-auto flex shrink-0 items-center justify-center rounded p-0.5"
+								title={pinnedHrefs.has(entry.href) ? 'Lepas pin' : 'Pin'}
+							>
+								{#if pinnedHrefs.has(entry.href)}
+									<PinOff class="h-3 w-3" />
+								{:else}
+									<Pin class="h-3 w-3" />
+								{/if}
+							</button>
+						{/if}
+					</a>
+				{/each}
+			</div>
+		{/if}
+
 		{#each visibleGroups as group, gi (group.key)}
 			{@const isCollapsed = showLabels && collapsedGroups.has(group.key)}
 
@@ -344,12 +463,13 @@
 						href={item.href}
 						title={!showLabels ? item.label : undefined}
 						onclick={() => {
+							addToRecent({ href: item.href, label: item.label, icon: item.icon });
 							if (isMobile) mobileOpen = false;
 						}}
 						class="hover-nav-item relative flex h-9 items-center text-sm transition-colors"
 						style={isActive
 							? 'color:var(--accent);background:var(--surface2)'
-							: 'color:var(--text-dim)'}
+							: 'color:var(--text)'}
 						aria-current={isActive ? 'page' : undefined}
 					>
 						<span
@@ -366,6 +486,14 @@
 
 						{#if showLabels}
 							<span class="ml-2 truncate font-medium">{item.label}</span>
+
+							{#if item.sub?.length}
+								<ChevronDown
+									class="group-chevron mr-[0.75rem] ml-auto {hasSub
+										? ''
+										: 'group-chevron--collapsed'}"
+								/>
+							{/if}
 						{/if}
 					</a>
 
@@ -375,8 +503,8 @@
 							{#each item.sub! as sub (sub.key)}
 								{@const isTab = activeTab === sub.key || page.url.pathname === sub.href}
 								<button
-									onclick={() => handleSubClick(item.href, sub)}
-									class="sub-nav-item"
+									onclick={() => handleSubClick(item, sub)}
+									class="sub-nav-item ml-4"
 									style={(isActive
 										? 'border-color:color-mix(in srgb, var(--accent) 50%, transparent 50%)'
 										: '') + (isTab ? 'color:var(--accent);border-color:var(--accent)' : '')}
@@ -403,7 +531,7 @@
 					<button
 						onclick={() => setSidebarMode('expanded')}
 						class="popup-item"
-						style={sidebarState === 'expanded' ? 'color:var(--accent)' : 'color:var(--text-dim)'}
+						style={sidebarState === 'expanded' ? 'color:var(--accent)' : 'color:var(--text)'}
 					>
 						<PanelLeftOpen class="h-4 w-4 shrink-0" />
 						<span class="flex-1 text-left text-xs">Diperluas</span>
@@ -412,7 +540,7 @@
 					<button
 						onclick={() => setSidebarMode('icon')}
 						class="popup-item"
-						style={sidebarState === 'icon' ? 'color:var(--accent)' : 'color:var(--text-dim)'}
+						style={sidebarState === 'icon' ? 'color:var(--accent)' : 'color:var(--text)'}
 					>
 						<PanelLeftClose class="h-4 w-4 shrink-0" />
 						<span class="flex-1 text-left text-xs">Ikon</span>
@@ -421,7 +549,7 @@
 					<button
 						onclick={() => setSidebarMode('hover')}
 						class="popup-item"
-						style={sidebarState === 'hover' ? 'color:var(--accent)' : 'color:var(--text-dim)'}
+						style={sidebarState === 'hover' ? 'color:var(--accent)' : 'color:var(--text)'}
 					>
 						<PanelLeftDashed class="h-4 w-4 shrink-0" />
 						<span class="flex-1 text-left text-xs">Melayang</span>
@@ -435,7 +563,7 @@
 				title="Kontrol sidebar"
 				aria-label="Kontrol sidebar"
 				class="flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-[var(--surface2)]"
-				style="color:var(--text-dim)"
+				style="color:var(--text)"
 			>
 				<PanelLeft class="h-4 w-4" />
 			</button>
@@ -518,15 +646,15 @@
 		font-weight: 600;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
-		color: var(--text-dim);
+		color: var(--text);
 		opacity: 0.7;
 	}
 
 	:global(.group-chevron) {
-		width: 0.625rem;
-		height: 0.625rem;
-		color: var(--text-dim);
-		opacity: 0.5;
+		width: 1rem;
+		height: 1rem;
+		color: var(--text);
+		opacity: 0.7;
 		transition: transform 150ms ease;
 		flex-shrink: 0;
 	}
@@ -550,10 +678,10 @@
 		display: block;
 		width: 100%;
 		text-align: left;
-		padding: 0.25rem 0.5rem 0.25rem 2.25rem;
+		padding: 0.25rem 0.5rem 0.25rem 1.25rem;
 		font-size: 0.75rem;
-		border-left: 2px solid transparent;
-		color: var(--text-dim);
+		border-left: 1px solid transparent;
+		color: var(--text);
 		background: none;
 		border-top: 0;
 		border-right: 0;

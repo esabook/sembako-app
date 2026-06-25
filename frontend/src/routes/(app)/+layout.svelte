@@ -41,9 +41,11 @@
 	$effect(() => {
 		const cabangId = $user?.cabang_id;
 
-		api.get<{ nama_toko: string }>(`/pengaturan/publik?toko_id=${$user?.tenant_id ?? 1}`).then((res) => {
-			if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
-		});
+		api
+			.get<{ nama_toko: string }>(`/pengaturan/publik?toko_id=${$user?.tenant_id ?? 1}`)
+			.then((res) => {
+				if (res.success && res.data.nama_toko) namaToko = res.data.nama_toko;
+			});
 
 		if (cabangId) {
 			api.get<{ id: number; nama: string }[]>('/toko/cabang').then((res) => {
@@ -92,8 +94,7 @@
 			{#if boleKasir}
 				<button
 					onclick={bukaKasirPOS}
-					class="flex items-center gap-1 rounded px-2 py-1 text-xs active:opacity-70"
-					style="background:var(--accent);color:#fff"
+					class="btn flex h-fit items-center gap-1 rounded px-2 py-1 text-xs btn-primary active:opacity-70"
 					title="Buka Kasir POS"
 				>
 					<Banknote size={14} />
