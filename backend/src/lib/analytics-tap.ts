@@ -12,14 +12,14 @@ import { bus } from './event-bus.ts';
 
 // Insert ringan ke event store. karyawan_id boleh null (event tanpa aktor,
 // mis. stok.kritis). Gagal log TIDAK BOLEH menghentikan operasi utama.
-function rekam(
+async function rekam(
 	aksi: string,
 	referensi_id: number | null,
 	detail: Record<string, unknown> | null,
 	karyawan_id: number | null = null
-) {
+): Promise<void> {
 	try {
-		db.insert(log_aktivitas)
+		await db.insert(log_aktivitas)
 			.values({
 				karyawan_id,
 				aksi,

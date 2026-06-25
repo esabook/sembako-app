@@ -35,6 +35,7 @@ type OnHandler<T> = (payload: T) => Promise<void> | void
 class EventBus {
   private before = new Map<string, BeforeHandler<unknown>[]>()
   private on = new Map<string, OnHandler<unknown>[]>()
+  private pending: Promise<void>[] = []
 
   registerBefore<K extends keyof SopEventMap>(
     event: K,
@@ -66,14 +67,22 @@ class EventBus {
     return { ok: true }
   }
 
-  // Fire-and-forget: error di handler tidak propagate ke caller
+  // Fire-and-forget: error di handler tidak propagate ke caller.
+  // Promise dikumpulkan ke pending[] — drain via flushPending(waitUntil) di middleware.
   emit<K extends keyof SopEventMap>(event: K, payload: SopEventMap[K]): void {
     const handlers = this.on.get(event) ?? []
     for (const h of handlers) {
-      Promise.resolve(h(payload)).catch((err) => {
+      const p = Promise.resolve(h(payload)).catch((err) => {
         console.error(`[event-bus] handler error on '${event}':`, err)
-      })
+      }) as Promise<void>
+      this.pending.push(p)
     }
+  }
+
+  // Drain pending promises ke executionCtx.waitUntil agar tidak di-cut off saat request selesai.
+  flushPending(waitUntil: (p: Promise<void>) => void): void {
+    const toFlush = this.pending.splice(0)
+    for (const p of toFlush) waitUntil(p)
   }
 }
 

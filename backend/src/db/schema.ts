@@ -114,7 +114,10 @@ export const log_aktivitas = table('log_aktivitas', {
   detail_json: jsonText('detail_json'),
   waktu: txt('waktu').$defaultFn(isoNow),
   ip_address: txt('ip_address'),
-})
+}, (t) => [
+  idx('idx_log_modul_waktu').on(t.modul, t.waktu),
+  idx('idx_log_karyawan_waktu').on(t.karyawan_id, t.waktu),
+])
 
 export const wa_templates = table('wa_templates', {
   id: pkInt('id'),
@@ -337,6 +340,7 @@ export const penjualan = table('penjualan', {
   ...cabangField,
   ...timestamps,
 }, (t) => [
+  idx('idx_penjualan_tenant_tanggal').on(t.tenant_id, t.tanggal),
   idx('idx_penjualan_tanggal').on(t.tanggal),
   idx('idx_penjualan_status').on(t.status),
   idx('idx_penjualan_kasir').on(t.kasir_id),
@@ -391,6 +395,7 @@ export const mutasi_stok = table('mutasi_stok', {
   ...tenantField,
   ...cabangField,
 }, (t) => [
+  idx('idx_mutasi_stok_tenant_tanggal').on(t.tenant_id, t.tanggal),
   idx('idx_mutasi_stok_barang').on(t.barang_id),
   idx('idx_mutasi_stok_tanggal').on(t.tanggal),
   idx('idx_mutasi_stok_cabang').on(t.cabang_id),
@@ -534,6 +539,7 @@ export const absensi = table('absensi', {
   dicatat_oleh: int('dicatat_oleh').references(() => karyawan.id),
   ...tenantField,
 }, (t) => [
+  idx('idx_absensi_karyawan_tanggal').on(t.karyawan_id, t.tanggal),
   idx('idx_absensi_tanggal').on(t.tanggal),
   idx('idx_absensi_karyawan').on(t.karyawan_id),
 ])

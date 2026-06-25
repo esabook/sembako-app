@@ -12,6 +12,7 @@ import { db, dialect, query } from './db/index.ts';
 import { hashPassword } from './utils/password.ts';
 import { karyawan, kas_bank, platform_admin, toko } from './db/schema.ts';
 import { initAnalyticsTap } from './lib/analytics-tap.ts';
+import { bus } from './lib/event-bus.ts';
 import { initHooks } from './lib/hooks.ts';
 import { initScheduler } from './lib/scheduler.ts';
 import { langgananMiddleware } from './middleware/langganan.ts';
@@ -127,6 +128,14 @@ app.get('/uploads/*', async (c) => {
 // Gating langganan SaaS — kunci mutasi saat trial habis/suspended (no-op di mode LAN).
 // Dipasang sebelum router bisnis; whitelist /auth, /langganan, /platform & semua GET.
 app.use('*', langgananMiddleware);
+
+// Drain event-bus pending promises ke executionCtx.waitUntil setelah response dikirim.
+// Mencegah analytics/SOP handler di-cut off oleh CF Workers saat request lifecycle selesai.
+app.use('*', async (c, next) => {
+  await next();
+  const ctx = (c as unknown as { executionCtx?: { waitUntil(p: Promise<unknown>): void } }).executionCtx;
+  if (ctx?.waitUntil) bus.flushPending((p) => ctx.waitUntil(p));
+});
 
 app.route('/auth', authRouter);
 app.route('/langganan', langgananRouter);
