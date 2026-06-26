@@ -171,7 +171,7 @@
 					target="_blank"
 					aria-label="Contact us on Telegram"
 				>
-					<svg xmlns="http://w3.org" viewBox="0 0 50 50" width="1rem" height="1rem" fill="#229ED9">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="1rem" height="1rem" fill="#229ED9">
 						<path
 							d="M25,1C11.7,1,1,11.7,1,25S11.7,49,25,49S49,38.3,49,25S38.3,1,25,1z M39.4,15.7l-4.7,22.1 c-0.3,1.3-1,1.6-2.1,1.1l-5.9-4.3l-2.8,2.7c-0.3,0.3-0.6,0.5-1.1,0.5l0.4-5.8l10.5-9.5c0.1-0.1,0-0.3-0.2-0.4 c-0.2-0.1-0.5,0-0.7,0.1l-13,8.2l-5.5-1.7c-1.2-0.4-1.2-1.2,0.3-1.8l21.3-8.2C39,15.1,39.6,15.3,39.4,15.7z"
 						/>
