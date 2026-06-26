@@ -34,6 +34,7 @@ export type JWTPayload = {
 	nama: string;
 	role: Role;
 	kode_karyawan: string;
+	email: string; // email akun pemilik — tetap saat switch-context, dipakai untuk scope SaaS
 	tenant_id: number; // toko yang diakses
 	cabang_id: number | null; // null = akses semua cabang toko ini (manajer/pemilik)
 	iat?: number;
@@ -75,7 +76,10 @@ authRouter.post('/login', async (c) => {
 		throw new HTTPException(401, { message: 'Username atau password salah' });
 	}
 
-	const tenantId = user.toko_id ?? 1;
+	if (!user.toko_id) {
+		throw new HTTPException(400, { message: 'Akun tidak memiliki toko terkait. Hubungi admin.' });
+	}
+	const tenantId = user.toko_id;
 
 	// Gating status toko: 'deleted' kunci semua; 'deactivated' kunci non-pemilik
 	// (pemilik tetap masuk supaya bisa reaktivasi di pengaturan/profile).
@@ -95,6 +99,7 @@ authRouter.post('/login', async (c) => {
 		nama: user.nama,
 		role: user.role,
 		kode_karyawan: user.kode_karyawan,
+		email: user.email ?? '',
 		tenant_id: tenantId,
 		cabang_id: user.cabang_id ?? null
 	};
@@ -284,7 +289,8 @@ authRouter.get('/me', authMiddleware, async (c) => {
 });
 
 // Helper: ambil list toko+cabang yang boleh diakses user berdasarkan role
-async function getAccessibleContext(role: Role, tokoId: number) {
+// email = email akun pemilik dari JWT (bukan dari toko aktif saat ini — hindari scope pollution saat switch-context)
+async function getAccessibleContext(role: Role, tokoId: number, email: string) {
 	if (role !== 'pemilik' && role !== 'manajer') return [];
 
 	let tokoList: { id: number | null; nama: string }[];
@@ -295,11 +301,8 @@ async function getAccessibleContext(role: Role, tokoId: number) {
 			.from(toko)
 			.where(and(eq(toko.id, tokoId), eq(toko.is_active, true)));
 	} else if (env.saasGating) {
-		// SaaS: pemilik hanya toko miliknya (cocokkan email_pemilik dgn toko aktif).
-		const cur = await query.find<{ email_pemilik: string | null }>(
-			db.select({ email_pemilik: toko.email_pemilik }).from(toko).where(eq(toko.id, tokoId))
-		);
-		const email = cur?.email_pemilik ?? null;
+		// SaaS: scope pakai email dari JWT (bukan email_pemilik toko aktif) agar switch-context
+		// ke demo/toko lain tidak mencemari scope pemilik.
 		tokoList = email
 			? await db
 					.select({ id: toko.id, nama: toko.nama })
@@ -339,7 +342,7 @@ async function getAccessibleContext(role: Role, tokoId: number) {
 
 authRouter.get('/accessible-context', authMiddleware, async (c) => {
 	const user = c.get('user') as JWTPayload;
-	const list = await getAccessibleContext(user.role, user.tenant_id);
+	const list = await getAccessibleContext(user.role, user.tenant_id, user.email);
 	return c.json({ success: true, data: list });
 });
 
@@ -349,7 +352,7 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 
 	if (!body.toko_id) throw new HTTPException(400, { message: 'toko_id wajib diisi' });
 
-	const accessible = await getAccessibleContext(user.role, user.tenant_id);
+	const accessible = await getAccessibleContext(user.role, user.tenant_id, user.email);
 	const targetToko = accessible.find((t) => t.id === body.toko_id);
 	if (!targetToko) throw new HTTPException(403, { message: 'Tidak punya akses ke toko ini' });
 
@@ -367,6 +370,7 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 		nama: user.nama,
 		role: user.role,
 		kode_karyawan: user.kode_karyawan,
+		email: user.email,
 		tenant_id: body.toko_id,
 		cabang_id: newCabangId
 	};
