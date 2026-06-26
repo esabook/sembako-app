@@ -511,6 +511,10 @@ laporanRouter.post('/init-harga-rata', requirePermission('pengaturan.kelola'), a
 // ── GET /laporan/rekonsiliasi-diskon — preview transaksi yang totalnya salah ──
 
 laporanRouter.get('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
+
   // Transaksi non-hutang, non-void, kembalian=0, tapi bayar < total
   // → diskon member/promo tidak tercatat karena bug lama
   const affected = await query.findAll<{ id: number; no_transaksi: string; tanggal: string; subtotal: number; diskon_total_lama: number; total_lama: number; bayar: number; selisih: number }>(db
@@ -527,6 +531,8 @@ laporanRouter.get('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), as
     .from(penjualan)
     .where(
       and(
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         ne(penjualan.metode_bayar, 'hutang'),
         sql`${penjualan.bayar} > 0`,
@@ -978,6 +984,10 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
 })
 
 laporanRouter.post('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), async (c) => {
+  const user = c.get('user') as JWTPayload
+  const tenantId = user.tenant_id ?? 1
+  const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
+
   const affected = await query.findAll<{ id: number; total: number; bayar: number }>(db
     .select({
       id: penjualan.id,
@@ -987,6 +997,8 @@ laporanRouter.post('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), a
     .from(penjualan)
     .where(
       and(
+        eq(penjualan.tenant_id, tenantId),
+        cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         ne(penjualan.metode_bayar, 'hutang'),
         sql`${penjualan.bayar} > 0`,
