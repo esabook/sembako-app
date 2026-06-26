@@ -577,11 +577,6 @@
 		border-left-color: var(--accent);
 	}
 
-	.field-caret {
-		color: var(--accent);
-		flex-shrink: 0;
-	}
-
 	.field-input {
 		background: none;
 		border: none;
