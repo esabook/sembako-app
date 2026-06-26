@@ -42,8 +42,12 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
   }
 
   // Penjualan bersih (tidak termasuk void)
-  const penjualanRows = await query.findAll<{ total: number; diskon_total: number }>(db
-    .select({ total: penjualan.total, diskon_total: penjualan.diskon_total })
+  const penjualanAgg = await query.find<{ total: number; diskon: number; jumlah: number }>(db
+    .select({
+      total: sql<number>`COALESCE(SUM(${penjualan.total}), 0)`,
+      diskon: sql<number>`COALESCE(SUM(${penjualan.diskon_total}), 0)`,
+      jumlah: sql<number>`COUNT(*)`,
+    })
     .from(penjualan)
     .where(
       and(
@@ -56,9 +60,9 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
     )
     )
 
-  const totalPenjualan = penjualanRows.reduce((s, r) => s + r.total, 0)
-  const totalDiskon = penjualanRows.reduce((s, r) => s + r.diskon_total, 0)
-  const jumlahTransaksi = penjualanRows.length
+  const totalPenjualan = penjualanAgg?.total ?? 0
+  const totalDiskon = penjualanAgg?.diskon ?? 0
+  const jumlahTransaksi = penjualanAgg?.jumlah ?? 0
 
   // HPP — Weighted Average Cost (WAC): pakai harga_beli_rata, fallback ke harga_beli_terakhir
   const hppRows = await query.find<{ hpp: number }>(db
@@ -84,7 +88,10 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
 
   // Biaya operasional (jurnal keluar, kecuali pembayaran hutang)
   const biayaRows = await query.findAll<{ kategori: string; jumlah: number }>(db
-    .select({ kategori: jurnal_kas.kategori, jumlah: jurnal_kas.jumlah })
+    .select({
+      kategori: jurnal_kas.kategori,
+      jumlah: sql<number>`COALESCE(SUM(${jurnal_kas.jumlah}), 0)`,
+    })
     .from(jurnal_kas)
     .where(
       and(
@@ -96,12 +103,13 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
         lte(jurnal_kas.tanggal, sampai)
       )
     )
+    .groupBy(jurnal_kas.kategori)
     )
 
   const biayaPerKategori: Record<string, number> = {}
   let totalBiaya = 0
   for (const b of biayaRows) {
-    biayaPerKategori[b.kategori] = (biayaPerKategori[b.kategori] ?? 0) + b.jumlah
+    biayaPerKategori[b.kategori] = b.jumlah
     totalBiaya += b.jumlah
   }
 
@@ -253,8 +261,8 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   const totalKasBank = kasBank.reduce((s, a) => s + a.saldo, 0)
 
   // 2. Piutang — dibuat sebelum per_tanggal dan belum lunas
-  const piutangRows = await query.findAll<{ sisa: number }>(db
-    .select({ sisa: piutang_pelanggan.sisa_piutang })
+  const piutangAgg = await query.find<{ total: number }>(db
+    .select({ total: sql<number>`COALESCE(SUM(${piutang_pelanggan.sisa_piutang}), 0)` })
     .from(piutang_pelanggan)
     .where(and(
       eq(piutang_pelanggan.tenant_id, tenantId),
@@ -262,7 +270,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
       lte(piutang_pelanggan.created_at, batasTgl),
     ))
     )
-  const totalPiutang = piutangRows.reduce((s, r) => s + r.sisa, 0)
+  const totalPiutang = piutangAgg?.total ?? 0
 
   // 3. Nilai stok — gunakan WAC (harga_beli_rata), fallback ke harga_beli_terakhir
   const nilaiStokRow = await query.find<{ total: number }>(db
@@ -277,8 +285,8 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   const totalAset = totalKasBank + totalPiutang + totalNilaiStok
 
   // LIABILITAS — hutang dibuat sebelum per_tanggal dan belum lunas
-  const hutangRows = await query.findAll<{ sisa: number }>(db
-    .select({ sisa: hutang_supplier.sisa_hutang })
+  const hutangAgg = await query.find<{ total: number }>(db
+    .select({ total: sql<number>`COALESCE(SUM(${hutang_supplier.sisa_hutang}), 0)` })
     .from(hutang_supplier)
     .where(and(
       eq(hutang_supplier.tenant_id, tenantId),
@@ -286,7 +294,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
       lte(hutang_supplier.created_at, batasTgl),
     ))
     )
-  const totalHutang = hutangRows.reduce((s, r) => s + r.sisa, 0)
+  const totalHutang = hutangAgg?.total ?? 0
 
   // MODAL (residual)
   const modal = totalAset - totalHutang
@@ -363,6 +371,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
     .from(piutang_pelanggan)
     .leftJoin(pelanggan, eq(piutang_pelanggan.pelanggan_id, pelanggan.id))
     .where(and(eq(piutang_pelanggan.tenant_id, tenantId), ne(piutang_pelanggan.status, 'lunas')))
+    .limit(5000)
     )
 
   const piutangBuckets: Record<string, AgingBucket> = {}
@@ -395,6 +404,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
     .from(hutang_supplier)
     .leftJoin(supplier, eq(hutang_supplier.supplier_id, supplier.id))
     .where(and(eq(hutang_supplier.tenant_id, tenantId), ne(hutang_supplier.status, 'lunas')))
+    .limit(5000)
     )
 
   const hutangBuckets: Record<string, AgingBucket> = {}
@@ -651,6 +661,7 @@ laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) =
     .from(barang)
     .leftJoin(kategori, eq(barang.kategori_id, kategori.id))
     .where(and(eq(barang.is_active, true), eq(barang.tenant_id, tenantId)))
+    .limit(5000)
     )
 
   const produk = rows.map((r) => {

@@ -321,10 +321,11 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
         cabang_id: cabangId,
       }))
 
-      await query.exec(db.update(barang)
+      const changed = await query.execRows(db.update(barang)
         .set({ stok_sekarang: br.stok - item.jumlah })
-        .where(eq(barang.id, item.barang_id))
+        .where(and(eq(barang.id, item.barang_id), eq(barang.stok_sekarang, br.stok)))
       )
+      if (changed === 0) throw new HTTPException(409, { message: `Stok ${br.stok < item.jumlah ? 'tidak cukup' : 'berubah concurrent'}, coba ulang transaksi` })
     }
 
     // Bebaskan meja saat dine-in dibayar (kembali kosong)
