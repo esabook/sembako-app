@@ -3,6 +3,8 @@
 	import { fmt, fmtRp, tglFmt } from '../laporan.logic';
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
+	import ChartBatang from '$lib/components/chart/ChartBatang.svelte';
+	import ChartDonat from '$lib/components/chart/ChartDonat.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -33,6 +35,8 @@
 <ChartKartu kosong={!store.marginProduk} pesanKosong="Pilih periode lalu klik Tampilkan.">
 {#if store.marginProduk}
 	{@const mp = store.marginProduk}
+	{@const topOmset = mp.produk.slice(0, 10)}
+	{@const topMargin = mp.produk.filter((p) => p.margin > 0)}
 	<div>
 		<div style="text-align:center; margin-bottom:1.5rem">
 			<div style="font-size:1rem; font-weight:700; color:var(--text)">
@@ -163,6 +167,17 @@
 		<p style="font-size:.72rem; color:var(--text-dim); margin-top:.6rem">
 			* HPP dihitung menggunakan harga beli rata-rata (WAC) saat ini. Nilai margin adalah estimasi.
 		</p>
+
+		<div style="margin-top:2rem">
+			<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Top 10 Omset Produk</div>
+			<ChartBatang data={topOmset} x="nama_barang" y="omset" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={180} />
+		</div>
+		{#if topMargin.length > 1}
+			<div style="margin-top:1.5rem">
+				<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Distribusi Margin (produk positif)</div>
+				<ChartDonat data={topMargin} label="nama_barang" nilai="margin" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+			</div>
+		{/if}
 	</div>
 {/if}
 </ChartKartu>

@@ -2,6 +2,8 @@
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, fmtRp, tglFmt } from '../laporan.logic'
   import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
+  import ChartBatang from '$lib/components/chart/ChartBatang.svelte'
+  import ChartDonat from '$lib/components/chart/ChartDonat.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -18,6 +20,8 @@
 <ChartKartu kosong={!store.persediaan} pesanKosong="Klik Refresh untuk memuat data.">
 {#if store.persediaan}
   {@const p = store.persediaan}
+  {@const topNilai = p.produk.filter((pr) => pr.nilai_stok > 0).slice(0, 15)}
+  {@const katData = [...p.produk.filter((pr) => pr.nilai_stok > 0).reduce((m, pr) => { m.set(pr.kategori, (m.get(pr.kategori) ?? 0) + pr.nilai_stok); return m; }, new Map<string, number>()).entries()].map(([k, v]) => ({ kategori: k, nilai: v })).sort((a, b) => b.nilai - a.nilai)}
   <div>
     <div style="text-align:center; margin-bottom:1.5rem">
       <div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN NILAI PERSEDIAAN</div>
@@ -66,6 +70,19 @@
       </table>
     </div>
     <p style="font-size:.72rem; color:var(--text-dim); margin-top:.6rem">* HPP menggunakan harga beli rata-rata (WAC). Nilai stok adalah estimasi modal tertanam.</p>
+
+    {#if topNilai.length > 0}
+      <div style="margin-top:2rem">
+        <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Top 15 Nilai Stok</div>
+        <ChartBatang data={topNilai} x="nama_barang" y="nilai_stok" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={200} />
+      </div>
+      {#if katData.length > 1}
+        <div style="margin-top:1.5rem">
+          <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Distribusi per Kategori</div>
+          <ChartDonat data={katData} label="kategori" nilai="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+        </div>
+      {/if}
+    {/if}
   </div>
 {/if}
 </ChartKartu>

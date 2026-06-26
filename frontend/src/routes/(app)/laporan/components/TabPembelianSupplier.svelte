@@ -3,6 +3,8 @@
 	import { fmt, tglFmt } from '../laporan.logic';
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
+	import ChartBatang from '$lib/components/chart/ChartBatang.svelte';
+	import ChartDonat from '$lib/components/chart/ChartDonat.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -118,6 +120,19 @@
 					</tbody>
 				</table>
 			</div>
+		{/if}
+
+		{#if ps.supplier.length > 0}
+			<div style="margin-top:2rem">
+				<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Pembelian per Supplier</div>
+				<ChartBatang data={ps.supplier} x="nama_supplier" y="total_pembelian" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={180} />
+			</div>
+			{#if ps.supplier.length > 1}
+				<div style="margin-top:1.5rem">
+					<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Distribusi Pembelian</div>
+					<ChartDonat data={ps.supplier} label="nama_supplier" nilai="total_pembelian" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+				</div>
+			{/if}
 		{/if}
 	</div>
 {/if}

@@ -3,6 +3,7 @@
 	import { fmt, tglFmt } from '../laporan.logic';
 	import DatePicker2 from '$lib/components/ui/DatePicker2.svelte';
 	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
+	import ChartBatang from '$lib/components/chart/ChartBatang.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -38,6 +39,8 @@
 <ChartKartu kosong={!store.aging} pesanKosong="Pilih tanggal lalu klik Tampilkan.">
 {#if store.aging}
 	{@const aging = store.aging}
+	{@const piutangData = aging.piutang.map((b) => ({ label: b.label, nilai: b.total }))}
+	{@const hutangData = aging.hutang.map((b) => ({ label: b.label, nilai: b.total }))}
 	<div style="max-width:760px">
 		<div style="text-align:center; margin-bottom:1.25rem">
 			<div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN AGING</div>
@@ -150,6 +153,19 @@
 				{/each}
 			</div>
 		{/each}
+
+		{#if aging.total_piutang > 0 || aging.total_hutang > 0}
+			<div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-top:2rem; margin-bottom:1rem">
+				<div>
+					<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Aging Piutang</div>
+					<ChartBatang data={piutangData} x="label" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={140} />
+				</div>
+				<div>
+					<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Aging Hutang</div>
+					<ChartBatang data={hutangData} x="label" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={140} warna="var(--danger)" />
+				</div>
+			</div>
+		{/if}
 
 		<button
 			onclick={() => store.muatAging()}

@@ -3,6 +3,8 @@
   import { fmt, tglFmt } from '../laporan.logic'
   import DatePicker2 from '$lib/components/ui/DatePicker2.svelte'
   import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
+  import ChartBatang from '$lib/components/chart/ChartBatang.svelte'
+  import ChartDonat from '$lib/components/chart/ChartDonat.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -29,6 +31,16 @@
 <ChartKartu kosong={!store.neraca} pesanKosong="Pilih tanggal lalu klik Tampilkan.">
 {#if store.neraca}
   {@const neraca = store.neraca}
+  {@const neracaData = [
+    { label: 'Total Aset', nilai: neraca.aset.total },
+    { label: 'Liabilitas', nilai: neraca.liabilitas.total },
+    { label: 'Modal', nilai: neraca.modal.total }
+  ]}
+  {@const asetData = [
+    { label: 'Kas & Bank', nilai: neraca.aset.total_kas_bank },
+    { label: 'Piutang', nilai: neraca.aset.piutang_pelanggan },
+    { label: 'Persediaan', nilai: neraca.aset.nilai_persediaan }
+  ].filter((d) => d.nilai > 0)}
   <div style="max-width:680px">
     <div style="text-align:center; margin-bottom:1.5rem">
       <div style="font-size:1rem; font-weight:700; color:var(--text)">NERACA</div>
@@ -109,6 +121,17 @@
         </div>
       </div>
     </div>
+
+    <div style="margin-top:2rem">
+      <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Ringkasan Neraca</div>
+      <ChartBatang data={neracaData} x="label" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+    </div>
+    {#if asetData.length > 1}
+      <div style="margin-top:1.5rem">
+        <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Komposisi Aset</div>
+        <ChartDonat data={asetData} label="label" nilai="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+      </div>
+    {/if}
   </div>
 {/if}
 </ChartKartu>

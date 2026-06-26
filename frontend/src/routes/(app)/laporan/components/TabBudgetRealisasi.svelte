@@ -2,6 +2,7 @@
   import type { createLaporanStore } from '../laporan.store.svelte'
   import { fmt, NAMA_BUDGET } from '../laporan.logic'
   import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
+  import ChartBatang from '$lib/components/chart/ChartBatang.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -84,6 +85,18 @@
       </table>
     </div>
 
+    <!-- Chart omzet target vs realisasi -->
+    {#if br.target}
+      {@const omzetData = [
+        { label: 'Target', nilai: br.target.target_omzet ?? 0 },
+        { label: 'Realisasi', nilai: br.realisasi.realisasi_omzet }
+      ]}
+      <div style="margin-bottom:1.5rem">
+        <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Target vs Realisasi Omzet</div>
+        <ChartBatang data={omzetData} x="label" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={140} />
+      </div>
+    {/if}
+
     <!-- Biaya Operasional -->
     <div style="margin-bottom:1.25rem">
       <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem; padding-bottom:.3rem; border-bottom:1px solid var(--border)">
@@ -118,6 +131,22 @@
         </table>
       {/if}
     </div>
+
+    <!-- Chart budget vs realisasi biaya -->
+    {#if br.budgets.length > 0}
+      {@const budgetBarData = br.budgets.map((b) => ({ kategori: NAMA_BUDGET[b.kategori] ?? b.kategori, nilai: b.nilai_budget }))}
+      {@const realisasiBarData = br.budgets.map((b) => ({ kategori: NAMA_BUDGET[b.kategori] ?? b.kategori, nilai: br.realisasi.realisasi_budget[b.kategori] ?? 0 }))}
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-top:.5rem">
+        <div>
+          <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Budget Biaya</div>
+          <ChartBatang data={budgetBarData} x="kategori" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={140} />
+        </div>
+        <div>
+          <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Realisasi Biaya</div>
+          <ChartBatang data={realisasiBarData} x="kategori" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={140} warna="var(--info)" />
+        </div>
+      </div>
+    {/if}
   </div>
 {/if}
 </ChartKartu>

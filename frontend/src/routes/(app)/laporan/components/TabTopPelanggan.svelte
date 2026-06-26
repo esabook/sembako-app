@@ -3,6 +3,7 @@
 	import { fmt, tglFmt } from '../laporan.logic';
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
+	import ChartBatang from '$lib/components/chart/ChartBatang.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -121,6 +122,13 @@
 			<p style="font-size:.72rem; color:var(--text-dim); margin-top:.6rem">
 				* Hanya pelanggan yang terdaftar di sistem. Transaksi walk-in tidak termasuk.
 			</p>
+		{/if}
+
+		{#if tp.pelanggan.length > 0}
+			<div style="margin-top:2rem">
+				<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Omset per Pelanggan</div>
+				<ChartBatang data={tp.pelanggan} x="nama" y="total_omset" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={180} />
+			</div>
 		{/if}
 	</div>
 {/if}
