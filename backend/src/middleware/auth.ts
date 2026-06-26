@@ -8,9 +8,8 @@ import { karyawan } from '../db/schema.ts'
 import type { JWTPayload } from '../routes/auth.ts'
 import { getCache } from '../lib/cache.ts'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production'
-)
+const jwtSecret = () =>
+  new TextEncoder().encode(process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production')
 
 export type Role = 'pemilik' | 'manajer' | 'kasir' | 'gudang' | 'sales' | 'pelayanan'
 export type Permission = string
@@ -81,7 +80,7 @@ export async function authMiddleware(c: Context, next: Next) {
   if (!token) throw new HTTPException(401, { message: 'Tidak terautentikasi' })
 
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
+    const { payload } = await jwtVerify(token, jwtSecret())
     const user = payload as JWTPayload
 
     const cache = getCache(c.env as { KV?: unknown })

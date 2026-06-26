@@ -12,13 +12,12 @@ import { hashPassword, verifyPassword } from '../utils/password.ts';
 // Module-level env.isProd freezes at module init before worker.ts sets process.env from c.env.
 const cookieProd = () => process.env.NODE_ENV === 'production';
 
-import { cabang, karyawan, toko } from '../db/schema.ts';
+import { cabang, karyawan, toko, toko_settings } from '../db/schema.ts';
 import type { Role } from '../middleware/auth.ts';
 import { authMiddleware } from '../middleware/auth.ts';
 
-const JWT_SECRET = new TextEncoder().encode(
-	process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production'
-);
+const jwtSecret = () =>
+	new TextEncoder().encode(process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production');
 const JWT_EXPIRY_HOURS = Number(process.env.JWT_EXPIRY_HOURS ?? 12);
 const COOKIE_MAX_AGE = JWT_EXPIRY_HOURS * 60 * 60;
 
@@ -108,7 +107,7 @@ authRouter.post('/login', async (c) => {
 		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuedAt()
 		.setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
-		.sign(JWT_SECRET);
+		.sign(jwtSecret());
 
 	setCookie(c, 'auth_token', token, {
 		httpOnly: true,
@@ -270,6 +269,24 @@ authRouter.get('/me', authMiddleware, async (c) => {
 	const sisaHariHapus = cur?.hapus_terjadwal
 		? Math.max(0, Math.ceil((new Date(cur.hapus_terjadwal).getTime() - Date.now()) / 86_400_000))
 		: null;
+
+	// Cek onboarding dari HOME toko (karyawan.toko_id), bukan tenant aktif (bisa demo).
+	// Pemilik yang switch ke demo toko tetap dianggap sudah onboarding bila toko aslinya sudah.
+	let onboarding_selesai = false;
+	if (user.role === 'pemilik') {
+		const karyawanRow = await query.find<{ toko_id: number | null }>(
+			db.select({ toko_id: karyawan.toko_id }).from(karyawan).where(eq(karyawan.id, user.id))
+		);
+		const homeTokoid = karyawanRow?.toko_id;
+		if (homeTokoid) {
+			const setting = await query.find<{ value: string }>(
+				db.select({ value: toko_settings.value }).from(toko_settings)
+					.where(and(eq(toko_settings.toko_id, homeTokoid), eq(toko_settings.key, 'onboarding_selesai')))
+			);
+			onboarding_selesai = setting?.value === 'true';
+		}
+	}
+
 	return c.json({
 		success: true,
 		data: {
@@ -281,11 +298,46 @@ authRouter.get('/me', authMiddleware, async (c) => {
 			cabang_id: user.cabang_id,
 			saas: env.saasGating,
 			is_demo,
+			onboarding_selesai,
 			status_toko: cur?.status_langganan ?? null,
 			hapus_terjadwal: cur?.hapus_terjadwal ?? null,
 			sisa_hari_hapus: sisaHariHapus
 		}
 	});
+});
+
+// Tandai onboarding selesai pada HOME toko (karyawan.toko_id), bukan tenant aktif.
+// Pemilik bisa sedang switch-context ke demo toko saat klik Selesai; tulis ke JWT
+// tenant akan menulis ke demo dan home toko tidak pernah update → loop /onboarding.
+authRouter.post('/selesai-onboarding', authMiddleware, async (c) => {
+	const user = c.get('user') as JWTPayload;
+	if (user.role !== 'pemilik') {
+		throw new HTTPException(403, { message: 'Hanya pemilik yang bisa menyelesaikan onboarding' });
+	}
+	const karyawanRow = await query.find<{ toko_id: number | null }>(
+		db.select({ toko_id: karyawan.toko_id }).from(karyawan).where(eq(karyawan.id, user.id))
+	);
+	const homeTokoId = karyawanRow?.toko_id;
+	if (!homeTokoId) {
+		throw new HTTPException(400, { message: 'Toko asli tidak ditemukan' });
+	}
+
+	const existing = await query.find(
+		db.select({ value: toko_settings.value }).from(toko_settings)
+			.where(and(eq(toko_settings.toko_id, homeTokoId), eq(toko_settings.key, 'onboarding_selesai')))
+	);
+	if (existing) {
+		await query.exec(
+			db.update(toko_settings).set({ value: 'true', updated_at: isoNow() })
+				.where(and(eq(toko_settings.toko_id, homeTokoId), eq(toko_settings.key, 'onboarding_selesai')))
+		);
+	} else {
+		await query.exec(
+			db.insert(toko_settings).values({ toko_id: homeTokoId, key: 'onboarding_selesai', value: 'true' })
+		);
+	}
+
+	return c.json({ success: true, data: { toko_id: homeTokoId } });
 });
 
 // Helper: ambil list toko+cabang yang boleh diakses user berdasarkan role
@@ -379,7 +431,7 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuedAt()
 		.setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
-		.sign(JWT_SECRET);
+		.sign(jwtSecret());
 
 	setCookie(c, 'auth_token', token, {
 		httpOnly: true,

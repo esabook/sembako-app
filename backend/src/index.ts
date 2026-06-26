@@ -133,8 +133,12 @@ app.use('*', langgananMiddleware);
 // Mencegah analytics/SOP handler di-cut off oleh CF Workers saat request lifecycle selesai.
 app.use('*', async (c, next) => {
   await next();
-  const ctx = (c as unknown as { executionCtx?: { waitUntil(p: Promise<unknown>): void } }).executionCtx;
-  if (ctx?.waitUntil) bus.flushPending((p) => ctx.waitUntil(p));
+  try {
+    const ctx = c.executionCtx;
+    if (ctx?.waitUntil) bus.flushPending((p) => ctx.waitUntil(p));
+  } catch {
+    // No ExecutionContext in local Bun/Node dev — skip waitUntil
+  }
 });
 
 app.route('/auth', authRouter);

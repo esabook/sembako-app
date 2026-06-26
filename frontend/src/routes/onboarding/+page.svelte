@@ -20,6 +20,7 @@
 		tenant_id?: number;
 		cabang_id?: number | null;
 		saas?: boolean;
+		onboarding_selesai?: boolean;
 	};
 	type TokoItem = { id: number; nama: string; cabang: { id: number; nama: string }[] };
 
@@ -78,9 +79,8 @@
 
 	async function logoutDanLogin() {
 		loggingOut = true;
-		const BASE = (env.PUBLIC_API_URL ?? '/api').replace(/\/$/, '');
 		try {
-			await fetch(`${BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+			await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
 		} catch {
 			// abaikan — Set-Cookie clear tetap dikirim backend
 		}
@@ -118,7 +118,8 @@
 
 		if (ctxRes.success) konteksList = ctxRes.data;
 
-		const sudahSelesai = setRes.success && setRes.data?.onboarding_selesai === 'true';
+		// Pakai onboarding_selesai dari /auth/me (baca dari home toko, bukan tenant aktif).
+		const sudahSelesai = meData.onboarding_selesai === true;
 		if (sudahSelesai) {
 			sukses = true;
 			loading = false;
@@ -197,7 +198,10 @@
 		menyimpan = true;
 		const hasil = await withLoading(
 			async () => {
-				const res = await api.post('/pengaturan/bulk', { onboarding_selesai: 'true' });
+				// Tulis flag ke HOME toko (karyawan.toko_id) via endpoint khusus —
+				// bukan /pengaturan/bulk yang tenant-scoped. Kalau JWT sedang di demo
+				// toko, bulk save nulis ke demo dan home tak pernah update → loop.
+				const res = await api.post('/auth/selesai-onboarding', {});
 				if (!res.success) throw new Error(res.error);
 				if (isiDemo) {
 					const statusDemo = await api.get<{ exists: boolean; toko_id?: number }>('/demo/status');
@@ -208,7 +212,11 @@
 						if (!gen.success) throw new Error(gen.error);
 						demoTokoId = gen.data.toko_id;
 					}
-					if (user?.tenant_id) localStorage.setItem('home_tenant', String(user.tenant_id));
+					// Jangan overwrite home_tenant jika sudah ada — mencegah korupsi
+					// saat selesai() dipanggil ulang di konteks demo (JWT = DEMO-xxx).
+					if (user?.tenant_id && !localStorage.getItem('home_tenant')) {
+						localStorage.setItem('home_tenant', String(user.tenant_id));
+					}
 					const sw = await api.post('/auth/switch-context', {
 						toko_id: demoTokoId,
 						cabang_id: null
@@ -249,12 +257,14 @@
 
 {#if loading}
 	<div class="flex min-h-[40vh] items-center justify-center">
-		<span class="loading loading-spinner loading-md" style="color:var(--accent)"></span>
+		<span class="loading loading-md loading-spinner" style="color:var(--accent)"></span>
 	</div>
 {:else if sessionError}
 	<div class="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-center">
 		<p class="text-sm" style="color:var(--text-dim)">{sessionError}</p>
-		<Button variant="primary" loading={loggingOut} disabled={loggingOut} onclick={logoutDanLogin}>Login Ulang</Button>
+		<Button variant="primary" loading={loggingOut} disabled={loggingOut} onclick={logoutDanLogin}
+			>Login Ulang</Button
+		>
 	</div>
 {:else}
 	<div class="w-full">
@@ -359,7 +369,7 @@
 						<span class="text-sm">
 							Coba fitur dengan data contoh di toko demo terpisah.
 							<span class="mt-1 block text-xs" style="color:var(--text-dim)">
-								Toko Anda tetap bersih. Selesai onboarding langsung masuk mode demo — keluar kapan
+								Toko Anda tetap bersih. Selesai onboarding langsung masuk mode demo. Keluar kapan
 								saja untuk kembali ke toko asli.
 							</span>
 						</span>
@@ -370,7 +380,8 @@
 			<div class="mt-4 flex items-center justify-between">
 				<div>
 					{#if step > 0}
-						<Button variant="ghost" disabled={menyimpan} onclick={() => (step -= 1)}>Kembali</Button>
+						<Button variant="ghost" disabled={menyimpan} onclick={() => (step -= 1)}>Kembali</Button
+						>
 					{/if}
 				</div>
 				<div class="flex gap-2">

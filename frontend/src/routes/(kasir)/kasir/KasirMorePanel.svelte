@@ -187,7 +187,9 @@
 					>
 						<LogOut size="1rem" />
 						<span>Buka Dashboard</span>
-						<kbd class="hidden rounded bg-[var(--text))] px-1 text-[var(--bg)] sm:inline">
+						<kbd
+							class="hidden items-center rounded bg-[var(--text))] px-1 text-[var(--bg)] sm:inline"
+						>
 							Ctrl+D
 						</kbd>
 					</button>

@@ -5,8 +5,15 @@ export const query = {
   find: async <T>(b: any): Promise<T | undefined> =>
     typeof b.get === 'function' ? b.get() : (await b)[0],
 
-  exec: async (b: any): Promise<void> =>
-    void (typeof b.run === 'function' ? b.run() : await b),
+  // PENTING: await b.run() — D1 .run() balikin promise. Tanpa await, handler
+  // return response sebelum write landing → CF tear down isolate → write hilang.
+  exec: async (b: any): Promise<void> => {
+    if (typeof b.run === 'function') {
+      await b.run()
+    } else {
+      await b
+    }
+  },
 
   ret: async <T>(b: any): Promise<T | undefined> =>
     typeof b.get === 'function' ? b.get() : (await b)[0],

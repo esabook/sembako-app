@@ -24,6 +24,8 @@
 		let tokoId: number | null = null;
 		const home = localStorage.getItem('home_tenant');
 		if (home) tokoId = Number(home);
+		// Guard: home_tenant corrupt (menunjuk ke toko demo saat ini) — abaikan, cari lewat API.
+		if (tokoId === me.tenant_id) tokoId = null;
 		if (!tokoId) {
 			const ctx = await api.get<{ id: number; nama: string }[]>('/auth/accessible-context');
 			if (ctx.success) tokoId = ctx.data.find((t) => t.id !== me!.tenant_id)?.id ?? null;

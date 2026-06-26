@@ -11,6 +11,7 @@ export type AuthUser = {
 	tenant_id?: number
 	cabang_id?: number | null
 	saas?: boolean
+	onboarding_selesai?: boolean
 }
 
 /**
@@ -58,31 +59,14 @@ export async function optionalUser(token: string | undefined): Promise<AuthUser 
 }
 
 /**
- * Cek apakah pemilik sudah menyelesaikan wizard onboarding.
- * Gagal baca setting → anggap selesai agar tidak memblokir akses.
- */
-export async function onboardingSelesai(token: string): Promise<boolean> {
-	try {
-		const res = await fetch(`${API_URL}/pengaturan`, {
-			headers: { Cookie: `auth_token=${token}` }
-		})
-		if (res.ok) {
-			const json = await res.json()
-			return json.success && json.data?.onboarding_selesai === 'true'
-		}
-	} catch {
-		// abaikan
-	}
-	return true
-}
-
-/**
  * Pemilik yang belum selesai onboarding diarahkan ke /onboarding.
+ * Baca dari user.onboarding_selesai (sudah di-embed di GET /auth/me dari home toko,
+ * bukan tenant aktif) — context-independent, aman saat switch ke demo toko.
  * Role lain dilewatkan. Panggil di luar try/catch agar throw redirect tidak ketelan.
  */
-export async function gateOnboarding(token: string, user: AuthUser): Promise<void> {
+export async function gateOnboarding(_token: string, user: AuthUser): Promise<void> {
 	if (user.role !== 'pemilik') return
-	if (!(await onboardingSelesai(token))) {
+	if (!user.onboarding_selesai) {
 		redirect(302, '/onboarding')
 	}
 }

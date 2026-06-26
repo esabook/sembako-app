@@ -110,7 +110,8 @@
 				>
 					<Banknote size={14} />
 					<span class="hidden sm:inline">Kasir</span>
-					<kbd class="hidden rounded bg-[var(--bg))] px-1 text-[var(--accent)] sm:inline"
+					<kbd
+						class="hidden items-center rounded bg-[var(--bg))] px-1 text-[var(--accent)] sm:inline"
 						>Ctrl+K</kbd
 					>
 				</button>
