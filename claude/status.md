@@ -13,6 +13,7 @@
 | **Fase D-3** — Multi-Toko + Multi-Cabang | ✅ Selesai | Phase 1–4 done (lihat detail di bawah) |
 | **Fase D-4** — Cloud Storage | ✅ Selesai | STORAGE_DRIVER=local\|s3, S3/R2/MinIO ready |
 | **Fase D-5** — Backup/Restore Hybrid | ✅ Selesai | SQLite: binary .db; libSQL/PG: streaming NDJSON.gz; opsional include media |
+| **Fase E-1** — Analytics + Chart | ✅ Selesai | layerchart@1.0.13; 3 wrapper (ChartBatang/Garis/Donat); chart di 12/13 tab laporan + halaman analitik |
 
 **Modul aktif:** dashboard, kasir, gudang, karyawan, keuangan, laporan, harga, pengaturan, kasir/retur, gudang/label, promo, pelanggan, crm, sales, aset, keuangan/pinjaman, tamu, tugas, hajatan, inspeksi, karyawan/izin, karyawan/evaluasi, karyawan/sanksi.
 
@@ -97,6 +98,7 @@ Selesai:
   [x] Multi-toko + multi-cabang (Fase D-3, Phase 1–4)
   [x] Cloud file storage abstraction — STORAGE_DRIVER=local|s3 (Fase D-4)
   [x] Backup/restore hybrid — SQLite binary .db + libSQL/PG streaming NDJSON.gz (Fase D-5)
+  [x] Analytics + chart laporan — layerchart wrapper; chart di 12/13 tab laporan (Fase E-1)
 
 ## Deploy Checklist
 
