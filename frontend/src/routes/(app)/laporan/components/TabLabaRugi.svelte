@@ -3,6 +3,8 @@
 	import { fmt, fmtPct, tglFmt } from '../laporan.logic';
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
+	import ChartBatang from '$lib/components/chart/ChartBatang.svelte';
+	import ChartDonat from '$lib/components/chart/ChartDonat.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -42,6 +44,11 @@
 <ChartKartu kosong={!store.labaRugi} pesanKosong="Pilih periode lalu klik Tampilkan.">
 	{#if store.labaRugi}
 		{@const labaRugi = store.labaRugi}
+		{@const ringkasanData = [
+			{ label: 'Penjualan Bersih', nilai: labaRugi.penjualan.bersih },
+			{ label: 'Laba Kotor', nilai: labaRugi.laba_kotor },
+			{ label: 'Laba Bersih', nilai: Math.max(0, labaRugi.laba_bersih) }
+		]}
 		<div style="max-width:680px">
 		<div style="text-align:center; margin-bottom:1.5rem">
 			<div style="font-size:1rem; font-weight:700; color:var(--text)">LAPORAN LABA RUGI</div>
@@ -139,6 +146,23 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Chart ringkasan -->
+		<div style="margin-top:2rem">
+			<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Ringkasan Visual</div>
+			<ChartBatang data={ringkasanData} x="label" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+		</div>
+		{#if labaRugi.biaya_operasional.total > 0}
+			{@const biayaData = Object.entries(labaRugi.biaya_operasional.per_kategori)
+				.map(([k, v]) => ({ kategori: k.replace(/_/g, ' '), nilai: v }))
+				.filter((d) => d.nilai > 0)}
+			{#if biayaData.length > 1}
+				<div style="margin-top:1.5rem">
+					<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Komposisi Biaya Operasional</div>
+					<ChartDonat data={biayaData} label="kategori" nilai="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+				</div>
+			{/if}
+		{/if}
 	</div>
 	{/if}
 </ChartKartu>

@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { createLaporanStore } from '../laporan.store.svelte'
-  import { fmt, BULAN_LABEL } from '../laporan.logic'
+  import { fmt, BULAN_LABEL, BULAN_SHORT } from '../laporan.logic'
   import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
+  import ChartGaris from '$lib/components/chart/ChartGaris.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -63,6 +64,15 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Chart tren gaji -->
+    {#if rp.bulan.some(b => b.total_gaji > 0)}
+      {@const chartData = rp.bulan.map((b, i) => ({ bulan: BULAN_SHORT[i], gaji: b.total_gaji }))}
+      <div style="margin-top:2rem">
+        <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Tren Total Gaji per Bulan</div>
+        <ChartGaris data={chartData} x="bulan" y="gaji" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={180} />
+      </div>
+    {/if}
   </div>
 {/if}
 </ChartKartu>

@@ -3,6 +3,8 @@
 	import { fmt, tglFmt } from '../laporan.logic';
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
+	import ChartBatang from '$lib/components/chart/ChartBatang.svelte';
+	import ChartDonat from '$lib/components/chart/ChartDonat.svelte';
 
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 </script>
@@ -180,6 +182,25 @@
 			<p style="color:var(--text-dim); font-size:.85rem; margin-top:1rem">
 				Tidak ada aktivitas kas pada periode ini.
 			</p>
+		{/if}
+
+		<!-- Charts -->
+		{#if arusKas.per_akun.length > 1}
+			<div style="margin-top:2rem">
+				<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Kas Masuk per Akun</div>
+				<ChartBatang data={arusKas.per_akun} x="nama" y="masuk" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+			</div>
+		{/if}
+		{#if Object.keys(arusKas.per_kategori).length > 1}
+			{@const kelData = Object.entries(arusKas.per_kategori)
+				.map(([k, v]) => ({ kategori: k.replace(/_/g, ' '), nilai: v.keluar }))
+				.filter((d) => d.nilai > 0)}
+			{#if kelData.length > 1}
+				<div style="margin-top:1.5rem">
+					<div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Distribusi Pengeluaran</div>
+					<ChartDonat data={kelData} label="kategori" nilai="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={160} />
+				</div>
+			{/if}
 		{/if}
 		</div>
 	{/if}

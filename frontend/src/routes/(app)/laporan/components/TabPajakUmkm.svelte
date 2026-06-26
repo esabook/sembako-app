@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { createLaporanStore } from '../laporan.store.svelte'
-  import { fmt, BULAN_LABEL } from '../laporan.logic'
+  import { fmt, BULAN_LABEL, BULAN_SHORT } from '../laporan.logic'
   import ChartKartu from '$lib/components/chart/ChartKartu.svelte'
+  import ChartGaris from '$lib/components/chart/ChartGaris.svelte'
 
   let { store }: { store: ReturnType<typeof createLaporanStore> } = $props()
 </script>
@@ -76,6 +77,15 @@
       * Berdasarkan PP 23/2018. Tarif 0.5% dari omset bruto untuk UMKM dengan omset &lt; Rp 4,8 miliar/tahun.
       Konsultasikan dengan akuntan untuk kewajiban pajak yang tepat.
     </p>
+
+    <!-- Chart tren omset -->
+    {#if px.bulan.some(b => b.omset > 0)}
+      {@const chartData = px.bulan.map((b, i) => ({ bulan: BULAN_SHORT[i], omset: b.omset }))}
+      <div style="margin-top:2rem">
+        <div style="font-size:.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.75rem">Tren Omset per Bulan</div>
+        <ChartGaris data={chartData} x="bulan" y="omset" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={180} />
+      </div>
+    {/if}
   </div>
 {/if}
 </ChartKartu>
