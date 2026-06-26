@@ -12,6 +12,7 @@ import {
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
+import { getCache } from '../lib/cache.ts'
 
 export const laporanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
@@ -40,6 +41,11 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
     dari: c.req.query('dari') ?? bulanIni().dari,
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:laba-rugi:${tenantId}:${cabangId ?? 0}:${dari}:${sampai}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   // Penjualan bersih (tidak termasuk void)
   const penjualanAgg = await query.find<{ total: number; diskon: number; jumlah: number }>(db
@@ -115,7 +121,7 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
 
   const labaBersih = labaKotor - totalBiaya
 
-  return c.json({
+  const resLabaRugi = {
     success: true,
     data: {
       periode: { dari, sampai },
@@ -139,7 +145,9 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
         ? Math.round((labaBersih / totalPenjualan) * 10000) / 100
         : 0,
     },
-  })
+  }
+  await cache.put(cacheKey, JSON.stringify(resLabaRugi), { expirationTtl: 300 })
+  return c.json(resLabaRugi)
 })
 
 // ── GET /laporan/arus-kas ─────────────────────────────────────────────────
@@ -152,6 +160,11 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
     dari: c.req.query('dari') ?? bulanIni().dari,
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:arus-kas:${tenantId}:${cabangId ?? 0}:${dari}:${sampai}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   const akunList = await query.findAll<typeof kas_bank.$inferSelect>(db.select().from(kas_bank).where(
     and(eq(kas_bank.is_active, true), eq(kas_bank.tenant_id, tenantId), cabangId ? eq(kas_bank.cabang_id, cabangId) : undefined)
@@ -214,7 +227,7 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
   const totalKeluar = perAkun.reduce((s, a) => s + a.keluar, 0)
   const saldoAwal   = perAkun.reduce((s, a) => s + a.saldo_awal, 0)
 
-  return c.json({
+  const resArusKas = {
     success: true,
     data: {
       periode: { dari, sampai },
@@ -226,7 +239,9 @@ laporanRouter.get('/arus-kas', requirePermission('laporan.lihat'), async (c) => 
       net: totalMasuk - totalKeluar,
       saldo_akhir: saldoAwal + totalMasuk - totalKeluar,
     },
-  })
+  }
+  await cache.put(cacheKey, JSON.stringify(resArusKas), { expirationTtl: 300 })
+  return c.json(resArusKas)
 })
 
 // ── GET /laporan/neraca ───────────────────────────────────────────────────
@@ -237,6 +252,11 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const perTanggal = c.req.query('per_tanggal') || hariIni()
   const batasTgl = perTanggal + ' 23:59:59'
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:neraca:${tenantId}:${cabangId ?? 0}:${perTanggal}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   // ASET
   // 1. Kas & Bank — filter jurnal sampai per_tanggal
@@ -299,7 +319,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   // MODAL (residual)
   const modal = totalAset - totalHutang
 
-  return c.json({
+  const resNeraca = {
     success: true,
     data: {
       per_tanggal: perTanggal,
@@ -323,7 +343,9 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
         balanced: Math.abs(totalAset - (totalHutang + modal)) < 1,
       },
     },
-  })
+  }
+  await cache.put(cacheKey, JSON.stringify(resNeraca), { expirationTtl: 300 })
+  return c.json(resNeraca)
 })
 
 // ── GET /laporan/aging ────────────────────────────────────────────────────
@@ -333,6 +355,11 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
   const today = hariIni()
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:aging:${tenantId}:${today}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   function hitungHari(jatuhTempo: string | null): number {
     if (!jatuhTempo) return 0
@@ -426,7 +453,7 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
     totalHutangAging += r.sisa_hutang ?? 0
   }
 
-  return c.json({
+  const resAging = {
     success: true,
     data: {
       per_tanggal: today,
@@ -435,7 +462,9 @@ laporanRouter.get('/aging', requirePermission('laporan.lihat'), async (c) => {
       total_piutang: totalPiutang,
       total_hutang: totalHutangAging,
     },
-  })
+  }
+  await cache.put(cacheKey, JSON.stringify(resAging), { expirationTtl: 60 })
+  return c.json(resAging)
 })
 
 // ── POST /laporan/init-harga-rata — hitung WAC awal dari histori barang_masuk ──
@@ -532,6 +561,11 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
 
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:margin-produk:${tenantId}:${cabangId ?? 0}:${dari}:${sampai}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
+
   const rows = await query.findAll<{ barang_id: number; nama_barang: string; kategori_nama: string | null; qty_terjual: number; jumlah_transaksi: number; omset: number; hpp: number }>(db
     .select({
       barang_id: barang.id,
@@ -579,10 +613,12 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
   const total_margin = total_omset - total_hpp
   const margin_pct_rata = total_omset > 0 ? Math.round((total_margin / total_omset) * 10000) / 100 : 0
 
-  return c.json({
+  const resMargin = {
     success: true,
     data: { periode: { dari, sampai }, produk, total_omset, total_hpp, total_margin, margin_pct_rata },
-  })
+  }
+  await cache.put(cacheKey, JSON.stringify(resMargin), { expirationTtl: 300 })
+  return c.json(resMargin)
 })
 
 // ── GET /laporan/pajak-umkm — estimasi PPh Final 0.5% per bulan (PP 23/2018) ───
@@ -597,6 +633,11 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
   if (!/^\d{4}$/.test(tahun)) {
     return c.json({ success: false, error: 'Format tahun tidak valid. Gunakan YYYY' }, 400)
   }
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:pajak:${tenantId}:${cabangId ?? 0}:${tahun}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   const rows = await query.findAll<{ periode: string; omset: number; jumlah_transaksi: number }>(db
     .select({
@@ -638,10 +679,9 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
   const total_omset = bulan.reduce((s, b) => s + b.omset, 0)
   const total_pajak = Math.round(total_omset * 0.005)
 
-  return c.json({
-    success: true,
-    data: { tahun, bulan, total_omset, total_pajak },
-  })
+  const resPajak = { success: true, data: { tahun, bulan, total_omset, total_pajak } }
+  await cache.put(cacheKey, JSON.stringify(resPajak), { expirationTtl: 300 })
+  return c.json(resPajak)
 })
 
 // ── GET /laporan/persediaan — nilai stok saat ini per produk ─────────────────
@@ -649,6 +689,12 @@ laporanRouter.get('/pajak-umkm', requirePermission('laporan.lihat'), async (c) =
 laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) => {
   const user = c.get('user') as JWTPayload
   const tenantId = user.tenant_id ?? 1
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:persediaan:${tenantId}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
+
   const rows = await query.findAll<{ barang_id: number; nama_barang: string; kategori_nama: string | null; stok: number; harga_beli_rata: number; harga_beli_terakhir: number }>(db
     .select({
       barang_id: barang.id,
@@ -681,7 +727,7 @@ laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) =
   const jumlah_sku = produk.length
   const sku_tanpa_stok = produk.filter((p) => p.stok <= 0).length
 
-  return c.json({
+  const resPersediaan = {
     success: true,
     data: {
       per_tanggal: hariIni(),
@@ -690,7 +736,9 @@ laporanRouter.get('/persediaan', requirePermission('laporan.lihat'), async (c) =
       jumlah_sku,
       sku_tanpa_stok,
     },
-  })
+  }
+  await cache.put(cacheKey, JSON.stringify(resPersediaan), { expirationTtl: 60 })
+  return c.json(resPersediaan)
 })
 
 // ── GET /laporan/top-pelanggan — omset & transaksi per pelanggan ──────────────
@@ -704,6 +752,11 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
   const limit = Math.min(Number(c.req.query('limit') ?? 20), 100)
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:top-pelanggan:${tenantId}:${cabangId ?? 0}:${dari}:${sampai}:${limit}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   const rows = await query.findAll<{ pelanggan_id: number; nama: string; tipe: string; kontak: string | null; jumlah_transaksi: number; total_omset: number; total_diskon: number }>(db
     .select({
@@ -733,7 +786,7 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
 
   const total_omset_semua = rows.reduce((s, r) => s + r.total_omset, 0)
 
-  return c.json({
+  const resTopPelanggan = {
     success: true,
     data: {
       periode: { dari, sampai },
@@ -745,7 +798,9 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
       })),
       total_omset: Math.round(total_omset_semua),
     },
-  })
+  }
+  await cache.put(cacheKey, JSON.stringify(resTopPelanggan), { expirationTtl: 300 })
+  return c.json(resTopPelanggan)
 })
 
 // ── GET /laporan/pembelian-supplier — rekapitulasi pembelian per supplier ─────
@@ -757,6 +812,11 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
     dari: c.req.query('dari') ?? bulanIni().dari,
     sampai: c.req.query('sampai') ?? bulanIni().sampai,
   }
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:pembelian-supplier:${tenantId}:${dari}:${sampai}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   const rows = await query.findAll<{ supplier_id: number; nama_supplier: string; kontak: string | null; jumlah_penerimaan: number; total_pembelian: number }>(db
     .select({
@@ -781,7 +841,7 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
 
   const total_semua = rows.reduce((s, r) => s + r.total_pembelian, 0)
 
-  return c.json({
+  const resPembelian = {
     success: true,
     data: {
       periode: { dari, sampai },
@@ -792,7 +852,9 @@ laporanRouter.get('/pembelian-supplier', requirePermission('laporan.lihat'), asy
       })),
       total_pembelian: Math.round(total_semua),
     },
-  })
+  }
+  await cache.put(cacheKey, JSON.stringify(resPembelian), { expirationTtl: 300 })
+  return c.json(resPembelian)
 })
 
 // ── GET /laporan/rekap-penggajian — ringkasan biaya SDM per bulan ─────────────
@@ -806,6 +868,11 @@ laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async
   if (!/^\d{4}$/.test(tahun)) {
     return c.json({ success: false, error: 'Format tahun tidak valid. Gunakan YYYY' }, 400)
   }
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:rekap-penggajian:${tenantId}:${tahun}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   const rows = await query.findAll<{ periode_bulan: string; jumlah_karyawan: number; total_gaji_pokok: number; total_tunjangan: number; total_potongan_kasbon: number; total_potongan_lain: number; total_gaji: number }>(db
     .select({
@@ -847,10 +914,9 @@ laporanRouter.get('/rekap-penggajian', requirePermission('laporan.lihat'), async
 
   const total_gaji_tahun = bulan.reduce((s, b) => s + b.total_gaji, 0)
 
-  return c.json({
-    success: true,
-    data: { tahun, bulan, total_gaji_tahun },
-  })
+  const resRekap = { success: true, data: { tahun, bulan, total_gaji_tahun } }
+  await cache.put(cacheKey, JSON.stringify(resRekap), { expirationTtl: 300 })
+  return c.json(resRekap)
 })
 
 // ── POST /laporan/rekonsiliasi-diskon — terapkan fix ke semua transaksi afected ──
@@ -869,6 +935,11 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
 
   const dari = c.req.query('dari') ?? tigaPuluhHariLalu
   const sampai = c.req.query('sampai') ?? hariIni
+
+  const cache = getCache(c.env as { KV?: unknown })
+  const cacheKey = `lap:analitik-jam:${tenantId}:${cabangId ?? 0}:${dari}:${sampai}`
+  const cached = await cache.get(cacheKey)
+  if (cached) return c.json(JSON.parse(cached))
 
   const rows = await query.findAll<{ jam: string; jumlah_transaksi: number; omzet: number; rata_per_trx: number }>(db
     .select({
@@ -901,10 +972,9 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
   const total_transaksi = per_jam.reduce((s, r) => s + r.jumlah_transaksi, 0)
   const total_omzet = per_jam.reduce((s, r) => s + r.omzet, 0)
 
-  return c.json({
-    success: true,
-    data: { dari, sampai, per_jam, jam_sibuk, total_transaksi, total_omzet },
-  })
+  const resAnalitikJam = { success: true, data: { dari, sampai, per_jam, jam_sibuk, total_transaksi, total_omzet } }
+  await cache.put(cacheKey, JSON.stringify(resAnalitikJam), { expirationTtl: 300 })
+  return c.json(resAnalitikJam)
 })
 
 laporanRouter.post('/rekonsiliasi-diskon', requirePermission('laporan.lihat'), async (c) => {
