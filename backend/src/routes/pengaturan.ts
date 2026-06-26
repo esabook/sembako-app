@@ -244,6 +244,16 @@ pengaturanRouter.get('/', async (c) => {
     }
   }
 
+  // nama_toko: sumber kebenaran tunggal = toko.nama. toko_settings.nama_toko
+  // belum di-seed saat register, jadi fallback ke toko.nama agar konsisten
+  // dengan /publik dan /accessible-context (hindari tampil 'Stokasir').
+  if (!rows.some((r) => r.key === 'nama_toko' && r.value)) {
+    const tokoRow = await query.find<{ nama: string }>(
+      db.select({ nama: toko.nama }).from(toko).where(eq(toko.id, tenantId))
+    )
+    if (tokoRow?.nama) result.nama_toko = tokoRow.nama
+  }
+
   return c.json({ success: true, data: result })
 })
 

@@ -156,7 +156,6 @@
 						<div class="field">
 							<div class="field-lbl">USERNAME / EMAIL</div>
 							<div class="field-wrap accent-left">
-								<span class="field-caret">›</span>
 								<input
 									type="text"
 									bind:value={store.username}
@@ -677,7 +676,6 @@
 		margin-top: 14px;
 		font-size: 11px;
 		color: var(--text-dim);
-		letter-spacing: 0.04em;
 	}
 	.signup-link {
 		color: var(--accent);

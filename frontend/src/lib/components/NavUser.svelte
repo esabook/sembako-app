@@ -4,6 +4,7 @@
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { cabangListVersion } from '$lib/stores/cabang-version.js';
+	import { tokoVersion } from '$lib/stores/toko-version.js';
 	import { temaSkin, temaMode, MODE_LIST, SKIN_LIST } from '$lib/stores/tema.js';
 	import { onMount } from 'svelte';
 	import Fullscreen from '@lucide/svelte/icons/fullscreen';
@@ -49,7 +50,9 @@
 	const bisaSwitch = $derived($user?.role === 'pemilik' || $user?.role === 'manajer');
 
 	$effect(() => {
-		if ($cabangListVersion > 0) konteksList = [];
+		// reset cache → muatKonteks refetch /auth/accessible-context (nama toko terbaru)
+		void $tokoVersion;
+		if ($cabangListVersion > 0 || $tokoVersion > 0) konteksList = [];
 	});
 	// Mode SaaS: 1 email = 1 toko → switcher fokus cabang saja (tanpa pindah toko).
 	const saas = $derived($user?.saas ?? false);
