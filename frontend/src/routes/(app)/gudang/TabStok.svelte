@@ -3,7 +3,7 @@
 	import { writable } from 'svelte/store';
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
-	import { connectScannerSse } from '$lib/utils/scannerSse.js';
+	import { connectScannerRelay } from '$lib/utils/scannerSse';
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import DataTable from '$lib/components/DataTable.svelte';
 	import type { Column } from '$lib/components/DataTable.svelte';
@@ -196,9 +196,12 @@
 				stokMenipis = d;
 			})
 			.catch(() => {});
-		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => {
-			query = kode;
+		const relay = connectScannerRelay(`barang${$user?.id ?? 0}`, {
+			onScan: (kode) => {
+				query = kode;
+			}
 		});
+		return () => relay.close();
 	});
 
 	// ── Refresh stok menipis setelah checkout berhasil ───────────────────────

@@ -3,7 +3,7 @@
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { resizeImage } from '$lib/utils/image.js';
-	import { connectScannerSse } from '$lib/utils/scannerSse.js';
+	import { connectScannerRelay } from '$lib/utils/scannerSse';
 	import { imgUrl } from '$lib/utils/upload.js';
 	import TabTerimaGuide from './TabTerimaGuide.svelte';
 	import { rupiah } from '$lib/utils/format';
@@ -147,10 +147,13 @@
 	onMount(() => {
 		muatBM();
 		muatSupplier();
-		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => {
-			bmSearchVal = kode;
-			cariBM(kode);
+		const relay = connectScannerRelay(`barang${$user?.id ?? 0}`, {
+			onScan: (kode) => {
+				bmSearchVal = kode;
+				cariBM(kode);
+			}
 		});
+		return () => relay.close();
 	});
 </script>
 
@@ -163,7 +166,7 @@
 				<label for="bm-sup" class="text-xs" style="color:var(--text-dim)">SUPPLIER *</label>
 				<Select
 					bind:value={bmSupplier}
-					options={supplierList.map(s => ({ value: s.id, label: s.nama_supplier }))}
+					options={supplierList.map((s) => ({ value: s.id, label: s.nama_supplier }))}
 					placeholder="— pilih —"
 				/>
 			</div>
@@ -267,7 +270,7 @@
 										step="0.01"
 										bind:value={item.jumlah}
 										placeholder="0"
-										class="input input-bordered w-20 text-right text-sm"
+										class="input-bordered input w-20 text-right text-sm"
 									/></td
 								>
 								<td class="px-2 py-1 text-right"
@@ -276,7 +279,7 @@
 										min="0"
 										bind:value={item.harga}
 										placeholder="0"
-										class="input input-bordered w-28 text-right text-sm"
+										class="input-bordered input w-28 text-right text-sm"
 									/></td
 								>
 								<td class="px-2 py-1"

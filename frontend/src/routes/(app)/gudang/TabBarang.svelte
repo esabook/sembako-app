@@ -4,7 +4,7 @@
 	import { api } from '$lib/utils/api.js';
 	import { user } from '$lib/stores/auth.js';
 	import { resizeImage } from '$lib/utils/image.js';
-	import { connectScannerSse } from '$lib/utils/scannerSse.js';
+	import { connectScannerRelay } from '$lib/utils/scannerSse';
 	import { thumbUrl } from '$lib/utils/upload.js';
 	import { rupiah } from '$lib/utils/format.js';
 	import SlideOver from '$lib/components/SlideOver.svelte';
@@ -40,17 +40,23 @@
 		is_active: boolean;
 	};
 	type Kategori = { id: number; nama: string; contoh: string | null; is_preset: boolean };
-	type Satuan = { id: number; nama: string; singkatan: string; contoh: string | null; is_preset: boolean };
+	type Satuan = {
+		id: number;
+		nama: string;
+		singkatan: string;
+		contoh: string | null;
+		is_preset: boolean;
+	};
 
 	const kolBarang: Column[] = [
-		{ key: 'foto',              label: '',          width: 52, sortable: false, hideable: false },
-		{ key: 'kode_barang',       label: 'Kode',      width: 100, priority: 2 },
-		{ key: 'nama_barang',       label: 'Nama',      minWidth: 120 },
-		{ key: 'nama_kategori',     label: 'Kategori',  minWidth: 100, priority: 2 },
-		{ key: 'stok_sekarang',     label: 'Stok',      width: 90, align: 'right' },
-		{ key: 'status_stok',       label: 'Status',    width: 110, priority: 2 },
-		{ key: 'harga_jual_eceran', label: 'Harga',     width: 110, align: 'right', priority: 3 },
-		{ key: 'aksi',              label: '',          width: 90, sortable: false, hideable: false, align: 'right' },
+		{ key: 'foto', label: '', width: 52, sortable: false, hideable: false },
+		{ key: 'kode_barang', label: 'Kode', width: 100, priority: 2 },
+		{ key: 'nama_barang', label: 'Nama', minWidth: 120 },
+		{ key: 'nama_kategori', label: 'Kategori', minWidth: 100, priority: 2 },
+		{ key: 'stok_sekarang', label: 'Stok', width: 90, align: 'right' },
+		{ key: 'status_stok', label: 'Status', width: 110, priority: 2 },
+		{ key: 'harga_jual_eceran', label: 'Harga', width: 110, align: 'right', priority: 3 },
+		{ key: 'aksi', label: '', width: 90, sortable: false, hideable: false, align: 'right' }
 	];
 
 	let pageBarang = $state(1);
@@ -76,7 +82,7 @@
 		harga_jual_eceran: 0,
 		harga_jual_grosir: 0,
 		stok_minimum: '',
-		lokasi_rak: '',
+		lokasi_rak: ''
 	});
 
 	let fotoFile = $state<File | null>(null);
@@ -124,12 +130,15 @@
 
 	async function muatBarang(q = '') {
 		const r = await api.get<Barang[]>(`/barang?q=${q}${tampilNonAktif ? '&aktif=0' : ''}`);
-		if (r.success) { barangList = r.data; pageBarang = 1; }
+		if (r.success) {
+			barangList = r.data;
+			pageBarang = 1;
+		}
 	}
 	async function muatMeta() {
 		const [k, s] = await Promise.all([
 			api.get<Kategori[]>('/barang/kategori'),
-			api.get<Satuan[]>('/barang/satuan'),
+			api.get<Satuan[]>('/barang/satuan')
 		]);
 		if (k.success) kategoriList = k.data;
 		if (s.success) satuanList = s.data;
@@ -137,7 +146,10 @@
 
 	async function handleFotoChange(e: Event) {
 		const raw = (e.target as HTMLInputElement).files?.[0] ?? null;
-		if (!raw) { fotoFile = null; return; }
+		if (!raw) {
+			fotoFile = null;
+			return;
+		}
 		// Resize di FE sebelum upload — kurangi bandwidth
 		fotoFile = await resizeImage(raw, 800, 800, 0.9, 'inside');
 		fotoPreviewUrl = URL.createObjectURL(fotoFile);
@@ -165,7 +177,7 @@
 			harga_jual_eceran: item?.harga_jual_eceran ?? 0,
 			harga_jual_grosir: item?.harga_jual_grosir ?? 0,
 			stok_minimum: String(item?.stok_minimum ?? ''),
-			lokasi_rak: item?.lokasi_rak ?? '',
+			lokasi_rak: item?.lokasi_rak ?? ''
 		};
 		modalBarang = true;
 	}
@@ -182,46 +194,58 @@
 			harga_jual_eceran: fb.harga_jual_eceran,
 			harga_jual_grosir: fb.harga_jual_grosir,
 			stok_minimum: Number(fb.stok_minimum) || 0,
-			lokasi_rak: fb.lokasi_rak || undefined,
+			lokasi_rak: fb.lokasi_rak || undefined
 		};
 		const r = editBarang?.id
 			? await api.put(`/barang/${editBarang.id}`, p)
 			: await api.post('/barang', p);
-		if (!r.success) { error = (r as { success: false; error: string }).error; return; }
+		if (!r.success) {
+			error = (r as { success: false; error: string }).error;
+			return;
+		}
 
 		const savedId = editBarang?.id ?? (r as { success: true; data: { id: number } }).data.id;
 		if (fotoFile && savedId) {
 			const fr = await uploadFoto(savedId, fotoFile);
-			if (!fr.success) { error = fr.error ?? 'Gagal upload foto'; return; }
+			if (!fr.success) {
+				error = fr.error ?? 'Gagal upload foto';
+				return;
+			}
 		}
 
 		modalBarang = false;
 		muatBarang(query);
 	}
 
-	let konfirmHapusId = $state<number | null>(null)
-	let konfirmHapusBuka = $state(false)
+	let konfirmHapusId = $state<number | null>(null);
+	let konfirmHapusBuka = $state(false);
 
 	async function doHapusBarang() {
-		if (!konfirmHapusId) return
-		const res = await api.delete(`/barang/${konfirmHapusId}`)
-		konfirmHapusId = null
-		if (!res.success) return
-		muatBarang(query)
+		if (!konfirmHapusId) return;
+		const res = await api.delete(`/barang/${konfirmHapusId}`);
+		konfirmHapusId = null;
+		if (!res.success) return;
+		muatBarang(query);
 	}
 
 	onMount(() => {
 		muatBarang();
 		muatMeta();
-		return connectScannerSse(`barang${$user?.id ?? 0}`, (kode) => {
-			if (modalBarang) fb.kode_barang = kode;
-			else { query = kode; muatBarang(kode); }
+		const relay = connectScannerRelay(`barang${$user?.id ?? 0}`, {
+			onScan: (kode) => {
+				if (modalBarang) fb.kode_barang = kode;
+				else {
+					query = kode;
+					muatBarang(kode);
+				}
+			}
 		});
+		return () => relay.close();
 	});
 </script>
 
 <div class="flex flex-col gap-3">
-	<div class="flex items-center gap-3 flex-wrap">
+	<div class="flex flex-wrap items-center gap-3">
 		<SearchInput bind:value={query} placeholder="Cari barang..." onsearch={(q) => muatBarang(q)} />
 		<Toggle bind:aktif={tampilNonAktif} onchange={() => muatBarang(query)} />
 		{#if $user && ['pemilik', 'manajer', 'gudang'].includes($user.role)}
@@ -255,11 +279,15 @@
 					{#if !hidden.has('nama_barang')}
 						<td class="px-3 py-2">
 							{item.nama_barang}
-							{#if !item.is_active}<span class="ml-1 text-xs" style="color:var(--text-dim)">[non-aktif]</span>{/if}
+							{#if !item.is_active}<span class="ml-1 text-xs" style="color:var(--text-dim)"
+									>[non-aktif]</span
+								>{/if}
 						</td>
 					{/if}
 					{#if !hidden.has('nama_kategori')}
-						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)">{item.nama_kategori ?? '-'}</td>
+						<td class="px-3 py-2 text-xs" style="color:var(--text-dim)"
+							>{item.nama_kategori ?? '-'}</td
+						>
 					{/if}
 					{#if !hidden.has('stok_sekarang')}
 						<td class="px-3 py-2 text-right">{item.stok_sekarang} {item.singkatan_satuan ?? ''}</td>
@@ -274,9 +302,23 @@
 						<td class="px-3 py-2 text-right">
 							{#if item.is_active}
 								<Button variant="ghost" size="xs" onclick={() => bukaFormBarang(item)}>Edit</Button>
-								<Button variant="danger" size="xs" onclick={() => { konfirmHapusId = item.id; konfirmHapusBuka = true }}>Nonaktif</Button>
+								<Button
+									variant="danger"
+									size="xs"
+									onclick={() => {
+										konfirmHapusId = item.id;
+										konfirmHapusBuka = true;
+									}}>Nonaktif</Button
+								>
 							{:else}
-								<Button variant="ghost" size="xs" onclick={async () => { await api.put(`/barang/${item.id}`, { is_active: true }); muatBarang(query) }}>Aktifkan</Button>
+								<Button
+									variant="ghost"
+									size="xs"
+									onclick={async () => {
+										await api.put(`/barang/${item.id}`, { is_active: true });
+										muatBarang(query);
+									}}>Aktifkan</Button
+								>
 							{/if}
 						</td>
 					{/if}
@@ -289,21 +331,49 @@
 <TabBarangGuide />
 
 <SlideOver bind:open={modalBarang} title={editBarang?.id ? 'Edit Barang' : 'Tambah Barang'}>
-	<form onsubmit={(e) => { e.preventDefault(); simpanBarang(); }} class="flex flex-col gap-3 text-sm">
-		{#if error}<p class="text-xs p-2 rounded" style="background:var(--surface2);color:var(--danger)">{error}</p>{/if}
+	<form
+		onsubmit={(e) => {
+			e.preventDefault();
+			simpanBarang();
+		}}
+		class="flex flex-col gap-3 text-sm"
+	>
+		{#if error}<p
+				class="rounded p-2 text-xs"
+				style="background:var(--surface2);color:var(--danger)"
+			>
+				{error}
+			</p>{/if}
 		<div class="grid grid-cols-2 gap-3">
 			<div class="flex flex-col gap-1">
 				<label for="fb-kode" class="text-xs" style="color:var(--text-dim)">KODE *</label>
-				<input id="fb-kode" bind:value={fb.kode_barang} required placeholder="Cth: BRG001" class="input input-bordered w-full text-sm" />
+				<input
+					id="fb-kode"
+					bind:value={fb.kode_barang}
+					required
+					placeholder="Cth: BRG001"
+					class="input-bordered input w-full text-sm"
+				/>
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="fb-nama" class="text-xs" style="color:var(--text-dim)">NAMA *</label>
-				<input id="fb-nama" bind:value={fb.nama_barang} required placeholder="Nama barang" class="input input-bordered w-full text-sm" />
+				<input
+					id="fb-nama"
+					bind:value={fb.nama_barang}
+					required
+					placeholder="Nama barang"
+					class="input-bordered input w-full text-sm"
+				/>
 			</div>
 
 			<div class="col-span-2 flex flex-col gap-1">
 				<label for="fb-tipe" class="text-xs" style="color:var(--text-dim)">TIPE PRODUK</label>
-				<select id="fb-tipe" bind:value={fb.tipe_produk} class="w-full rounded border px-2 py-1.5 text-sm outline-none transition-colors focus:ring-1" style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)">
+				<select
+					id="fb-tipe"
+					bind:value={fb.tipe_produk}
+					class="w-full rounded border px-2 py-1.5 text-sm transition-colors outline-none focus:ring-1"
+					style="background:var(--bg);border-color:var(--border);color:var(--text);--tw-ring-color:var(--accent)"
+				>
 					<option value="physical_good">Barang Fisik (retail)</option>
 					<option value="menu_item">Menu (F&B / dapur)</option>
 					<option value="service">Layanan (jasa / booking)</option>
@@ -316,17 +386,41 @@
 
 			<div class="flex flex-col gap-1">
 				<label for="fb-min" class="text-xs" style="color:var(--text-dim)">STOK MINIMUM</label>
-				<input id="fb-min" type="number" min="0" bind:value={fb.stok_minimum} placeholder="0" class="input input-bordered w-full text-sm" />
+				<input
+					id="fb-min"
+					type="number"
+					min="0"
+					bind:value={fb.stok_minimum}
+					placeholder="0"
+					class="input-bordered input w-full text-sm"
+				/>
 			</div>
 
 			<!-- Kategori dengan filter -->
 			<div class="flex flex-col gap-1">
 				<label for="fb-kat" class="text-xs" style="color:var(--text-dim)">KATEGORI</label>
 				{#if kategoriList.length === 0}
-					<p class="text-xs px-2 py-1.5 rounded" style="background:var(--surface2);color:var(--warn)">Belum ada kategori — tambah di tab Pengaturan.</p>
+					<p
+						class="rounded px-2 py-1.5 text-xs"
+						style="background:var(--surface2);color:var(--warn)"
+					>
+						Belum ada kategori — tambah di tab Pengaturan.
+					</p>
 				{:else}
-					<input type="text" placeholder="Filter kategori..." bind:value={searchKategori} class="input input-bordered w-full text-xs" />
-					<Select bind:value={fb.kategori_id} options={filteredKategori.map(k => ({ value: k.id, label: k.nama + (k.contoh ? ` — ${k.contoh}` : '') }))} placeholder="— pilih —" />
+					<input
+						type="text"
+						placeholder="Filter kategori..."
+						bind:value={searchKategori}
+						class="input-bordered input w-full text-xs"
+					/>
+					<Select
+						bind:value={fb.kategori_id}
+						options={filteredKategori.map((k) => ({
+							value: k.id,
+							label: k.nama + (k.contoh ? ` — ${k.contoh}` : '')
+						}))}
+						placeholder="— pilih —"
+					/>
 				{/if}
 			</div>
 
@@ -334,32 +428,63 @@
 			<div class="flex flex-col gap-1">
 				<label for="fb-sat" class="text-xs" style="color:var(--text-dim)">SATUAN</label>
 				{#if satuanList.length === 0}
-					<p class="text-xs px-2 py-1.5 rounded" style="background:var(--surface2);color:var(--warn)">Belum ada satuan — tambah di tab Pengaturan.</p>
+					<p
+						class="rounded px-2 py-1.5 text-xs"
+						style="background:var(--surface2);color:var(--warn)"
+					>
+						Belum ada satuan — tambah di tab Pengaturan.
+					</p>
 				{:else}
-					<input type="text" placeholder="Filter satuan..." bind:value={searchSatuan} class="input input-bordered w-full text-xs" />
-					<Select bind:value={fb.satuan_dasar_id} options={filteredSatuan.map(s => ({ value: s.id, label: s.nama + ' (' + s.singkatan + ')' + (s.contoh ? ` — ${s.contoh}` : '') }))} placeholder="— pilih —" />
+					<input
+						type="text"
+						placeholder="Filter satuan..."
+						bind:value={searchSatuan}
+						class="input-bordered input w-full text-xs"
+					/>
+					<Select
+						bind:value={fb.satuan_dasar_id}
+						options={filteredSatuan.map((s) => ({
+							value: s.id,
+							label: s.nama + ' (' + s.singkatan + ')' + (s.contoh ? ` — ${s.contoh}` : '')
+						}))}
+						placeholder="— pilih —"
+					/>
 				{/if}
 			</div>
 
-			<div class="flex flex-col gap-1 col-span-2">
+			<div class="col-span-2 flex flex-col gap-1">
 				<label for="fb-rak" class="text-xs" style="color:var(--text-dim)">LOKASI RAK</label>
-				<input id="fb-rak" bind:value={fb.lokasi_rak} placeholder="Cth: A1-Rak3" class="input input-bordered w-full text-sm" />
+				<input
+					id="fb-rak"
+					bind:value={fb.lokasi_rak}
+					placeholder="Cth: A1-Rak3"
+					class="input-bordered input w-full text-sm"
+				/>
 			</div>
 
 			<!-- Foto produk -->
-			<div class="flex flex-col gap-1 col-span-2">
+			<div class="col-span-2 flex flex-col gap-1">
 				<label for="fb-foto" class="text-xs" style="color:var(--text-dim)">FOTO PRODUK</label>
 				<div class="flex items-center gap-3">
 					<FotoThumb src={fotoPreviewUrl || null} nama={fb.nama_barang} size={64} />
 					<div class="flex flex-col gap-1">
-						<input id="fb-foto" type="file" accept="image/*" onchange={handleFotoChange} class="text-xs" style="color:var(--text-color)" />
-						<span class="text-xs" style="color:var(--text-dim)">JPG/PNG, maks 5MB. Akan di-resize otomatis.</span>
+						<input
+							id="fb-foto"
+							type="file"
+							accept="image/*"
+							onchange={handleFotoChange}
+							class="text-xs"
+							style="color:var(--text-color)"
+						/>
+						<span class="text-xs" style="color:var(--text-dim)"
+							>JPG/PNG, maks 5MB. Akan di-resize otomatis.</span
+						>
 					</div>
 				</div>
 			</div>
 		</div>
 		<div class="flex justify-end gap-2">
-			<Button type="button" variant="ghost" onclick={() => modalBarang = false}>Batal</Button>
+			<Button type="button" variant="ghost" onclick={() => (modalBarang = false)}>Batal</Button>
 			<Button type="submit">Simpan</Button>
 		</div>
 	</form>
@@ -371,6 +496,6 @@
 	pesan="Barang tidak akan tampil di kasir. Bisa diaktifkan kembali."
 	labelKanan="Nonaktifkan"
 	warnaKanan="var(--danger)"
-	onkiri={() => konfirmHapusId = null}
+	onkiri={() => (konfirmHapusId = null)}
 	onkanan={doHapusBarang}
 />

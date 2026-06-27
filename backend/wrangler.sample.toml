@@ -17,6 +17,15 @@ binding = "DB"
 # database_id = "YOUR_D1_DATABASE_ID"
 migrations_dir = "src/db/migrations/sqlite"
 
+# Durable Object: koordinator scan-relay (WebSocket Hibernation)
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "RelayDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RelayDO"]   # SQLite-backed = free tier
+
 [vars]
 DATABASE_URL = "d1://"
 JWT_EXPIRY_HOURS = "12"
