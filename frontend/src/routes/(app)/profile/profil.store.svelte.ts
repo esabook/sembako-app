@@ -22,7 +22,8 @@ export function createProfilStore() {
 		let ok = false;
 		await withLoading(
 			async () => {
-				profil = await putNama(nama);
+				await putNama(nama);
+				await muat();
 				toast.sukses('Profil diperbarui.');
 				ok = true;
 			},

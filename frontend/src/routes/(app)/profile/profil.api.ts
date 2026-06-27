@@ -7,10 +7,9 @@ export async function getProfil(): Promise<Profil> {
 	return res.data;
 }
 
-export async function putNama(nama: string): Promise<Profil> {
-	const res = await api.put<Profil>('/akun/profil', { nama: nama.trim() });
+export async function putNama(nama: string): Promise<void> {
+	const res = await api.put('/akun/profil', { nama: nama.trim() });
 	if (!res.success) throw new Error(res.error || 'Gagal menyimpan');
-	return res.data;
 }
 
 export async function postGantiPassword(lama: string, baru: string): Promise<void> {
