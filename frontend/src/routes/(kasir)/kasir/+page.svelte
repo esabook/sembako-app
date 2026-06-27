@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { goto, beforeNavigate } from '$app/navigation';
 	import { keranjang, itemAktifIdx, initKasirMode } from '$lib/stores/kasir';
 	import {
 		// state
@@ -19,7 +19,7 @@
 		openCheckout,
 		tutupCheckout,
 		initDraftSync,
-		loadOpenBills,
+		restoreLastBill,
 		mulaiBillMeja,
 		resetKasirDenganDraft
 	} from './kasir.store';
@@ -55,6 +55,19 @@
 
 	// Panduan shortcut keyboard
 	let showHelp = $state(false);
+
+	// ── Guard navigasi — konfirmasi jika keranjang tidak kosong ──────────────
+	let confirmNavOpen = $state(false);
+	let pendingNavUrl = '';
+	let skipNavGuard = false;
+
+	beforeNavigate(({ cancel, to, willUnload }) => {
+		if (skipNavGuard || $keranjang.length === 0 || willUnload) return;
+		if (!to) return;
+		cancel();
+		pendingNavUrl = to.url.href;
+		confirmNavOpen = true;
+	});
 
 	// ── DOM refs ──────────────────────────────────────────────────────────────
 	let diskonInputRefs = $state<(HTMLInputElement | undefined)[]>([]);
@@ -141,7 +154,7 @@
 		initKasirMode();
 		const mejaParam = Number(new URLSearchParams(window.location.search).get('meja'));
 		if (mejaParam) void mulaiBillMeja(mejaParam);
-		else void loadOpenBills();
+		else void restoreLastBill();
 		muatShiftAktif().then(() => {
 			if (!shiftAktif) modalBukaShift = true;
 		});
@@ -159,6 +172,7 @@
 			if (s.printer_mode) printerMode = s.printer_mode;
 			if (s.printer_bridge_port) printerBridgePort = s.printer_bridge_port;
 		});
+		const shiftInterval = setInterval(() => void muatShiftAktif(), 30_000);
 		const cleanupDraft = initDraftSync();
 		// barcode detector harus didaftarkan SEBELUM tinykeys agar stopImmediatePropagation bekerja
 		const cleanupBarcode = setupBarcodeDetector();
@@ -309,7 +323,14 @@
 				konfirmasiHapusIdx.set($itemAktifIdx);
 			}
 		});
+		function handleBeforeUnload(e: BeforeUnloadEvent) {
+			if ($keranjang.length > 0) e.preventDefault();
+		}
+		window.addEventListener('beforeunload', handleBeforeUnload);
+
 		return () => {
+			clearInterval(shiftInterval);
+			window.removeEventListener('beforeunload', handleBeforeUnload);
 			cleanupDraft();
 			cleanupBarcode();
 			cleanupKeys();
@@ -403,6 +424,21 @@
 	cancelable={false}
 	onkiri={() => konfirmasiHapusIdx.set(null)}
 	onkanan={() => $konfirmasiHapusIdx !== null && hapusItem($konfirmasiHapusIdx)}
+/>
+
+<!-- ─── Modal konfirmasi tinggalkan kasir ────────────────────────────────────── -->
+<ConfirmDialog
+	bind:open={confirmNavOpen}
+	judul="Tinggalkan kasir?"
+	pesan="{$keranjang.length} item di keranjang akan tetap tersimpan sebagai draft."
+	labelKiri="Batal"
+	labelKanan="Tinggalkan"
+	warnaKanan="var(--danger)"
+	onkiri={() => { skipNavGuard = false; }}
+	onkanan={() => {
+		skipNavGuard = true;
+		void goto(pendingNavUrl);
+	}}
 />
 
 <!-- ─── Modal panduan shortcut keyboard ─────────────────────────────────────── -->

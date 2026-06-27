@@ -197,6 +197,13 @@ export async function loadOpenBills(): Promise<void> {
 	}
 }
 
+// Auto-restore bill terakhir saat kasir dibuka (sorted by updated_at desc dari backend).
+export async function restoreLastBill(): Promise<void> {
+	await loadOpenBills();
+	const bills = get(openBills);
+	if (bills.length > 0) await switchToBill(bills[0].id);
+}
+
 export async function switchToBill(id: number): Promise<void> {
 	await _flushBillSave();
 	try {
