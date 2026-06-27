@@ -15,6 +15,18 @@
 		{ key: 'margin_grosir', label: 'Margin G', align: 'right', sortable: true, priority: 3 },
 		{ key: 'aksi', label: '', align: 'right', sortable: false, hideable: false, minWidth: 90 }
 	];
+
+	let currentPage = $state(1);
+	let pageSize = $state(25);
+
+	let pagedList = $derived(
+		store.sortedFiltered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+	);
+
+	$effect(() => {
+		store.sortedFiltered;
+		currentPage = 1;
+	});
 </script>
 
 <div class="flex gap-2">
@@ -34,13 +46,16 @@
 		columns={KOLOM}
 		bind:sortKey={store.sortKey}
 		bind:sortDir={store.sortDir}
-		rowCount={store.sortedFiltered.length}
+		totalRows={store.sortedFiltered.length}
+		rowCount={pagedList.length}
+		bind:currentPage
+		bind:pageSize
 		emptyText="Tidak ada barang"
 		tableId="harga-daftar"
 		maxRows={15}
 	>
 		{#snippet body(hidden)}
-			{#each store.sortedFiltered as b (b.id)}
+			{#each pagedList as b (b.id)}
 				<tr class="border-t" style="border-color:var(--border)">
 					{#if !hidden.has('nama_barang')}
 						<td class="px-3 py-2 text-xs" style="color:var(--text)">
@@ -95,7 +110,7 @@
 	</DataTable>
 
 	<p class="text-xs" style="color:var(--text-dim)">
-		{store.sortedFiltered.length} barang · Margin:
+		{store.sortedFiltered.length} SKU · Margin:
 		<span style="color:var(--danger)">merah &lt;5%</span> ·
 		<span style="color:var(--warn)">kuning &lt;15%</span> ·
 		<span style="color:var(--accent)">hijau ≥15%</span>

@@ -32,6 +32,18 @@
 		{ key: 'total', label: 'Total', sortable: true, align: 'right', hideable: false }
 	];
 
+	let currentPage = $state(1);
+	let pageSize = $state(25);
+
+	let pagedList = $derived(
+		store.sortedList.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+	);
+
+	$effect(() => {
+		store.sortedList;
+		currentPage = 1;
+	});
+
 	onMount(() => {
 		void store.muatPengaturan();
 		void store.muatHistori();
@@ -57,8 +69,10 @@
 				columns={COLS}
 				bind:sortKey={store.sortKey}
 				bind:sortDir={store.sortDir}
-				maxRows={999}
-				rowCount={store.sortedList.length}
+				totalRows={store.sortedList.length}
+				rowCount={pagedList.length}
+				bind:currentPage
+				bind:pageSize
 				loading={store.historiLoading}
 				emptyText="Tidak ada transaksi"
 				tableId="kasir-histori"
@@ -77,7 +91,7 @@
 					</div>
 				{/snippet}
 				{#snippet body(hidden)}
-					{#each store.sortedList as trx (trx.id)}
+					{#each pagedList as trx (trx.id)}
 						<tr
 							class="cursor-pointer border-t transition-colors hover:brightness-110"
 							style={store.historiDetail?.id === trx.id
