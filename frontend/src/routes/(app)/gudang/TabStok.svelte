@@ -95,7 +95,6 @@
 	let mutasiSampai = $state('');
 	let mutasiLoading = $state(false);
 	let query = $state('');
-	let loading = $state(false);
 
 	// ── Stok menipis ─────────────────────────────────────────────────────────
 	let stokMenipis = $state<StokMenipis[]>([]);
@@ -128,10 +127,8 @@
 	);
 
 	async function muatStok() {
-		loading = true;
 		const r = await api.get<StokItem[]>('/stok');
 		if (r.success) stokList = r.data;
-		loading = false;
 	}
 
 	async function muatMutasi(id: number, nama: string) {
@@ -148,10 +145,11 @@
 
 	async function filterMutasi() {
 		mutasiLoading = true;
-		const params = new URLSearchParams();
-		if (mutasiDari) params.set('dari', mutasiDari);
-		if (mutasiSampai) params.set('sampai', mutasiSampai);
-		const r = await api.get<MutasiItem[]>(`/stok/${mutasiBarangId}/mutasi?${params}`);
+		const params: string[] = [];
+		if (mutasiDari) params.push(`dari=${encodeURIComponent(mutasiDari)}`);
+		if (mutasiSampai) params.push(`sampai=${encodeURIComponent(mutasiSampai)}`);
+		const qs = params.length ? `?${params.join('&')}` : '';
+		const r = await api.get<MutasiItem[]>(`/stok/${mutasiBarangId}/mutasi${qs}`);
 		if (r.success) mutasiList = r.data;
 		mutasiLoading = false;
 	}
