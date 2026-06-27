@@ -71,7 +71,7 @@ cd backend && bun run db:studio   # → http://local.drizzle.studio
 | Target | Panduan |
 |---|---|
 | Raspberry Pi / Linux / Mac / Windows (lokal) | [DEPLOYMENT.md](doc/DEPLOYMENT.md) |
-| Turso · PostgreSQL · Cloud storage · Checklist | [claude/deployment.md](claude/deployment.md) |
+| Turso · PostgreSQL · Cloud storage · D1 Storage | [DEPLOYMENT.md](doc/DEPLOYMENT.md) |
 
 ---
 

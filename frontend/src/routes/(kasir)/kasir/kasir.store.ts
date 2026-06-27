@@ -29,7 +29,12 @@ export async function loadPromoAktif() {
 	if (res.success) promoAktif.set(res.data);
 }
 
+const _promoCache = new Map<string, number>();
+promoAktif.subscribe(() => _promoCache.clear());
+
 function hitungDiskonPromo(br: BarangResult, harga: number, qty: number): number {
+	const key = `${br.id}-${harga}-${qty}`;
+	if (_promoCache.has(key)) return _promoCache.get(key)!;
 	const promos = get(promoAktif);
 	let best = 0;
 	for (const p of promos) {
@@ -42,7 +47,9 @@ function hitungDiskonPromo(br: BarangResult, harga: number, qty: number): number
 		const diskon = p.tipe_nilai === 'persen' ? Math.round(harga * p.nilai / 100) : p.nilai;
 		if (diskon > best) best = diskon;
 	}
-	return Math.min(best, harga);
+	const result = Math.min(best, harga);
+	_promoCache.set(key, result);
+	return result;
 }
 
 // Promo tipe 'total' yang berlaku saat ini (dipake di checkout)
