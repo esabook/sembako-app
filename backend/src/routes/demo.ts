@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { eq } from 'drizzle-orm'
-import { db, query } from '../db/index.ts'
+import { db, query, runWithDemo } from '../db/index.ts'
 import { toko } from '../db/schema.ts'
 import { env } from '../config/env.ts'
 import { authMiddleware } from '../middleware/auth.ts'
@@ -27,10 +27,40 @@ function demoKodeFor(user: JWTPayload): string {
 // ── GET /demo/status ──────────────────────────────────────────────────────────
 demoRouter.get('/status', async (c) => {
   const user = c.get('user') as JWTPayload
-  const tokoId = await getDemoTokoId(demoKodeFor(user))
-  if (!tokoId) return c.json({ success: true, data: { exists: false } })
-  const stats = await getDemoStats(tokoId)
-  return c.json({ success: true, data: { exists: true, toko_id: tokoId, ...stats } })
+  const kode = demoKodeFor(user)
+  // Orphan demo lama yang masih nyangkut di PROD (dibuat sebelum split DB).
+  // Dibaca di konteks default (prod), di luar runWithDemo.
+  const legacy_prod = (await getDemoTokoId(kode)) != null
+  // Data demo aktif hidup di DB demo terpisah → paksa konteks demoDb.
+  return runWithDemo(async () => {
+    const tokoId = await getDemoTokoId(kode)
+    if (!tokoId) return c.json({ success: true, data: { exists: false, legacy_prod } })
+    const stats = await getDemoStats(tokoId)
+    return c.json({ success: true, data: { exists: true, toko_id: tokoId, legacy_prod, ...stats } })
+  })
+})
+
+// ── DELETE /demo/legacy ─────────────────────────────────────────────────────
+// Bersihkan orphan demo lama di PROD (pre-split DB). Tanpa runWithDemo →
+// deleteDemoData jalan di konteks prod, reuse purgeTokoById.
+demoRouter.delete('/legacy', async (c) => {
+  const user = c.get('user') as JWTPayload
+  try {
+    // Pengaman: jangan hapus toko yang justru sedang dipakai (aktif/home). Kalau
+    // id orphan == tenant aktif / home toko, ini bukan sampah → tolak agar pemilik
+    // tidak kehilangan toko & nyangkut di onboarding.
+    const orphanId = await getDemoTokoId(demoKodeFor(user))
+    if (!orphanId) throw new HTTPException(404, { message: 'Data demo lama tidak ditemukan' })
+    if (orphanId === user.tenant_id || orphanId === user.home_toko_id) {
+      throw new HTTPException(409, { message: 'Toko ini sedang aktif dipakai, tidak bisa dibersihkan' })
+    }
+    await deleteDemoData(demoKodeFor(user))
+    return c.json({ success: true, data: { message: 'Data demo lama di prod berhasil dibersihkan' } })
+  } catch (e) {
+    if (e instanceof HTTPException) throw e
+    const msg = e instanceof Error ? e.message : 'Gagal membersihkan data demo lama'
+    throw new HTTPException(404, { message: msg })
+  }
 })
 
 // ── POST /demo/generate ───────────────────────────────────────────────────────
@@ -40,6 +70,7 @@ demoRouter.post('/generate', async (c) => {
     const kode = demoKodeFor(user)
     // SaaS: toko demo harus pakai email pemilik toko asli agar muncul di
     // accessible-context (difilter email_pemilik) → boleh switch-context.
+    // Email dibaca dari toko home di PROD (konteks default), sebelum masuk demoDb.
     let emailPemilik: string | null = null
     if (env.saasGating) {
       const home = await query.find<{ email_pemilik: string | null }>(
@@ -48,7 +79,8 @@ demoRouter.post('/generate', async (c) => {
       emailPemilik = home?.email_pemilik ?? null
     }
     const userSuffix = env.saasGating ? `-${user.tenant_id}` : ''
-    const result = await generateDemoData({ kode, emailPemilik, userSuffix })
+    // Generate sandbox ke DB demo terpisah.
+    const result = await runWithDemo(() => generateDemoData({ kode, emailPemilik, userSuffix }))
     return c.json({
       success: true,
       data: {
@@ -66,7 +98,7 @@ demoRouter.post('/generate', async (c) => {
 demoRouter.delete('/', async (c) => {
   const user = c.get('user') as JWTPayload
   try {
-    await deleteDemoData(demoKodeFor(user))
+    await runWithDemo(() => deleteDemoData(demoKodeFor(user)))
     return c.json({ success: true, data: { message: 'Data demo berhasil dihapus' } })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Gagal menghapus data demo'

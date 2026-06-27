@@ -17,6 +17,13 @@ binding = "DB"
 # database_id = "YOUR_D1_DATABASE_ID"
 migrations_dir = "src/db/migrations/sqlite"
 
+# DB demo terpisah — sandbox bisa di-reset tanpa risiko ke prod.
+[[d1_databases]]
+binding = "DB_DEMO"
+# database_name = "stokasir_demo"
+# database_id = "YOUR_DEMO_D1_DATABASE_ID"
+migrations_dir = "src/db/migrations/sqlite"
+
 # Durable Object: koordinator scan-relay (WebSocket Hibernation)
 [[durable_objects.bindings]]
 name = "RELAY"
@@ -28,6 +35,7 @@ new_sqlite_classes = ["RelayDO"]   # SQLite-backed = free tier
 
 [vars]
 DATABASE_URL = "d1://"
+DEMO_DATABASE_URL = "d1://"
 JWT_EXPIRY_HOURS = "12"
 # FRONTEND_URL = "https://yours.pages.dev,http://localhost:5173"
 SAAS_GATING = "1"

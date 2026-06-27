@@ -8,7 +8,7 @@ import { HTTPException } from 'hono/http-exception'
 import { logger } from 'hono/logger'
 import { Scalar } from '@scalar/hono-api-reference'
 import * as schema from './db/schema.ts'
-import { setD1Db } from './db/index.ts'
+import { setD1Db, setD1DemoDb } from './db/index.ts'
 import { query } from './db/index.ts'
 import { langgananMiddleware } from './middleware/langganan.ts'
 import { openAPISpec } from './openapi.ts'
@@ -75,6 +75,7 @@ import { utilitasRouter } from './routes/utilitas.ts'
 // Install @cloudflare/workers-types for proper types: bun add -d @cloudflare/workers-types
 type Bindings = {
   DB: any // D1Database
+  DB_DEMO: any // D1Database — sandbox demo terpisah
   KV: any // KVNamespace — optional, absent in LAN mode
   RELAY: RelayNamespace // Durable Object namespace untuk scan-relay
   JWT_SECRET: string
@@ -107,6 +108,8 @@ app.use('*', async (c, next) => {
     }
     const d1Db = drizzleD1(c.env.DB, { schema }) as any
     setD1Db(d1Db)
+    // DB demo terpisah — routing via JWT.is_demo di authMiddleware (AsyncLocalStorage).
+    if (c.env.DB_DEMO) setD1DemoDb(drizzleD1(c.env.DB_DEMO, { schema }) as any)
     // One-time: register event hooks + analytics tap (safe in CF — no Bun deps)
     initHooks()
     initAnalyticsTap()
