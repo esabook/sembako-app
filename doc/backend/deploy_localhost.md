@@ -54,7 +54,7 @@ mkdir -p ~/stokasir-data/backup
 ```bash
 # Dari laptop developer via rsync (jangan build di Pi — CPU kecil):
 rsync -avz --exclude 'node_modules' --exclude '.svelte-kit' \
-           --exclude 'data.db' --exclude 'uploads' \
+           --exclude 'data.db' --exclude 'data_demo.db' --exclude 'uploads' \
   ./ eg17@192.168.1.x:/home/eg17/stokasir/
 ```
 
@@ -71,11 +71,14 @@ cd /home/eg17/stokasir/backend
 bun run db:migrate
 ```
 
+DB demo (`data_demo.db`) di-migrate otomatis saat backend pertama start — tak perlu langkah manual.
+
 ### 6. Env vars
 
 ```bash
 # /home/eg17/stokasir/backend/.env
 DATABASE_URL=file:/mnt/data/stokasir/data.db   # Linux: file:/home/user/stokasir-data/data.db
+DEMO_DATABASE_URL=file:/mnt/data/stokasir/data_demo.db   # DB demo terpisah (default file:./data_demo.db)
 UPLOAD_DIR=/mnt/data/stokasir/uploads          # Linux: /home/user/stokasir-data/uploads
 PORT=3000
 NODE_ENV=production

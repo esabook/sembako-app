@@ -17,11 +17,29 @@ bun run cf:d1:create
 # atau: bunx wrangler d1 create stokasir
 ```
 
-Copy `database_id` dari output, paste ke `backend/wrangler.toml`:
+Copy `database_id` dari output, paste ke `backend/wrangler.toml` (binding `DB`):
 
 ```toml
 [[d1_databases]]
+binding = "DB"
 database_id = "PASTE_ID_DI_SINI"
+```
+
+### 1b. Buat D1 database demo
+
+Sandbox demo hidup di DB terpisah (binding `DB_DEMO`) agar bisa di-reset total
+tanpa risiko ke data prod.
+
+```bash
+bunx wrangler d1 create stokasir_demo
+```
+
+Copy `database_id`, paste ke `backend/wrangler.toml` (binding `DB_DEMO`):
+
+```toml
+[[d1_databases]]
+binding = "DB_DEMO"
+database_id = "PASTE_DEMO_ID_DI_SINI"
 ```
 
 ### 2. Buat KV namespace
@@ -86,9 +104,13 @@ bun run cf:d1:migrate:local
 
 # Apply ke D1 produksi
 bun run cf:d1:migrate
+
+# DB demo — schema sama, apply ke stokasir_demo (tak ada npm script, panggil langsung)
+bunx wrangler d1 migrations apply stokasir_demo --local    # test lokal
+bunx wrangler d1 migrations apply stokasir_demo --remote    # produksi
 ```
 
-Migrasi diambil dari `src/db/migrations/sqlite/` — file SQL yang sama dengan SQLite lokal (D1 = SQLite-compatible).
+Migrasi diambil dari `src/db/migrations/sqlite/` — file SQL yang sama dengan SQLite lokal (D1 = SQLite-compatible). DB demo pakai schema identik, jadi migrasi yang sama di-apply ke `stokasir_demo`.
 
 ---
 
@@ -195,6 +217,7 @@ dan offline tak butuh.
 | Key | Nilai prod | Keterangan |
 |-----|------------|-----------|
 | `DATABASE_URL` | `d1://` | Sentinel — jangan diubah untuk CF mode |
+| `DEMO_DATABASE_URL` | `d1://` | Sentinel DB demo — route ke binding `DB_DEMO` |
 | `JWT_EXPIRY_HOURS` | `12` | Durasi token JWT |
 | `FRONTEND_URL` | (URL Pages, pisah koma) | CORS origin, bisa multi nilai |
 | `SAAS_GATING` | `1` | `1` = aktifkan mode SaaS, cek langganan |
