@@ -51,7 +51,7 @@
 	>
 		<span class="flex gap-2">
 			<FlaskConical size="1rem" />
-			MODE DEMO: Data contoh dari toko cabang-demo, toko asli Anda tidak terpengaruh.
+			MODE DEMO: Menggunakan data demo, toko asli Anda tidak terpengaruh.
 		</span>
 		<button
 			class="btn ml-auto flex btn-xs disabled:opacity-60"
