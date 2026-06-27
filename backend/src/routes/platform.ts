@@ -5,6 +5,8 @@
 // GET  /platform/toko                        — list semua toko + status + bukti menunggu
 // GET  /platform/pembayaran?status=menunggu  — antrian verifikasi bukti (join toko)
 // POST /platform/pembayaran/:id/verifikasi   — setuju → toko aktif +periode×30d; tolak → ditolak
+// GET  /platform/ringkasan                   — KPIs: toko per status, revenue, pertumbuhan 6 bulan
+// GET  /platform/analytics                   — usage events per toko (log_aktivitas modul=analytics)
 //
 // Login publik; sisanya dijaga platformMiddleware. Prefix /platform di-whitelist
 // langgananMiddleware sehingga tak kena gating 402.
@@ -293,6 +295,62 @@ platformRouter.post('/pembayaran/:id/verifikasi', platformMiddleware, async (c) 
 	);
 
 	return c.json({ success: true, data: { status: 'disetujui', aktif_sampai: aktifSampai } });
+});
+
+// ── GET /ringkasan — business KPIs: toko per status, revenue, pertumbuhan ───
+platformRouter.get('/ringkasan', platformMiddleware, async (c) => {
+	const now = new Date();
+	const ago7d = new Date(now.getTime() - 7 * HARI_MS).toISOString().slice(0, 10);
+	const ago30d = new Date(now.getTime() - 30 * HARI_MS).toISOString().slice(0, 10);
+
+	const [tokoRows, bayarRows] = await Promise.all([
+		query.findAll<{ status_langganan: string; created_at: string | null }>(
+			db.select({ status_langganan: toko.status_langganan, created_at: toko.created_at }).from(toko)
+		),
+		query.findAll<{ nominal: number; created_at: string | null }>(
+			db
+				.select({ nominal: pembayaran_langganan.nominal, created_at: pembayaran_langganan.created_at })
+				.from(pembayaran_langganan)
+				.where(eq(pembayaran_langganan.status, 'disetujui'))
+		),
+	]);
+
+	const per_status: Record<string, number> = {};
+	let toko_baru_7d = 0;
+	let toko_baru_30d = 0;
+	const tokoPerBulan = new Map<string, number>();
+
+	for (const t of tokoRows) {
+		per_status[t.status_langganan] = (per_status[t.status_langganan] ?? 0) + 1;
+		const hari = (t.created_at ?? '').slice(0, 10);
+		if (hari >= ago7d) toko_baru_7d++;
+		if (hari >= ago30d) toko_baru_30d++;
+		const bulan = (t.created_at ?? '').slice(0, 7);
+		if (bulan) tokoPerBulan.set(bulan, (tokoPerBulan.get(bulan) ?? 0) + 1);
+	}
+
+	let pendapatan_bulan_ini = 0;
+	let pendapatan_total = 0;
+	const bulanIni = now.toISOString().slice(0, 7);
+	const revPerBulan = new Map<string, number>();
+
+	for (const b of bayarRows) {
+		pendapatan_total += b.nominal;
+		const bulan = (b.created_at ?? '').slice(0, 7);
+		if (bulan === bulanIni) pendapatan_bulan_ini += b.nominal;
+		if (bulan) revPerBulan.set(bulan, (revPerBulan.get(bulan) ?? 0) + b.nominal);
+	}
+
+	const per_bulan = Array.from({ length: 6 }, (_, i) => {
+		const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+		const bulan = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+		return { bulan, pendapatan: revPerBulan.get(bulan) ?? 0, toko_baru: tokoPerBulan.get(bulan) ?? 0 };
+	});
+
+	return c.json({
+		success: true,
+		data: { total_toko: tokoRows.length, per_status, toko_baru_7d, toko_baru_30d, pendapatan_bulan_ini, pendapatan_total, per_bulan },
+	});
 });
 
 // ── GET /analytics — usage analytics lintas-tenant, agregat per toko ───────

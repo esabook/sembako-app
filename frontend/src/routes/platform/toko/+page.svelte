@@ -155,7 +155,7 @@
 			Stokasir · Admin
 		</span>
 		<div class="flex items-center gap-2">
-			<a class="btn btn-ghost btn-sm" href="/platform/analytics/toko">
+			<a class="btn btn-ghost btn-sm" href="/platform/analytics">
 				<Activity class="size-4" />
 				<span class="hidden sm:inline">Analytics</span>
 			</a>
