@@ -54,8 +54,20 @@ export function createLaporanStore() {
 
   const cabangParam = $derived(selectedCabang ? `&cabang_id=${selectedCabang}` : '')
 
-  // ── Tab load tracking (untuk skeleton) ────────────────────────────────────
-  let tabsLoaded = $state(new Set<TabKey>())
+  // ── Promise state per tab (untuk {#await} skeleton) ───────────────────────
+  let labaRugiPromise = $state<Promise<LabaRugi | null>>(Promise.resolve(null))
+  let arusKasPromise = $state<Promise<ArusKas | null>>(Promise.resolve(null))
+  let neracaPromise = $state<Promise<Neraca | null>>(Promise.resolve(null))
+  let agingPromise = $state<Promise<AgingData | null>>(Promise.resolve(null))
+  let budgetRealisasiPromise = $state<Promise<BudgetRealisasi | null>>(Promise.resolve(null))
+  let pajakUmkmPromise = $state<Promise<PajakUmkm | null>>(Promise.resolve(null))
+  let marginProdukPromise = $state<Promise<MarginProduk | null>>(Promise.resolve(null))
+  let perbandinganPromise = $state<Promise<{ p1: LabaRugi; p2: LabaRugi } | null>>(Promise.resolve(null))
+  let persediaanPromise = $state<Promise<Persediaan | null>>(Promise.resolve(null))
+  let topPelangganPromise = $state<Promise<TopPelanggan | null>>(Promise.resolve(null))
+  let pembelianSupplierPromise = $state<Promise<PembelianSupplier | null>>(Promise.resolve(null))
+  let rekapPenggajianPromise = $state<Promise<RekapPenggajian | null>>(Promise.resolve(null))
+  let analitikJamPromise = $state<Promise<AnalitikJam | null>>(Promise.resolve(null))
 
   // ── Load functions ─────────────────────────────────────────────────────────
 
@@ -63,128 +75,111 @@ export function createLaporanStore() {
     cabangList = await fetchCabangList()
   }
 
-  async function muatLabaRugi() {
-    const hasil = await withLoading(
+  function muatLabaRugi() {
+    labaRugiPromise = withLoading(
       () => fetchLabaRugi(periode.dari, periode.sampai, cabangParam),
       { loadingKey: 'laporan-laba-rugi', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'laba-rugi', bisaRetry: true },
-    )
-    if (hasil) labaRugi = hasil
+    ).then(h => { if (h) labaRugi = h; return h })
   }
 
-  async function muatArusKas() {
-    const hasil = await withLoading(
+  function muatArusKas() {
+    arusKasPromise = withLoading(
       () => fetchArusKas(periode.dari, periode.sampai, cabangParam),
       { loadingKey: 'laporan-arus-kas', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'arus-kas', bisaRetry: true },
-    )
-    if (hasil) arusKas = hasil
+    ).then(h => { if (h) arusKas = h; return h })
   }
 
-  async function muatNeraca() {
-    const hasil = await withLoading(
+  function muatNeraca() {
+    neracaPromise = withLoading(
       () => fetchNeraca(neracaTanggal),
       { loadingKey: 'laporan-neraca', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'neraca', bisaRetry: true },
-    )
-    if (hasil) neraca = hasil
+    ).then(h => { if (h) neraca = h; return h })
   }
 
-  async function muatAging() {
-    const hasil = await withLoading(
+  function muatAging() {
+    agingPromise = withLoading(
       () => fetchAging(),
       { loadingKey: 'laporan-aging', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'aging', bisaRetry: true },
-    )
-    if (hasil) aging = hasil
+    ).then(h => { if (h) aging = h; return h })
   }
 
-  async function muatBudgetRealisasi() {
-    const hasil = await withLoading(
+  function muatBudgetRealisasi() {
+    budgetRealisasiPromise = withLoading(
       () => fetchBudgetRealisasi(periodeBR),
       { loadingKey: 'laporan-budget', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'budget-realisasi', bisaRetry: true },
-    )
-    if (hasil) budgetRealisasi = hasil
+    ).then(h => { if (h) budgetRealisasi = h; return h })
   }
 
-  async function muatPajakUmkm() {
-    const hasil = await withLoading(
+  function muatPajakUmkm() {
+    pajakUmkmPromise = withLoading(
       () => fetchPajakUmkm(tahunPajak),
       { loadingKey: 'laporan-pajak', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'pajak-umkm', bisaRetry: true },
-    )
-    if (hasil) pajakUmkm = hasil
+    ).then(h => { if (h) pajakUmkm = h; return h })
   }
 
-  async function muatMarginProduk() {
-    const hasil = await withLoading(
+  function muatMarginProduk() {
+    marginProdukPromise = withLoading(
       () => fetchMarginProduk(periodeMargin.dari, periodeMargin.sampai, cabangParam),
       { loadingKey: 'laporan-margin', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'margin-produk', bisaRetry: true },
-    )
-    if (hasil) marginProduk = hasil
+    ).then(h => { if (h) marginProduk = h; return h })
   }
 
-  async function muatPerbandingan() {
-    const hasil = await withLoading(
+  function muatPerbandingan() {
+    perbandinganPromise = withLoading(
       () => fetchPerbandingan(periodeP1.dari, periodeP1.sampai, periodeP2.dari, periodeP2.sampai),
       { loadingKey: 'laporan-perbandingan', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'perbandingan', bisaRetry: true },
-    )
-    if (hasil) perbandingan = hasil
+    ).then(h => { if (h) perbandingan = h; return h })
   }
 
-  async function muatPersediaan() {
-    const hasil = await withLoading(
+  function muatPersediaan() {
+    persediaanPromise = withLoading(
       () => fetchPersediaan(),
       { loadingKey: 'laporan-persediaan', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'persediaan', bisaRetry: true },
-    )
-    if (hasil) persediaan = hasil
+    ).then(h => { if (h) persediaan = h; return h })
   }
 
-  async function muatTopPelanggan() {
-    const hasil = await withLoading(
+  function muatTopPelanggan() {
+    topPelangganPromise = withLoading(
       () => fetchTopPelanggan(periodePelanggan.dari, periodePelanggan.sampai),
       { loadingKey: 'laporan-top-pelanggan', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'top-pelanggan', bisaRetry: true },
-    )
-    if (hasil) topPelanggan = hasil
+    ).then(h => { if (h) topPelanggan = h; return h })
   }
 
-  async function muatPembelianSupplier() {
-    const hasil = await withLoading(
+  function muatPembelianSupplier() {
+    pembelianSupplierPromise = withLoading(
       () => fetchPembelianSupplier(periodeSupplier.dari, periodeSupplier.sampai),
       { loadingKey: 'laporan-pembelian', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'pembelian-supplier', bisaRetry: true },
-    )
-    if (hasil) pembelianSupplier = hasil
+    ).then(h => { if (h) pembelianSupplier = h; return h })
   }
 
-  async function muatRekapPenggajian() {
-    const hasil = await withLoading(
+  function muatRekapPenggajian() {
+    rekapPenggajianPromise = withLoading(
       () => fetchRekapPenggajian(tahunPenggajian),
       { loadingKey: 'laporan-penggajian', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'rekap-penggajian', bisaRetry: true },
-    )
-    if (hasil) rekapPenggajian = hasil
+    ).then(h => { if (h) rekapPenggajian = h; return h })
   }
 
-  async function muatAnalitikJam() {
-    const hasil = await withLoading(
+  function muatAnalitikJam() {
+    analitikJamPromise = withLoading(
       () => fetchAnalitikJam(periodeJam.dari, periodeJam.sampai, cabangParam),
       { loadingKey: 'laporan-analitik-jam', loadingPesan: 'Memuat laporan...', modul: 'laporan', aksi: 'analitik-jam', bisaRetry: true },
-    )
-    if (hasil) analitikJam = hasil
+    ).then(h => { if (h) analitikJam = h; return h })
   }
 
-  async function muat(tab: TabKey) {
-    try {
-      if (tab === 'laba-rugi') await muatLabaRugi()
-      else if (tab === 'arus-kas') await muatArusKas()
-      else if (tab === 'neraca') await muatNeraca()
-      else if (tab === 'aging') await muatAging()
-      else if (tab === 'budget-realisasi') await muatBudgetRealisasi()
-      else if (tab === 'pajak-umkm') await muatPajakUmkm()
-      else if (tab === 'margin-produk') await muatMarginProduk()
-      else if (tab === 'perbandingan') await muatPerbandingan()
-      else if (tab === 'persediaan') await muatPersediaan()
-      else if (tab === 'top-pelanggan') await muatTopPelanggan()
-      else if (tab === 'pembelian-supplier') await muatPembelianSupplier()
-      else if (tab === 'rekap-penggajian') await muatRekapPenggajian()
-      else if (tab === 'analitik-jam') await muatAnalitikJam()
-    } finally {
-      tabsLoaded = new Set(tabsLoaded).add(tab)
-    }
+  function muat(tab: TabKey) {
+    if (tab === 'laba-rugi') muatLabaRugi()
+    else if (tab === 'arus-kas') muatArusKas()
+    else if (tab === 'neraca') muatNeraca()
+    else if (tab === 'aging') muatAging()
+    else if (tab === 'budget-realisasi') muatBudgetRealisasi()
+    else if (tab === 'pajak-umkm') muatPajakUmkm()
+    else if (tab === 'margin-produk') muatMarginProduk()
+    else if (tab === 'perbandingan') muatPerbandingan()
+    else if (tab === 'persediaan') muatPersediaan()
+    else if (tab === 'top-pelanggan') muatTopPelanggan()
+    else if (tab === 'pembelian-supplier') muatPembelianSupplier()
+    else if (tab === 'rekap-penggajian') muatRekapPenggajian()
+    else if (tab === 'analitik-jam') muatAnalitikJam()
   }
 
   // ── Export CSV ─────────────────────────────────────────────────────────────
@@ -260,7 +255,20 @@ export function createLaporanStore() {
     get cabangList() { return cabangList },
     get selectedCabang() { return selectedCabang },
     set selectedCabang(v) { selectedCabang = v },
-    get tabsLoaded() { return tabsLoaded },
+    // promises (untuk {#await} skeleton)
+    get labaRugiPromise() { return labaRugiPromise },
+    get arusKasPromise() { return arusKasPromise },
+    get neracaPromise() { return neracaPromise },
+    get agingPromise() { return agingPromise },
+    get budgetRealisasiPromise() { return budgetRealisasiPromise },
+    get pajakUmkmPromise() { return pajakUmkmPromise },
+    get marginProdukPromise() { return marginProdukPromise },
+    get perbandinganPromise() { return perbandinganPromise },
+    get persediaanPromise() { return persediaanPromise },
+    get topPelangganPromise() { return topPelangganPromise },
+    get pembelianSupplierPromise() { return pembelianSupplierPromise },
+    get rekapPenggajianPromise() { return rekapPenggajianPromise },
+    get analitikJamPromise() { return analitikJamPromise },
     // actions
     toggleAgingExpanded(key: string) { agingExpanded[key] = !agingExpanded[key] },
     muatCabang,

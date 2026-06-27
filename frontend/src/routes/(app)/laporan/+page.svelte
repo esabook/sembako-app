@@ -5,7 +5,6 @@
 	import { user } from '$lib/stores/auth.js';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
 	import Select from '$lib/components/ui/Select.svelte';
-	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import { createLaporanStore } from './laporan.store.svelte';
 	import type { TabKey } from './laporan.types';
 	import TabLabaRugi from './components/TabLabaRugi.svelte';
@@ -96,17 +95,7 @@
 	/>
 </div>
 
-{#if !store.tabsLoaded.has(tab)}
-	<div style="padding:1.25rem; display:flex; flex-direction:column; gap:.75rem">
-		{#each { length: 6 } as _, i (i)}
-			<div style="display:flex; gap:1rem; align-items:center">
-				<Skeleton w="{30 + ((i * 17) % 30)}%" h="0.8rem" />
-				<Skeleton w="{20 + ((i * 11) % 20)}%" h="0.8rem" />
-				<Skeleton w="{15 + ((i * 7) % 15)}%" h="0.8rem" />
-			</div>
-		{/each}
-	</div>
-{:else if tab === 'laba-rugi'}
+{#if tab === 'laba-rugi'}
 	<TabLabaRugi {store} />
 {:else if tab === 'arus-kas'}
 	<TabArusKas {store} />

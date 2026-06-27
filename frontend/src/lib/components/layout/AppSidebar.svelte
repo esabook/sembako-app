@@ -374,7 +374,7 @@
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<nav
 		bind:this={navEl}
-		class="scrollbar-hide min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-10"
+		class="scrollbar-hide min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-20"
 		style="scrollbar-gutter: auto"
 	>
 		{#if recentSection.length > 0}

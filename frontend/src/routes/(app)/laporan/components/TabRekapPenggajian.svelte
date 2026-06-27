@@ -20,6 +20,15 @@
   >Tampilkan</button>
 </div>
 
+{#await store.rekapPenggajianPromise}
+	<div style="display:flex; flex-direction:column; gap:.75rem; padding:1.25rem">
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:70%"></div>
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:45%"></div>
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:58%"></div>
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:30%"></div>
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:65%"></div>
+	</div>
+{:then}
 <ChartKartu kosong={!store.rekapPenggajian} pesanKosong="Pilih tahun lalu klik Tampilkan.">
 {#if store.rekapPenggajian}
   {@const rp = store.rekapPenggajian}
@@ -76,3 +85,4 @@
   </div>
 {/if}
 </ChartKartu>
+{/await}
