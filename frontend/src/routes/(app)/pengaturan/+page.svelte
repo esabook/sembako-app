@@ -6,12 +6,10 @@
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 	import { createPengaturanStore } from './pengaturan.store.svelte';
 	import SectionIdentitas from './components/SectionIdentitas.svelte';
-	import SectionStruk from './components/SectionStruk.svelte';
 	import SectionWhatsApp from './components/SectionWhatsApp.svelte';
 	import SectionPreferensi from './components/SectionPreferensi.svelte';
 	import SectionAudio from './components/SectionAudio.svelte';
 	import SectionBackupRestore from './components/SectionBackupRestore.svelte';
-	import SectionDemo from './components/SectionDemo.svelte';
 
 	// Hanya pemilik yang bisa akses
 	$effect(() => {
@@ -32,12 +30,10 @@
 		</div>
 	{:else}
 		<SectionIdentitas {store} />
-		<SectionStruk {store} />
 		<SectionWhatsApp {store} />
 		<SectionPreferensi {store} />
 		<SectionAudio {store} />
 		<SectionBackupRestore {store} />
-		<SectionDemo />
 
 		<div class="flex justify-end">
 			<Button onclick={() => store.simpan()} loading={store.saving}>Simpan Pengaturan</Button>

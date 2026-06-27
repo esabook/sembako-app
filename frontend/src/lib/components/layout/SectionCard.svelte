@@ -4,7 +4,7 @@
 	let {
 		judul = null,
 		aksi,
-		children,
+		children
 	}: {
 		judul?: string | null;
 		aksi?: Snippet;
@@ -12,17 +12,14 @@
 	} = $props();
 </script>
 
-<section
-	class="rounded-lg border"
-	style="background:var(--surface);border-color:var(--border)"
->
+<section class="rounded border" style="background:var(--surface);border-color:var(--border)">
 	{#if judul || aksi}
 		<div
 			class="flex items-center justify-between border-b px-4 py-2.5"
 			style="border-color:var(--border)"
 		>
 			{#if judul}
-				<h2 class="text-xs font-bold uppercase tracking-wide" style="color:var(--text-dim)">
+				<h2 class="text-xs font-bold tracking-wide uppercase" style="color:var(--text-dim)">
 					{judul}
 				</h2>
 			{/if}

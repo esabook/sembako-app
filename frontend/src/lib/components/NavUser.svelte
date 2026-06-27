@@ -73,7 +73,7 @@
 				credentials: 'include',
 				body: JSON.stringify({ toko_id: tokoId, cabang_id: cabangId })
 			});
-			const json = await res.json() as { success: boolean };
+			const json = (await res.json()) as { success: boolean };
 			if (json.success) {
 				buka = false;
 				bukaKonteks = false;
@@ -125,7 +125,7 @@
 			if (!buka) bukaKonteks = false;
 		}}
 		class="flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors"
-		style="color:var(--text-dim)"
+		style="color:var(--text)"
 	>
 		<span
 			class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[0.7em] font-bold"
@@ -151,7 +151,7 @@
 						<div class="truncate text-sm font-medium" style="color:var(--text)">
 							{$user?.nama ?? '—'}
 						</div>
-						<div class="text-[0.7em]" style="color:var(--text-dim)">
+						<div class="text-[0.7em]" style="color:var(--text)">
 							{ROLE_LABEL[$user?.role ?? ''] ?? $user?.role}
 						</div>
 					</div>
@@ -164,7 +164,7 @@
 					<button
 						onclick={toggleKonteks}
 						class="flex w-full items-center justify-between rounded px-3 py-2 text-xs transition-colors hover:bg-[var(--surface2)]"
-						style="color:var(--text-dim)"
+						style="color:var(--text)"
 					>
 						<span class="flex items-center gap-1.5">
 							<Store size="0.85rem" />
@@ -180,7 +180,7 @@
 					{#if bukaKonteks}
 						<div class="space-y-1.5 border-t p-2" style="border-color:var(--border)">
 							{#if konteksList.length === 0}
-								<div class="px-2 py-2 text-[0.7em]" style="color:var(--text-dim)">Memuat…</div>
+								<div class="px-2 py-2 text-[0.7em]" style="color:var(--text)">Memuat…</div>
 							{:else}
 								{#each konteksList as t (t.id)}
 									{@const tokoAktif = $user?.tenant_id === t.id}
@@ -197,7 +197,7 @@
 											<span>{t.nama ?? 'Semua Cabang'}</span>
 											{#if semuaAktif}<span class="text-[0.8em]">✓</span>{/if}
 										</button>
-										{#if t.cabang.length > 0}
+										{#if t.cabang.length > 1}
 											<div class="border-t" style="border-color:var(--border)">
 												{#each t.cabang as cb (cb.id)}
 													{@const cabangAktif =
@@ -206,7 +206,7 @@
 														onclick={() => switchKonteks(t.id, cb.id)}
 														disabled={loadingSwitch}
 														class="flex w-full items-center justify-between py-1.5 pr-3 pl-3 text-left text-[0.7em] transition-colors hover:bg-[var(--surface2)]"
-														style={cabangAktif ? 'color:var(--accent)' : 'color:var(--text-dim)'}
+														style={cabangAktif ? 'color:var(--accent)' : 'color:var(--text)'}
 													>
 														<span>{cb.nama}</span>
 														{#if cabangAktif}<span>✓</span>{/if}
@@ -227,7 +227,7 @@
 				<button
 					onclick={toggleTema}
 					class="flex w-full items-center justify-between rounded px-3 py-2 text-xs transition-colors hover:bg-[var(--surface2)]"
-					style="color:var(--text-dim)"
+					style="color:var(--text)"
 				>
 					<span class="flex items-center gap-1.5">
 						<Palette size="0.85rem" />
@@ -243,7 +243,7 @@
 				{#if bukaTema}
 					<div class="border-t px-3 pt-1.5 pb-2" style="border-color:var(--border)">
 						<div class="mb-1.5 flex items-center justify-between">
-							<span class="text-[0.65em] tracking-wider uppercase" style="color:var(--text-dim)"
+							<span class="text-[0.65em] tracking-wider uppercase" style="color:var(--text)"
 								>Mode</span
 							>
 							<div class="flex gap-0.5">
@@ -254,7 +254,7 @@
 										class="rounded px-1.5 py-0.5 text-xs transition-colors"
 										style={$temaMode === m.nilai
 											? 'background:var(--surface2);color:var(--accent)'
-											: 'color:var(--text-dim)'}
+											: 'color:var(--text)'}
 									>
 										{m.ikon}
 									</button>
@@ -268,10 +268,10 @@
 									class="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs transition-colors"
 									style={$temaSkin === s.nilai
 										? 'background:var(--surface2);color:var(--accent)'
-										: 'color:var(--text-dim)'}
+										: 'color:var(--text)'}
 								>
 									<span>{s.label}</span>
-									<span class="text-[0.7em]" style="color:var(--text-dim)">{s.deskripsi}</span>
+									<span class="text-[0.7em]" style="color:var(--text)">{s.deskripsi}</span>
 								</button>
 							{/each}
 						</div>
@@ -286,7 +286,7 @@
 						href="/scanner"
 						onclick={() => (buka = false)}
 						class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
-						style="color:var(--text-dim)"
+						style="color:var(--text)"
 					>
 						<span>Mode Scanner</span>
 						<ScanBarcode size="1rem" />
@@ -295,7 +295,7 @@
 				<button
 					onclick={toggleFullscreen}
 					class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
-					style="color:var(--text-dim)"
+					style="color:var(--text)"
 				>
 					<span>{isFullscreen ? 'Keluar Fullscreen' : 'Fullscreen'}</span>
 					{#if isFullscreen}
@@ -309,7 +309,7 @@
 					href="/panduan"
 					target="_blank"
 					class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--surface2)]"
-					style="color:var(--text-dim)"
+					style="color:var(--text)"
 				>
 					<span>Panduan Penggunaan</span>
 					<Lightbulb size="1rem" />

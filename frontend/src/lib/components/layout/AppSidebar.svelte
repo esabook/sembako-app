@@ -306,8 +306,8 @@
 
 <aside
 	class={isMobile
-		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r shadow-xl transition-transform duration-50 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
-		: `app-sidebar flex shrink-0 flex-col border-r pt-2 ${sidebarReady && !isDragging ? 'transition-all duration-50' : ''} ${isDragging ? 'is-dragging' : ''} ${sidebarState === 'hover' ? (hoverExpanded ? 'hover-mode hover-expanded' : 'hover-mode') : 'relative'}`}
+		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r shadow-xl transition-transform duration-[280ms] ease-[var(--ease-out)] ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
+		: `app-sidebar flex shrink-0 flex-col border-r pt-2 ${sidebarReady && !isDragging ? 'transition-[width]' : ''} ${isDragging ? 'is-dragging' : ''} ${sidebarState === 'hover' ? (hoverExpanded ? 'hover-mode hover-expanded' : 'hover-mode') : 'relative'}`}
 	style="background:var(--surface);border-color:var(--border);width:{sidebarWidth}rem "
 	onmouseenter={sidebarState === 'hover' && !isMobile
 		? () => {
@@ -451,7 +451,7 @@
 					class="group-header {gi > 0 ? 'group-header--sep' : 'mt-2'}"
 					aria-expanded={!isCollapsed}
 				>
-					<span class="group-label">{group.label}</span>
+					<span class="group-label truncate">{group.label}</span>
 					<ChevronDown class="group-chevron {isCollapsed ? 'group-chevron--collapsed' : ''}" />
 				</button>
 			{:else if gi > 0}
@@ -470,7 +470,7 @@
 							addToRecent({ href: item.href, label: item.label, icon: item.icon });
 							if (isMobile) mobileOpen = false;
 						}}
-						class="hover-nav-item relative flex h-9 items-center text-sm transition-colors"
+						class="hover-nav-item --ease-std relative flex h-9 items-center text-sm transition-colors"
 						style={isActive
 							? 'color:var(--accent);background: color-mix(in srgb, var(--accent) 10%, transparent);'
 							: 'color:var(--text)'}

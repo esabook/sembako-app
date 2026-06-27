@@ -35,3 +35,6 @@ data/
 .agents/
 .vscode/
 backend/.wrangler/
+frontend/wrangler.toml
+backend/wrangler.toml
+.wrangler/

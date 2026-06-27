@@ -4,17 +4,16 @@
 	import { toast } from '$lib/stores/ui.store.js';
 	import { user } from '$lib/stores/auth.js';
 	import { invalidateCabangList } from '$lib/stores/cabang-version.js';
-
-	// Mode SaaS: 1 email = 1 toko → halaman fokus kelola CABANG toko sendiri.
-	const saas = $derived($user?.saas ?? false);
-	const tenantId = $derived($user?.tenant_id ?? 0);
-	import PageHeader from '$lib/components/layout/PageHeader.svelte';
 	import SectionCard from '$lib/components/layout/SectionCard.svelte';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Input from '$lib/components/ui/Input.svelte';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import SlideOver from '$lib/components/SlideOver.svelte';
 	import PencilLine from '@lucide/svelte/icons/pencil-line';
+	import SectionDemo from '../../pengaturan/components/SectionDemo.svelte';
+
+	const saas = $derived($user?.saas ?? false);
+	const tenantId = $derived($user?.tenant_id ?? 0);
 
 	type Toko = {
 		id: number;
@@ -36,11 +35,10 @@
 	let cabangByToko = $state<Record<number, Cabang[]>>({});
 	let expandedToko = $state<number | null>(null);
 
-	// ── SlideOver form ─────────────────────────────────────────────────────────
 	type SlideMode = null | 'tambahToko' | 'editToko' | 'tambahCabang' | 'editCabang';
 	let slide = $state<SlideMode>(null);
-	let slideTokoId = $state<number | null>(null); // konteks cabang
-	let slideEditId = $state<number | null>(null); // id toko/cabang yang diedit
+	let slideTokoId = $state<number | null>(null);
+	let slideEditId = $state<number | null>(null);
 
 	let formToko = $state({ kode_toko: '', nama: '', alamat: '' });
 	let formCabang = $state({ kode_cabang: '', nama: '', alamat: '' });
@@ -53,11 +51,11 @@
 			editCabang: 'Edit Cabang'
 		}[slide ?? 'tambahToko'] ?? ''
 	);
+
 	function closeSlide() {
 		slide = null;
 	}
 
-	// ── Konfirmasi soft-delete (nonaktifkan) ─────────────────────────────────────
 	let konfirmBuka = $state(false);
 	let konfirmJudul = $state('');
 	let konfirmPesan = $state('');
@@ -89,7 +87,6 @@
 		}
 	}
 
-	// ── Toko ─────────────────────────────────────────────────────────────────────
 	function openTambahToko() {
 		formToko = { kode_toko: '', nama: '', alamat: '' };
 		slide = 'tambahToko';
@@ -158,7 +155,6 @@
 		);
 	}
 
-	// ── Cabang ─────────────────────────────────────────────────────────────────────
 	function openTambahCabang(tokoId: number) {
 		slideTokoId = tokoId;
 		formCabang = { kode_cabang: '', nama: '', alamat: '' };
@@ -240,10 +236,9 @@
 	});
 </script>
 
-<PageHeader judul={saas ? 'Manajemen Cabang' : 'Manajemen Toko & Cabang'} />
-
 {#if saas}
-	<div class="mx-auto max-w-2xl space-y-4">
+	<div class="space-y-4">
+		<SectionDemo />
 		<SectionCard judul="Daftar Cabang">
 			{#snippet aksi()}
 				<Button size="xs" onclick={() => openTambahCabang(tenantId)}>+ Tambah</Button>
@@ -279,7 +274,7 @@
 		</SectionCard>
 	</div>
 {:else}
-	<div class="mx-auto max-w-2xl space-y-4">
+	<div class="space-y-4">
 		<SectionCard judul="Daftar Toko">
 			<div class="mb-2 flex justify-end">
 				<Button size="xs" onclick={openTambahToko}>+ Tambah Toko</Button>
@@ -332,7 +327,11 @@
 											Nonaktifkan
 										</Button>
 									{:else}
-										<Button variant="ghost" size="xs" onclick={() => setAktifCabang(t.id, c, true)}>
+										<Button
+											variant="ghost"
+											size="xs"
+											onclick={() => setAktifCabang(t.id, c, true)}
+										>
 											Aktifkan
 										</Button>
 									{/if}

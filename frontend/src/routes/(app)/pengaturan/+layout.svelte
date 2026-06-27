@@ -10,8 +10,7 @@
 		{ key: 'struk', label: 'Preview Struk' },
 		{ key: 'notifikasi', label: 'Notifikasi' },
 		{ key: 'audit', label: 'Audit Trail' },
-		{ key: 'info-server', label: 'Info Server' },
-		{ key: 'toko', label: 'Toko & Cabang' }
+		{ key: 'info-server', label: 'Info Server' }
 	];
 
 	const HREF: Record<string, string> = {
@@ -19,8 +18,7 @@
 		struk: '/pengaturan/struk',
 		notifikasi: '/pengaturan/notifikasi',
 		audit: '/pengaturan/audit',
-		'info-server': '/pengaturan/info-server',
-		toko: '/pengaturan/toko'
+		'info-server': '/pengaturan/info-server'
 	};
 
 	const activeTab = $derived(

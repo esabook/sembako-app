@@ -47,6 +47,21 @@
 
 	const MODE_ORDER: KasirMode[] = ['guided', 'normal', 'pro'];
 	const MODE_LABEL: Record<KasirMode, string> = { guided: 'GUIDED', normal: 'NORMAL', pro: 'PRO' };
+	const BT_PROCESS_BAYAR_LABEL: Record<KasirMode, string> = {
+		guided: 'F10 · PROSES BAYAR',
+		normal: 'PROSES BAYAR',
+		pro: 'F10'
+	};
+	const BT_BUKA_SHIFT_LABEL: Record<KasirMode, string> = {
+		guided: 'F11 · Buka Shift ⚠',
+		normal: 'Buka Shift ⚠',
+		pro: 'F11'
+	};
+	const BT_TUTUP_SHIFT_LABEL: Record<KasirMode, string> = {
+		guided: 'F11 · Shift ',
+		normal: 'Shift ',
+		pro: 'F11'
+	};
 
 	function cycleMode() {
 		const cur = $kasirMode;
@@ -549,7 +564,7 @@
 					class="rounded border px-3 py-1 text-xs transition-all"
 					style="border-color:var(--accent);color:var(--accent)"
 				>
-					{$kasirMode === 'pro' ? 'F11' : `F11 · Shift ${shiftAktif.jam_buka}`}
+					{BT_TUTUP_SHIFT_LABEL[$kasirMode] + ($kasirMode !== 'pro' ? shiftAktif.jam_buka : '')}
 				</button>
 			{:else}
 				<button
@@ -557,7 +572,7 @@
 					class="rounded border px-3 py-1 text-xs font-bold transition-all"
 					style="border-color:var(--warn);color:var(--warn)"
 				>
-					{$kasirMode === 'pro' ? 'F11' : 'F11 · Buka Shift ⚠'}
+					{BT_BUKA_SHIFT_LABEL[$kasirMode]}
 				</button>
 			{/if}
 
@@ -568,7 +583,7 @@
 					class="rounded px-4 py-1.5 text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
 					style="background:var(--accent);color:var(--bg)"
 				>
-					{$kasirMode === 'pro' ? 'F10' : 'F10 · PROSES BAYAR'}
+					{BT_PROCESS_BAYAR_LABEL[$kasirMode]}
 				</button>
 			{/if}
 
@@ -576,7 +591,7 @@
 			{#if $draftStatus === 'saving'}
 				<span class="font-mono text-xs" style="color:var(--text-dim)">Menyimpan...</span>
 			{:else if $draftStatus === 'saved'}
-				<span class="font-mono text-xs" style="color:var(--text-dim)">✓ Tersimpan</span>
+				<span class="font-mono text-xs" style="color:var(--text-dim)">✓Tersimpan</span>
 			{:else if $draftStatus === 'error'}
 				<span class="font-mono text-xs" style="color:var(--danger)">Gagal simpan</span>
 			{/if}

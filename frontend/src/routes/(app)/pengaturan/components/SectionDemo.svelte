@@ -15,7 +15,7 @@
 		  };
 
 	let status = $state<DemoStatus | null>(null);
-	let isDemo = $state(false);
+	let isDemo = $state(true);
 	let loadingStatus = $state(true);
 	let generating = $state(false);
 	let deleting = $state(false);
