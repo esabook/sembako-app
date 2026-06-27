@@ -27,6 +27,21 @@ Browser → /api/* → Pages Function (_worker.js)
 
 Keuntungan: URL backend tidak ter-bake di bundle, cukup set `BACKEND_URL` di wrangler.toml tanpa rebuild.
 
+### Pengecualian: WebSocket scan-relay
+
+Proxy `/api/*` (Pages Function) **tidak bisa** mem-forward upgrade WebSocket (101) —
+SvelteKit server route mem-buffer body. Jadi untuk scan-relay real-time, browser konek
+**langsung** ke backend Workers via `PUBLIC_WS_URL`, melewati proxy:
+
+```
+Browser → GET /api/scan-relay/ws-ticket   → proxy → backend (mint ticket JWT 60s, cookie)
+Browser → wss://PUBLIC_WS_URL/scan-relay/ws/:id?ticket=…   (LANGSUNG ke Workers, Durable Object)
+```
+
+Karena cookie `auth_token` httpOnly tak ikut WS cross-domain, auth WS pakai ticket
+(bukan cookie). Hanya aktif saat `PUBLIC_DEPLOYMENT_MODE=online` + `PUBLIC_WS_URL` di-set;
+mode LAN/offline pakai long-poll lewat proxy biasa. Detail backend: [`doc/backend/deploy_wrangler.md`](../backend/deploy_wrangler.md#real-time-scan-relay-durable-object--websocket-hibernation).
+
 ---
 
 ## Urutan Deploy (Chicken-Egg)
@@ -62,9 +77,13 @@ Edit `frontend/wrangler.toml`, isi URL backend CF Workers:
 [vars]
 PUBLIC_DEPLOYMENT_MODE = "online"
 BACKEND_URL = "https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev"
+# Origin WS scan-relay — browser konek langsung (bypass proxy). Pakai skema wss://
+PUBLIC_WS_URL = "wss://stokasir-backend.YOUR-SUBDOMAIN.workers.dev"
 ```
 
 `BACKEND_URL` adalah server-side private var — tidak terekspos ke browser.
+`PUBLIC_WS_URL` **publik** (browser butuh untuk konek WS langsung) — isi origin backend
+yang sama, skema `wss://`.
 
 ### 2. Update FRONTEND_URL di backend
 
@@ -125,8 +144,9 @@ bunx wrangler pages deploy .svelte-kit/cloudflare --project-name=stokasir-fronte
 
 | Key | Scope | Kapan dibaca | Keterangan |
 |-----|-------|-------------|-----------|
-| `PUBLIC_DEPLOYMENT_MODE` | Runtime `[vars]` | Server saat request | `"online"` aktifkan marketing |
+| `PUBLIC_DEPLOYMENT_MODE` | Runtime `[vars]` | Server saat request | `"online"` aktifkan marketing + transport WS scan-relay |
 | `BACKEND_URL` | Runtime `[vars]` | Server saat request (proxy) | URL Workers backend — private |
+| `PUBLIC_WS_URL` | Runtime `[vars]` | Browser (client) | Origin `wss://` backend untuk WS scan-relay langsung. Kosong = long-poll |
 | `PUBLIC_UMAMI_SRC` | Runtime `[vars]` | Server saat request | URL script Umami analytics |
 | `PUBLIC_UMAMI_ID` | Runtime `[vars]` | Server saat request | Dataset ID Umami |
 
@@ -140,6 +160,7 @@ bunx wrangler pages deploy .svelte-kit/cloudflare --project-name=stokasir-fronte
 [env.preview.vars]
 PUBLIC_DEPLOYMENT_MODE = "online"
 BACKEND_URL = "https://stokasir-backend.YOUR-SUBDOMAIN.workers.dev"
+PUBLIC_WS_URL = "wss://stokasir-backend.YOUR-SUBDOMAIN.workers.dev"
 ```
 
 ### Set vars via dashboard (override wrangler.toml)

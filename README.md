@@ -1,6 +1,6 @@
 # Stokasir
 
-Aplikasi manajemen stok-kasir grosir & eceran — berbasis web, multi-toko, multi-cabang. Jalan di jaringan WiFi lokal (Raspberry Pi) atau cloud (Turso/Supabase/Railway).
+Aplikasi manajemen stok-kasir grosir & eceran — berbasis web, multi-toko, multi-cabang. Jalan di jaringan WiFi lokal (Raspberry Pi) atau cloud (Cloudflare Workers + D1, Turso, Supabase, Railway).
 
 ---
 
@@ -37,7 +37,8 @@ Aplikasi manajemen stok-kasir grosir & eceran — berbasis web, multi-toko, mult
 | Database | SQLite / Turso (libSQL) / PostgreSQL / MySQL via Drizzle ORM |
 | Auth | JWT (httpOnly cookie) · RBAC 6 role |
 | Storage | Local disk (`uploads/`) atau S3/R2/MinIO |
-| Deployment | Raspberry Pi · Nginx · systemd — atau cloud (Turso + Railway/Fly.io) |
+| Real-time | Scan-relay HP↔kasir — long-poll (LAN) / Durable Object + WebSocket Hibernation (Cloudflare) |
+| Deployment | Raspberry Pi · Nginx · systemd — atau cloud (Cloudflare Workers + Pages + D1, atau Turso + Railway/Fly.io) |
 
 ---
 
@@ -72,6 +73,8 @@ cd backend && bun run db:studio   # → http://local.drizzle.studio
 |---|---|
 | Raspberry Pi / Linux / Mac / Windows (lokal) | [DEPLOYMENT.md](doc/DEPLOYMENT.md) |
 | Turso · PostgreSQL · Cloud storage · D1 Storage | [DEPLOYMENT.md](doc/DEPLOYMENT.md) |
+| Cloudflare Workers + D1 (backend) | [doc/backend/deploy_wrangler.md](doc/backend/deploy_wrangler.md) |
+| Cloudflare Pages (frontend) | [doc/frontend/deploy_wrangler.md](doc/frontend/deploy_wrangler.md) |
 
 ---
 
@@ -84,6 +87,7 @@ stokasir/
 │   └── src/
 │       ├── routes/      ← API endpoints
 │       ├── db/          ← schema, migrations, builders (multi-dialect)
+│       ├── do/          ← Durable Objects (scan-relay WS, mode Cloudflare)
 │       ├── middleware/  ← auth, tenant, upload
 │       └── utils/       ← storage, backup, audit, log
 ├── claude/          ← Dokumentasi konteks untuk Claude Code
