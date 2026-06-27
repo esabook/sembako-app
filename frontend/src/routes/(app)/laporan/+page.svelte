@@ -96,7 +96,7 @@
 	/>
 </div>
 
-{#if store.labaRugi === null && store.arusKas === null && store.neraca === null && store.aging === null && store.budgetRealisasi === null && store.pajakUmkm === null && store.marginProduk === null && store.perbandingan === null && store.persediaan === null && store.topPelanggan === null && store.pembelianSupplier === null && store.rekapPenggajian === null && store.analitikJam === null}
+{#if !store.tabsLoaded.has(tab)}
 	<div style="padding:1.25rem; display:flex; flex-direction:column; gap:.75rem">
 		{#each { length: 6 } as _, i (i)}
 			<div style="display:flex; gap:1rem; align-items:center">

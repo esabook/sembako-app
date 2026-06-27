@@ -54,6 +54,9 @@ export function createLaporanStore() {
 
   const cabangParam = $derived(selectedCabang ? `&cabang_id=${selectedCabang}` : '')
 
+  // ── Tab load tracking (untuk skeleton) ────────────────────────────────────
+  let tabsLoaded = $state(new Set<TabKey>())
+
   // ── Load functions ─────────────────────────────────────────────────────────
 
   async function muatCabang() {
@@ -165,19 +168,23 @@ export function createLaporanStore() {
   }
 
   async function muat(tab: TabKey) {
-    if (tab === 'laba-rugi') await muatLabaRugi()
-    else if (tab === 'arus-kas') await muatArusKas()
-    else if (tab === 'neraca') await muatNeraca()
-    else if (tab === 'aging') await muatAging()
-    else if (tab === 'budget-realisasi') await muatBudgetRealisasi()
-    else if (tab === 'pajak-umkm') await muatPajakUmkm()
-    else if (tab === 'margin-produk') await muatMarginProduk()
-    else if (tab === 'perbandingan') await muatPerbandingan()
-    else if (tab === 'persediaan') await muatPersediaan()
-    else if (tab === 'top-pelanggan') await muatTopPelanggan()
-    else if (tab === 'pembelian-supplier') await muatPembelianSupplier()
-    else if (tab === 'rekap-penggajian') await muatRekapPenggajian()
-    else if (tab === 'analitik-jam') await muatAnalitikJam()
+    try {
+      if (tab === 'laba-rugi') await muatLabaRugi()
+      else if (tab === 'arus-kas') await muatArusKas()
+      else if (tab === 'neraca') await muatNeraca()
+      else if (tab === 'aging') await muatAging()
+      else if (tab === 'budget-realisasi') await muatBudgetRealisasi()
+      else if (tab === 'pajak-umkm') await muatPajakUmkm()
+      else if (tab === 'margin-produk') await muatMarginProduk()
+      else if (tab === 'perbandingan') await muatPerbandingan()
+      else if (tab === 'persediaan') await muatPersediaan()
+      else if (tab === 'top-pelanggan') await muatTopPelanggan()
+      else if (tab === 'pembelian-supplier') await muatPembelianSupplier()
+      else if (tab === 'rekap-penggajian') await muatRekapPenggajian()
+      else if (tab === 'analitik-jam') await muatAnalitikJam()
+    } finally {
+      tabsLoaded = new Set(tabsLoaded).add(tab)
+    }
   }
 
   // ── Export CSV ─────────────────────────────────────────────────────────────
@@ -253,6 +260,7 @@ export function createLaporanStore() {
     get cabangList() { return cabangList },
     get selectedCabang() { return selectedCabang },
     set selectedCabang(v) { selectedCabang = v },
+    get tabsLoaded() { return tabsLoaded },
     // actions
     toggleAgingExpanded(key: string) { agingExpanded[key] = !agingExpanded[key] },
     muatCabang,
