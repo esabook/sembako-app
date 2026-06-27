@@ -1686,12 +1686,17 @@ export async function purgeTokoById(t: number): Promise<void> {
     .select({ id: draft_keranjang.id })
     .from(draft_keranjang)
     .where(inArray(draft_keranjang.kasir_id, karyawanSub))
+  // Subquery barang tenant ini — draft_keranjang_item bisa cross-tenant
+  // jika sesi kasir toko lain pernah pakai barang dari tenant ini.
+  const barangSub = db.select({ id: barang.id }).from(barang).where(eq(barang.tenant_id, t))
 
   return withTransaction(async () => {
     // Hapus child-first, ikuti urutan FK
     // Tabel tanpa tenant_id (di-scope via FK karyawan/draft/rule) + tenant tail
     // yang sebelumnya luput → hapus paling awal selagi parent masih ada.
-    await execDel('draft_keranjang_item', db.delete(draft_keranjang_item).where(inArray(draft_keranjang_item.draft_id, draftSub)))
+    await execDel('draft_keranjang_item', db.delete(draft_keranjang_item).where(
+      or(inArray(draft_keranjang_item.draft_id, draftSub), inArray(draft_keranjang_item.barang_id, barangSub))
+    ))
     await execDel('draft_keranjang', db.delete(draft_keranjang).where(inArray(draft_keranjang.kasir_id, karyawanSub)))
     await execDel('penjualan_detail_modifier', db.delete(penjualan_detail_modifier).where(eq(penjualan_detail_modifier.tenant_id, t)))
     await execDel('retur_penjualan_tukar', db.delete(retur_penjualan_tukar).where(eq(retur_penjualan_tukar.tenant_id, t)))
