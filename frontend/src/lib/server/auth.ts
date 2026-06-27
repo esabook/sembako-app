@@ -12,6 +12,8 @@ export type AuthUser = {
 	cabang_id?: number | null
 	saas?: boolean
 	onboarding_selesai?: boolean
+	status_toko?: string | null
+	sisa_hari_hapus?: number | null
 }
 
 /**
@@ -55,6 +57,16 @@ export async function optionalUser(token: string | undefined): Promise<AuthUser 
 		return json.data as AuthUser
 	} catch {
 		return null
+	}
+}
+
+/**
+ * Toko yang dinonaktifkan atau dijadwalkan dihapus diarahkan ke /toko-terkunci.
+ * Cukup cek dari user object yang sudah di-load oleh requireUser.
+ */
+export async function gateTokoTerkunci(user: AuthUser): Promise<void> {
+	if (user.status_toko === 'deactivated' || user.sisa_hari_hapus !== null && user.sisa_hari_hapus !== undefined) {
+		redirect(302, '/toko-terkunci')
 	}
 }
 

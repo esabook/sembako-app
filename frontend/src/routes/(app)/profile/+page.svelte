@@ -159,7 +159,7 @@
 		alasan = alasan.includes(a) ? alasan.filter((x) => x !== a) : [...alasan, a];
 	}
 
-	// Konfirmasi destruktif: kirim password + alasan. Nonaktif → logout.
+	// Konfirmasi destruktif: kirim password + alasan. Keduanya → paksa logout.
 	async function submitDestruktif() {
 		if (!dlgMode || !konfirmasiPw) return;
 		const mode = dlgMode;
@@ -172,14 +172,13 @@
 		}
 		dlgMode = null;
 		if (mode === 'nonaktif') {
-			toast.sukses('Toko dinonaktifkan.');
-			await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-			await invalidateAll();
-			goto('/');
+			toast.sukses('Toko dinonaktifkan. Kamu akan keluar.');
 		} else {
-			toast.sukses('Penghapusan dijadwalkan (30 hari).');
-			await muat();
+			toast.sukses('Penghapusan dijadwalkan (30 hari). Kamu akan keluar.');
 		}
+		await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+		await invalidateAll();
+		goto('/');
 	}
 
 	onMount(muat);

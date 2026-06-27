@@ -1,5 +1,5 @@
 import type { LayoutServerLoad } from './$types'
-import { requireUser, gateOnboarding } from '$lib/server/auth'
+import { requireUser, gateOnboarding, gateTokoTerkunci } from '$lib/server/auth'
 
 export const load: LayoutServerLoad = async ({ cookies, url }) => {
 	const token = cookies.get('auth_token')
@@ -9,6 +9,9 @@ export const load: LayoutServerLoad = async ({ cookies, url }) => {
 	if (!url.pathname.startsWith('/onboarding')) {
 		await gateOnboarding(token as string, user)
 	}
+
+	// Toko nonaktif/dijadwalkan hapus → blokir akses (app), arahkan ke halaman status.
+	await gateTokoTerkunci(user)
 
 	return { user }
 }
