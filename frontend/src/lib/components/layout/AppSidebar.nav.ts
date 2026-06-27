@@ -262,7 +262,7 @@ export const NAV_GROUPS: NavGroup[] = [
 	},
 	{
 		key: 'sistem',
-		label: 'Sistem',
+		label: 'Pengaturan',
 		items: [
 			{
 				href: '/profile',
@@ -276,7 +276,7 @@ export const NAV_GROUPS: NavGroup[] = [
 			},
 			{
 				href: '/pengaturan',
-				label: 'Pengaturan',
+				label: 'Aplikasi',
 				roles: ['pemilik'],
 				icon: 'Settings',
 				sub: [

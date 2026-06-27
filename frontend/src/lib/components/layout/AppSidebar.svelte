@@ -119,7 +119,7 @@
 
 	// --- Resizable sidebar ---
 	const ICON_W = 2.75;
-	const EXPANDED_W = 13;
+	const EXPANDED_W = 15;
 	const MIN_W = ICON_W;
 	const MAX_W = 20;
 	const SIDEBAR_W_KEY = 'sidebar_custom_width';
@@ -523,6 +523,7 @@
 						</div>
 					{/if}
 				{/each}
+				<div class="h-6"></div>
 			{/if}
 		{/each}
 	</nav>
