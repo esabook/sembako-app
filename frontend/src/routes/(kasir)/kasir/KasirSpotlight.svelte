@@ -15,6 +15,7 @@
 	} from './kasir.store';
 	import { rupiah } from './kasir.logic';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
+	import Skeleton from '$lib/components/ui/Skeleton.svelte';
 	import Scanner from '$lib/components/Scanner.svelte';
 	import ScanBarcode from '@lucide/svelte/icons/scan-barcode';
 	import { thumbUrl } from '$lib/utils/upload.js';
@@ -215,6 +216,19 @@
 						</div>
 					</div>
 				</button>
+			{/each}
+		</div>
+	{:else if $cariLoading && $searchVal}
+		<div class="flex flex-col divide-y" style="divide-color:var(--border)">
+			{#each { length: 4 } as _}
+				<div class="flex items-center gap-2 px-2 py-3">
+					<div class="h-8 w-8 shrink-0 rounded" style="background:var(--surface2)"></div>
+					<div class="flex flex-1 flex-col gap-1.5">
+						<Skeleton w="60%" h="0.75rem" />
+						<Skeleton w="40%" h="0.75rem" />
+					</div>
+					<Skeleton w="3.5rem" h="0.75rem" />
+				</div>
 			{/each}
 		</div>
 	{:else if $searchVal && !$cariLoading}

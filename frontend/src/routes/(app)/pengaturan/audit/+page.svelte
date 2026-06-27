@@ -40,9 +40,11 @@
 
 	let rows = $state<LogRow[]>([]);
 	let total = $state(0);
-	let page = $state(1);
-	const PER_PAGE = 50;
+	let currentPage = $state(1);
+	let pageSize = $state(50);
 	let loading = $state(false);
+	let filterVersion = $state(0);
+	let ready = $state(false);
 
 	let filterModul = $state('');
 	let filterAksi = $state('');
@@ -55,12 +57,10 @@
 
 	let detailItem = $state<LogRow | null>(null);
 
-	const totalPages = $derived(Math.max(1, Math.ceil(total / PER_PAGE)));
-
-	function buildQuery(p = page) {
+	function buildQuery() {
 		const params = new URLSearchParams();
-		params.set('page', String(p));
-		params.set('per_page', String(PER_PAGE));
+		params.set('page', String(currentPage));
+		params.set('per_page', String(pageSize));
 		if (filterModul) params.set('modul', filterModul);
 		if (filterAksi) params.set('aksi', filterAksi);
 		if (filterKaryawanId) params.set('karyawan_id', filterKaryawanId);
@@ -69,11 +69,10 @@
 		return params.toString();
 	}
 
-	async function muat(p = 1) {
+	async function muat() {
 		loading = true;
-		page = p;
 		const r = await api.get<{ rows: LogRow[]; total: number; page: number }>(
-			`/audit?${buildQuery(p)}`
+			`/audit?${buildQuery()}`
 		);
 		if (r.success) {
 			rows = r.data.rows;
@@ -83,6 +82,11 @@
 		}
 		loading = false;
 	}
+
+	$effect(() => {
+		currentPage; pageSize; filterVersion;
+		if (ready) muat();
+	});
 
 	async function muatMeta() {
 		const [k, m] = await Promise.all([
@@ -99,7 +103,8 @@
 		filterKaryawanId = '';
 		filterDari = '';
 		filterSampai = '';
-		muat(1);
+		currentPage = 1;
+		filterVersion++;
 	}
 
 	function exportCsv() {
@@ -154,11 +159,11 @@
 		{ key: 'ip_address', label: 'IP', sortable: false, priority: 3 }
 	];
 
-	const onFilterChange = debounce(() => muat(1), 400);
+	const onFilterChange = debounce(() => { currentPage = 1; filterVersion++; }, 400);
 
 	onMount(() => {
 		muatMeta();
-		muat(1);
+		muat().then(() => { ready = true; });
 		return () => onFilterChange.cancel();
 	});
 </script>
@@ -250,7 +255,10 @@
 	<!-- Tabel -->
 	<DataTable
 		columns={AUDIT_COLUMNS}
+		totalRows={total}
 		rowCount={loading ? 1 : rows.length}
+		bind:currentPage
+		bind:pageSize
 		emptyText={filterModul || filterAksi || filterKaryawanId || filterDari || filterSampai
 			? 'Tidak ada log untuk filter ini'
 			: 'Belum ada log aktivitas'}
@@ -335,30 +343,6 @@
 		{/snippet}
 	</DataTable>
 
-	<!-- Pagination -->
-	{#if totalPages > 1}
-		<div class="flex items-center justify-center gap-2 text-xs">
-			<button
-				onclick={() => muat(page - 1)}
-				disabled={page <= 1}
-				class="rounded border px-3 py-1"
-				style="border-color:var(--border);color:{page <= 1 ? 'var(--text-dim)' : 'var(--text)'}"
-			>
-				← Prev
-			</button>
-			<span style="color:var(--text-dim)">Halaman {page} / {totalPages}</span>
-			<button
-				onclick={() => muat(page + 1)}
-				disabled={page >= totalPages}
-				class="rounded border px-3 py-1"
-				style="border-color:var(--border);color:{page >= totalPages
-					? 'var(--text-dim)'
-					: 'var(--text)'}"
-			>
-				Next →
-			</button>
-		</div>
-	{/if}
 </div>
 
 <!-- Modal Detail -->

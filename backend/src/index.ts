@@ -8,7 +8,7 @@ import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { logger } from 'hono/logger';
 import { env } from './config/env.ts';
-import { db, dialect, query } from './db/index.ts';
+import { db, demoDb, dialect, prodDb, query } from './db/index.ts';
 import { hashPassword } from './utils/password.ts';
 import { karyawan, kas_bank, platform_admin, toko } from './db/schema.ts';
 import { initAnalyticsTap } from './lib/analytics-tap.ts';
@@ -133,8 +133,12 @@ app.use('*', langgananMiddleware);
 // Mencegah analytics/SOP handler di-cut off oleh CF Workers saat request lifecycle selesai.
 app.use('*', async (c, next) => {
   await next();
-  const ctx = (c as unknown as { executionCtx?: { waitUntil(p: Promise<unknown>): void } }).executionCtx;
-  if (ctx?.waitUntil) bus.flushPending((p) => ctx.waitUntil(p));
+  try {
+    const ctx = c.executionCtx;
+    if (ctx?.waitUntil) bus.flushPending((p) => ctx.waitUntil(p));
+  } catch {
+    // No ExecutionContext in local Bun/Node dev — skip waitUntil
+  }
 });
 
 app.route('/auth', authRouter);
@@ -196,7 +200,9 @@ app.route('/demo', demoRouter);
 // Auto-migrate saat startup — aman dijalankan berulang, hanya apply yang belum
 if (dialect === 'sqlite') {
 	const migrationsFolder = env.migrationsDir;
-	migrate(db as any, { migrationsFolder });
+	migrate(prodDb() as any, { migrationsFolder });
+	// DB demo terpisah — migrate juga agar sandbox siap pakai.
+	migrate(demoDb() as any, { migrationsFolder });
 }
 console.log('Database migrations OK');
 

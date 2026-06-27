@@ -2,18 +2,20 @@
 
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { env } from '$env/dynamic/public';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
 	import QRCode from 'qrcode';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type ServerInfo = {
+		mode?: 'local' | 'cloud';
 		lan_ips: string[];
-		port_frontend: number;
-		port_backend: number;
-		bun_version: string;
+		port_frontend: number | null;
+		port_backend: number | null;
+		bun_version: string | null;
 		platform: string;
-		uptime_detik: number;
+		uptime_detik: number | null;
 		app_version: string;
 		last_commit_date?: string;
 	};
@@ -24,15 +26,49 @@
 	let selectedIp = $state('');
 	let backendStatus = $state<'checking' | 'online' | 'offline'>('checking');
 
-	// URL untuk HP: pakai IP LAN dari backend, bukan localhost
+	// Cloud jika backend bilang 'cloud' ATAU PUBLIC_API_URL diset (CF Pages)
+	const isCloud = $derived(() => {
+		if (info?.mode) return info.mode === 'cloud';
+		return !!env.PUBLIC_API_URL;
+	});
+
 	const urlUntukHp = $derived(() => {
 		if (!info) return '';
 		const host = window.location.hostname;
-		// Sudah diakses via IP LAN (bukan localhost) → pakai URL saat ini
-		if (host !== 'localhost' && host !== '127.0.0.1') return window.location.origin;
-		// Diakses via localhost → pakai IP LAN dari backend
+		// Cloud atau akses via IP LAN → pakai URL saat ini
+		if (isCloud() || (host !== 'localhost' && host !== '127.0.0.1')) return window.location.origin;
+		// Local via localhost → pakai IP LAN dari backend
 		if (!selectedIp) return '';
-		return `http://${selectedIp}:${info.port_frontend}`;
+		return `http://${selectedIp}:${info.port_frontend ?? 80}`;
+	});
+
+	const infoRows = $derived(() => {
+		if (!info) return [] as [string, string][];
+		const cloud = isCloud();
+		const origin = typeof window !== 'undefined' ? window.location.origin : '—';
+		if (cloud) {
+			return [
+				['IP LAN Server', '— (tidak berlaku)'],
+				['Status Backend', ''],
+				['URL Aplikasi', origin],
+				['Versi App', info.app_version],
+				['Build Date', info.last_commit_date ?? '—'],
+				['Runtime', info.bun_version ? `Bun ${info.bun_version}` : 'Node.js / Edge'],
+				['Platform', info.platform],
+			] as [string, string][];
+		}
+		return [
+			['IP LAN Server', info.lan_ips.length ? info.lan_ips.join(', ') : '—'],
+			['Port Aplikasi', info.port_frontend != null ? String(info.port_frontend) : '—'],
+			['Port Backend API', info.port_backend != null ? String(info.port_backend) : '—'],
+			['Status Backend', ''],
+			['URL Saat Ini', origin],
+			['Versi App', info.app_version],
+			['Build Date', info.last_commit_date ?? '—'],
+			['Runtime', info.bun_version ? `Bun ${info.bun_version}` : '—'],
+			['Platform', info.platform],
+			['Uptime Server', info.uptime_detik != null ? formatUptime(info.uptime_detik) : '—'],
+		] as [string, string][];
 	});
 
 	function formatUptime(detik: number): string {
@@ -135,19 +171,33 @@
 	<div class="rounded-lg border p-4 space-y-3" style="background:var(--surface);border-color:var(--border)">
 		<p class="text-sm font-bold" style="color:var(--text)">Panduan Koneksi HP</p>
 		<ol class="space-y-2">
-			{#each [
-				['1', 'Pastikan HP terhubung ke WiFi yang sama dengan server ini'],
-				['2', 'Buka aplikasi kamera HP → arahkan ke QR di atas'],
-				['3', 'Tap notifikasi yang muncul → browser akan membuka aplikasi'],
-				['4', 'Atau ketik manual URL di atas ke browser HP'],
-				['5', 'Login dengan akun yang diberikan pemilik'],
-			] as [no, langkah] (no)}
-				<li class="flex items-start gap-3 text-sm">
-					<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold mt-0.5"
-						style="background:var(--accent);color:#000">{no}</span>
-					<span style="color:var(--text-dim)">{langkah}</span>
-				</li>
-			{/each}
+			{#if isCloud()}
+				{#each [
+					['1', 'Buka URL di atas dari browser HP — tidak perlu WiFi yang sama'],
+					['2', 'Atau scan QR code di atas dengan kamera HP'],
+					['3', 'Login dengan akun yang diberikan pemilik'],
+				] as [no, langkah] (no)}
+					<li class="flex items-start gap-3 text-sm">
+						<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold mt-0.5"
+							style="background:var(--accent);color:#000">{no}</span>
+						<span style="color:var(--text-dim)">{langkah}</span>
+					</li>
+				{/each}
+			{:else}
+				{#each [
+					['1', 'Pastikan HP terhubung ke WiFi yang sama dengan server ini'],
+					['2', 'Buka aplikasi kamera HP → arahkan ke QR di atas'],
+					['3', 'Tap notifikasi yang muncul → browser akan membuka aplikasi'],
+					['4', 'Atau ketik manual URL di atas ke browser HP'],
+					['5', 'Login dengan akun yang diberikan pemilik'],
+				] as [no, langkah] (no)}
+					<li class="flex items-start gap-3 text-sm">
+						<span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold mt-0.5"
+							style="background:var(--accent);color:#000">{no}</span>
+						<span style="color:var(--text-dim)">{langkah}</span>
+					</li>
+				{/each}
+			{/if}
 		</ol>
 	</div>
 
@@ -157,18 +207,7 @@
 			<p class="text-sm font-bold" style="color:var(--text)">Info Jaringan & Sistem</p>
 			<table class="w-full text-sm">
 				<tbody>
-					{#each [
-						['IP LAN Server', info.lan_ips.length ? info.lan_ips.join(', ') : '—'],
-						['Port Aplikasi', String(info.port_frontend)],
-						['Port Backend API', String(info.port_backend)],
-						['Status Backend', ''],
-						['URL Saat Ini', typeof window !== 'undefined' ? window.location.origin : '—'],
-						['Versi App', info.app_version],
-						['Build Date', info.last_commit_date ?? '—'],
-						['Runtime', `Bun ${info.bun_version}`],
-						['Platform', info.platform],
-						['Uptime Server', formatUptime(info.uptime_detik)],
-					] as [label, val] (label)}
+					{#each infoRows() as [label, val] (label)}
 						<tr class="border-t" style="border-color:var(--border)">
 							<td class="py-1.5 pr-4 text-xs w-36" style="color:var(--text-dim)">{label}</td>
 							<td class="py-1.5 font-mono text-xs">

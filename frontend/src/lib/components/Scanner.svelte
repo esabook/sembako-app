@@ -38,6 +38,10 @@
 	}
 
 	async function start() {
+		if (!navigator.mediaDevices?.getUserMedia) {
+			statusMsg = 'Kamera tidak tersedia — buka halaman via HTTPS';
+			return;
+		}
 		try {
 			stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
 			if (!videoEl) return;
@@ -47,8 +51,11 @@
 			scanning = true;
 			const detector = await getDetector();
 			scanLoop(detector);
-		} catch {
-			statusMsg = 'Tidak bisa akses kamera. Periksa izin browser.';
+		} catch (e) {
+			const name = e instanceof DOMException ? e.name : '';
+			if (name === 'NotAllowedError') statusMsg = 'Akses kamera ditolak — izinkan di pengaturan browser';
+			else if (name === 'NotFoundError') statusMsg = 'Tidak ada kamera yang ditemukan';
+			else statusMsg = 'Tidak bisa akses kamera. Periksa izin browser.';
 		}
 	}
 
@@ -109,7 +116,7 @@
 
 		<!-- Viewfinder -->
 		<div class="relative w-full rounded overflow-hidden" style="aspect-ratio:4/3;background:#000;border:2px solid var(--accent)">
-			<video bind:this={videoEl} playsinline class="w-full h-full object-cover"></video>
+			<video bind:this={videoEl} autoplay playsinline muted class="w-full h-full object-cover"></video>
 			<!-- Aiming guide -->
 			<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
 				<div class="w-3/4 h-1/3 rounded" style="border:2px solid rgba(0,230,118,0.7);box-shadow:0 0 0 9999px rgba(0,0,0,0.4)">

@@ -2,25 +2,32 @@
 	import { onMount } from 'svelte';
 	import { api } from '$lib/utils/api';
 	import { toast } from '$lib/stores/ui.store';
+	import { invalidateToko } from '$lib/stores/toko-version';
 	import Spinner from '$lib/components/ui/Spinner.svelte';
 
 	type DemoStatus =
-		| { exists: false }
+		| { exists: false; legacy_prod?: boolean }
 		| {
 				exists: true;
 				toko_id: number;
 				jumlah_barang: number;
 				jumlah_penjualan: number;
 				jumlah_barang_masuk: number;
+				legacy_prod?: boolean;
 		  };
 
 	let status = $state<DemoStatus | null>(null);
-	let isDemo = $state(false);
+	let isDemo = $state(true);
 	let loadingStatus = $state(true);
 	let generating = $state(false);
 	let deleting = $state(false);
 	let confirmHapus = $state(false);
 	let masuk = $state(false);
+	let cleaningLegacy = $state(false);
+
+	// switch-context pakai id demo ber-offset (sama spt accessible-context di NavUser);
+	// /demo/status balikkan id asli → tambah offset agar tak 403. Harus == DEMO_ID_OFFSET backend.
+	const DEMO_ID_OFFSET = 1_000_000_000;
 
 	async function muatStatus() {
 		loadingStatus = true;
@@ -37,6 +44,7 @@
 		const res = await api.post<{ message: string; toko_id: number }>('/demo/generate', {});
 		if (res.success) {
 			toast.sukses('Data demo berhasil di-generate');
+			invalidateToko();
 			await muatStatus();
 		} else {
 			toast.error(res.error ?? 'Gagal generate data demo');
@@ -50,7 +58,10 @@
 		masuk = true;
 		const me = await api.get<{ tenant_id: number }>('/auth/me');
 		if (me.success) localStorage.setItem('home_tenant', String(me.data.tenant_id));
-		const sw = await api.post('/auth/switch-context', { toko_id: tokoId, cabang_id: null });
+		const sw = await api.post('/auth/switch-context', {
+			toko_id: tokoId + DEMO_ID_OFFSET,
+			cabang_id: null
+		});
 		if (sw.success) location.href = '/kasir';
 		else {
 			toast.error(sw.error ?? 'Gagal masuk mode demo');
@@ -64,11 +75,25 @@
 		if (res.success) {
 			confirmHapus = false;
 			toast.sukses('Data demo berhasil dihapus');
+			invalidateToko();
 			await muatStatus();
 		} else {
 			toast.error(res.error ?? 'Gagal menghapus data demo');
 		}
 		deleting = false;
+	}
+
+	async function bersihkanLegacy() {
+		cleaningLegacy = true;
+		const res = await api.delete<{ message: string }>('/demo/legacy');
+		if (res.success) {
+			toast.sukses('Data demo lama di prod berhasil dibersihkan');
+			invalidateToko();
+			await muatStatus();
+		} else {
+			toast.error(res.error ?? 'Gagal membersihkan data demo lama');
+		}
+		cleaningLegacy = false;
 	}
 
 	onMount(muatStatus);
@@ -177,6 +202,33 @@
 				{#if generating}<Spinner size={14} />{/if}
 				{generating ? 'Generating... (±5 detik)' : '⚡ Generate Data Demo'}
 			</button>
+		{/if}
+
+		{#if status?.legacy_prod}
+			<!-- Orphan demo lama nyangkut di prod (sebelum split DB) → bersihkan -->
+			<div
+				class="space-y-2 rounded border px-3 py-2 text-xs"
+				style="border-color:var(--warning, #f59e0b);background:rgba(245,158,11,.08)"
+			>
+				<p class="font-bold" style="color:var(--warning, #f59e0b)">
+					⚠ Ada sisa data demo lama
+				</p>
+				<p style="color:var(--text-dim)">
+					Toko demo dari versi sebelumnya masih ikut muncul di daftar toko Anda. Bersihkan agar
+					daftar toko kembali rapi. Anda tetap bisa membuat data demo baru kapan saja.
+				</p>
+				<button
+					onclick={bersihkanLegacy}
+					disabled={cleaningLegacy}
+					class="inline-flex items-center gap-2 rounded border px-4 py-2 font-medium"
+					style="border-color:var(--warning, #f59e0b);color:var(--warning, #f59e0b);background:transparent;cursor:{cleaningLegacy
+						? 'default'
+						: 'pointer'};opacity:{cleaningLegacy ? 0.6 : 1}"
+				>
+					{#if cleaningLegacy}<Spinner size={12} />{/if}
+					{cleaningLegacy ? 'Membersihkan...' : 'Bersihkan Data Demo Lama'}
+				</button>
+			</div>
 		{/if}
 	</section>
 {/if}

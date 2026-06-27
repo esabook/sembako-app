@@ -24,6 +24,8 @@
 		let tokoId: number | null = null;
 		const home = localStorage.getItem('home_tenant');
 		if (home) tokoId = Number(home);
+		// Guard: home_tenant corrupt (menunjuk ke toko demo saat ini) — abaikan, cari lewat API.
+		if (tokoId === me.tenant_id) tokoId = null;
 		if (!tokoId) {
 			const ctx = await api.get<{ id: number; nama: string }[]>('/auth/accessible-context');
 			if (ctx.success) tokoId = ctx.data.find((t) => t.id !== me!.tenant_id)?.id ?? null;
@@ -49,7 +51,7 @@
 	>
 		<span class="flex gap-2">
 			<FlaskConical size="1rem" />
-			MODE DEMO: Data contoh dari toko cabang-demo, toko asli Anda tidak terpengaruh.
+			MODE DEMO: Menggunakan data demo, toko asli Anda tidak terpengaruh.
 		</span>
 		<button
 			class="btn ml-auto flex btn-xs disabled:opacity-60"

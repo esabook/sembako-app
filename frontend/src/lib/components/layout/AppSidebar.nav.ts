@@ -262,17 +262,21 @@ export const NAV_GROUPS: NavGroup[] = [
 	},
 	{
 		key: 'sistem',
-		label: 'Sistem',
+		label: 'Pengaturan',
 		items: [
 			{
 				href: '/profile',
 				label: 'Profil & Akun',
 				roles: ['pemilik', 'manajer', 'kasir', 'gudang', 'sales', 'pelayanan'],
-				icon: 'CircleUserRound'
+				icon: 'CircleUserRound',
+				sub: [
+					{ key: 'profil', label: 'Profil & Akun', href: '/profile' },
+					{ key: 'toko', label: 'Toko & Cabang', href: '/profile/toko' }
+				]
 			},
 			{
 				href: '/pengaturan',
-				label: 'Pengaturan',
+				label: 'Aplikasi',
 				roles: ['pemilik'],
 				icon: 'Settings',
 				sub: [
@@ -280,8 +284,7 @@ export const NAV_GROUPS: NavGroup[] = [
 					{ key: 'struk', label: 'Preview Struk', href: '/pengaturan/struk' },
 					{ key: 'notifikasi', label: 'Notifikasi', href: '/pengaturan/notifikasi' },
 					{ key: 'audit', label: 'Audit Trail', href: '/pengaturan/audit' },
-					{ key: 'info-server', label: 'Info Server', href: '/pengaturan/info-server' },
-					{ key: 'toko', label: 'Toko & Cabang', href: '/pengaturan/toko' }
+					{ key: 'info-server', label: 'Info Server', href: '/pengaturan/info-server' }
 				]
 			}
 		]

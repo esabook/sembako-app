@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { connectScannerRelay, type ScannerRelayHandle } from '$lib/utils/scannerSse';
 
 	type Status = 'ready' | 'error' | 'no_session';
 	type Detector = { detect(v: HTMLVideoElement): Promise<{ rawValue: string }[]> };
@@ -12,20 +13,17 @@
 	let qty = $state(1);
 	let isCounterShow = $state(true);
 
-	// Sync qty dua arah dengan kasir.store dummyJumlah via /kasir-pre-qty
+	// Sync qty dua arah dengan kasir.store dummyJumlah via scan-relay
 	let _lastSyncedQtyFromKasir = 1;
+	let relayHandle: ScannerRelayHandle | null = null;
 
-	// Kirim qty update ke /kasir-pre-qty saat qty berubah (debounced, skip jika datang dari kasir)
+	// Kirim qty update saat qty berubah (debounced, skip jika datang dari kasir)
 	$effect(() => {
 		const currentQty = qty;
 		if (currentQty === _lastSyncedQtyFromKasir || !sessionId) return;
 		const timer = setTimeout(() => {
 			_lastSyncedQtyFromKasir = currentQty;
-			void fetch(`/api/scan-relay/kasir-pre-qty/${sessionId}`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ qty: currentQty })
-			}).catch(() => {});
+			relayHandle?.sendQty(currentQty);
 		}, 300);
 		return () => clearTimeout(timer);
 	});
@@ -95,37 +93,6 @@
 		await startCamera();
 	}
 
-	// Poll /kasir-pre-qty: pertama kali langsung dapat nilai saat ini (refresh),
-	// lalu long-poll sampai berubah (real-time sync)
-	async function preQtyPollLoop(sid: string, signal: AbortSignal) {
-		let knownQty: number | null = null;
-		while (!signal.aborted) {
-			try {
-				const url =
-					knownQty === null
-						? `/api/scan-relay/kasir-pre-qty/${sid}`
-						: `/api/scan-relay/kasir-pre-qty/${sid}?known=${knownQty}`;
-				const res = await fetch(url, { signal });
-				if (signal.aborted) break;
-				if (!res.ok) {
-					await new Promise((r) => setTimeout(r, 2000));
-					continue;
-				}
-				const body = (await res.json()) as { success: boolean; data: { qty: number } };
-				if (signal.aborted) break;
-				const received = body.data.qty;
-				knownQty = received;
-				if (received !== qty) {
-					_lastSyncedQtyFromKasir = received;
-					qty = received;
-				}
-			} catch {
-				if (signal.aborted) break;
-				await new Promise((r) => setTimeout(r, 2000));
-			}
-		}
-	}
-
 	onMount(() => {
 		sessionId = new URLSearchParams(window.location.search).get('s') ?? '';
 
@@ -138,8 +105,16 @@
 		document.addEventListener('touchstart', resetIdle, { passive: true });
 		startCamera();
 
-		const qtyAbort = new AbortController();
-		void preQtyPollLoop(sessionId, qtyAbort.signal);
+		// Terima update qty dari kasir (WS cloud / long-poll LAN). Kamera boleh dijeda,
+		// koneksi relay tetap hidup terpisah.
+		relayHandle = connectScannerRelay(sessionId, {
+			onQty: (received) => {
+				if (received !== qty) {
+					_lastSyncedQtyFromKasir = received;
+					qty = received;
+				}
+			}
+		});
 
 		return () => {
 			document.removeEventListener('touchstart', resetIdle);
@@ -147,7 +122,7 @@
 			if (idleTimer) clearInterval(idleTimer);
 			if (absenceTimer) clearTimeout(absenceTimer);
 			audioCtx?.close();
-			qtyAbort.abort();
+			relayHandle?.close();
 		};
 	});
 

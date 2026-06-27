@@ -595,7 +595,7 @@
 						<div class="flex justify-between px-1 text-sm">
 							<span style="color:var(--text-dim)">Kurang Bayar</span>
 							<span class="font-mono font-bold" style="color:var(--accent)"
-								>{rupiah($total - $nominalBayar)}</span
+								>{$total - $nominalBayar <= 0 ? '0' : rupiah($total - $nominalBayar)}</span
 							>
 						</div>
 
@@ -606,7 +606,7 @@
 						<div class="flex justify-between px-1 text-sm">
 							<span style="color:var(--text-dim)">Kembalian</span>
 							<span class="font-mono font-bold" style="color:var(--accent)"
-								>{rupiah($kembalian)}</span
+								>{$kembalian <= 0 ? '0' : rupiah($kembalian)}</span
 							>
 						</div>
 					</div>
@@ -639,7 +639,10 @@
 						Batal
 					</button>
 					<button
-						onclick={async () => { await newBill(); tutupCheckout(); }}
+						onclick={async () => {
+							await newBill();
+							tutupCheckout();
+						}}
 						class="w-full rounded border py-2 text-sm transition-all sm:flex-1"
 						style="border-color:var(--border);color:var(--text-dim)"
 					>

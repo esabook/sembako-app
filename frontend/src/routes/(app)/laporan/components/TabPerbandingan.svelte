@@ -4,6 +4,7 @@
 
 	import DateRangePicker from '$lib/components/ui/daterangepicker/daterangepicker.svelte';
 	import ChartKartu from '$lib/components/chart/ChartKartu.svelte';
+	import ChartBatang from '$lib/components/chart/ChartBatang.svelte';
 	let { store }: { store: ReturnType<typeof createLaporanStore> } = $props();
 
 	const delta = (a: number, b: number) => b - a;
@@ -33,9 +34,28 @@
 	>
 </div>
 
+{#await store.perbandinganPromise}
+	<div style="display:flex; flex-direction:column; gap:.75rem; padding:1.25rem">
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:70%"></div>
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:45%"></div>
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:58%"></div>
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:30%"></div>
+		<div style="height:.75rem; border-radius:4px; background:var(--surface2); width:65%"></div>
+	</div>
+{:then}
 <ChartKartu kosong={!store.perbandingan} pesanKosong="Pilih dua periode lalu klik Bandingkan.">
 	{#if store.perbandingan}
 		{@const { p1, p2 } = store.perbandingan}
+		{@const p1Data = [
+			{ label: 'Penjualan', nilai: p1.penjualan.bersih },
+			{ label: 'Laba Kotor', nilai: p1.laba_kotor },
+			{ label: 'Laba Bersih', nilai: Math.max(0, p1.laba_bersih) }
+		]}
+		{@const p2Data = [
+			{ label: 'Penjualan', nilai: p2.penjualan.bersih },
+			{ label: 'Laba Kotor', nilai: p2.laba_kotor },
+			{ label: 'Laba Bersih', nilai: Math.max(0, p2.laba_bersih) }
+		]}
 		<div style="max-width:760px">
 		<div style="text-align:center; margin-bottom:1.5rem">
 			<div style="font-size:1rem; font-weight:700; color:var(--text)">PERBANDINGAN PERIODE</div>
@@ -113,6 +133,19 @@
 		<p style="font-size:.72rem; color:var(--text-dim); margin-top:.6rem">
 			* Margin merupakan estimasi berdasarkan HPP rata-rata saat ini.
 		</p>
+
+		<!-- Visual P1 vs P2 -->
+		<div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-top:2rem">
+			<div>
+				<div style="font-size:.72rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem">P1 — {tglFmt(p1.periode.dari)}</div>
+				<ChartBatang data={p1Data} x="label" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={140} />
+			</div>
+			<div>
+				<div style="font-size:.72rem; font-weight:700; color:var(--info); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem">P2 — {tglFmt(p2.periode.dari)}</div>
+				<ChartBatang data={p2Data} x="label" y="nilai" formatNilai={(v) => `Rp ${fmt(v)}`} tinggi={140} warna="var(--info)" />
+			</div>
+		</div>
 		</div>
 	{/if}
 </ChartKartu>
+{/await}

@@ -29,7 +29,8 @@ async function proxy(event: RequestEvent): Promise<Response> {
 		body = await request.arrayBuffer()
 	}
 
-	const backendRes = await fetch(`${BACKEND}/${path}`, {
+	const qs = new URL(request.url).search
+	const backendRes = await fetch(`${BACKEND}/${path}${qs}`, {
 		method: request.method,
 		headers,
 		body: body ?? undefined

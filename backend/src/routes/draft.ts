@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, sql } from 'drizzle-orm'
+import { eq, desc, sql } from 'drizzle-orm'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
   draft_keranjang, draft_keranjang_item,
@@ -35,6 +35,7 @@ draftRouter.get('/keranjang', async (c) => {
     })
     .from(draft_keranjang)
     .where(eq(draft_keranjang.kasir_id, kasirId))
+    .orderBy(desc(draft_keranjang.updated_at))
   )
 
   return c.json({ success: true, data: bills })

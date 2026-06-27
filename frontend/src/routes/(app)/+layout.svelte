@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { font, FONT_CSS } from '$lib/stores/font.js';
 	import { ukuranFont } from '$lib/stores/ukuran-font.js';
+	import { tokoVersion } from '$lib/stores/toko-version.js';
 	import NavClock from '$lib/components/NavClock.svelte';
 	import NavUser from '$lib/components/NavUser.svelte';
 	import AppSidebar from '$lib/components/layout/AppSidebar.svelte';
@@ -51,6 +52,7 @@
 
 	$effect(() => {
 		const cabangId = $user?.cabang_id;
+		void $tokoVersion; // refetch saat identitas toko di-invalidate
 
 		api
 			.get<{ nama_toko: string }>(`/pengaturan/publik?toko_id=${$user?.tenant_id ?? 1}`)
@@ -110,7 +112,8 @@
 				>
 					<Banknote size={14} />
 					<span class="hidden sm:inline">Kasir</span>
-					<kbd class="hidden rounded bg-[var(--bg))] px-1 text-[var(--accent)] sm:inline"
+					<kbd
+						class="hidden items-center rounded bg-[var(--bg))] px-1 text-[var(--accent)] sm:inline"
 						>Ctrl+K</kbd
 					>
 				</button>

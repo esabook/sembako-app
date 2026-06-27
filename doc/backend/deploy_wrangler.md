@@ -17,11 +17,29 @@ bun run cf:d1:create
 # atau: bunx wrangler d1 create stokasir
 ```
 
-Copy `database_id` dari output, paste ke `backend/wrangler.toml`:
+Copy `database_id` dari output, paste ke `backend/wrangler.toml` (binding `DB`):
 
 ```toml
 [[d1_databases]]
+binding = "DB"
 database_id = "PASTE_ID_DI_SINI"
+```
+
+### 1b. Buat D1 database demo
+
+Sandbox demo hidup di DB terpisah (binding `DB_DEMO`) agar bisa di-reset total
+tanpa risiko ke data prod.
+
+```bash
+bunx wrangler d1 create stokasir_demo
+```
+
+Copy `database_id`, paste ke `backend/wrangler.toml` (binding `DB_DEMO`):
+
+```toml
+[[d1_databases]]
+binding = "DB_DEMO"
+database_id = "PASTE_DEMO_ID_DI_SINI"
 ```
 
 ### 2. Buat KV namespace
@@ -58,6 +76,24 @@ PLATFORM_ADMIN_PASSWORD = "ganti-password-kuat"
 # dst.
 ```
 
+### 5. Durable Object scan-relay — otomatis
+
+`wrangler.toml` mendaftarkan Durable Object `RelayDO` (koordinator scan-relay
+phone↔kasir, lihat [Arsitektur](#real-time-scan-relay-durable-object--websocket-hibernation)):
+
+```toml
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "RelayDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RelayDO"]   # SQLite-backed = free tier
+```
+
+Tak ada langkah manual — migrasi DO ikut otomatis saat `bun run cf:deploy`.
+DO SQLite-backed sehingga jalan di **Workers free plan**.
+
 ---
 
 ## Migrasi Database
@@ -68,9 +104,13 @@ bun run cf:d1:migrate:local
 
 # Apply ke D1 produksi
 bun run cf:d1:migrate
+
+# DB demo — schema sama, apply ke stokasir_demo (tak ada npm script, panggil langsung)
+bunx wrangler d1 migrations apply stokasir_demo --local    # test lokal
+bunx wrangler d1 migrations apply stokasir_demo --remote    # produksi
 ```
 
-Migrasi diambil dari `src/db/migrations/sqlite/` — file SQL yang sama dengan SQLite lokal (D1 = SQLite-compatible).
+Migrasi diambil dari `src/db/migrations/sqlite/` — file SQL yang sama dengan SQLite lokal (D1 = SQLite-compatible). DB demo pakai schema identik, jadi migrasi yang sama di-apply ke `stokasir_demo`.
 
 ---
 
@@ -133,6 +173,40 @@ Didaftarkan di `wrangler.toml`:
 | Image resize (`sharp`) | Cloudflare Images API — upload.ts fallback ke passthrough |
 | `initScheduler()` (setInterval) | CF Cron Triggers di wrangler.toml |
 | Local SQLite WAL / PRAGMA | — (D1 handle otomatis) |
+| State in-memory lintas request (Map global) | Durable Object — isolate Workers tak share memori |
+
+### Real-time scan-relay (Durable Object + WebSocket Hibernation)
+
+Scan-relay (barcode dari HP → terminal kasir + sync qty) butuh state bersama
+antar request. Di Bun satu proses cukup pakai `Map` global ([scan_relay.ts](../../backend/src/routes/scan_relay.ts)),
+tapi di Workers **rusak**: tiap request bisa kena isolate berbeda — GET listener
+daftar di isolate A, POST scan kena isolate B → `Map` kosong → `503`.
+
+Solusi mode cloud: Durable Object `RelayDO` jadi titik koordinasi konsisten
+per-session.
+
+| File | Peran |
+|------|-------|
+| [`src/do/relay-do.ts`](../../backend/src/do/relay-do.ts) | Class `RelayDO` — `ctx.acceptWebSocket` (hibernatable), broadcast, pre-qty persist di `ctx.storage` |
+| [`src/do/relay-types.ts`](../../backend/src/do/relay-types.ts) | Seam bertipe (`RelayNamespace`, `relayStub`) — isolasi DO API dari route, tanpa `any` |
+| [`src/routes/scan_relay_do.ts`](../../backend/src/routes/scan_relay_do.ts) | Router Workers — ticket JWT + upgrade WS + forward POST ke DO |
+| [`src/routes/scan_relay.ts`](../../backend/src/routes/scan_relay.ts) | Versi Bun/LAN (long-poll) — **dipakai di `index.ts`, tak diubah** |
+
+Alur & biaya:
+
+- **Listener** (kasir/gudang/HP) konek WS → DO `acceptWebSocket`. Idle = hibernate,
+  **0 biaya duration** (cuma kena saat ada pesan). Muat free tier sampai ratusan toko.
+- **Sender scan** (kamera HP) tetap HTTP POST `/scan-relay/scanner/:id` → worker forward
+  ke DO → broadcast ke listener.
+- **Auth WS**: cookie `auth_token` httpOnly **tak ikut** WS cross-domain, jadi browser
+  ambil ticket JWT 60s via `GET /scan-relay/ws-ticket` (lewat proxy /api, cookie jalan),
+  lalu konek WS langsung ke backend dengan `?ticket=`. Worker validasi ticket (cek tenant),
+  bukan cookie.
+- WS accept + hibernation **wajib** di class DO pakai `ctx.acceptWebSocket` — Hono
+  `upgradeWebSocket` TIDAK hibernate (akan tetap nagih duration).
+
+Mode Bun/LAN (`index.ts`) tetap pakai long-poll `scan_relay.ts` — DO tak ada di Bun,
+dan offline tak butuh.
 
 ---
 
@@ -143,6 +217,7 @@ Didaftarkan di `wrangler.toml`:
 | Key | Nilai prod | Keterangan |
 |-----|------------|-----------|
 | `DATABASE_URL` | `d1://` | Sentinel — jangan diubah untuk CF mode |
+| `DEMO_DATABASE_URL` | `d1://` | Sentinel DB demo — route ke binding `DB_DEMO` |
 | `JWT_EXPIRY_HOURS` | `12` | Durasi token JWT |
 | `FRONTEND_URL` | (URL Pages, pisah koma) | CORS origin, bisa multi nilai |
 | `SAAS_GATING` | `1` | `1` = aktifkan mode SaaS, cek langganan |

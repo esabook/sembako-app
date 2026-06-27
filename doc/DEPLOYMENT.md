@@ -26,6 +26,10 @@ DATABASE_URL=file:./data.db          # SQLite lokal (default, Pi/dev)
 # DATABASE_URL=postgresql://user:pass@host/db  # Supabase / Neon / self-hosted
 # DATABASE_URL=mysql://user:pass@host/db       # PlanetScale / self-hosted
 
+# DB demo terpisah — sandbox bisa di-reset total tanpa risiko ke prod.
+# Default file:./data_demo.db bila kosong. Dialect diasumsikan sama dgn DATABASE_URL.
+DEMO_DATABASE_URL=file:./data_demo.db
+
 # File storage
 STORAGE_DRIVER=local    # 'local' (default) | 's3'
 UPLOAD_DIR=./uploads    # hanya dipakai jika STORAGE_DRIVER=local
@@ -116,3 +120,5 @@ Migration output:
 - SQLite/Turso → `src/db/migrations/sqlite/`
 - PostgreSQL → `src/db/migrations/postgres/`
 - MySQL → `src/db/migrations/mysql/`
+
+**DB demo (`DEMO_DATABASE_URL`):** untuk SQLite/Pi, `data_demo.db` di-migrate otomatis saat backend startup (`src/index.ts`) — tak perlu langkah manual. Untuk D1 cloud, demo butuh DB terpisah `stokasir_demo` yang di-migrate sendiri (lihat `doc/backend/deploy_wrangler.md`).

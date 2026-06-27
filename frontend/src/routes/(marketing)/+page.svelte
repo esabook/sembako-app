@@ -85,7 +85,7 @@
 	{#if SITE}
 		<meta property="og:url" content="{SITE}/" />
 	{/if}
-	<meta property="og:image" content="{SITE}/logo.webp" />
+	{#if SITE}<meta property="og:image" content="{SITE}/logo.webp" />{/if}
 	<meta property="og:locale" content="id_ID" />
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:title" content="Stokasir - Aplikasi Stok &amp; Kasir Toko" />

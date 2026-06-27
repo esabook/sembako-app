@@ -4,7 +4,7 @@ import { deleteCookie, setCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { SignJWT } from 'jose';
 import { env } from '../config/env.ts';
-import { db, isoNow, query, withTransaction } from '../db/index.ts';
+import { db, demoDb, isoNow, prodDb, query, withTransaction } from '../db/index.ts';
 import { checkRateLimit, getCache } from '../lib/cache.ts';
 import { hashPassword, verifyPassword } from '../utils/password.ts';
 
@@ -12,13 +12,12 @@ import { hashPassword, verifyPassword } from '../utils/password.ts';
 // Module-level env.isProd freezes at module init before worker.ts sets process.env from c.env.
 const cookieProd = () => process.env.NODE_ENV === 'production';
 
-import { cabang, karyawan, toko } from '../db/schema.ts';
+import { cabang, karyawan, toko, toko_settings } from '../db/schema.ts';
 import type { Role } from '../middleware/auth.ts';
 import { authMiddleware } from '../middleware/auth.ts';
 
-const JWT_SECRET = new TextEncoder().encode(
-	process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production'
-);
+const jwtSecret = () =>
+	new TextEncoder().encode(process.env.JWT_SECRET ?? 'dev-secret-ganti-di-production');
 const JWT_EXPIRY_HOURS = Number(process.env.JWT_EXPIRY_HOURS ?? 12);
 const COOKIE_MAX_AGE = JWT_EXPIRY_HOURS * 60 * 60;
 
@@ -34,11 +33,18 @@ export type JWTPayload = {
 	nama: string;
 	role: Role;
 	kode_karyawan: string;
+	email: string; // email akun pemilik — tetap saat switch-context, dipakai untuk scope SaaS
 	tenant_id: number; // toko yang diakses
 	cabang_id: number | null; // null = akses semua cabang toko ini (manajer/pemilik)
+	is_demo?: boolean; // true = sesi sedang di toko demo → semua query route ke DB demo
+	home_toko_id?: number; // toko asli (prod) pemilik — stabil lintas switch-context, dipakai onboarding & restore identitas
 	iat?: number;
 	exp?: number;
 };
+
+// Offset id toko demo di response accessible-context — bedakan demo dari prod
+// & hindari collision id (kedua DB autoincrement dari 1). Hanya encoding transport.
+const DEMO_ID_OFFSET = 1_000_000_000;
 
 export const authRouter = new Hono<{ Variables: { user: JWTPayload } }>();
 
@@ -75,7 +81,10 @@ authRouter.post('/login', async (c) => {
 		throw new HTTPException(401, { message: 'Username atau password salah' });
 	}
 
-	const tenantId = user.toko_id ?? 1;
+	if (!user.toko_id) {
+		throw new HTTPException(400, { message: 'Akun tidak memiliki toko terkait. Hubungi admin.' });
+	}
+	const tenantId = user.toko_id;
 
 	// Gating status toko: 'deleted' kunci semua; 'deactivated' kunci non-pemilik
 	// (pemilik tetap masuk supaya bisa reaktivasi di pengaturan/profile).
@@ -95,15 +104,18 @@ authRouter.post('/login', async (c) => {
 		nama: user.nama,
 		role: user.role,
 		kode_karyawan: user.kode_karyawan,
+		email: user.email ?? '',
 		tenant_id: tenantId,
-		cabang_id: user.cabang_id ?? null
+		cabang_id: user.cabang_id ?? null,
+		home_toko_id: tenantId, // toko asli (prod) — stabil lintas switch-context
+		is_demo: false
 	};
 
 	const token = await new SignJWT(payload as Record<string, unknown>)
 		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuedAt()
 		.setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
-		.sign(JWT_SECRET);
+		.sign(jwtSecret());
 
 	setCookie(c, 'auth_token', token, {
 		httpOnly: true,
@@ -265,6 +277,38 @@ authRouter.get('/me', authMiddleware, async (c) => {
 	const sisaHariHapus = cur?.hapus_terjadwal
 		? Math.max(0, Math.ceil((new Date(cur.hapus_terjadwal).getTime() - Date.now()) / 86_400_000))
 		: null;
+
+	// Cek onboarding dari HOME toko (karyawan.toko_id), bukan tenant aktif (bisa demo).
+	// Pemilik yang switch ke demo toko tetap dianggap sudah onboarding bila toko aslinya sudah.
+	let onboarding_selesai = false;
+	if (user.role === 'pemilik') {
+		// Home toko & onboarding ada di PROD — pakai prodDb() walau sesi demo.
+		// Di sesi demo user.id = pemilik demo → andalkan home_toko_id dari JWT.
+		const pdb = prodDb();
+		let homeTokoid =
+			user.home_toko_id ??
+			(await query.find<{ toko_id: number | null }>(
+				pdb.select({ toko_id: karyawan.toko_id }).from(karyawan).where(eq(karyawan.id, user.id))
+			))?.toko_id ??
+			undefined;
+		// Home toko bisa sudah lenyap (bersih-bersih demo lama / JWT basi) → fallback
+		// ke tenant aktif agar tidak salah lempar pemilik ke loop onboarding.
+		if (homeTokoid) {
+			const homeAda = await query.find(
+				pdb.select({ id: toko.id }).from(toko).where(eq(toko.id, homeTokoid))
+			);
+			if (!homeAda) homeTokoid = undefined;
+		}
+		if (!homeTokoid) homeTokoid = user.tenant_id;
+		if (homeTokoid) {
+			const setting = await query.find<{ value: string }>(
+				pdb.select({ value: toko_settings.value }).from(toko_settings)
+					.where(and(eq(toko_settings.toko_id, homeTokoid), eq(toko_settings.key, 'onboarding_selesai')))
+			);
+			onboarding_selesai = setting?.value === 'true';
+		}
+	}
+
 	return c.json({
 		success: true,
 		data: {
@@ -276,6 +320,7 @@ authRouter.get('/me', authMiddleware, async (c) => {
 			cabang_id: user.cabang_id,
 			saas: env.saasGating,
 			is_demo,
+			onboarding_selesai,
 			status_toko: cur?.status_langganan ?? null,
 			hapus_terjadwal: cur?.hapus_terjadwal ?? null,
 			sisa_hari_hapus: sisaHariHapus
@@ -283,63 +328,144 @@ authRouter.get('/me', authMiddleware, async (c) => {
 	});
 });
 
+// Tandai onboarding selesai pada HOME toko (karyawan.toko_id), bukan tenant aktif.
+// Pemilik bisa sedang switch-context ke demo toko saat klik Selesai; tulis ke JWT
+// tenant akan menulis ke demo dan home toko tidak pernah update → loop /onboarding.
+authRouter.post('/selesai-onboarding', authMiddleware, async (c) => {
+	const user = c.get('user') as JWTPayload;
+	if (user.role !== 'pemilik') {
+		throw new HTTPException(403, { message: 'Hanya pemilik yang bisa menyelesaikan onboarding' });
+	}
+	// Home toko ada di PROD — pakai prodDb() eksplisit walau sesi sedang demo.
+	// Di sesi demo user.id = pemilik demo → andalkan home_toko_id dari JWT.
+	const pdb = prodDb();
+	let homeTokoId =
+		user.home_toko_id ??
+		(await query.find<{ toko_id: number | null }>(
+			pdb.select({ toko_id: karyawan.toko_id }).from(karyawan).where(eq(karyawan.id, user.id))
+		))?.toko_id;
+	// Home toko bisa sudah lenyap (mis. ikut terhapus saat bersih-bersih data demo
+	// lama, atau JWT basi). Jatuh ke tenant aktif yang pasti ada → cegah FK error.
+	if (homeTokoId) {
+		const homeAda = await query.find(
+			pdb.select({ id: toko.id }).from(toko).where(eq(toko.id, homeTokoId))
+		);
+		if (!homeAda) homeTokoId = undefined;
+	}
+	if (!homeTokoId) homeTokoId = user.tenant_id;
+	if (!homeTokoId) {
+		throw new HTTPException(400, { message: 'Toko asli tidak ditemukan' });
+	}
+
+	const existing = await query.find(
+		pdb.select({ value: toko_settings.value }).from(toko_settings)
+			.where(and(eq(toko_settings.toko_id, homeTokoId), eq(toko_settings.key, 'onboarding_selesai')))
+	);
+	if (existing) {
+		await query.exec(
+			pdb.update(toko_settings).set({ value: 'true', updated_at: isoNow() })
+				.where(and(eq(toko_settings.toko_id, homeTokoId), eq(toko_settings.key, 'onboarding_selesai')))
+		);
+	} else {
+		await query.exec(
+			pdb.insert(toko_settings).values({ toko_id: homeTokoId, key: 'onboarding_selesai', value: 'true' })
+		);
+	}
+
+	return c.json({ success: true, data: { toko_id: homeTokoId } });
+});
+
 // Helper: ambil list toko+cabang yang boleh diakses user berdasarkan role
-async function getAccessibleContext(role: Role, tokoId: number) {
+// email = email akun pemilik dari JWT (bukan dari toko aktif saat ini — hindari scope pollution saat switch-context)
+async function getAccessibleContext(role: Role, tokoId: number, email: string) {
 	if (role !== 'pemilik' && role !== 'manajer') return [];
 
-	let tokoList: { id: number | null; nama: string }[];
+	// Bangun entri {id, nama, cabang} dari satu koneksi DB + daftar toko-nya.
+	// idOffset & is_demo dipakai untuk toko demo (DB terpisah) agar bedakan + hindari collision id.
+	async function buildEntries(
+		conn: typeof db,
+		tokoList: { id: number | null; nama: string }[],
+		idOffset: number,
+		is_demo: boolean
+	) {
+		const tokoIds = tokoList.map((t) => t.id).filter((id): id is number => id !== null);
+		const allCabang = tokoIds.length
+			? await conn
+					.select({ id: cabang.id, nama: cabang.nama, toko_id: cabang.toko_id })
+					.from(cabang)
+					.where(and(inArray(cabang.toko_id, tokoIds), eq(cabang.is_active, true)))
+			: [];
+		const cabangByToko = new Map<number, { id: number; nama: string }[]>();
+		for (const c of allCabang) {
+			if (c.toko_id === null) continue;
+			const l = cabangByToko.get(c.toko_id) ?? [];
+			l.push({ id: c.id!, nama: c.nama });
+			cabangByToko.set(c.toko_id, l);
+		}
+		return tokoIds.map((id) => {
+			const t = tokoList.find((t) => t.id === id)!;
+			return { id: id + idOffset, nama: t.nama, cabang: cabangByToko.get(id) ?? [], is_demo };
+		});
+	}
+
+	// Pakai prodDb()/demoDb() eksplisit — JANGAN proxy `db`. Saat sesi demo aktif,
+	// selector middleware bungkus request dalam konteks demo → `db` akan salah arah.
+	const pdb = prodDb();
+
+	// ── Toko prod (DB utama) ──────────────────────────────────────────────────
+	let prodList: { id: number | null; nama: string; kode_toko: string }[];
 	if (role === 'manajer') {
 		// Manajer: selalu cuma toko sendiri.
-		tokoList = await db
-			.select({ id: toko.id, nama: toko.nama })
+		prodList = await pdb
+			.select({ id: toko.id, nama: toko.nama, kode_toko: toko.kode_toko })
 			.from(toko)
 			.where(and(eq(toko.id, tokoId), eq(toko.is_active, true)));
 	} else if (env.saasGating) {
-		// SaaS: pemilik hanya toko miliknya (cocokkan email_pemilik dgn toko aktif).
-		const cur = await query.find<{ email_pemilik: string | null }>(
-			db.select({ email_pemilik: toko.email_pemilik }).from(toko).where(eq(toko.id, tokoId))
-		);
-		const email = cur?.email_pemilik ?? null;
-		tokoList = email
-			? await db
-					.select({ id: toko.id, nama: toko.nama })
+		// SaaS: scope pakai email dari JWT (bukan email_pemilik toko aktif) agar switch-context
+		// ke demo/toko lain tidak mencemari scope pemilik.
+		prodList = email
+			? await pdb
+					.select({ id: toko.id, nama: toko.nama, kode_toko: toko.kode_toko })
 					.from(toko)
 					.where(and(eq(toko.email_pemilik, email), eq(toko.is_active, true)))
-			: await db
-					.select({ id: toko.id, nama: toko.nama })
+			: await pdb
+					.select({ id: toko.id, nama: toko.nama, kode_toko: toko.kode_toko })
 					.from(toko)
 					.where(and(eq(toko.id, tokoId), eq(toko.is_active, true)));
 	} else {
 		// LAN: pemilik = superuser → semua toko.
-		tokoList = await db
-			.select({ id: toko.id, nama: toko.nama })
+		prodList = await pdb
+			.select({ id: toko.id, nama: toko.nama, kode_toko: toko.kode_toko })
 			.from(toko)
 			.where(eq(toko.is_active, true));
 	}
+	// Buang orphan demo lama yang masih nyangkut di prod (kode 'DEMO' / 'DEMO-<id>',
+	// dibuat sebelum split DB). Bukan toko asli → jangan muncul di switcher; data demo
+	// aktif datang dari demoDb di bawah. Bersihkan via Pengaturan › Demo.
+	prodList = prodList.filter((t) => !t.kode_toko?.startsWith('DEMO'));
+	const entries = await buildEntries(pdb, prodList, 0, false);
 
-	const tokoIds = tokoList.map((t) => t.id).filter((id): id is number => id !== null);
-	const allCabang = tokoIds.length
-		? await db
-				.select({ id: cabang.id, nama: cabang.nama, toko_id: cabang.toko_id })
-				.from(cabang)
-				.where(and(inArray(cabang.toko_id, tokoIds), eq(cabang.is_active, true)))
-		: [];
-	const cabangByToko = new Map<number, { id: number; nama: string }[]>();
-	for (const c of allCabang) {
-		if (c.toko_id === null) continue;
-		const list = cabangByToko.get(c.toko_id) ?? [];
-		list.push({ id: c.id!, nama: c.nama });
-		cabangByToko.set(c.toko_id, list);
+	// ── Toko demo (DB terpisah) — hanya pemilik ───────────────────────────────
+	// Linkage owner→demo via email_pemilik (SaaS) / semua toko demo (LAN).
+	if (role === 'pemilik') {
+		const ddb = demoDb();
+		const demoList = env.saasGating
+			? email
+				? await ddb
+						.select({ id: toko.id, nama: toko.nama })
+						.from(toko)
+						.where(and(eq(toko.email_pemilik, email), eq(toko.is_active, true)))
+				: []
+			: await ddb.select({ id: toko.id, nama: toko.nama }).from(toko).where(eq(toko.is_active, true));
+		entries.push(...(await buildEntries(ddb, demoList, DEMO_ID_OFFSET, true)));
 	}
-	return tokoIds.map((id) => {
-		const t = tokoList.find((t) => t.id === id)!;
-		return { id, nama: t.nama, cabang: cabangByToko.get(id) ?? [] };
-	});
+
+	return entries;
 }
 
 authRouter.get('/accessible-context', authMiddleware, async (c) => {
 	const user = c.get('user') as JWTPayload;
-	const list = await getAccessibleContext(user.role, user.tenant_id);
+	const list = await getAccessibleContext(user.role, user.tenant_id, user.email);
 	return c.json({ success: true, data: list });
 });
 
@@ -349,7 +475,7 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 
 	if (!body.toko_id) throw new HTTPException(400, { message: 'toko_id wajib diisi' });
 
-	const accessible = await getAccessibleContext(user.role, user.tenant_id);
+	const accessible = await getAccessibleContext(user.role, user.tenant_id, user.email);
 	const targetToko = accessible.find((t) => t.id === body.toko_id);
 	if (!targetToko) throw new HTTPException(403, { message: 'Tidak punya akses ke toko ini' });
 
@@ -361,21 +487,54 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 
 	const newCabangId = body.cabang_id ?? null;
 
+	// Toko demo: id di-offset di accessible-context → decode ke id asli demoDb.
+	// JWT.is_demo=true → middleware route semua query ke DB demo.
+	const isDemo = !!targetToko.is_demo;
+	const realTenantId = isDemo ? body.toko_id - DEMO_ID_OFFSET : body.toko_id;
+	const homeTokoId = user.home_toko_id ?? user.tenant_id;
+
+	// Identitas karyawan harus ADA di DB target (FK kasir_id/dicatat_oleh).
+	// - Masuk demo: bertindak sebagai 'Pemilik Demo' (karyawan di demo DB).
+	// - Keluar demo → prod: pulihkan pemilik asli (karyawan home toko di prod DB).
+	// - prod→prod tanpa demo: identitas tetap (manajer/pemilik di prod DB).
+	let identity = { id: user.id, nama: user.nama, kode_karyawan: user.kode_karyawan, role: user.role };
+	if (isDemo) {
+		const dk = await query.find<{ id: number; nama: string; kode_karyawan: string; role: Role }>(
+			demoDb()
+				.select({ id: karyawan.id, nama: karyawan.nama, kode_karyawan: karyawan.kode_karyawan, role: karyawan.role })
+				.from(karyawan)
+				.where(and(eq(karyawan.toko_id, realTenantId), eq(karyawan.role, 'pemilik')))
+		);
+		if (!dk) throw new HTTPException(500, { message: 'Pemilik demo tidak ditemukan di DB demo' });
+		identity = { id: dk.id, nama: dk.nama, kode_karyawan: dk.kode_karyawan, role: dk.role };
+	} else if (user.is_demo) {
+		const pk = await query.find<{ id: number; nama: string; kode_karyawan: string; role: Role }>(
+			prodDb()
+				.select({ id: karyawan.id, nama: karyawan.nama, kode_karyawan: karyawan.kode_karyawan, role: karyawan.role })
+				.from(karyawan)
+				.where(and(eq(karyawan.toko_id, homeTokoId), eq(karyawan.role, 'pemilik')))
+		);
+		if (pk) identity = { id: pk.id, nama: pk.nama, kode_karyawan: pk.kode_karyawan, role: pk.role };
+	}
+
 	const payload: JWTPayload = {
-		sub: String(user.id),
-		id: user.id!,
-		nama: user.nama,
-		role: user.role,
-		kode_karyawan: user.kode_karyawan,
-		tenant_id: body.toko_id,
-		cabang_id: newCabangId
+		sub: String(identity.id),
+		id: identity.id,
+		nama: identity.nama,
+		role: identity.role,
+		kode_karyawan: identity.kode_karyawan,
+		email: user.email,
+		tenant_id: realTenantId,
+		cabang_id: newCabangId,
+		is_demo: isDemo,
+		home_toko_id: homeTokoId
 	};
 
 	const token = await new SignJWT(payload as Record<string, unknown>)
 		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuedAt()
 		.setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
-		.sign(JWT_SECRET);
+		.sign(jwtSecret());
 
 	setCookie(c, 'auth_token', token, {
 		httpOnly: true,

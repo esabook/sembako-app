@@ -5,20 +5,38 @@
 import { writable, derived, get } from 'svelte/store';
 import QRCode from 'qrcode';
 import {
-	keranjang, tipeTransaksi, metodeBayar,
-	pelangganDipilih, nominalBayar, itemAktifIdx,
-	subtotal, diskonMember, kembalian, total,
-	resetKasir, incrementTrxCount,
+	keranjang,
+	tipeTransaksi,
+	metodeBayar,
+	pelangganDipilih,
+	nominalBayar,
+	itemAktifIdx,
+	subtotal,
+	diskonMember,
+	kembalian,
+	total,
+	resetKasir,
+	incrementTrxCount
 } from '$lib/stores/kasir';
 import type { ModifierTerpilih } from '$lib/stores/kasir';
 import { loading, toast } from '$lib/stores/ui.store';
 import { withLoading } from '$lib/utils/async';
 import { bukaWhatsApp } from '$lib/utils/wa';
-import { fetchBarang, fetchPelanggan, submitPenjualan, listBills, getBill, createBill, saveBillItems, deleteBill } from './kasir.api';
+import {
+	fetchBarang,
+	fetchPelanggan,
+	submitPenjualan,
+	listBills,
+	getBill,
+	createBill,
+	saveBillItems,
+	deleteBill
+} from './kasir.api';
 import type { BillSummary } from './kasir.api';
 import type { BarangResult, PelangganResult, ScannerStatus, Snap, PromoAktif } from './kasir.types';
 import { api } from '$lib/utils/api';
 import { playKasirSound } from '$lib/utils/audio';
+import { connectScannerRelay, type ScannerRelayHandle } from '$lib/utils/scannerSse';
 
 // ── Promo aktif ──────────────────────────────────────────────────────────────
 
@@ -29,44 +47,48 @@ export async function loadPromoAktif() {
 	if (res.success) promoAktif.set(res.data);
 }
 
+const _promoCache = new Map<string, number>();
+promoAktif.subscribe(() => _promoCache.clear());
+
 function hitungDiskonPromo(br: BarangResult, harga: number, qty: number): number {
+	const key = `${br.id}-${harga}-${qty}`;
+	if (_promoCache.has(key)) return _promoCache.get(key)!;
 	const promos = get(promoAktif);
 	let best = 0;
 	for (const p of promos) {
 		if (p.tipe === 'total') continue;
 		if (qty < p.min_qty) continue;
 		const match =
-			(p.tipe === 'item' && p.targets.some((t) => t.target_tipe === 'barang' && t.target_id === br.id)) ||
-			(p.tipe === 'kategori' && p.targets.some((t) => t.target_tipe === 'kategori' && t.target_id === br.kategori_id));
+			(p.tipe === 'item' &&
+				p.targets.some((t) => t.target_tipe === 'barang' && t.target_id === br.id)) ||
+			(p.tipe === 'kategori' &&
+				p.targets.some((t) => t.target_tipe === 'kategori' && t.target_id === br.kategori_id));
 		if (!match) continue;
-		const diskon = p.tipe_nilai === 'persen' ? Math.round(harga * p.nilai / 100) : p.nilai;
+		const diskon = p.tipe_nilai === 'persen' ? Math.round((harga * p.nilai) / 100) : p.nilai;
 		if (diskon > best) best = diskon;
 	}
-	return Math.min(best, harga);
+	const result = Math.min(best, harga);
+	_promoCache.set(key, result);
+	return result;
 }
 
 // Promo tipe 'total' yang berlaku saat ini (dipake di checkout)
-export const promoTotalBerlaku = derived(
-	[promoAktif, total],
-	([$promos, $total]) => $promos.filter((p) => p.tipe === 'total' && $total >= p.min_total)
+export const promoTotalBerlaku = derived([promoAktif, total], ([$promos, $total]) =>
+	$promos.filter((p) => p.tipe === 'total' && $total >= p.min_total)
 );
 
 // Nilai diskon terbaik dari promo tipe 'total'
-export const diskonPromoTotal = derived(
-	[promoTotalBerlaku, total],
-	([$promos, $total]) => {
-		if ($promos.length === 0) return 0;
-		const best = Math.max(...$promos.map((p) =>
-			p.tipe_nilai === 'persen' ? Math.round($total * p.nilai / 100) : p.nilai
-		));
-		return Math.min(best, $total);
-	}
-);
+export const diskonPromoTotal = derived([promoTotalBerlaku, total], ([$promos, $total]) => {
+	if ($promos.length === 0) return 0;
+	const best = Math.max(
+		...$promos.map((p) =>
+			p.tipe_nilai === 'persen' ? Math.round(($total * p.nilai) / 100) : p.nilai
+		)
+	);
+	return Math.min(best, $total);
+});
 
-export const totalAkhir = derived(
-	[total, diskonPromoTotal],
-	([$t, $d]) => $t - $d
-);
+export const totalAkhir = derived([total, diskonPromoTotal], ([$t, $d]) => $t - $d);
 
 // ── Multi Open Bill ──────────────────────────────────────────────────────────
 
@@ -78,12 +100,18 @@ export const openBills = writable<BillSummary[]>([]);
 // meja aktif untuk bill ini (null = bukan dine-in). Diisi dari ?meja= di +page.
 export const mejaId = writable<number | null>(null);
 // tipe_layanan dikirim ke checkout: dine_in jika ada meja, selain itu retail
-export const tipeLayanan = derived(mejaId, ($m) => ($m ? 'dine_in' : 'retail') as 'dine_in' | 'retail');
+export const tipeLayanan = derived(
+	mejaId,
+	($m) => ($m ? 'dine_in' : 'retail') as 'dine_in' | 'retail'
+);
 
 let _draftTimer: ReturnType<typeof setTimeout> | null = null;
 
 async function _flushBillSave() {
-	if (_draftTimer) { clearTimeout(_draftTimer); _draftTimer = null; }
+	if (_draftTimer) {
+		clearTimeout(_draftTimer);
+		_draftTimer = null;
+	}
 	const items = get(keranjang);
 	const id = get(activeBillId);
 	if (items.length === 0 || id === null) return;
@@ -98,10 +126,12 @@ async function _flushBillSave() {
 				satuan_id: i.satuan_id,
 				jumlah: i.jumlah,
 				harga_jual: i.harga_jual,
-				diskon_item: i.diskon_item,
-			})),
+				diskon_item: i.diskon_item
+			}))
 		});
-	} catch { /* silent */ }
+	} catch {
+		/* silent */
+	}
 }
 
 function scheduleDraftSave() {
@@ -135,8 +165,8 @@ function scheduleDraftSave() {
 						satuan_id: i.satuan_id,
 						jumlah: i.jumlah,
 						harga_jual: i.harga_jual,
-						diskon_item: i.diskon_item,
-					})),
+						diskon_item: i.diskon_item
+					}))
 				});
 				draftStatus.set('saved');
 			}
@@ -162,7 +192,16 @@ export async function loadOpenBills(): Promise<void> {
 	try {
 		const bills = await listBills();
 		openBills.set(bills);
-	} catch { /* silent */ }
+	} catch {
+		/* silent */
+	}
+}
+
+// Auto-restore bill terakhir saat kasir dibuka (sorted by updated_at desc dari backend).
+export async function restoreLastBill(): Promise<void> {
+	await loadOpenBills();
+	const bills = get(openBills);
+	if (bills.length > 0) await switchToBill(bills[0].id);
 }
 
 export async function switchToBill(id: number): Promise<void> {
@@ -185,7 +224,7 @@ export async function switchToBill(id: number): Promise<void> {
 					harga_eceran: i.harga_eceran,
 					harga_grosir: i.harga_grosir,
 					diskon_item: i.diskon_item,
-					stok_sekarang: i.stok_sekarang,
+					stok_sekarang: i.stok_sekarang
 				}))
 			);
 		}
@@ -193,7 +232,9 @@ export async function switchToBill(id: number): Promise<void> {
 		mejaId.set(bill.meja_id ?? null);
 		activeBillId.set(id);
 		draftStatus.set('saved');
-	} catch { /* silent */ }
+	} catch {
+		/* silent */
+	}
 }
 
 // Buka kasir untuk satu meja: resume bill meja itu kalau ada, kalau tidak mulai bill baru.
@@ -225,7 +266,9 @@ export async function closeBill(id: number): Promise<void> {
 			resetKasir();
 			draftStatus.set('idle');
 		}
-	} catch { /* silent */ }
+	} catch {
+		/* silent */
+	}
 }
 
 // ── UI state ─────────────────────────────────────────────────────────────────
@@ -244,7 +287,7 @@ export const konfirmasiHapusIdx = writable<number | null>(null);
 export const popupSearch = writable(false);
 export const popupCheckout = writable(false);
 export const snap = writable<Snap | null>(null);
-export const noTransaksi = writable<string>('');   // no. trx terakhir selesai
+export const noTransaksi = writable<string>(''); // no. trx terakhir selesai
 export const checkoutTime = writable(new Date());
 
 export const scanSessionId = writable('');
@@ -261,61 +304,26 @@ export const prosesLoading = derived(loading, ($l) => $l.some((l) => l.key === '
 
 // ── Long-poll scanner + pre-qty sync (browser-only, tidak reaktif) ───────────
 
-let kasirAbort: AbortController | null = null;
+let relayHandle: ScannerRelayHandle | null = null;
 let _kasirDummySub: (() => void) | null = null;
 let _kasirDummyTimer: ReturnType<typeof setTimeout> | null = null;
 let _lastSyncedDummyFromPhone = 1;
 
-function postPreQty(sid: string, qty: number) {
-	if (!sid) return;
-	void fetch(`/api/scan-relay/kasir-pre-qty/${sid}`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ qty }),
-		credentials: 'include',
-	}).catch(() => { });
-}
-
-function resetDummyJumlah(sid: string) {
+function resetDummyJumlah() {
 	_lastSyncedDummyFromPhone = 1;
 	dummyJumlah.set(1);
-	postPreQty(sid, 1);
-}
-
-async function preQtyPollLoop(sid: string, signal: AbortSignal) {
-	let knownQty: number | null = null;
-	while (!signal.aborted) {
-		try {
-			const url = knownQty === null
-				? `/api/scan-relay/kasir-pre-qty/${sid}`
-				: `/api/scan-relay/kasir-pre-qty/${sid}?known=${knownQty}`;
-			const res = await fetch(url, { signal, credentials: 'include' });
-			if (signal.aborted) break;
-			if (!res.ok) { await new Promise((r) => setTimeout(r, 2000)); continue; }
-			const body = await res.json() as { success: boolean; data: { qty: number } };
-			if (signal.aborted) break;
-			const qty = body.data.qty;
-			knownQty = qty;
-			if (qty !== get(dummyJumlah)) {
-				_lastSyncedDummyFromPhone = qty;
-				dummyJumlah.set(qty);
-			}
-		} catch {
-			if (signal.aborted) break;
-			await new Promise((r) => setTimeout(r, 2000));
-		}
-	}
+	relayHandle?.sendQty(1);
 }
 
 export function resetKasirDenganDraft() {
 	if (_draftTimer) clearTimeout(_draftTimer);
 	const id = get(activeBillId);
-	if (id !== null) void deleteBill(id).catch(() => { });
+	if (id !== null) void deleteBill(id).catch(() => {});
 	activeBillId.set(null);
 	mejaId.set(null);
 	draftStatus.set('idle');
 	resetKasir();
-	resetDummyJumlah(get(scanSessionId));
+	resetDummyJumlah();
 }
 
 // ── Cari barang ───────────────────────────────────────────────────────────────
@@ -330,7 +338,7 @@ export async function cariBarang(q: string) {
 		loadingKey: 'kasir-cari',
 		modul: 'kasir',
 		aksi: 'cari_barang',
-		bisaRetry: true,
+		bisaRetry: true
 	});
 	if (hasil) {
 		searchResults.set(hasil);
@@ -353,7 +361,7 @@ export async function scanDariPhone(kode: string, qty = 1) {
 	const hasil = await withLoading(() => fetchBarang(kode), {
 		loadingKey: 'kasir-scan',
 		modul: 'kasir',
-		aksi: 'scan_barang',
+		aksi: 'scan_barang'
 	});
 	if (!hasil) return;
 	if (!get(popupSearch) && hasil.length === 1) {
@@ -380,7 +388,11 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 			isUpdate = true;
 			const u = [...k];
 			const newJumlah = Math.min(u[idx]!.jumlah + qty, u[idx]!.stok_sekarang);
-			u[idx] = { ...u[idx]!, jumlah: newJumlah, diskon_item: hitungDiskonPromo(br, harga, newJumlah) };
+			u[idx] = {
+				...u[idx]!,
+				jumlah: newJumlah,
+				diskon_item: hitungDiskonPromo(br, harga, newJumlah)
+			};
 			itemAktifIdx.set(idx);
 			return u;
 		}
@@ -401,14 +413,14 @@ export function tambahKeKeranjang(br: BarangResult, qty = 1) {
 				diskon_item: diskonPromo,
 				stok_sekarang: br.stok_sekarang,
 				foto_path: br.foto_path,
-				tipe_produk: br.tipe_produk ?? 'physical_good',
-			},
+				tipe_produk: br.tipe_produk ?? 'physical_good'
+			}
 		];
 	});
 	toast.info(isUpdate ? `+${qty} ${br.nama_barang}` : `✓ ${br.nama_barang}`);
 	closeSearch();
 	playKasirSound();
-	resetDummyJumlah(get(scanSessionId));
+	resetDummyJumlah();
 }
 
 // Tambah menu_item dengan modifier terpilih + catatan.
@@ -417,7 +429,7 @@ export function tambahKeKeranjangModifier(
 	br: BarangResult,
 	qty: number,
 	modifiers: ModifierTerpilih[],
-	catatan: string,
+	catatan: string
 ) {
 	const tipe = get(tipeTransaksi);
 	const hargaDasar = tipe === 'grosir' ? br.harga_jual_grosir : br.harga_jual_eceran;
@@ -442,14 +454,14 @@ export function tambahKeKeranjangModifier(
 				foto_path: br.foto_path,
 				tipe_produk: br.tipe_produk ?? 'menu_item',
 				modifiers,
-				catatan: catatan || null,
-			},
+				catatan: catatan || null
+			}
 		];
 	});
 	toast.info(`✓ ${br.nama_barang}`);
 	closeSearch();
 	playKasirSound();
-	resetDummyJumlah(get(scanSessionId));
+	resetDummyJumlah();
 }
 
 export function ubahJumlah(idx: number, delta: number) {
@@ -509,7 +521,7 @@ export async function muatPelanggan(q: string) {
 	const hasil = await withLoading(() => fetchPelanggan(q), {
 		loadingKey: 'kasir-pelanggan',
 		modul: 'kasir',
-		aksi: 'cari_pelanggan',
+		aksi: 'cari_pelanggan'
 	});
 	if (hasil) {
 		pelangganList.set(hasil);
@@ -578,8 +590,8 @@ export async function prosesBayar() {
 					harga_jual: i.harga_jual,
 					diskon_item: i.diskon_item,
 					catatan: i.catatan ?? null,
-					modifiers: i.modifiers,
-				})),
+					modifiers: i.modifiers
+				}))
 			}),
 		{
 			loadingKey: 'kasir-bayar',
@@ -589,12 +601,12 @@ export async function prosesBayar() {
 			errorPesan: (asli) => asli || 'Transaksi gagal. Coba lagi.',
 			onAntri: () => {
 				const _id = get(activeBillId);
-				if (_id !== null) void deleteBill(_id).catch(() => { });
+				if (_id !== null) void deleteBill(_id).catch(() => {});
 				activeBillId.set(null);
 				mejaId.set(null);
 				draftStatus.set('idle');
 				resetKasir();
-			},
+			}
 		}
 	);
 
@@ -612,17 +624,17 @@ export async function prosesBayar() {
 		pelanggan: $pelanggan,
 		tipe: $tipe,
 		noTransaksi: noTrx,
-		waktu: $waktu,
+		waktu: $waktu
 	});
 	noTransaksi.set(noTrx);
 	incrementTrxCount();
 	const _billId = get(activeBillId);
-	if (_billId !== null) void deleteBill(_billId).catch(() => { });
+	if (_billId !== null) void deleteBill(_billId).catch(() => {});
 	activeBillId.set(null);
 	mejaId.set(null);
 	draftStatus.set('idle');
 	resetKasir();
-	resetDummyJumlah(get(scanSessionId));
+	resetDummyJumlah();
 }
 
 // ── Kirim Struk WhatsApp ─────────────────────────────────────────────────────
@@ -633,11 +645,17 @@ function rupiah(n: number): string {
 
 export function kirimStrukWA(s: Snap): void {
 	const tgl = s.waktu.toLocaleString('id-ID', {
-		day: '2-digit', month: 'short', year: 'numeric',
-		hour: '2-digit', minute: '2-digit',
+		day: '2-digit',
+		month: 'short',
+		year: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
 	});
 	const metodeTeks: Record<string, string> = {
-		tunai: 'Tunai', transfer: 'Transfer', qris: 'QRIS', hutang: 'Hutang',
+		tunai: 'Tunai',
+		transfer: 'Transfer',
+		qris: 'QRIS',
+		hutang: 'Hutang'
 	};
 	const lines: string[] = [
 		'*STRUK BELANJA*',
@@ -655,7 +673,7 @@ export function kirimStrukWA(s: Snap): void {
 		`Bayar    : ${metodeTeks[s.metode] ?? s.metode}${s.metode === 'tunai' ? ` Rp ${rupiah(s.nominal)}` : ''}`,
 		s.metode === 'tunai' && s.kembalian > 0 ? `Kembali  : Rp ${rupiah(s.kembalian)}` : '',
 		'',
-		'Terima kasih atas pembeliannya! 🙏',
+		'Terima kasih atas pembeliannya! 🙏'
 	].filter(Boolean);
 
 	const pesan = lines.join('\n');
@@ -664,8 +682,11 @@ export function kirimStrukWA(s: Snap): void {
 
 export function kirimNotifHutangWA(s: Snap): void {
 	const tgl = s.waktu.toLocaleString('id-ID', {
-		day: '2-digit', month: 'short', year: 'numeric',
-		hour: '2-digit', minute: '2-digit',
+		day: '2-digit',
+		month: 'short',
+		year: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
 	});
 	const lines = [
 		'*NOTIFIKASI HUTANG*',
@@ -674,37 +695,12 @@ export function kirimNotifHutangWA(s: Snap): void {
 		`Total Hutang : *Rp ${rupiah(s.total)}*`,
 		'',
 		'Pembayaran dapat dilakukan langsung ke toko.',
-		'Terima kasih. 🙏',
+		'Terima kasih. 🙏'
 	];
 	bukaWhatsApp(s.pelanggan?.kontak ?? null, lines.join('\n'));
 }
 
-// ── Long-poll Scanner ────────────────────────────────────────────────────────
-
-async function kasirPollLoop(sid: string, signal: AbortSignal) {
-	while (!signal.aborted) {
-		try {
-			const res = await fetch(`/api/scan-relay/kasir/${sid}`, { signal, credentials: 'include' });
-			if (signal.aborted) break;
-			if (!res.ok) { scannerStatus.set('disconnected'); await new Promise((r) => setTimeout(r, 2000)); continue; }
-			const body = await res.json() as { success: boolean; data: { kode: string; qty: number } | null };
-			if (signal.aborted) break;
-			scannerStatus.set('connected');
-			if (body.data) {
-				const { kode, qty } = body.data;
-				if (get(popupCheckout) && !get(pelangganDipilih)) {
-					void muatPelanggan(kode);
-				} else {
-					void scanDariPhone(kode, qty);
-				}
-			}
-		} catch {
-			if (signal.aborted) break;
-			scannerStatus.set('disconnected');
-			await new Promise((r) => setTimeout(r, 2000));
-		}
-	}
-}
+// ── Scanner relay (WS cloud / long-poll LAN) ─────────────────────────────────
 
 export async function initKasirScan(userId: number, host: string, protocol: string) {
 	const sid = `kasir${userId}`;
@@ -714,25 +710,41 @@ export async function initKasirScan(userId: number, host: string, protocol: stri
 	const dataUrl = await QRCode.toDataURL(url, { width: 128, margin: 1 });
 	qrDataUrl.set(dataUrl);
 
-	kasirAbort = new AbortController();
-	void kasirPollLoop(sid, kasirAbort.signal);
-	void preQtyPollLoop(sid, kasirAbort.signal);
+	relayHandle = connectScannerRelay(sid, {
+		onScan: (kode, qty) => {
+			if (get(popupCheckout) && !get(pelangganDipilih)) {
+				void muatPelanggan(kode);
+			} else {
+				void scanDariPhone(kode, qty);
+			}
+		},
+		onQty: (qty) => {
+			if (qty !== get(dummyJumlah)) {
+				_lastSyncedDummyFromPhone = qty;
+				dummyJumlah.set(qty);
+			}
+		},
+		onStatus: (status) => scannerStatus.set(status)
+	});
 
-	// dummyJumlah → debounced POST ke /kasir-pre-qty (kasir → phone)
+	// dummyJumlah → debounced sendQty (kasir → phone)
 	_kasirDummySub = dummyJumlah.subscribe((val) => {
 		if (val === _lastSyncedDummyFromPhone) return;
 		if (_kasirDummyTimer) clearTimeout(_kasirDummyTimer);
 		_kasirDummyTimer = setTimeout(() => {
 			_lastSyncedDummyFromPhone = val;
-			postPreQty(sid, val);
+			relayHandle?.sendQty(val);
 		}, 300);
 	});
 }
 
 export function cleanupKasirScan() {
-	kasirAbort?.abort();
-	kasirAbort = null;
+	relayHandle?.close();
+	relayHandle = null;
 	_kasirDummySub?.();
 	_kasirDummySub = null;
-	if (_kasirDummyTimer) { clearTimeout(_kasirDummyTimer); _kasirDummyTimer = null; }
+	if (_kasirDummyTimer) {
+		clearTimeout(_kasirDummyTimer);
+		_kasirDummyTimer = null;
+	}
 }

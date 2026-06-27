@@ -1,6 +1,7 @@
 import { get } from 'svelte/store'
 import { withLoading } from '$lib/utils/async'
 import { toast } from '$lib/stores/ui.store'
+import { invalidateToko } from '$lib/stores/toko-version'
 import { ukuranFont, UKURAN_MIN, UKURAN_MAX } from '$lib/stores/ukuran-font'
 import { audioLoad, audioSave, type AudioMode } from '$lib/utils/audio'
 import { getPengaturan, simpanPengaturan, downloadBackupDb, restoreDb } from './pengaturan.api'
@@ -66,6 +67,8 @@ export function createPengaturanStore() {
 		})
 		// commit ukuran font (clamp + apply global + localStorage via store)
 		ukuranFont.set(Math.min(UKURAN_MAX, Math.max(UKURAN_MIN, Math.round(ukuranDraft))))
+		// identitas toko mungkin berubah → invalidate konsumen (layout/NavUser)
+		invalidateToko()
 		saving = false
 	}
 

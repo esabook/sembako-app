@@ -2,6 +2,9 @@ import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, and } from 'drizzle-orm'
 import { networkInterfaces } from 'node:os'
+
+// Bun = local Pi/dev; Node.js = cloud deployment (Railway, etc.)
+const isLocalBun = typeof (globalThis as unknown as { Bun?: unknown }).Bun !== 'undefined'
 import { db, sqlite, query, withTransaction, isoNow, dialect } from '../db/index.ts'
 import { toko, toko_settings, preferensi_pengguna } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
@@ -10,14 +13,19 @@ import { HTTPException } from 'hono/http-exception'
 import { createBackupStream, restoreFromBackup } from '../utils/backup-logical.ts'
 
 function getLanIps(): string[] {
-  const nets = networkInterfaces()
-  const results: string[] = []
-  for (const iface of Object.values(nets)) {
-    for (const net of iface ?? []) {
-      if (net.family === 'IPv4' && !net.internal) results.push(net.address)
+  if (!isLocalBun) return []
+  try {
+    const nets = networkInterfaces()
+    const results: string[] = []
+    for (const iface of Object.values(nets)) {
+      for (const net of iface ?? []) {
+        if (net.family === 'IPv4' && !net.internal) results.push(net.address)
+      }
     }
+    return results
+  } catch {
+    return []
   }
-  return results
 }
 
 export const pengaturanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
@@ -40,8 +48,9 @@ pengaturanRouter.get('/publik', async (c) => {
 // ── GET /pengaturan/server-info — info jaringan & sistem ──────────────────
 pengaturanRouter.get('/server-info', async (c) => {
   const commitDate = (() => {
+    if (!isLocalBun) return process.env.APP_COMMIT_DATE ?? 'unknown'
     try {
-      const proc = Bun.spawnSync(['git', 'log', '-1', '--format=%ci'])
+      const proc = (globalThis as unknown as { Bun: { spawnSync: (cmd: string[]) => { stdout: { toString: () => string } } } }).Bun.spawnSync(['git', 'log', '-1', '--format=%ci'])
       return proc.stdout.toString().trim() || 'unknown'
     } catch {
       return 'unknown'
@@ -51,12 +60,13 @@ pengaturanRouter.get('/server-info', async (c) => {
   return c.json({
     success: true,
     data: {
+      mode: isLocalBun ? 'local' : 'cloud',
       lan_ips: getLanIps(),
-      port_frontend: Number(process.env.FRONTEND_PORT ?? 5173),
-      port_backend: Number(process.env.PORT ?? 3000),
-      bun_version: process.versions.bun ?? 'unknown',
+      port_frontend: isLocalBun ? Number(process.env.FRONTEND_PORT ?? 5173) : null,
+      port_backend: isLocalBun ? Number(process.env.PORT ?? 3000) : null,
+      bun_version: process.versions.bun ?? null,
       platform: process.platform,
-      uptime_detik: Math.floor(process.uptime()),
+      uptime_detik: isLocalBun ? Math.floor(process.uptime()) : null,
       app_version: '0.0.1',
       last_commit_date: commitDate,
     },
@@ -242,6 +252,16 @@ pengaturanRouter.get('/', async (c) => {
     if (row.value !== null && row.value !== undefined) {
       result[row.key] = row.value
     }
+  }
+
+  // nama_toko: sumber kebenaran tunggal = toko.nama. toko_settings.nama_toko
+  // belum di-seed saat register, jadi fallback ke toko.nama agar konsisten
+  // dengan /publik dan /accessible-context (hindari tampil 'Stokasir').
+  if (!rows.some((r) => r.key === 'nama_toko' && r.value)) {
+    const tokoRow = await query.find<{ nama: string }>(
+      db.select({ nama: toko.nama }).from(toko).where(eq(toko.id, tenantId))
+    )
+    if (tokoRow?.nama) result.nama_toko = tokoRow.nama
   }
 
   return c.json({ success: true, data: result })

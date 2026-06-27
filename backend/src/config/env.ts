@@ -36,8 +36,8 @@ export const env = {
 		.map((s) => s.trim())
 		.filter(Boolean),
 
-	// SaaS gating (no-op di mode LAN/offline)
-	saasGating: process.env.SAAS_GATING === '1',
+	// SaaS gating — getter agar CF Workers baca SAAS_GATING setelah middleware inject process.env
+	get saasGating() { return process.env.SAAS_GATING === '1' },
 
 	// Database (multi-dialect — dialect dideteksi di db/index.ts dari URL ini)
 	// Getter: CF Workers set process.env via middleware at request time, bukan module init

@@ -8,9 +8,13 @@ PUBLIC_DEPLOYMENT_MODE = "online"
 # PUBLIC_API_URL dikosongkan — client pakai /api/* proxy (Pages Functions)
 # BACKEND_URL: private, dipakai server-side proxy untuk forward ke Workers backend
 BACKEND_URL = "https://yours.you.workers.dev"
+# PUBLIC_WS_URL: origin backend untuk WebSocket scan-relay (browser konek LANGSUNG,
+# bypass proxy /api yang tak bisa upgrade WS). Auth via ticket, bukan cookie.
+PUBLIC_WS_URL = "wss://yours.you.workers.dev"
 PUBLIC_UMAMI_SRC = "url/script.js"
 PUBLIC_UMAMI_ID  = ""
 
 [env.preview.vars]
 PUBLIC_DEPLOYMENT_MODE = "online"
 BACKEND_URL = "https://yours.you.workers.dev"
+PUBLIC_WS_URL = "wss://yours.you.workers.dev"

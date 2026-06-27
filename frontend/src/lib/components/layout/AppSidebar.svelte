@@ -119,7 +119,7 @@
 
 	// --- Resizable sidebar ---
 	const ICON_W = 2.75;
-	const EXPANDED_W = 13;
+	const EXPANDED_W = 15;
 	const MIN_W = ICON_W;
 	const MAX_W = 20;
 	const SIDEBAR_W_KEY = 'sidebar_custom_width';
@@ -260,9 +260,9 @@
 
 	function isRecentActive(entry: RecentEntry): boolean {
 		const entryUrl = new URL(entry.href, 'http://x');
-		const tabParam = entryUrl.searchParams.get('tab');
-		const pathMatch = page.url.pathname === entryUrl.pathname;
-		return pathMatch && (tabParam ? page.url.searchParams.get('tab') === tabParam : true);
+		// const tabParam = entryUrl.searchParams.get('tab');
+		const pathMatch = page.url.pathname + page.url.search === entryUrl.pathname + entryUrl.search;
+		return pathMatch;
 	}
 	const showLabels = $derived(
 		isMobile || sidebarState === 'expanded' || (sidebarState === 'hover' && hoverExpanded)
@@ -306,8 +306,8 @@
 
 <aside
 	class={isMobile
-		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r shadow-xl transition-transform duration-50 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
-		: `app-sidebar flex shrink-0 flex-col border-r pt-2 ${sidebarReady && !isDragging ? 'transition-all duration-50' : ''} ${isDragging ? 'is-dragging' : ''} ${sidebarState === 'hover' ? (hoverExpanded ? 'hover-mode hover-expanded' : 'hover-mode') : 'relative'}`}
+		? `fixed inset-0 z-50 flex h-screen flex-col rounded-r-lg border-r shadow-xl transition-transform duration-[280ms] ease-[var(--ease-out)] ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`
+		: `app-sidebar flex shrink-0 flex-col border-r pt-2 ${sidebarReady && !isDragging ? 'transition-[width]' : ''} ${isDragging ? 'is-dragging' : ''} ${sidebarState === 'hover' ? (hoverExpanded ? 'hover-mode hover-expanded' : 'hover-mode') : 'relative'}`}
 	style="background:var(--surface);border-color:var(--border);width:{sidebarWidth}rem "
 	onmouseenter={sidebarState === 'hover' && !isMobile
 		? () => {
@@ -374,13 +374,13 @@
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<nav
 		bind:this={navEl}
-		class="scrollbar-hide min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-10"
+		class="scrollbar-hide min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-20"
 		style="scrollbar-gutter: auto"
 	>
 		{#if recentSection.length > 0}
 			<div
-				class="m-2 rounded pb-2"
-				style="border-color: 2px solid var(--surface);background:color-mix(in srgb,var(--accent) 15%,transparent);"
+				class="rounded py-2 {showLabels ? 'm-2' : ''}"
+				style="background:color-mix(in srgb,var(--accent) 15%,transparent);"
 			>
 				{#if showLabels}
 					<div class="group-header" style="cursor:default">
@@ -398,13 +398,15 @@
 						}}
 						class="hover-nav-item relative flex items-center py-1 text-[0.75rem] transition-colors"
 						style={isActive
-							? 'color:var(--accent);background:var(--surface2)'
+							? 'color:var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent);'
 							: 'color:var(--text)'}
 						aria-current={isActive ? 'page' : undefined}
 					>
 						<span
 							class="absolute top-0 bottom-0 left-0 shrink-0 {isActive ? 'w-[2px]' : 'w-0'}"
-							style={isActive ? 'background:var(--accent)' : ''}
+							style={isActive
+								? 'background: color-mix(in srgb, var(--accent) 10%, transparent);'
+								: ''}
 						></span>
 						<span class="nav-icon-wrap ml-3 shrink-0 {isActive ? 'opacity-100' : 'opacity-70'}">
 							{#if ICONS[entry.icon]}
@@ -437,6 +439,8 @@
 			</div>
 		{/if}
 
+		<div class="group-divider-icon"></div>
+
 		{#each visibleGroups as group, gi (group.key)}
 			{@const isCollapsed = showLabels && collapsedGroups.has(group.key)}
 
@@ -444,10 +448,10 @@
 			{#if showLabels}
 				<button
 					onclick={() => toggleGroup(group.key)}
-					class="group-header {gi > 0 ? 'group-header--sep' : ''}"
+					class="group-header {gi > 0 ? 'group-header--sep' : 'mt-2'}"
 					aria-expanded={!isCollapsed}
 				>
-					<span class="group-label">{group.label}</span>
+					<span class="group-label truncate">{group.label}</span>
 					<ChevronDown class="group-chevron {isCollapsed ? 'group-chevron--collapsed' : ''}" />
 				</button>
 			{:else if gi > 0}
@@ -466,15 +470,17 @@
 							addToRecent({ href: item.href, label: item.label, icon: item.icon });
 							if (isMobile) mobileOpen = false;
 						}}
-						class="hover-nav-item relative flex h-9 items-center text-sm transition-colors"
+						class="hover-nav-item --ease-std relative flex h-9 items-center text-sm transition-colors"
 						style={isActive
-							? 'color:var(--accent);background:var(--surface2)'
+							? 'color:var(--accent);background: color-mix(in srgb, var(--accent) 10%, transparent);'
 							: 'color:var(--text)'}
 						aria-current={isActive ? 'page' : undefined}
 					>
 						<span
 							class="absolute top-0 bottom-0 left-0 shrink-0 {isActive ? 'w-[2px]' : 'w-0'}"
-							style={isActive ? 'background:var(--accent)' : ''}
+							style={isActive
+								? 'background: color-mix(in srgb, var(--accent) 10%, transparent);'
+								: ''}
 						></span>
 
 						<span class="nav-icon-wrap ml-3 shrink-0 {isActive ? 'opacity-100' : 'opacity-70'}">
@@ -501,7 +507,8 @@
 					{#if hasSub}
 						<div class="sub-nav">
 							{#each item.sub! as sub (sub.key)}
-								{@const isTab = activeTab === sub.key || page.url.pathname === sub.href}
+								{@const isTab =
+									activeTab === sub.key || page.url.pathname + page.url.search === sub.href}
 								<button
 									onclick={() => handleSubClick(item, sub)}
 									class="sub-nav-item ml-4"
@@ -516,6 +523,7 @@
 						</div>
 					{/if}
 				{/each}
+				<div class="h-6"></div>
 			{/if}
 		{/each}
 	</nav>
@@ -585,7 +593,7 @@
 
 <style>
 	.hover-nav-item:not([aria-current='page']):hover {
-		background: var(--surface2);
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
 		color: var(--text);
 	}
 
@@ -627,16 +635,18 @@
 		display: flex;
 		align-items: center;
 		width: 100%;
-		padding: 0.5rem 0.75rem 0.2rem;
+		padding: 0.5rem 0.75rem 0.5rem;
 		background: none;
 		border: none;
 		cursor: pointer;
 		gap: 0.25rem;
 	}
+	.group-header:hover {
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
+	}
 
 	.group-header--sep {
 		border-top: 1px solid var(--border);
-		margin-top: 0.25rem;
 	}
 
 	.group-label {
@@ -644,7 +654,6 @@
 		text-align: left;
 		font-size: 0.625rem;
 		font-weight: 600;
-		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: var(--text);
 		opacity: 0.7;
@@ -691,7 +700,7 @@
 
 	.sub-nav-item:hover {
 		color: var(--text);
-		background: var(--surface2);
+		background: color-mix(in srgb, var(--accent) 10%, transparent);
 	}
 
 	.sub-nav-item[aria-current='page'] {
