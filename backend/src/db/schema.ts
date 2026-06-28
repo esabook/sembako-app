@@ -1,4 +1,4 @@
-import { table, pkInt, int, txt, bool, flt, money, jsonText, timestamps, idx, uidx, chk, sql, isoNow } from './builders.ts'
+import { table, pkInt, int, txt, bool, flt, money, jsonText, timestamps, tsDate, idx, uidx, chk, sql, isoNow } from './builders.ts'
 
 // ─── A1: tenant_id — aktif mulai Fase D: multi-toko, satu server ────────────
 // tenant_id = ID toko (bisnis); cabang_id = ID cabang dalam toko.
@@ -99,6 +99,8 @@ export const karyawan = table('karyawan', {
   // Multi-toko: karyawan assigned ke toko + cabang tertentu
   toko_id: int('toko_id').references(() => toko.id).default(1),
   cabang_id: int('cabang_id').references(() => cabang.id), // null = akses semua cabang toko ini
+  // Link ke identity better-auth (Fase A). null = belum dimigrasi → gate lengkapi-email.
+  ba_user_id: txt('ba_user_id').references(() => ba_user.id),
   ...timestamps,
 }, (t) => [
   idx('idx_karyawan_active').on(t.is_active),
@@ -1498,4 +1500,63 @@ export const sop_instance = table('sop_instance', {
   idx('idx_sop_instance_rule').on(t.rule_id),
   idx('idx_sop_instance_karyawan').on(t.karyawan_id),
   idx('idx_sop_instance_status').on(t.status),
+])
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BETTER-AUTH (Fase A — coexist). Identity tunggal berbasis email.
+// Kolom snake_case; field camelCase better-auth dipetakan di lib/auth-ba.ts.
+// Kolom tanggal pakai tsDate (driver kirim objek Date, supportsDates=true).
+// Nama tabel = nama model better-auth (user/session/account/verification).
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const ba_user = table('user', {
+  id: txt('id').primaryKey(),
+  name: txt('name').notNull(),
+  email: txt('email').notNull().unique(),
+  email_verified: bool('email_verified').notNull().default(false),
+  image: txt('image'),
+  created_at: tsDate('created_at').notNull().$defaultFn(() => new Date()),
+  updated_at: tsDate('updated_at').notNull().$defaultFn(() => new Date()),
+})
+
+export const ba_session = table('session', {
+  id: txt('id').primaryKey(),
+  user_id: txt('user_id').notNull().references(() => ba_user.id, { onDelete: 'cascade' }),
+  token: txt('token').notNull().unique(),
+  expires_at: tsDate('expires_at').notNull(),
+  ip_address: txt('ip_address'),
+  user_agent: txt('user_agent'),
+  created_at: tsDate('created_at').notNull().$defaultFn(() => new Date()),
+  updated_at: tsDate('updated_at').notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  idx('idx_ba_session_user').on(t.user_id),
+])
+
+export const ba_account = table('account', {
+  id: txt('id').primaryKey(),
+  user_id: txt('user_id').notNull().references(() => ba_user.id, { onDelete: 'cascade' }),
+  account_id: txt('account_id').notNull(),
+  provider_id: txt('provider_id').notNull(),
+  access_token: txt('access_token'),
+  refresh_token: txt('refresh_token'),
+  id_token: txt('id_token'),
+  access_token_expires_at: tsDate('access_token_expires_at'),
+  refresh_token_expires_at: tsDate('refresh_token_expires_at'),
+  scope: txt('scope'),
+  password: txt('password'),
+  created_at: tsDate('created_at').notNull().$defaultFn(() => new Date()),
+  updated_at: tsDate('updated_at').notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  idx('idx_ba_account_user').on(t.user_id),
+])
+
+export const ba_verification = table('verification', {
+  id: txt('id').primaryKey(),
+  identifier: txt('identifier').notNull(),
+  value: txt('value').notNull(),
+  expires_at: tsDate('expires_at').notNull(),
+  created_at: tsDate('created_at').notNull().$defaultFn(() => new Date()),
+  updated_at: tsDate('updated_at').notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  idx('idx_ba_verification_identifier').on(t.identifier),
 ])

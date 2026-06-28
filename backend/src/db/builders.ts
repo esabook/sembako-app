@@ -41,6 +41,15 @@ export const jsonText = (name: string): JsonCol =>
   : d === 'my' ? my.text(name)
   : sl.text(name, { mode: 'json' })) as unknown as JsonCol
 
+// Kolom tanggal sebagai JS Date — dipakai better-auth (supportsDates=true,
+// driver kirim objek Date, bukan ISO string). SQLite/D1: integer unix-timestamp;
+// PG/MySQL: native timestamp. JANGAN pakai untuk kolom app biasa (pakai txt+isoNow).
+type TsCol = ReturnType<typeof sl.integer<string, 'timestamp'>>
+export const tsDate = (name: string): TsCol =>
+  (d === 'pg' ? pg.timestamp(name)
+  : d === 'my' ? my.timestamp(name)
+  : sl.integer(name, { mode: 'timestamp' })) as unknown as TsCol
+
 // Timestamp dengan $defaultFn agar berlaku di semua dialect (bukan SQL default)
 export const isoNow = () => new Date().toISOString()
 
