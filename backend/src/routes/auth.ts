@@ -1,5 +1,5 @@
 import { and, eq, inArray, } from 'drizzle-orm';
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { deleteCookie, setCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
 import { SignJWT } from 'jose';
@@ -12,7 +12,8 @@ import { hashPassword, verifyPassword } from '../utils/password.ts';
 // Module-level env.isProd freezes at module init before worker.ts sets process.env from c.env.
 const cookieProd = () => process.env.NODE_ENV === 'production';
 
-import { cabang, karyawan, toko, toko_settings } from '../db/schema.ts';
+import { ba_session, cabang, karyawan, toko, toko_settings } from '../db/schema.ts';
+import { getBetterAuth } from '../lib/auth-ba.ts';
 import type { Role } from '../middleware/auth.ts';
 import { authMiddleware } from '../middleware/auth.ts';
 
@@ -38,9 +39,55 @@ export type JWTPayload = {
 	cabang_id: number | null; // null = akses semua cabang toko ini (manajer/pemilik)
 	is_demo?: boolean; // true = sesi sedang di toko demo → semua query route ke DB demo
 	home_toko_id?: number; // toko asli (prod) pemilik — stabil lintas switch-context, dipakai onboarding & restore identitas
+	sid?: string; // id session better-auth (Fase A) → divalidasi di middleware untuk revoke/list device
 	iat?: number;
 	exp?: number;
 };
+
+// Mint JWT custom + set cookie auth_token. Dipakai login & switch-context.
+// sid (bila ada) ikut diembed agar middleware bisa validasi/revoke sesi.
+export async function issueAuthCookie(c: Context, payload: JWTPayload): Promise<string> {
+	const token = await new SignJWT(payload as Record<string, unknown>)
+		.setProtectedHeader({ alg: 'HS256' })
+		.setIssuedAt()
+		.setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
+		.sign(jwtSecret());
+
+	setCookie(c, 'auth_token', token, {
+		httpOnly: true,
+		secure: cookieProd(),
+		sameSite: cookieProd() ? 'None' : 'Strict',
+		partitioned: cookieProd(),
+		maxAge: COOKIE_MAX_AGE,
+		path: '/'
+	});
+	return token;
+}
+
+// Bridge: buat session better-auth utk karyawan ber-identity, kembalikan sid
+// (ba_session.id) untuk diembed ke JWT. Gagal/akun belum dimigrasi → null
+// (login tetap jalan via JWT tanpa sid, app tak berubah).
+async function bridgeSession(
+	c: Context,
+	email: string,
+	password: string
+): Promise<string | null> {
+	try {
+		const auth = getBetterAuth(c.env as { KV?: unknown });
+		const res = await auth.api.signInEmail({
+			body: { email, password },
+			headers: c.req.raw.headers, // rekam ip/user-agent utk device list
+		});
+		const token = (res as { token?: string }).token;
+		if (!token) return null;
+		const sess = await query.find<{ id: string }>(
+			prodDb().select({ id: ba_session.id }).from(ba_session).where(eq(ba_session.token, token))
+		);
+		return sess?.id ?? null;
+	} catch {
+		return null; // password salah sudah ditangani verifyPassword; jangan gagalkan login
+	}
+}
 
 // Offset id toko demo di response accessible-context — bedakan demo dari prod
 // & hindari collision id (kedua DB autoincrement dari 1). Hanya encoding transport.
@@ -98,6 +145,13 @@ authRouter.post('/login', async (c) => {
 		throw new HTTPException(403, { message: 'Toko dinonaktifkan. Hubungi pemilik.' });
 	}
 
+	// Bridge ke better-auth: karyawan ber-email & sudah dimigrasi (ba_user_id) →
+	// buat session better-auth untuk dapat sid (revoke/list device). Belum
+	// dimigrasi → sid null, login tetap jalan via JWT (app tak berubah).
+	const sid = user.email && user.ba_user_id
+		? await bridgeSession(c, user.email, body.password)
+		: null;
+
 	const payload: JWTPayload = {
 		sub: String(user.id),
 		id: user.id!,
@@ -108,23 +162,11 @@ authRouter.post('/login', async (c) => {
 		tenant_id: tenantId,
 		cabang_id: user.cabang_id ?? null,
 		home_toko_id: tenantId, // toko asli (prod) — stabil lintas switch-context
-		is_demo: false
+		is_demo: false,
+		...(sid ? { sid } : {})
 	};
 
-	const token = await new SignJWT(payload as Record<string, unknown>)
-		.setProtectedHeader({ alg: 'HS256' })
-		.setIssuedAt()
-		.setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
-		.sign(jwtSecret());
-
-	setCookie(c, 'auth_token', token, {
-		httpOnly: true,
-		secure: cookieProd(),
-		sameSite: cookieProd() ? 'None' : 'Strict',
-		partitioned: cookieProd(),
-		maxAge: COOKIE_MAX_AGE,
-		path: '/'
-	});
+	await issueAuthCookie(c, payload);
 
 	return c.json({
 		success: true,
@@ -527,23 +569,12 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 		tenant_id: realTenantId,
 		cabang_id: newCabangId,
 		is_demo: isDemo,
-		home_toko_id: homeTokoId
+		home_toko_id: homeTokoId,
+		// Sesi fisik tak berubah saat switch-context (device sama) → bawa sid lama.
+		...(user.sid ? { sid: user.sid } : {})
 	};
 
-	const token = await new SignJWT(payload as Record<string, unknown>)
-		.setProtectedHeader({ alg: 'HS256' })
-		.setIssuedAt()
-		.setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
-		.sign(jwtSecret());
-
-	setCookie(c, 'auth_token', token, {
-		httpOnly: true,
-		secure: cookieProd(),
-		sameSite: cookieProd() ? 'None' : 'Strict',
-		partitioned: cookieProd(),
-		maxAge: COOKIE_MAX_AGE,
-		path: '/'
-	});
+	await issueAuthCookie(c, payload);
 
 	return c.json({ success: true, data: { tenant_id: body.toko_id, cabang_id: newCabangId } });
 });

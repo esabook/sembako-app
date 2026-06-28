@@ -12,6 +12,7 @@ import { setD1Db, setD1DemoDb } from './db/index.ts'
 import { langgananMiddleware } from './middleware/langganan.ts'
 import { openAPISpec } from './openapi.ts'
 import { initAnalyticsTap } from './lib/analytics-tap.ts'
+import { getBetterAuth } from './lib/auth-ba.ts'
 import { initHooks } from './lib/hooks.ts'
 import type { JWTPayload } from './routes/auth.ts'
 import { absensiRouter } from './routes/absensi.ts'
@@ -157,6 +158,10 @@ app.get('/doc', Scalar({ spec: { url: '/openapi.json' }, pageTitle: 'Stokasir AP
 app.get('/uploads/*', (c) => c.json({ success: false, error: 'Gunakan R2 public bucket untuk file uploads' }, 410))
 
 app.use('*', langgananMiddleware)
+
+// better-auth handler (Fase A) — mount SEBELUM authRouter agar /auth/ba/* tak
+// ketangkap route /auth custom. Instance per-request (secret/env siap di sini).
+app.on(['GET', 'POST'], '/auth/ba/*', (c) => getBetterAuth(c.env).handler(c.req.raw))
 
 app.route('/auth', authRouter)
 app.route('/langganan', langgananRouter)
