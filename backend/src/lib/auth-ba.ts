@@ -105,6 +105,16 @@ export function getBetterAuth(env_: { KV?: unknown }) {
       },
     },
     account: {
+      // Karyawan dibuat dgn account credential (email belum terverifikasi — belum
+      // ada domain pengirim). Tanpa ini, login Google ke karyawan existing DITOLAK
+      // better-auth (requireLocalEmailVerified default true) → akun google tak
+      // tertaut, sesi tak terbuat. Aman di sini: ba_user hanya dibuat admin dari
+      // email karyawan terkontrol (bukan signup terbuka), Google = email verified.
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ['google'],
+        requireLocalEmailVerified: false,
+      },
       fields: {
         userId: 'user_id',
         accountId: 'account_id',
