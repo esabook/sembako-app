@@ -120,7 +120,7 @@ tugasRouter.post('/log/tandai', requirePermission('pelanggan.lihat'), async (c) 
     .where(and(eq(checklist_log.item_id, body.item_id), eq(checklist_log.tanggal, tanggal), eq(checklist_log.tenant_id, tenantId)))
   )
 
-  let row
+  let row: typeof checklist_log.$inferSelect | undefined
   if (existing) {
     row = await query.ret(db.update(checklist_log).set({
       selesai: body.selesai,

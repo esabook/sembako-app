@@ -9,6 +9,8 @@ import type { JWTPayload } from './auth.ts'
 import { saveUpload } from '../utils/upload.ts'
 import { hashPassword, verifyPassword } from '../utils/password.ts'
 
+type KaryawanRow = Pick<typeof karyawan.$inferSelect, 'id' | 'kode_karyawan' | 'nama' | 'role' | 'username'>
+
 export const karyawanRouter = new Hono<{ Variables: { user: JWTPayload } }>()
 
 karyawanRouter.use('*', authMiddleware)
@@ -305,9 +307,9 @@ karyawanRouter.post('/', requirePermission('karyawan.edit'), async (c) => {
   const hash = await hashPassword(body.password)
   const pinHash = body.pin_absensi?.length === 4 ? await hashPassword(body.pin_absensi) : null
 
-  let row
+  let row: KaryawanRow | undefined
   try {
-    row = await query.find(db.insert(karyawan).values({
+    row = await query.find<KaryawanRow>(db.insert(karyawan).values({
       kode_karyawan: body.kode_karyawan.trim(),
       nama: body.nama.trim(),
       role: body.role,
@@ -370,9 +372,9 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
     updates.pin_absensi = body.pin_absensi.length === 4 ? await hashPassword(body.pin_absensi) : null
   }
 
-  let row
+  let row: KaryawanRow | undefined
   try {
-    row = await query.find(db.update(karyawan).set(updates).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId))).returning({
+    row = await query.find<KaryawanRow>(db.update(karyawan).set(updates).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId))).returning({
       id: karyawan.id,
       kode_karyawan: karyawan.kode_karyawan,
       nama: karyawan.nama,
