@@ -28,6 +28,15 @@ export const env = {
 	get jwtSecret() { return jwtSecret() },
 	jwtExpiryHours: Number(process.env.JWT_EXPIRY_HOURS ?? 12),
 
+	// better-auth (Fase A) — getter karena secret/cred di-inject saat request (CF).
+	// Secret jatuh ke JWT_SECRET bila BETTER_AUTH_SECRET belum di-set (coexist).
+	get betterAuthSecret() { return process.env.BETTER_AUTH_SECRET ?? process.env.JWT_SECRET ?? '__cf_pending__' },
+	get betterAuthUrl() { return process.env.BETTER_AUTH_URL ?? '' },
+	get googleClientId() { return process.env.GOOGLE_CLIENT_ID ?? '' },
+	get googleClientSecret() { return process.env.GOOGLE_CLIENT_SECRET ?? '' },
+	// OAuth aktif hanya bila kedua kredensial Google ada (P2 di BACKLOG).
+	get oauthEnabled() { return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) },
+
 	// HTTP
 	port: Number(process.env.PORT ?? 3000),
 	// CORS origins — multi-origin via koma; sudah di-split & trim.

@@ -19,6 +19,20 @@ export function getCache(env: { KV?: unknown }): Cache {
   return (env.KV as Cache | undefined) ?? noopKV
 }
 
+// Adapter secondaryStorage better-auth → KV existing. Session & rate-limit
+// better-auth disimpan di KV (revoke/list murah), bukan DB. ttl dalam detik;
+// CF KV menolak expirationTtl < 60 → clamp. Prefix `ba:` agar tak tabrakan
+// dengan cache app lain. LAN mode (noopKV): get→null, better-auth fallback DB.
+export function betterAuthKV(env: { KV?: unknown }) {
+  const kv = getCache(env)
+  return {
+    get: (key: string) => kv.get(`ba:${key}`),
+    set: (key: string, value: string, ttl?: number) =>
+      kv.put(`ba:${key}`, value, ttl ? { expirationTtl: Math.max(60, ttl) } : undefined),
+    delete: (key: string) => kv.delete(`ba:${key}`),
+  }
+}
+
 // KV-based rate limiter — sliding window. LAN mode (noopKV): always allows (get → null).
 // Race condition di multi-instance CF Workers: acceptable untuk auth brute-force.
 export async function checkRateLimit(
