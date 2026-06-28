@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { user } from '$lib/stores/auth';
 	import { toast } from '$lib/stores/ui.store';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
@@ -16,6 +18,15 @@
 	let sesi = $state<Sesi[]>([]);
 	let loading = $state(true);
 	let revoking = $state<string | null>(null);
+	let loggingOut = $state(false);
+
+	// Logout perangkat ini = cabut sesi current + hapus cookie, lalu ke /login.
+	async function keluarPerangkatIni() {
+		loggingOut = true;
+		await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+		user.set(null);
+		goto('/login');
+	}
 
 	// Sesi hanya ada bila akun punya identity better-auth (sudah ber-email & login
 	// setelah migrasi). Akun lama tanpa email → daftar kosong.
@@ -109,6 +120,10 @@
 						onclick={() => cabut(s.id)}
 					>
 						Cabut
+					</Button>
+				{:else}
+					<Button variant="ghost" loading={loggingOut} onclick={keluarPerangkatIni}>
+						Keluar
 					</Button>
 				{/if}
 			</div>
