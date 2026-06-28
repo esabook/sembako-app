@@ -26,6 +26,7 @@ import { asetRouter } from './routes/aset.ts';
 import { auditRouter } from './routes/audit.ts';
 import type { JWTPayload } from './routes/auth.ts';
 import { authRouter } from './routes/auth.ts';
+import { getBetterAuth } from './lib/auth-ba.ts';
 import { barangRouter } from './routes/barang.ts';
 import { barangMasukRouter } from './routes/barang_masuk.ts';
 import { bomRouter } from './routes/bom.ts';
@@ -140,6 +141,9 @@ app.use('*', async (c, next) => {
     // No ExecutionContext in local Bun/Node dev — skip waitUntil
   }
 });
+
+// better-auth handler (Bun lokal/LAN) — KV in-memory fallback (c.env undefined).
+app.on(['GET', 'POST'], '/api/auth/*', (c) => getBetterAuth((c.env ?? {}) as { KV?: unknown }).handler(c.req.raw));
 
 app.route('/auth', authRouter);
 app.route('/langganan', langgananRouter);

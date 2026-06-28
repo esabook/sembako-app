@@ -164,9 +164,9 @@ app.get('/uploads/*', (c) => c.json({ success: false, error: 'Gunakan R2 public 
 
 app.use('*', langgananMiddleware)
 
-// better-auth handler (Fase A) — mount SEBELUM authRouter agar /auth/ba/* tak
-// ketangkap route /auth custom. Instance per-request (secret/env siap di sini).
-app.on(['GET', 'POST'], '/auth/ba/*', (c) => getBetterAuth(c.env).handler(c.req.raw))
+// better-auth handler — mount di /api/auth/* (basePath better-auth). Redirect URI
+// Google = <baseURL>/api/auth/callback/google. Instance per-request (env siap).
+app.on(['GET', 'POST'], '/api/auth/*', (c) => getBetterAuth(c.env).handler(c.req.raw))
 
 app.route('/auth', authRouter)
 app.route('/langganan', langgananRouter)

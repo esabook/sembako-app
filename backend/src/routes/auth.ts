@@ -5,7 +5,7 @@ import { HTTPException } from 'hono/http-exception';
 import { jwtVerify, SignJWT } from 'jose';
 import { env } from '../config/env.ts';
 import { db, demoDb, isoNow, prodDb, query, withTransaction } from '../db/index.ts';
-import { checkRateLimit, getCache } from '../lib/cache.ts';
+import { checkRateLimit, getCache, getKV } from '../lib/cache.ts';
 import { hashPassword, verifyPassword } from '../utils/password.ts';
 
 // Evaluated per-request so CF Workers process.env (set by worker.ts middleware) is current.
@@ -726,8 +726,10 @@ const frontendOrigin = () => env.corsOrigins[0] ?? '';
 authRouter.get('/google', async (c) => {
 	if (!env.oauthEnabled) throw new HTTPException(404, { message: 'OAuth Google tidak aktif' });
 	const auth = getBetterAuth(c.env as { KV?: unknown });
-	// asResponse → Response 302 ke Google + set state/PKCE cookie (domain backend).
-	return auth.api.signInSocial({
+	// signInSocial asResponse balas 200 + header Location(Google) + Set-Cookie(state).
+	// Browser tak ikuti Location pada 200 → bungkus ulang jadi 302 sambil bawa
+	// Set-Cookie state/PKCE (domain backend, dipakai saat callback verifikasi).
+	const res = await auth.api.signInSocial({
 		body: {
 			provider: 'google',
 			callbackURL: `${env.betterAuthUrl}/auth/google/bridge`,
@@ -736,6 +738,7 @@ authRouter.get('/google', async (c) => {
 		headers: c.req.raw.headers,
 		asResponse: true
 	});
+	return new Response(null, { status: 302, headers: res.headers });
 });
 
 authRouter.get('/google/bridge', async (c) => {
@@ -796,7 +799,7 @@ authRouter.get('/google/bridge', async (c) => {
 	// One-time-code (TTL 60s) → frontend menukar jadi token. Cross-origin: cookie
 	// backend tak terkirim ke pages.dev, jadi token dipindah via code, bukan cookie.
 	const code = crypto.randomUUID().replace(/-/g, '');
-	await getCache(c.env as { KV?: unknown }).put(`oauth:code:${code}`, JSON.stringify(payload), {
+	await getKV(c.env as { KV?: unknown }).put(`oauth:code:${code}`, JSON.stringify(payload), {
 		expirationTtl: 60
 	});
 	return c.redirect(`${frontendOrigin()}/auth/oauth-callback?code=${code}`);
@@ -806,7 +809,7 @@ authRouter.get('/google/bridge', async (c) => {
 authRouter.post('/oauth-exchange', async (c) => {
 	const { code } = await c.req.json<{ code: string }>();
 	if (!code) throw new HTTPException(400, { message: 'code wajib diisi' });
-	const kv = getCache(c.env as { KV?: unknown });
+	const kv = getKV(c.env as { KV?: unknown });
 	const raw = await kv.get(`oauth:code:${code}`);
 	if (!raw) throw new HTTPException(400, { message: 'Kode kadaluarsa atau tidak valid' });
 	await kv.delete(`oauth:code:${code}`); // sekali pakai

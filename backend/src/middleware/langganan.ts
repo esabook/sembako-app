@@ -20,7 +20,7 @@ const GATING_ON = env.saasGating;
 const METHOD_MUTASI = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 // Path yang selalu lolos walau suspended (bayar/berlangganan & auth & platform admin).
-const WHITELIST_PREFIX = ['/auth', '/langganan', '/platform', '/akun'];
+const WHITELIST_PREFIX = ['/auth', '/api/auth', '/langganan', '/platform', '/akun'];
 
 // Cache ringan status efektif per tenant agar tak query toko tiap request.
 const TTL_MS = 30_000;

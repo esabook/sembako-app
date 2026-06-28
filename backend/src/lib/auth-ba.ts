@@ -22,7 +22,9 @@ import { hashPassword, verifyPassword } from '../utils/password.ts'
 export function getBetterAuth(env_: { KV?: unknown }) {
   return betterAuth({
     appName: 'Stokasir',
-    basePath: '/auth/ba',
+    // basePath /api/auth → redirect URI Google = <baseURL>/api/auth/callback/google
+    // (cocok dgn yang diregister di Google console). Handler di-mount di path sama.
+    basePath: '/api/auth',
     secret: env.betterAuthSecret,
     // baseURL di-infer dari request bila BETTER_AUTH_URL kosong.
     ...(env.betterAuthUrl ? { baseURL: env.betterAuthUrl } : {}),
