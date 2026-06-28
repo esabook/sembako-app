@@ -41,3 +41,4 @@ backend/.wrangler/
 frontend/wrangler.toml
 backend/wrangler.toml
 .wrangler/
+skills-lock.json
