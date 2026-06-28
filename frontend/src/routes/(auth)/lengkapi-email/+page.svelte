@@ -64,7 +64,7 @@
 				<div class="err" role="alert">{error}</div>
 			{/if}
 
-			<button type="submit" class="btn" disabled={loading}>
+			<button type="submit" class="btn btn-primary" disabled={loading}>
 				{loading ? 'Menyimpan...' : 'Simpan Email'}
 			</button>
 		</form>

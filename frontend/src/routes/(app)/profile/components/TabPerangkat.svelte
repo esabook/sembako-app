@@ -5,6 +5,7 @@
 	import { toast } from '$lib/stores/ui.store';
 	import Button from '$lib/components/ui/Button.svelte';
 	import Skeleton from '$lib/components/ui/Skeleton.svelte';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 
 	type Sesi = {
 		id: string;
@@ -19,6 +20,8 @@
 	let loading = $state(true);
 	let revoking = $state<string | null>(null);
 	let loggingOut = $state(false);
+	let konfirmKeluar = $state(false);
+	let cabutTarget = $state<string | null>(null); // sid sesi yg mau dicabut (buka dialog)
 
 	// Logout perangkat ini = cabut sesi current + hapus cookie, lalu ke /login.
 	async function keluarPerangkatIni() {
@@ -90,39 +93,37 @@
 		<Skeleton w="100%" h="4rem" br="rounded-lg" />
 		<Skeleton w="100%" h="4rem" br="rounded-lg" />
 	{:else if sesi.length === 0}
-		<div class="rounded-lg border p-4 text-xs" style="border-color:var(--border);color:var(--text-dim)">
+		<div
+			class="rounded border px-3 py-2 text-xs"
+			style="border-color:var(--border);color:var(--text-dim)"
+		>
 			Belum ada sesi tercatat. Fitur ini aktif setelah akun memakai email & login ulang.
 		</div>
 	{:else}
 		{#each sesi as s (s.id)}
 			<div
-				class="flex items-center justify-between gap-3 rounded-lg border p-3"
+				class="flex items-center justify-between gap-3 rounded border px-3 py-2"
 				style="border-color:var(--border)"
 			>
 				<div class="min-w-0">
+					{#if s.current}
+						<span class="badge badge-xs badge-info">Perangkat ini</span>
+					{/if}
 					<div class="flex items-center gap-2">
-						<span class="truncate text-sm font-medium">{s.perangkat ?? 'Perangkat tak dikenal'}</span>
-						{#if s.current}
-							<span
-								class="rounded px-1.5 py-0.5 text-[10px] font-semibold"
-								style="background:var(--primary);color:#fff">Perangkat ini</span
-							>
-						{/if}
+						<span class="truncate text-sm font-medium"
+							>{s.perangkat ?? 'Perangkat tak dikenal'}</span
+						>
 					</div>
 					<div class="mt-0.5 text-xs" style="color:var(--text-dim)">
 						{s.ip || 'IP tak diketahui'} · masuk {fmtTanggal(s.dibuat)}
 					</div>
 				</div>
 				{#if !s.current}
-					<Button
-						variant="danger"
-						loading={revoking === s.id}
-						onclick={() => cabut(s.id)}
-					>
+					<Button variant="danger" loading={revoking === s.id} onclick={() => (cabutTarget = s.id)}>
 						Cabut
 					</Button>
 				{:else}
-					<Button variant="ghost" loading={loggingOut} onclick={keluarPerangkatIni}>
+					<Button variant="danger" loading={loggingOut} onclick={() => (konfirmKeluar = true)}>
 						Keluar
 					</Button>
 				{/if}
@@ -130,3 +131,28 @@
 		{/each}
 	{/if}
 </div>
+
+<ConfirmDialog
+	bind:open={konfirmKeluar}
+	judul="Keluar dari perangkat ini?"
+	pesan="Kamu akan logout dan kembali ke halaman masuk."
+	labelKiri="Batal"
+	labelKanan="Keluar"
+	warnaKanan="var(--danger)"
+	onkanan={keluarPerangkatIni}
+/>
+
+<ConfirmDialog
+	open={cabutTarget !== null}
+	judul="Cabut sesi perangkat ini?"
+	pesan="Perangkat tersebut akan diminta masuk ulang."
+	labelKiri="Batal"
+	labelKanan="Cabut"
+	warnaKanan="var(--danger)"
+	onkiri={() => (cabutTarget = null)}
+	onkanan={() => {
+		const id = cabutTarget;
+		cabutTarget = null;
+		if (id) cabut(id);
+	}}
+/>
