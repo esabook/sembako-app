@@ -1,8 +1,8 @@
 import { and, eq, inArray, } from 'drizzle-orm';
 import { type Context, Hono } from 'hono';
-import { deleteCookie, setCookie } from 'hono/cookie';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
-import { SignJWT } from 'jose';
+import { jwtVerify, SignJWT } from 'jose';
 import { env } from '../config/env.ts';
 import { db, demoDb, isoNow, prodDb, query, withTransaction } from '../db/index.ts';
 import { checkRateLimit, getCache } from '../lib/cache.ts';
@@ -12,7 +12,7 @@ import { hashPassword, verifyPassword } from '../utils/password.ts';
 // Module-level env.isProd freezes at module init before worker.ts sets process.env from c.env.
 const cookieProd = () => process.env.NODE_ENV === 'production';
 
-import { ba_session, cabang, karyawan, toko, toko_settings } from '../db/schema.ts';
+import { ba_session, ba_user, cabang, karyawan, toko, toko_settings } from '../db/schema.ts';
 import { getBetterAuth } from '../lib/auth-ba.ts';
 import type { Role } from '../middleware/auth.ts';
 import { authMiddleware } from '../middleware/auth.ts';
@@ -293,9 +293,84 @@ authRouter.post('/daftar', async (c) => {
 	return c.json({ success: true, data: { toko_id: result.toko_id } }, 201);
 });
 
-authRouter.post('/logout', (c) => {
+// Cabut sesi better-auth by sid + bust cache validasi → langsung berlaku.
+async function revokeSid(c: Context, sid: string): Promise<void> {
+	await query.exec(prodDb().delete(ba_session).where(eq(ba_session.id, sid)));
+	await getCache(c.env as { KV?: unknown }).delete(`sid:${sid}`);
+}
+
+authRouter.post('/logout', async (c) => {
+	// JWT ber-sid → cabut sesi better-auth juga supaya device list akurat.
+	const token = getCookie(c, 'auth_token');
+	if (token) {
+		try {
+			const { payload } = await jwtVerify(token, jwtSecret());
+			const sid = (payload as JWTPayload).sid;
+			if (sid) await revokeSid(c, sid);
+		} catch {
+			// token invalid → cukup hapus cookie
+		}
+	}
 	deleteCookie(c, 'auth_token', { path: '/' });
 	return c.json({ success: true, data: null });
+});
+
+// Daftar perangkat/sesi aktif milik akun (by email → ba_user). Demo: email
+// pemilik tetap → list sesi prod akun tsb. Tandai sesi current via sid.
+authRouter.get('/sesi', authMiddleware, async (c) => {
+	const user = c.get('user') as JWTPayload;
+	if (!user.email) return c.json({ success: true, data: [] });
+	const baUser = await query.find<{ id: string }>(
+		prodDb().select({ id: ba_user.id }).from(ba_user).where(eq(ba_user.email, user.email))
+	);
+	if (!baUser) return c.json({ success: true, data: [] });
+
+	const rows = await prodDb()
+		.select({
+			id: ba_session.id,
+			ip_address: ba_session.ip_address,
+			user_agent: ba_session.user_agent,
+			created_at: ba_session.created_at,
+			expires_at: ba_session.expires_at
+		})
+		.from(ba_session)
+		.where(eq(ba_session.user_id, baUser.id));
+
+	return c.json({
+		success: true,
+		data: rows.map((s) => ({
+			id: s.id,
+			ip: s.ip_address,
+			perangkat: s.user_agent,
+			dibuat: s.created_at,
+			berakhir: s.expires_at,
+			current: s.id === user.sid
+		}))
+	});
+});
+
+// Cabut sesi tertentu (logout perangkat lain). Pastikan sesi milik akun pemanggil.
+authRouter.post('/sesi/:id/cabut', authMiddleware, async (c) => {
+	const user = c.get('user') as JWTPayload;
+	const sid = c.req.param('id');
+	if (!sid) throw new HTTPException(400, { message: 'sid wajib diisi' });
+	if (!user.email) throw new HTTPException(403, { message: 'Akun tanpa email tak punya sesi' });
+
+	const baUser = await query.find<{ id: string }>(
+		prodDb().select({ id: ba_user.id }).from(ba_user).where(eq(ba_user.email, user.email))
+	);
+	const owned = baUser
+		? await query.find<{ id: string }>(
+				prodDb()
+					.select({ id: ba_session.id })
+					.from(ba_session)
+					.where(and(eq(ba_session.id, sid), eq(ba_session.user_id, baUser.id)))
+			)
+		: null;
+	if (!owned) throw new HTTPException(404, { message: 'Sesi tidak ditemukan' });
+
+	await revokeSid(c, sid);
+	return c.json({ success: true, data: { id: sid } });
 });
 
 authRouter.get('/me', authMiddleware, async (c) => {

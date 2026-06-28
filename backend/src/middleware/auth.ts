@@ -3,8 +3,8 @@ import { getCookie } from 'hono/cookie'
 import { HTTPException } from 'hono/http-exception'
 import { jwtVerify } from 'jose'
 import { eq } from 'drizzle-orm'
-import { db, query, runWithDemo } from '../db/index.ts'
-import { karyawan } from '../db/schema.ts'
+import { db, prodDb, query, runWithDemo } from '../db/index.ts'
+import { ba_session, karyawan } from '../db/schema.ts'
 import type { JWTPayload } from '../routes/auth.ts'
 import { getCache } from '../lib/cache.ts'
 
@@ -92,6 +92,28 @@ export async function authMiddleware(c: Context, next: Next) {
   // user.id = pemilik demo (ada di demo DB), jadi lookup di bawah konsisten.
   const handle = async () => {
     const cache = getCache(c.env as { KV?: unknown })
+
+    // Validasi sesi better-auth (Fase A): JWT ber-sid & bukan demo → sesi harus
+    // masih ada (belum dicabut/revoke). Demo: sesi ephemeral → lewati. JWT lama
+    // tanpa sid (sebelum migrasi) → lewati. Cache 60s; revoke bust key → langsung
+    // berlaku. Sesi better-auth (7h+) selalu hidup lebih lama dari JWT (12j) →
+    // tak ada logout dini.
+    if (user.sid && !user.is_demo) {
+      const skey = `sid:${user.sid}`
+      const cachedSid = await cache.get(skey)
+      let valid: boolean
+      if (cachedSid !== null) {
+        valid = cachedSid === '1'
+      } else {
+        const row = await query.find<{ id: string }>(
+          prodDb().select({ id: ba_session.id }).from(ba_session).where(eq(ba_session.id, user.sid))
+        )
+        valid = !!row
+        await cache.put(skey, valid ? '1' : '0', { expirationTtl: 60 })
+      }
+      if (!valid) throw new HTTPException(401, { message: 'Sesi telah dicabut. Silakan masuk kembali.' })
+    }
+
     // Namespace cache per-DB agar is_active demo & prod tidak saling cemar (id bisa collision).
     const cacheKey = `user:active:${user.is_demo ? 'demo:' : ''}${user.id}`
     const cached = await cache.get(cacheKey)
