@@ -80,6 +80,11 @@ type Bindings = {
   RELAY: RelayNamespace // Durable Object namespace untuk scan-relay
   JWT_SECRET: string
   JWT_EXPIRY_HOURS: string
+  // better-auth (Fase A) — secret & cred via wrangler secret; URL via [vars]
+  BETTER_AUTH_SECRET: string
+  BETTER_AUTH_URL: string
+  GOOGLE_CLIENT_ID: string
+  GOOGLE_CLIENT_SECRET: string
   FRONTEND_URL: string
   SAAS_GATING: string
   STORAGE_DRIVER: string
