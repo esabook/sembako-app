@@ -9,10 +9,6 @@
 	import DashboardOverview from './DashboardOverview.svelte';
 	import DashboardSalesSummary from './DashboardSalesSummary.svelte';
 
-	$effect(() => {
-		if ($user && !['pemilik', 'manajer'].includes($user.role)) goto('/kasir');
-	});
-
 	const store = createDashboardStore();
 	onMount(() => store.muat());
 

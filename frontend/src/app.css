@@ -58,15 +58,15 @@
   font-family: 'SF Pro Text', system-ui, -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
 
   /* ── apple animation tokens ────────────────────── */
-  --ease-std:    cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --ease-out:    cubic-bezier(0, 0, 0.2, 1);
-  --ease-in:     cubic-bezier(0.4, 0, 1, 1);
+  --ease-std: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --dur-press:   100ms;
-  --dur-micro:   150ms;
-  --dur-short:   200ms;
-  --dur-medium:  280ms;
-  --dur-long:    380ms;
+  --dur-press: 100ms;
+  --dur-micro: 150ms;
+  --dur-short: 200ms;
+  --dur-medium: 280ms;
+  --dur-long: 380ms;
 
   /* ── apple spacing tokens ───────────────────────── */
   --sp-xxs: 4px;
@@ -116,6 +116,13 @@
 }
 
 /* ─── DaisyUI overrides — apple spec ───────────── */
+
+/* daisyUI v5 uses --border as border-width (px), but our theme uses it as
+   a color token. Override here so badge/component padding computes correctly. */
+.badge {
+  --border: 1px;
+}
+
 .input,
 .select,
 .textarea {
@@ -133,17 +140,6 @@
   outline: none;
 }
 
-.btn {
-  --depth: 0;
-  border: none;
-  box-shadow: none !important;
-  letter-spacing: var(--ls-caption);
-  transition: transform 0.1s ease;
-}
-
-.btn:active {
-  transform: scale(0.95);
-}
 
 .card {
   border-radius: var(--radius-lg);
@@ -161,10 +157,20 @@
 }
 
 /* ─── Base ──────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+  --scrollbar-thumb: var(--border);
+  --scrollbar-thumb-hover: var(--ring);
+  --scrollbar-track: transparent;
+  --scrollbar-track-hover: transparent;
+}
+
 body {
   background-color: var(--bg);
   color: var(--text);
   min-height: 100vh;
+
 }
 
 .lucide {
@@ -180,45 +186,102 @@ body {
 
 /* ─── Apple Keyframes ───────────────────────────── */
 @keyframes apple-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes apple-scale-in {
-  from { opacity: 0; transform: scale(0.94); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes apple-dropdown-in {
-  from { opacity: 0; transform: scale(0.96) translateY(-6px); }
-  to   { opacity: 1; transform: scale(1)   translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 @keyframes apple-slide-left {
-  from { opacity: 0; transform: translateX(-100%); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes apple-slide-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ─── Utility animation classes ─────────────────── */
-.animate-apple-fade   { animation: apple-fade-in    var(--dur-short)  var(--ease-out)    both; }
-.animate-apple-scale  { animation: apple-scale-in   var(--dur-medium) var(--ease-out)    both; }
-.animate-apple-drop   { animation: apple-dropdown-in var(--dur-short) var(--ease-out)    both; }
-.animate-apple-up     { animation: apple-slide-up   var(--dur-short)  var(--ease-out)    both; }
-.animate-apple-spring { animation: apple-scale-in   var(--dur-medium) var(--ease-spring) both; }
+.animate-apple-fade {
+  animation: apple-fade-in var(--dur-short) var(--ease-out) both;
+}
+
+.animate-apple-scale {
+  animation: apple-scale-in var(--dur-medium) var(--ease-out) both;
+}
+
+.animate-apple-drop {
+  animation: apple-dropdown-in var(--dur-short) var(--ease-out) both;
+}
+
+.animate-apple-up {
+  animation: apple-slide-up var(--dur-short) var(--ease-out) both;
+}
+
+.animate-apple-spring {
+  animation: apple-scale-in var(--dur-medium) var(--ease-spring) both;
+}
 
 /* ─── Apple micro-interactions ──────────────────── */
 .btn {
+  --depth: 0;
+  border: none;
+  box-shadow: none !important;
+  letter-spacing: var(--ls-caption);
+  transition: transform 0.1s ease;
+
   transition:
-    transform          var(--dur-press) var(--ease-std),
-    background-color   var(--dur-micro) var(--ease-std),
-    color              var(--dur-micro) var(--ease-std),
-    border-color       var(--dur-micro) var(--ease-std),
-    opacity            var(--dur-micro) var(--ease-std);
+    transform var(--dur-press) var(--ease-std),
+    background-color var(--dur-micro) var(--ease-std),
+    color var(--dur-micro) var(--ease-std),
+    border-color var(--dur-micro) var(--ease-std),
+    opacity var(--dur-micro) var(--ease-std);
+}
+
+.btn:active {
+  transform: scale(0.95);
 }
 
 /* Links — smooth color shift */
@@ -259,7 +322,7 @@ a {
 }
 
 /* Toast / alert slide-up */
-.toast > * {
+.toast>* {
   animation: apple-slide-up var(--dur-short) var(--ease-out) both;
 }
 
