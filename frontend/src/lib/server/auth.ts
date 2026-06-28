@@ -11,6 +11,7 @@ export type AuthUser = {
 	tenant_id?: number
 	cabang_id?: number | null
 	saas?: boolean
+	perlu_email?: boolean
 	onboarding_selesai?: boolean
 	status_toko?: string | null
 	sisa_hari_hapus?: number | null
@@ -57,6 +58,17 @@ export async function optionalUser(token: string | undefined): Promise<AuthUser 
 		return json.data as AuthUser
 	} catch {
 		return null
+	}
+}
+
+/**
+ * Karyawan tanpa email (belum punya identity better-auth) diarahkan ke
+ * /lengkapi-email. Gate Fase B — jangan dipanggil di route /lengkapi-email
+ * sendiri (halaman ada di grup (auth), di luar gate ini, jadi tak ada loop).
+ */
+export async function gateLengkapiEmail(user: AuthUser): Promise<void> {
+	if (user.perlu_email) {
+		redirect(302, '/lengkapi-email')
 	}
 }
 
