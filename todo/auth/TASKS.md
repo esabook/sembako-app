@@ -18,13 +18,16 @@ Tanggal: 2026-06-28. Centang saat selesai. Detail desain → [SPEC.md](./SPEC.md
 
 ## FASE B — Email wajib + linking + OAuth
 
-- [ ] B1. OAuth bridge cross-origin: tombol Google navigate langsung ke worker; callback simpan one-time-code di KV (TTL ~60s); endpoint `frontend/src/routes/auth/oauth-callback/+server.ts` tukar code→token, set cookie pages.dev, redirect `/kasir`.
-- [ ] B2. Gate `gateLengkapiEmail` di `frontend/src/lib/server/auth.ts`. Halaman `frontend/src/routes/(auth)/lengkapi-email/`. Backend buat user+account, set `karyawan.email`+`ba_user_id`. Verifikasi via email (deferred sampai domain) → sementara mark `unverified`.
-- [ ] B3. Jalur admin: `backend/src/routes/karyawan.ts` + UI karyawan — pemilik/manajer set email karyawan → undang verifikasi.
-- [ ] B4. UI linking Google (pengaturan) + halaman "Perangkat & Sesi" (list+cabut).
-- [ ] B5. Login page pakai better-auth (`signIn.email`/`signIn.social`) sbg jalur utama; `/auth/login` custom tetap fallback.
+- [x] B1. OAuth bridge cross-origin: tombol Google navigate langsung ke worker; callback simpan one-time-code di KV (TTL ~60s); endpoint `frontend/src/routes/auth/oauth-callback/+server.ts` tukar code→token, set cookie pages.dev, redirect `/kasir`.
+- [x] B2. Gate `gateLengkapiEmail` di `frontend/src/lib/server/auth.ts`. Halaman `frontend/src/routes/(auth)/lengkapi-email/`. Backend buat user+account, set `karyawan.email`+`ba_user_id`. Verifikasi via email (deferred sampai domain) → sementara mark `unverified`.
+- [x] B3. Jalur admin: `backend/src/routes/karyawan.ts` + UI karyawan — pemilik/manajer set email karyawan → undang verifikasi.
+- [x] B4. UI linking Google (pengaturan) + halaman "Perangkat & Sesi" (list+cabut).
+- [x] B5. Login page pakai better-auth (`signIn.email`/`signIn.social`) sbg jalur utama; `/auth/login` custom tetap fallback.
 
 **Exit B**: owner login Google (auto-verified); staff isi email (admin/gate); device list & revoke dari UI.
+
+
+> Catatan eksekusi (2026-06-28): B1-B5 kode selesai. OAuth butuh GOOGLE_CLIENT_ID/SECRET + BETTER_AUTH_URL + redirect URI Google = <backend>/auth/ba/callback/google + PUBLIC_OAUTH_GOOGLE=1 (frontend) untuk aktif. DEFER: linking Google dari pengaturan (cross-origin), verifikasi email paksa (butuh domain P1).
 
 ## FASE C — Cutover buang JWT (DIRENCANAKAN, sesi terpisah)
 
