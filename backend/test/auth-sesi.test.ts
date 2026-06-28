@@ -102,3 +102,36 @@ describe('validasi sid + list + revoke', () => {
     expect((await get('/auth/me', k)).status).toBe(200)
   })
 })
+
+describe('gate lengkapi-email (Fase B)', () => {
+  test('staff tanpa email isi email → identity dibuat, perlu_email false, login berikut ber-sid', async () => {
+    await seedKaryawan({ username: 'staffb', email: null, password: '111111', role: 'gudang' })
+    const a = authCookie(await login('staffb', '111111'))
+    expect(jwtPayload(a).sid).toBeUndefined()
+
+    const me1 = (await (await get('/auth/me', a)).json()) as { data: { perlu_email: boolean } }
+    expect(me1.data.perlu_email).toBe(true)
+
+    const r = await post('/auth/lengkapi-email', { email: 'staffb@x.id' }, a)
+    expect(r.status).toBe(200)
+
+    const me2 = (await (await get('/auth/me', a)).json()) as { data: { perlu_email: boolean } }
+    expect(me2.data.perlu_email).toBe(false)
+
+    // login ulang → sekarang ber-sid (ba_user_id terset)
+    const b = authCookie(await login('staffb', '111111'))
+    expect(jwtPayload(b).sid).toBeTruthy()
+  })
+
+  test('email sudah dipakai akun lain → 409', async () => {
+    const a = authCookie(await login('owner@x.id', '111111'))
+    const r = await post('/auth/lengkapi-email', { email: 'staffb@x.id' }, a)
+    expect(r.status).toBe(409)
+  })
+
+  test('format email invalid → 400', async () => {
+    const a = authCookie(await login('staffb', '111111'))
+    const r = await post('/auth/lengkapi-email', { email: 'bukan-email' }, a)
+    expect(r.status).toBe(400)
+  })
+})

@@ -27,6 +27,60 @@ export type BackfillResult = {
   skippedNoHash: number // tak ada password_hash → tak bisa dibuat
 }
 
+type KaryawanLite = {
+  id: number
+  nama: string
+  email: string
+  password_hash: string | null
+}
+
+// Tautkan satu karyawan ke identity better-auth: pakai user existing (email sama)
+// atau buat user + account(credential) baru dgn hash existing. Set karyawan.ba_user_id.
+// Dipakai backfill massal, gate lengkapi-email, & admin set email. Idempoten.
+export async function linkOrCreateBaUser(
+  db: ReturnType<typeof prodDb>,
+  k: KaryawanLite,
+): Promise<{ baUserId: string; created: boolean } | null> {
+  const email = k.email.trim().toLowerCase()
+  if (!email) return null
+
+  const existing = await db
+    .select({ id: ba_user.id })
+    .from(ba_user)
+    .where(eq(ba_user.email, email))
+    .limit(1)
+
+  if (existing[0]) {
+    await db.update(karyawan).set({ ba_user_id: existing[0].id }).where(eq(karyawan.id, k.id))
+    return { baUserId: existing[0].id, created: false }
+  }
+
+  if (!k.password_hash) return null // tanpa hash tak bisa bikin account credential
+
+  const now = new Date()
+  const userId = genId()
+  await db.insert(ba_user).values({
+    id: userId,
+    name: k.nama,
+    email,
+    email_verified: false,
+    created_at: now,
+    updated_at: now,
+  })
+  // Account credential: account_id = user_id (konvensi better-auth utk password).
+  await db.insert(ba_account).values({
+    id: genId(),
+    user_id: userId,
+    account_id: userId,
+    provider_id: 'credential',
+    password: k.password_hash,
+    created_at: now,
+    updated_at: now,
+  })
+  await db.update(karyawan).set({ ba_user_id: userId }).where(eq(karyawan.id, k.id))
+  return { baUserId: userId, created: true }
+}
+
 export async function backfillBetterAuth(): Promise<BackfillResult> {
   const db = prodDb()
   const res: BackfillResult = { total: 0, linked: 0, created: 0, skippedNoHash: 0 }
@@ -44,56 +98,22 @@ export async function backfillBetterAuth(): Promise<BackfillResult> {
   res.total = rows.length
 
   for (const k of rows) {
-    const email = (k.email ?? '').trim().toLowerCase()
-    if (!email) continue
-
-    // 1. Sudah ada user dgn email ini? Tautkan saja (idempoten saat re-run).
-    const existing = await db
-      .select({ id: ba_user.id })
-      .from(ba_user)
-      .where(eq(ba_user.email, email))
-      .limit(1)
-
-    if (existing[0]) {
-      await db
-        .update(karyawan)
-        .set({ ba_user_id: existing[0].id })
-        .where(eq(karyawan.id, k.id!))
-      res.linked++
-      continue
-    }
-
-    // 2. Tanpa hash → tak bisa bikin account credential. Lewati (kasus langka).
+    if (!k.email) continue
     if (!k.password_hash) {
-      res.skippedNoHash++
+      // Cek dulu: mungkin user existing bisa ditautkan walau tanpa hash.
+      const linked = await linkOrCreateBaUser(db, { id: k.id!, nama: k.nama, email: k.email, password_hash: null })
+      if (linked) res.linked++
+      else res.skippedNoHash++
       continue
     }
-
-    const now = new Date()
-    const userId = genId()
-
-    await db.insert(ba_user).values({
-      id: userId,
-      name: k.nama,
-      email,
-      email_verified: false,
-      created_at: now,
-      updated_at: now,
+    const r = await linkOrCreateBaUser(db, {
+      id: k.id!,
+      nama: k.nama,
+      email: k.email,
+      password_hash: k.password_hash,
     })
-
-    // Account credential: account_id = user_id (konvensi better-auth utk password).
-    await db.insert(ba_account).values({
-      id: genId(),
-      user_id: userId,
-      account_id: userId,
-      provider_id: 'credential',
-      password: k.password_hash,
-      created_at: now,
-      updated_at: now,
-    })
-
-    await db.update(karyawan).set({ ba_user_id: userId }).where(eq(karyawan.id, k.id!))
-    res.created++
+    if (r?.created) res.created++
+    else if (r) res.linked++
   }
 
   return res

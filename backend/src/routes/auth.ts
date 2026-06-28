@@ -13,6 +13,7 @@ import { hashPassword, verifyPassword } from '../utils/password.ts';
 const cookieProd = () => process.env.NODE_ENV === 'production';
 
 import { ba_session, ba_user, cabang, karyawan, toko, toko_settings } from '../db/schema.ts';
+import { linkOrCreateBaUser } from '../db/backfill-ba.ts';
 import { getBetterAuth } from '../lib/auth-ba.ts';
 import type { Role } from '../middleware/auth.ts';
 import { authMiddleware } from '../middleware/auth.ts';
@@ -391,6 +392,15 @@ authRouter.get('/me', authMiddleware, async (c) => {
 			.where(eq(toko.id, user.tenant_id))
 	);
 	const is_demo = (cur?.kode_toko ?? '').startsWith('DEMO');
+
+	// Gate lengkapi-email (Fase B): karyawan tanpa email belum punya identity
+	// better-auth → diarahkan isi email. Demo dilewati (ephemeral).
+	const meKar = is_demo
+		? null
+		: await query.find<{ email: string | null }>(
+				prodDb().select({ email: karyawan.email }).from(karyawan).where(eq(karyawan.id, user.id))
+			);
+	const perlu_email = !is_demo && !meKar?.email;
 	const sisaHariHapus = cur?.hapus_terjadwal
 		? Math.max(0, Math.ceil((new Date(cur.hapus_terjadwal).getTime() - Date.now()) / 86_400_000))
 		: null;
@@ -437,6 +447,7 @@ authRouter.get('/me', authMiddleware, async (c) => {
 			cabang_id: user.cabang_id,
 			saas: env.saasGating,
 			is_demo,
+			perlu_email,
 			onboarding_selesai,
 			status_toko: cur?.status_langganan ?? null,
 			hapus_terjadwal: cur?.hapus_terjadwal ?? null,
@@ -652,4 +663,46 @@ authRouter.post('/switch-context', authMiddleware, async (c) => {
 	await issueAuthCookie(c, payload);
 
 	return c.json({ success: true, data: { tenant_id: body.toko_id, cabang_id: newCabangId } });
+});
+
+// Gate lengkapi-email (Fase B): karyawan tanpa email mengisi sendiri → dibuatkan
+// identity better-auth (pakai hash existing). Verifikasi email ditunda sampai
+// domain siap (P1) → email_verified tetap false. sid menyusul di login berikut.
+authRouter.post('/lengkapi-email', authMiddleware, async (c) => {
+	const user = c.get('user') as JWTPayload;
+	if (user.is_demo) throw new HTTPException(400, { message: 'Tidak tersedia di sesi demo' });
+
+	const body = await c.req.json<{ email: string }>();
+	const email = body.email?.trim().toLowerCase();
+	if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+		throw new HTTPException(400, { message: 'Format email tidak valid' });
+	}
+
+	const pdb = prodDb();
+	// Email harus unik lintas karyawan.
+	const dipakai = await query.find<{ id: number }>(
+		pdb.select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.email, email))
+	);
+	if (dipakai && dipakai.id !== user.id) {
+		throw new HTTPException(409, { message: 'Email sudah dipakai akun lain' });
+	}
+
+	const k = await query.find<{ id: number; nama: string; password_hash: string | null }>(
+		pdb
+			.select({ id: karyawan.id, nama: karyawan.nama, password_hash: karyawan.password_hash })
+			.from(karyawan)
+			.where(eq(karyawan.id, user.id))
+	);
+	if (!k) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' });
+
+	await query.exec(pdb.update(karyawan).set({ email }).where(eq(karyawan.id, user.id)));
+	const link = await linkOrCreateBaUser(pdb, {
+		id: k.id,
+		nama: k.nama,
+		email,
+		password_hash: k.password_hash
+	});
+	if (!link) throw new HTTPException(500, { message: 'Gagal membuat identity better-auth' });
+
+	return c.json({ success: true, data: { email } });
 });
