@@ -8,6 +8,13 @@
       "when": 1782322382103,
       "tag": "0000_regular_mother_askani",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1782632948749,
+      "tag": "0001_composite_indexes",
+      "breakpoints": true
     }
   ]
 }
