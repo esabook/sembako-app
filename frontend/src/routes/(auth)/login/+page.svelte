@@ -9,6 +9,9 @@
 
 	// Daftar mandiri hanya di mode cloud/online; LAN tetap dibuat admin.
 	const bisaDaftar = env.PUBLIC_DEPLOYMENT_MODE === 'online';
+	// Tombol Google muncul hanya bila OAuth diaktifkan (cred Google di backend).
+	const oauthAktif = env.PUBLIC_OAUTH_GOOGLE === '1';
+	let oauthError = $state('');
 
 	let usernameInput!: HTMLInputElement;
 	let passwordInput!: HTMLInputElement;
@@ -43,6 +46,11 @@
 		const params = new URLSearchParams(window.location.search);
 		const emailParam = params.get('email');
 		if (emailParam) store.username = emailParam;
+		const oauthParam = params.get('oauth');
+		if (oauthParam === 'notfound')
+			oauthError = 'Email Google ini belum terdaftar sebagai karyawan. Hubungi admin.';
+		else if (oauthParam === 'notoko') oauthError = 'Akun belum memiliki toko terkait.';
+		else if (oauthParam === 'error') oauthError = 'Login Google gagal. Coba lagi.';
 		usernameInput?.focus();
 		store.tick(new Date());
 		store.muatInfo(window.location.hostname);
@@ -226,6 +234,22 @@
 
 						{#if store.error}
 							<div class="form-error" role="alert">{store.error}</div>
+						{/if}
+						{#if oauthError}
+							<div class="form-error" role="alert">{oauthError}</div>
+						{/if}
+
+						{#if oauthAktif}
+							<div class="oauth-sep"><span>atau</span></div>
+							<a href="/auth/google" class="google-btn" data-sveltekit-reload>
+								<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+									<path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"/>
+									<path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"/>
+									<path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"/>
+									<path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38Z"/>
+								</svg>
+								Masuk dengan Google
+							</a>
 						{/if}
 					</form>
 
@@ -620,6 +644,45 @@
 		font-size: 12px;
 		letter-spacing: 0.02em;
 		line-height: 1.4;
+	}
+
+	/* OAuth */
+	.oauth-sep {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin: 14px 0 10px;
+		color: var(--muted);
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+	.oauth-sep::before,
+	.oauth-sep::after {
+		content: '';
+		flex: 1;
+		height: 1px;
+		background: var(--border);
+	}
+	.google-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+		width: 100%;
+		padding: 10px 14px;
+		background: var(--surface2);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		color: var(--text);
+		font-size: 13px;
+		font-weight: 600;
+		text-decoration: none;
+		transition: background 0.15s, border-color 0.15s;
+	}
+	.google-btn:hover {
+		background: color-mix(in srgb, var(--text) 6%, var(--surface2));
+		border-color: color-mix(in srgb, var(--text) 25%, var(--border));
 	}
 
 	/* Options row */

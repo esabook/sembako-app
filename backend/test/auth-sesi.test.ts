@@ -135,3 +135,49 @@ describe('gate lengkapi-email (Fase B)', () => {
     expect(r.status).toBe(400)
   })
 })
+
+describe('OAuth one-time-code exchange (Fase B, B1)', () => {
+  // KV palsu (Map) — di test tak ada binding KV (noopKV).
+  function makeKV() {
+    const m = new Map<string, string>()
+    return {
+      get: async (k: string) => m.get(k) ?? null,
+      put: async (k: string, v: string) => {
+        m.set(k, v)
+      },
+      delete: async (k: string) => {
+        m.delete(k)
+      },
+    }
+  }
+  const payload = {
+    sub: '1', id: 1, nama: 'OAuth User', role: 'kasir', kode_karyawan: 'K1',
+    email: 'oauth@x.id', tenant_id: 1, cabang_id: null, home_toko_id: 1, is_demo: false, sid: 'sess-oauth-1',
+  }
+  const exchange = (code: string, kv: ReturnType<typeof makeKV>) =>
+    app.request(
+      '/auth/oauth-exchange',
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }) },
+      { KV: kv },
+    )
+
+  test('code valid → token (decode sid cocok), sekali pakai (kedua 400)', async () => {
+    const kv = makeKV()
+    await kv.put('oauth:code:abc123', JSON.stringify(payload))
+
+    const res = await exchange('abc123', kv)
+    expect(res.status).toBe(200)
+    const json = (await res.json()) as { data: { token: string } }
+    const decoded = jwtPayload(`x=${json.data.token}`)
+    expect(decoded.sid).toBe('sess-oauth-1')
+    expect(decoded.tenant_id).toBe(1)
+
+    // sekali pakai → code terhapus
+    expect((await exchange('abc123', kv)).status).toBe(400)
+  })
+
+  test('code tidak ada → 400', async () => {
+    const res = await exchange('tidak-ada', makeKV())
+    expect(res.status).toBe(400)
+  })
+})

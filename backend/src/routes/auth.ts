@@ -45,14 +45,20 @@ export type JWTPayload = {
 	exp?: number;
 };
 
-// Mint JWT custom + set cookie auth_token. Dipakai login & switch-context.
-// sid (bila ada) ikut diembed agar middleware bisa validasi/revoke sesi.
-export async function issueAuthCookie(c: Context, payload: JWTPayload): Promise<string> {
-	const token = await new SignJWT(payload as Record<string, unknown>)
+// Tanda-tangani JWT custom (tanpa set cookie). Dipakai issueAuthCookie & jalur
+// OAuth (frontend yang set cookie di domain pages.dev).
+export async function signAuthToken(payload: JWTPayload): Promise<string> {
+	return new SignJWT(payload as Record<string, unknown>)
 		.setProtectedHeader({ alg: 'HS256' })
 		.setIssuedAt()
 		.setExpirationTime(`${JWT_EXPIRY_HOURS}h`)
 		.sign(jwtSecret());
+}
+
+// Mint JWT custom + set cookie auth_token. Dipakai login & switch-context.
+// sid (bila ada) ikut diembed agar middleware bisa validasi/revoke sesi.
+export async function issueAuthCookie(c: Context, payload: JWTPayload): Promise<string> {
+	const token = await signAuthToken(payload);
 
 	setCookie(c, 'auth_token', token, {
 		httpOnly: true,
@@ -705,4 +711,113 @@ authRouter.post('/lengkapi-email', authMiddleware, async (c) => {
 	if (!link) throw new HTTPException(500, { message: 'Gagal membuat identity better-auth' });
 
 	return c.json({ success: true, data: { email } });
+});
+
+// ─── OAuth Google (Fase B) — bridge cross-origin via one-time-code ──────────
+// Alur: /auth/google (302 ke Google, set state cookie domain backend) → Google →
+// /auth/ba/callback/google (better-auth bikin session) → callbackURL
+// /auth/google/bridge (mint one-time-code di KV) → frontend /auth/oauth-callback
+// menukar code → token (set cookie pages.dev). OAuth = login-only: email WAJIB
+// cocok karyawan existing (tak ada signup tenant via OAuth — non-goal).
+
+// Origin frontend utama untuk redirect balik (pages.dev / localhost dev).
+const frontendOrigin = () => env.corsOrigins[0] ?? '';
+
+authRouter.get('/google', async (c) => {
+	if (!env.oauthEnabled) throw new HTTPException(404, { message: 'OAuth Google tidak aktif' });
+	const auth = getBetterAuth(c.env as { KV?: unknown });
+	// asResponse → Response 302 ke Google + set state/PKCE cookie (domain backend).
+	return auth.api.signInSocial({
+		body: {
+			provider: 'google',
+			callbackURL: `${env.betterAuthUrl}/auth/google/bridge`,
+			errorCallbackURL: `${frontendOrigin()}/login?oauth=error`
+		},
+		headers: c.req.raw.headers,
+		asResponse: true
+	});
+});
+
+authRouter.get('/google/bridge', async (c) => {
+	const auth = getBetterAuth(c.env as { KV?: unknown });
+	const session = await auth.api.getSession({ headers: c.req.raw.headers });
+	if (!session?.user?.email) return c.redirect(`${frontendOrigin()}/login?oauth=error`);
+	const email = session.user.email.trim().toLowerCase();
+
+	// Login-only: email harus = karyawan aktif existing.
+	const k = await query.find<{
+		id: number;
+		nama: string;
+		role: Role;
+		kode_karyawan: string;
+		toko_id: number | null;
+		cabang_id: number | null;
+		is_active: boolean;
+		ba_user_id: string | null;
+	}>(
+		prodDb()
+			.select({
+				id: karyawan.id,
+				nama: karyawan.nama,
+				role: karyawan.role,
+				kode_karyawan: karyawan.kode_karyawan,
+				toko_id: karyawan.toko_id,
+				cabang_id: karyawan.cabang_id,
+				is_active: karyawan.is_active,
+				ba_user_id: karyawan.ba_user_id
+			})
+			.from(karyawan)
+			.where(eq(karyawan.email, email))
+	);
+	if (!k || !k.is_active) return c.redirect(`${frontendOrigin()}/login?oauth=notfound`);
+	if (!k.toko_id) return c.redirect(`${frontendOrigin()}/login?oauth=notoko`);
+
+	// Tautkan ba_user_id bila belum (akun Google jadi identity karyawan).
+	if (!k.ba_user_id && session.user.id) {
+		await query.exec(
+			prodDb().update(karyawan).set({ ba_user_id: session.user.id }).where(eq(karyawan.id, k.id))
+		);
+	}
+
+	const payload: JWTPayload = {
+		sub: String(k.id),
+		id: k.id,
+		nama: k.nama,
+		role: k.role,
+		kode_karyawan: k.kode_karyawan,
+		email,
+		tenant_id: k.toko_id,
+		cabang_id: k.cabang_id ?? null,
+		home_toko_id: k.toko_id,
+		is_demo: false,
+		...(session.session?.id ? { sid: session.session.id } : {})
+	};
+
+	// One-time-code (TTL 60s) → frontend menukar jadi token. Cross-origin: cookie
+	// backend tak terkirim ke pages.dev, jadi token dipindah via code, bukan cookie.
+	const code = crypto.randomUUID().replace(/-/g, '');
+	await getCache(c.env as { KV?: unknown }).put(`oauth:code:${code}`, JSON.stringify(payload), {
+		expirationTtl: 60
+	});
+	return c.redirect(`${frontendOrigin()}/auth/oauth-callback?code=${code}`);
+});
+
+// Tukar one-time-code → JWT (sekali pakai). Frontend +server set cookie pages.dev.
+authRouter.post('/oauth-exchange', async (c) => {
+	const { code } = await c.req.json<{ code: string }>();
+	if (!code) throw new HTTPException(400, { message: 'code wajib diisi' });
+	const kv = getCache(c.env as { KV?: unknown });
+	const raw = await kv.get(`oauth:code:${code}`);
+	if (!raw) throw new HTTPException(400, { message: 'Kode kadaluarsa atau tidak valid' });
+	await kv.delete(`oauth:code:${code}`); // sekali pakai
+
+	const payload = JSON.parse(raw) as JWTPayload;
+	const token = await signAuthToken(payload);
+	return c.json({
+		success: true,
+		data: {
+			token,
+			user: { id: payload.id, nama: payload.nama, role: payload.role, tenant_id: payload.tenant_id }
+		}
+	});
 });
