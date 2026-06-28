@@ -1,4 +1,5 @@
 import { redirect } from '@sveltejs/kit'
+import { dev } from '$app/environment'
 import { backendUrl } from '$lib/server/config'
 import type { RequestHandler } from './$types'
 
@@ -22,7 +23,7 @@ export const GET: RequestHandler = async ({ url, cookies, fetch }) => {
 
 	cookies.set('auth_token', json.data.token, {
 		httpOnly: true,
-		secure: true,
+		secure: !dev, // http://localhost dev: browser tolak cookie Secure
 		sameSite: 'lax',
 		path: '/',
 		maxAge: 12 * 60 * 60
