@@ -68,7 +68,7 @@ export function hasPermission(role: Role, permission: Permission): boolean {
   const perms = ROLE_PERMISSIONS[role] ?? []
   if (perms.includes('*')) return true
 
-  const [modul, aksi] = permission.split('.')
+  const [modul, _aksi] = permission.split('.')
   return (
     perms.includes(permission) ||
     perms.includes(`${modul}.*`)

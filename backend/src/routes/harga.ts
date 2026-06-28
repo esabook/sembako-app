@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc, and, like, or, sql, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, isoNow } from '../db/index.ts'
 import {
   barang,
   kategori,

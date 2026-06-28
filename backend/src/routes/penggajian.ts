@@ -210,7 +210,7 @@ penggajianRouter.put('/:id', requirePermission('gaji.edit'), async (c) => {
       : existing.gaji_pokok
   const total = Math.max(0, gajiBase + tunjangan - existing.potongan_kasbon - potonganLain)
 
-  const row = await withTransaction(async (tx) => {
+  const row = await withTransaction(async (_tx) => {
     const updated = await query.find<typeof penggajian.$inferSelect>(db
       .update(penggajian)
       .set({

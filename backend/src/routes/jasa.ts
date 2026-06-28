@@ -154,7 +154,7 @@ jasaRouter.get('/booking', requirePermission('penjualan.lihat'), async (c) => {
         eq(booking.tenant_id, tenantId),
         cabangId ? eq(booking.cabang_id, cabangId) : undefined,
         dari ? gte(booking.waktu_mulai, dari) : undefined,
-        sampai ? lte(booking.waktu_mulai, sampai + 'T23:59:59') : undefined,
+        sampai ? lte(booking.waktu_mulai, `${sampai}T23:59:59`) : undefined,
         statusQ ? eq(booking.status, statusQ as 'booked' | 'confirmed' | 'in_progress' | 'selesai' | 'batal' | 'no_show') : undefined,
       )
     )
@@ -367,7 +367,7 @@ jasaRouter.post('/booking/:id/checkout', requirePermission('penjualan.buat'), as
     return trx
   })
 
-  return c.json({ success: true, data: { penjualan_id: result.id, no_transaksi: noTrx, total } }, 201)
+  return c.json({ success: true, data: { penjualan_id: result!.id, no_transaksi: noTrx, total } }, 201)
 })
 
 // ── GET /jasa/jadwal-staf ─────────────────────────────────────────────────────

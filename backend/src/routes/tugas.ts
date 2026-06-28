@@ -1,8 +1,8 @@
 // C5: Checklist Tugas Harian (Kebersihan, dll)
 import { Hono } from 'hono'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, } from '../db/index.ts'
 import { checklist_item, checklist_log, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'

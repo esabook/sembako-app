@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc, and, gte, lte, ne, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, withTransaction, } from '../db/index.ts'
 import { barang, mutasi_stok, kategori, satuan, karyawan, penjualan, penjualan_detail } from '../db/schema.ts'
 import { catatLog } from '../utils/log.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
@@ -109,7 +109,7 @@ stokRouter.get('/:id/mutasi', requirePermission('stok.lihat'), async (c) => {
   const conditions = [eq(mutasi_stok.barang_id, id), eq(mutasi_stok.tenant_id, tenantId)]
   if (cabangId) conditions.push(eq(mutasi_stok.cabang_id, cabangId))
   if (dari) conditions.push(gte(mutasi_stok.tanggal, dari))
-  if (sampai) conditions.push(lte(mutasi_stok.tanggal, sampai + ' 23:59:59'))
+  if (sampai) conditions.push(lte(mutasi_stok.tanggal, `${sampai} 23:59:59`))
 
   const rows = await query.findAll(db
     .select({
@@ -155,7 +155,7 @@ stokRouter.post('/koreksi', requirePermission('stok.edit'), async (c) => {
 
   const tgl = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 19)
 
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     await query.exec(db.insert(mutasi_stok).values({
       barang_id: body.barang_id,
       tanggal: tgl,

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, desc, and, inArray } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, withTransaction, } from '../db/index.ts'
 import {
   barang_masuk, barang_masuk_detail,
   barang, mutasi_stok,
@@ -129,7 +129,7 @@ barangMasukRouter.post('/', requirePermission('pembelian.buat'), async (c) => {
   )
   const barangMap = new Map(barangRows.map((b) => [b.id!, { ...b }]))
 
-  const result = await withTransaction(async (tx) => {
+  const result = await withTransaction(async (_tx) => {
     // 1. Buat barang_masuk header
     const bm = (await query.ret<{ id: number }>(db.insert(barang_masuk).values({
       no_penerimaan: noTrx,
@@ -234,7 +234,7 @@ barangMasukRouter.post('/:id/foto', requirePermission('pembelian.buat'), async (
 
   const formData = await c.req.formData()
   const file = formData.get('foto') as File | null
-  if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
+  if (!file?.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
 
   // Invoice disimpan resolusi tinggi agar teks faktur terbaca
   const { path: fotoPath } = await saveUpload(file, {

@@ -1,7 +1,7 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { and, desc, eq, gte, like, lte, sql } from 'drizzle-orm'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, } from '../db/index.ts'
 import { log_aktivitas, karyawan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
@@ -27,7 +27,7 @@ auditRouter.get('/', async (c) => {
   if (q.modul)       conditions.push(eq(log_aktivitas.modul, q.modul))
   if (q.aksi)        conditions.push(like(log_aktivitas.aksi, `%${q.aksi}%`))
   if (q.dari)        conditions.push(gte(log_aktivitas.waktu, q.dari))
-  if (q.sampai)      conditions.push(lte(log_aktivitas.waktu, q.sampai + ' 23:59:59'))
+  if (q.sampai)      conditions.push(lte(log_aktivitas.waktu, `${q.sampai} 23:59:59`))
 
   const where = and(...conditions)
 
@@ -73,7 +73,7 @@ auditRouter.get('/export', async (c) => {
   if (q.modul)       conditions.push(eq(log_aktivitas.modul, q.modul))
   if (q.aksi)        conditions.push(like(log_aktivitas.aksi, `%${q.aksi}%`))
   if (q.dari)        conditions.push(gte(log_aktivitas.waktu, q.dari))
-  if (q.sampai)      conditions.push(lte(log_aktivitas.waktu, q.sampai + ' 23:59:59'))
+  if (q.sampai)      conditions.push(lte(log_aktivitas.waktu, `${q.sampai} 23:59:59`))
   const where = and(...conditions)
 
   const rows = await query.findAll<{ id: number; waktu: string; aksi: string; modul: string; referensi_id: number | null; detail_json: unknown; nama_karyawan: string | null; role_karyawan: string | null; ip_address: string | null }>(db.select({

@@ -5,7 +5,7 @@ import { networkInterfaces } from 'node:os'
 
 // Bun = local Pi/dev; Node.js = cloud deployment (Railway, etc.)
 const isLocalBun = typeof (globalThis as unknown as { Bun?: unknown }).Bun !== 'undefined'
-import { db, sqlite, query, withTransaction, isoNow, dialect } from '../db/index.ts'
+import { db, sqlite, query, isoNow, dialect } from '../db/index.ts'
 import { toko, toko_settings, preferensi_pengguna } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'

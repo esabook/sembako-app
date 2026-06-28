@@ -6,7 +6,7 @@
 // Built-in — after:checkout → cek barang stok vs minimum → notifikasi
 
 import { bus } from './event-bus.ts'
-import { db, sqlite } from '../db/index.ts'
+import { db, } from '../db/index.ts'
 import { sop_rule, sop_instance, barang, notifikasi_config, notifikasi_log } from '../db/schema.ts'
 import { eq, and, sql } from 'drizzle-orm'
 

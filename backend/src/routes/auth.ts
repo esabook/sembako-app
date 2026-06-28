@@ -1,4 +1,4 @@
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { deleteCookie, setCookie } from 'hono/cookie';
 import { HTTPException } from 'hono/http-exception';
@@ -72,7 +72,7 @@ authRouter.post('/login', async (c) => {
 			.where(isEmail ? eq(karyawan.email, identifier) : eq(karyawan.username, identifier))
 	);
 
-	if (!user || !user.is_active) {
+	if (!user?.is_active) {
 		throw new HTTPException(401, { message: 'Username / email atau password salah' });
 	}
 

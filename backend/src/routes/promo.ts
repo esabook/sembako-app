@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { eq, and, or, isNull, gte, lte, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
-import { promo, promo_target, barang, kategori } from '../db/schema.ts'
+import { promo, promo_target, } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
@@ -101,7 +101,7 @@ promoRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   if (!body.nilai || body.nilai <= 0) throw new HTTPException(400, { message: 'Nilai diskon harus > 0' })
   if (body.tipe_nilai === 'persen' && body.nilai > 100) throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
-  const hasil = await withTransaction(async (tx) => {
+  const hasil = await withTransaction(async (_tx) => {
     const p = (await query.ret<{ id: number }>(db.insert(promo).values({
       tenant_id: tenantId,
       nama: body.nama,
@@ -154,7 +154,7 @@ promoRouter.put('/:id', requirePermission('penjualan.buat'), async (c) => {
   if (body.tipe_nilai === 'persen' && body.nilai !== undefined && body.nilai > 100)
     throw new HTTPException(400, { message: 'Diskon persen maks 100%' })
 
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     await query.exec(db.update(promo)
       .set({
         nama: body.nama ?? existing.nama,

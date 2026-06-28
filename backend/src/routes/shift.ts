@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, desc, gte, lte, ne, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, isoNow } from '../db/index.ts'
 import { shift_kasir, penjualan, karyawan } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'

@@ -1,12 +1,12 @@
 import { Hono } from 'hono'
 import { eq, and, gte, lte, desc } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, withTransaction, } from '../db/index.ts'
 import {
   retur_supplier, retur_supplier_detail,
   barang_masuk, barang_masuk_detail,
   barang, mutasi_stok,
-  hutang_supplier, jurnal_kas, kas_bank,
+  hutang_supplier, jurnal_kas, 
   supplier, karyawan,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
@@ -61,7 +61,7 @@ returSupplierRouter.get('/', requirePermission('pembelian.lihat'), async (c) => 
         eq(retur_supplier.tenant_id, tenantId),
         cabangId ? eq(retur_supplier.cabang_id, cabangId) : undefined,
         dari ? gte(retur_supplier.tanggal, dari) : undefined,
-        sampai ? lte(retur_supplier.tanggal, sampai + ' 23:59:59') : undefined,
+        sampai ? lte(retur_supplier.tanggal, `${sampai} 23:59:59`) : undefined,
         supplierId ? eq(retur_supplier.supplier_id, Number(supplierId)) : undefined,
       ),
     )
@@ -235,7 +235,7 @@ returSupplierRouter.post('/', requirePermission('pembelian.buat'), async (c) => 
   const tgl = tglSekarang()
   const noRet = noRetur()
 
-  const created = await withTransaction(async (tx) => {
+  const created = await withTransaction(async (_tx) => {
     // 1. Header retur
     const ret = await query.ret<typeof retur_supplier.$inferSelect>(db.insert(retur_supplier).values({
       no_retur: noRet,

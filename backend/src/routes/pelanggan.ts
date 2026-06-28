@@ -2,7 +2,7 @@ import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, like, and, or, ne, desc, gte, lte, sql, getTableColumns } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, isoNow } from '../db/index.ts'
 import { pelanggan, kartu_anggota, penjualan, penjualan_detail, barang } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
@@ -186,7 +186,7 @@ pelangganRouter.get('/:id/riwayat', requirePermission('penjualan.lihat'), async 
     eq(penjualan.tenant_id, tenantId) as any,
   ]
   if (dari) conds.push(gte(penjualan.tanggal, dari) as any)
-  if (sampai) conds.push(lte(penjualan.tanggal, sampai + ' 23:59:59') as any)
+  if (sampai) conds.push(lte(penjualan.tanggal, `${sampai} 23:59:59`) as any)
 
   const rows = await query.findAll(db
     .select({

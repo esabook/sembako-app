@@ -17,7 +17,7 @@ async function* yieldBackupLines(includeMedia: boolean): AsyncGenerator<string> 
     const tableName = (tableObj as any)._.name as string
     const rows = (await db.select().from(tableObj as any)) as Record<string, unknown>[]
     for (const row of rows) {
-      yield JSON.stringify({ __t: tableName, ...row }) + '\n'
+      yield `${JSON.stringify({ __t: tableName, ...row })}\n`
     }
   }
 
@@ -28,7 +28,7 @@ async function* yieldBackupLines(includeMedia: boolean): AsyncGenerator<string> 
       for await (const relPath of scanner) {
         try {
           const buf = await Bun.file(join(UPLOAD_DIR, relPath)).arrayBuffer()
-          yield JSON.stringify({ __t: '__file', p: relPath, d: Buffer.from(buf).toString('base64') }) + '\n'
+          yield `${JSON.stringify({ __t: '__file', p: relPath, d: Buffer.from(buf).toString('base64') })}\n`
         } catch { /* skip unreadable */ }
       }
     } catch { /* no uploads dir */ }

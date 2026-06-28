@@ -1,14 +1,14 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, and, gte, lte, ne, sql } from 'drizzle-orm'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, withTransaction, } from '../db/index.ts'
 import {
   penjualan, penjualan_detail,
   jurnal_kas, kas_bank,
   hutang_supplier, piutang_pelanggan,
   barang, pelanggan, supplier,
   barang_masuk_detail, barang_masuk,
-  kategori, karyawan, penggajian,
+  kategori, penggajian,
 } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
@@ -61,7 +61,7 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
         cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         gte(penjualan.tanggal, dari),
-        lte(penjualan.tanggal, sampai + ' 23:59:59')
+        lte(penjualan.tanggal, `${sampai} 23:59:59`)
       )
     )
     )
@@ -84,7 +84,7 @@ laporanRouter.get('/laba-rugi', requirePermission('laporan.lihat'), async (c) =>
         cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         gte(penjualan.tanggal, dari),
-        lte(penjualan.tanggal, sampai + ' 23:59:59')
+        lte(penjualan.tanggal, `${sampai} 23:59:59`)
       )
     )
     )
@@ -251,7 +251,7 @@ laporanRouter.get('/neraca', requirePermission('laporan.lihat'), async (c) => {
   const tenantId = user.tenant_id ?? 1
   const cabangId = c.req.query('cabang_id') ? Number(c.req.query('cabang_id')) : (user.cabang_id ?? null)
   const perTanggal = c.req.query('per_tanggal') || hariIni()
-  const batasTgl = perTanggal + ' 23:59:59'
+  const batasTgl = `${perTanggal} 23:59:59`
 
   const cache = getCache(c.env as { KV?: unknown })
   const cacheKey = `lap:neraca:${tenantId}:${cabangId ?? 0}:${perTanggal}`
@@ -592,7 +592,7 @@ laporanRouter.get('/margin-produk', requirePermission('laporan.lihat'), async (c
         cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         gte(penjualan.tanggal, dari),
-        lte(penjualan.tanggal, sampai + ' 23:59:59'),
+        lte(penjualan.tanggal, `${sampai} 23:59:59`),
       )
     )
     .groupBy(barang.id)
@@ -782,7 +782,7 @@ laporanRouter.get('/top-pelanggan', requirePermission('laporan.lihat'), async (c
         cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
         ne(penjualan.status, 'void'),
         gte(penjualan.tanggal, dari),
-        lte(penjualan.tanggal, sampai + ' 23:59:59'),
+        lte(penjualan.tanggal, `${sampai} 23:59:59`),
       )
     )
     .groupBy(pelanggan.id)
@@ -959,7 +959,7 @@ laporanRouter.get('/analitik-jam', requirePermission('laporan.lihat'), async (c)
       eq(penjualan.tenant_id, tenantId),
       cabangId ? eq(penjualan.cabang_id, cabangId) : undefined,
       gte(penjualan.tanggal, dari),
-      lte(penjualan.tanggal, sampai + ' 23:59:59'),
+      lte(penjualan.tanggal, `${sampai} 23:59:59`),
       ne(penjualan.status, 'void'),
     ))
     .groupBy(sql`strftime('%H', ${penjualan.tanggal})`)

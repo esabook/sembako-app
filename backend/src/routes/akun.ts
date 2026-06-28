@@ -11,7 +11,7 @@
 import { and, eq, ne } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { db, isoNow, query } from '../db/index.ts';
+import { db, query } from '../db/index.ts';
 import { karyawan, toko } from '../db/schema.ts';
 import { authMiddleware } from '../middleware/auth.ts';
 import { catatLog } from '../utils/log.ts';

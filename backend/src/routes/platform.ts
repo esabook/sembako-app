@@ -65,7 +65,7 @@ platformRouter.post('/login', async (c) => {
 			.from(platform_admin)
 			.where(eq(platform_admin.username, body.username.trim().toLowerCase()))
 	);
-	if (!admin || !admin.is_active) {
+	if (!admin?.is_active) {
 		throw new HTTPException(401, { message: 'Username atau password salah' });
 	}
 

@@ -62,7 +62,7 @@ penjualanRouter.get('/', requirePermission('penjualan.lihat'), async (c) => {
         eq(penjualan.tenant_id, tenantId),
         filterCabang ? eq(penjualan.cabang_id, filterCabang) : undefined,
         dari ? gte(penjualan.tanggal, dari) : undefined,
-        sampai ? lte(penjualan.tanggal, sampai + ' 23:59:59') : undefined,
+        sampai ? lte(penjualan.tanggal, `${sampai} 23:59:59`) : undefined,
         kasirId ? eq(penjualan.kasir_id, Number(kasirId)) : undefined,
       )
     )
@@ -178,7 +178,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
       throw new HTTPException(400, { message: 'Harga jual tidak boleh negatif' })
     }
     const br = await query.find<typeof barang.$inferSelect>(db.select().from(barang).where(and(eq(barang.id, item.barang_id), eq(barang.tenant_id, tenantId))))
-    if (!br || !br.is_active) {
+    if (!br?.is_active) {
       throw new HTTPException(400, { message: `Barang ID ${item.barang_id} tidak ditemukan` })
     }
     // Hanya barang fisik yang dibatasi stok. menu_item & service tidak dikurangi stok di sini.
@@ -200,7 +200,7 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
   const noTrx = noTransaksi()
 
   // Semua operasi dalam 1 transaksi SQLite
-  const result = await withTransaction(async (tx) => {
+  const result = await withTransaction(async (_tx) => {
     // 1. Buat penjualan
     const trx = await query.ret<typeof penjualan.$inferSelect>(db.insert(penjualan).values({
       no_transaksi: noTrx,
@@ -394,8 +394,8 @@ penjualanRouter.post('/', requirePermission('penjualan.buat'), async (c) => {
 
 
   bus.emit('checkout', {
-    penjualan_id: result.id,
-    total: result.total,
+    penjualan_id: result!.id!,
+    total: result!.total,
     kasir_id: user.id,
     items: body.items.map((i) => ({ barang_id: i.barang_id, jumlah: i.jumlah })),
   })
@@ -420,7 +420,7 @@ penjualanRouter.post('/:id/void', requirePermission('penjualan.void'), async (c)
 
   const tgl = tglSekarang()
 
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     // Kembalikan stok
     for (const item of items) {
       const br = await query.find<{ stok: number }>(db.select({ stok: barang.stok_sekarang })

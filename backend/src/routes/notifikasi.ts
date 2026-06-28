@@ -1,7 +1,7 @@
 import type { JWTPayload } from './auth.ts'
 import { Hono } from 'hono'
 import { eq, desc, ne, lte, gte, and } from 'drizzle-orm'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, } from '../db/index.ts'
 import { notifikasi_config, notifikasi_log, barang, hutang_supplier, piutang_pelanggan, pelanggan, penjualan } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
@@ -134,7 +134,7 @@ notifikasiRouter.get('/check', async (c) => {
 
   for (const cfg of configs) {
     if (cfg.jenis === 'stok_habis') {
-      const items = db.query.barang?.findMany?.({ where: (b: any, { eq: eq2 }: any) => eq2(b.is_active, 1) }) ?? []
+      const _items = db.query.barang?.findMany?.({ where: (b: any, { eq: eq2 }: any) => eq2(b.is_active, 1) }) ?? []
       // Gunakan raw query karena relational query belum di-setup
       const stmt = await query.findAll<{ id: number; nama_barang: string; stok_sekarang: number }>(db.select({
         id: barang.id,

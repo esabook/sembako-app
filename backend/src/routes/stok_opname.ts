@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, desc, and, sql } from 'drizzle-orm'
+import { eq, desc, and, } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import {
@@ -118,7 +118,7 @@ stokOpnameRouter.post('/', requirePermission('stok.edit'), async (c) => {
 
   const tgl = tglSekarang()
 
-  const opname = await withTransaction(async (tx) => {
+  const opname = await withTransaction(async (_tx) => {
     const op = (await query.ret<{ id: number }>(db.insert(stok_opname).values({
       no_opname: noOpname(),
       tanggal_mulai: tgl,
@@ -221,7 +221,7 @@ stokOpnameRouter.post('/:id/approve', requirePermission('stok.edit'), async (c) 
 
   const tgl = tglSekarang()
 
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     for (const item of items) {
       if (item.selisih === null || item.selisih === 0) continue
 
@@ -276,7 +276,7 @@ stokOpnameRouter.delete('/:id', requirePermission('stok.edit'), async (c) => {
   if (!op) throw new HTTPException(404, { message: 'Opname tidak ditemukan' })
   if (op.status === 'approved') throw new HTTPException(400, { message: 'Opname approved tidak bisa dibatalkan' })
 
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     await query.exec(db.delete(stok_opname_detail).where(eq(stok_opname_detail.opname_id, id)))
     await query.exec(db.delete(stok_opname).where(eq(stok_opname.id, id)))
   })

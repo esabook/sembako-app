@@ -35,30 +35,30 @@ async function rekam(
 
 export function initAnalyticsTap(): void {
 	bus.register('checkout', ({ penjualan_id, total, kasir_id, items }) => {
-		rekam('checkout', penjualan_id, { total, item_count: items.length }, kasir_id);
+		void rekam('checkout', penjualan_id, { total, item_count: items.length }, kasir_id);
 	});
 
 	bus.register('barang_masuk', ({ barang_masuk_id, supplier_id }) => {
-		rekam('barang_masuk', barang_masuk_id, { supplier_id });
+		void rekam('barang_masuk', barang_masuk_id, { supplier_id });
 	});
 
 	bus.register('stok.kritis', ({ barang_id, nama, stok, minimum }) => {
-		rekam('stok_kritis', barang_id, { nama, stok, minimum });
+		void rekam('stok_kritis', barang_id, { nama, stok, minimum });
 	});
 
 	bus.register('absensi.masuk', ({ karyawan_id }) => {
-		rekam('absensi_masuk', null, null, karyawan_id);
+		void rekam('absensi_masuk', null, null, karyawan_id);
 	});
 
 	bus.register('absensi.pulang', ({ absensi_id, karyawan_id }) => {
-		rekam('absensi_pulang', absensi_id, null, karyawan_id);
+		void rekam('absensi_pulang', absensi_id, null, karyawan_id);
 	});
 
 	bus.register('approval.disetujui', ({ approval_id, referensi_tipe, diproses_oleh }) => {
-		rekam('approval_disetujui', approval_id, { referensi_tipe }, diproses_oleh);
+		void rekam('approval_disetujui', approval_id, { referensi_tipe }, diproses_oleh);
 	});
 
 	bus.register('approval.ditolak', ({ approval_id, referensi_tipe, diproses_oleh }) => {
-		rekam('approval_ditolak', approval_id, { referensi_tipe }, diproses_oleh);
+		void rekam('approval_ditolak', approval_id, { referensi_tipe }, diproses_oleh);
 	});
 }

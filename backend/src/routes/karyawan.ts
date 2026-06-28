@@ -1,13 +1,13 @@
 import { Hono } from 'hono'
-import { eq, like, and, gte, lte, ne, sql } from 'drizzle-orm'
+import { eq, like, and, gte, lte, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, isoNow } from '../db/index.ts'
 import { karyawan, shift_kasir, penjualan, absensi } from '../db/schema.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
 import { saveUpload } from '../utils/upload.ts'
-import { hashPassword, verifyPassword } from '../utils/password.ts'
+import { hashPassword, } from '../utils/password.ts'
 
 type KaryawanRow = Pick<typeof karyawan.$inferSelect, 'id' | 'kode_karyawan' | 'nama' | 'role' | 'username'>
 
@@ -94,7 +94,7 @@ karyawanRouter.get('/performa', requirePermission('karyawan.lihat'), async (c) =
       eq(penjualan.tenant_id, tenantId),
       eq(penjualan.status, 'void'),
       gte(penjualan.tanggal, dari),
-      lte(penjualan.tanggal, sampai + ' 23:59:59'),
+      lte(penjualan.tanggal, `${sampai} 23:59:59`),
     ))
     .groupBy(penjualan.kasir_id)
     )
@@ -216,7 +216,7 @@ karyawanRouter.get('/:id/performa', requirePermission('karyawan.lihat'), async (
       eq(penjualan.kasir_id, id),
       eq(penjualan.status, 'void'),
       gte(penjualan.tanggal, dari),
-      lte(penjualan.tanggal, sampai + ' 23:59:59'),
+      lte(penjualan.tanggal, `${sampai} 23:59:59`),
     ))
     )
 
@@ -404,7 +404,7 @@ karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) =
 
   const formData = await c.req.formData()
   const file = formData.get('foto') as File | null
-  if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
+  if (!file?.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
 
   const { path: fotoPath } = await saveUpload(file, {
     subdir: 'karyawan',

@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, like, and, or, sql, max } from 'drizzle-orm'
+import { eq, like, and, or, sql, } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { db, query, withTransaction, isoNow } from '../db/index.ts'
 import { barang, kategori, satuan } from '../db/schema.ts'
@@ -344,7 +344,7 @@ barangRouter.post('/:id/foto', requirePermission('stok.edit'), async (c) => {
 
   const formData = await c.req.formData()
   const file = formData.get('foto') as File | null
-  if (!file || !file.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
+  if (!file?.size) throw new HTTPException(400, { message: 'File foto wajib diisi' })
 
   const { path: fotoPath } = await saveUpload(file, {
     subdir: 'produk',
@@ -417,7 +417,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
   // Ambil counter kode otomatis terakhir
   const lastKodeRows = await query.findAll<{ kode: string }>(db.select({ kode: barang.kode_barang }).from(barang)
     .where(like(barang.kode_barang, 'BRG-%')))
-  const lastKode = lastKodeRows.map(r => parseInt(r.kode.replace('BRG-', '')) || 0)
+  const lastKode = lastKodeRows.map(r => parseInt(r.kode.replace('BRG-', ''), 10) || 0)
   let kodeCounter = lastKode.length > 0 ? Math.max(...lastKode) : 0
 
   function nextKode(): string {
@@ -425,7 +425,7 @@ barangRouter.post('/import-csv', requirePermission('stok.edit'), async (c) => {
     return `BRG-${String(kodeCounter).padStart(4, '0')}`
   }
 
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     for (let i = 0; i < body.rows.length; i++) {
       const row = body.rows[i]!
       const nama = row.nama_barang?.trim()

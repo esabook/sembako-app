@@ -84,10 +84,10 @@ langgananRouter.post('/bukti', async (c) => {
   const periodeBulan = Number(formData.get('periode_bulan')) || 1
   const file = formData.get('file') as File | null
 
-  if (!nominal || isNaN(nominal) || nominal <= 0) {
+  if (!nominal || Number.isNaN(nominal) || nominal <= 0) {
     throw new HTTPException(400, { message: 'nominal wajib' })
   }
-  if (!file || !file.size) throw new HTTPException(400, { message: 'file bukti wajib' })
+  if (!file?.size) throw new HTTPException(400, { message: 'file bukti wajib' })
 
   const isImage = /^image\//.test(file.type)
   const isPdf = file.type === 'application/pdf'

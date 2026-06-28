@@ -191,7 +191,7 @@ keuanganRouter.post('/hutang/:id/bayar', requirePermission('hutang.edit'), async
   const statusBaru = sisaBaru <= 0 ? 'lunas' : 'sebagian'
   const tgl = body.tanggal_bayar ?? tglSekarang()
 
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     await query.exec(db.insert(pembayaran_hutang).values({
       hutang_id: id,
       tanggal_bayar: tgl,
@@ -295,7 +295,7 @@ keuanganRouter.post('/piutang/:id/bayar', requirePermission('piutang.edit'), asy
   const statusBaru = sisaBaru <= 0 ? 'lunas' : 'sebagian'
   const tgl = body.tanggal_bayar ?? tglSekarang()
 
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     await query.exec(db.insert(pembayaran_piutang).values({
       piutang_id: id,
       tanggal_bayar: tgl,
@@ -475,7 +475,7 @@ keuanganRouter.post('/rekonsiliasi-piutang', requirePermission('piutang.edit'), 
     )
 
   let fixed = 0
-  await withTransaction(async (tx) => {
+  await withTransaction(async (_tx) => {
     for (const r of aktual) {
       await query.exec(db.update(pelanggan)
         .set({ saldo_piutang: Math.max(0, r.saldo_aktual) })

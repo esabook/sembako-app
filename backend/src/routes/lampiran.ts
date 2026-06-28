@@ -8,7 +8,7 @@ import { eq, and } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
 import { unlinkSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { db, query, withTransaction, isoNow } from '../db/index.ts'
+import { db, query, } from '../db/index.ts'
 import { lampiran } from '../db/schema.ts'
 import { authMiddleware } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
@@ -61,8 +61,8 @@ lampiranRouter.post('/', async (c) => {
   const file = formData.get('file') as File | null
 
   if (!referensiTipe?.trim()) throw new HTTPException(400, { message: 'referensi_tipe wajib' })
-  if (!referensiId || isNaN(referensiId)) throw new HTTPException(400, { message: 'referensi_id wajib' })
-  if (!file || !file.size) throw new HTTPException(400, { message: 'file wajib' })
+  if (!referensiId || Number.isNaN(referensiId)) throw new HTTPException(400, { message: 'referensi_id wajib' })
+  if (!file?.size) throw new HTTPException(400, { message: 'file wajib' })
 
   const isImage = /^image\//.test(file.type)
   const isPdf = file.type === 'application/pdf'

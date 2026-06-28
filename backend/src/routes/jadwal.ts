@@ -142,10 +142,10 @@ jadwalRouter.get('/tukar', requirePermission('karyawan.lihat'), async (c) => {
   const tenantId = user.tenant_id ?? 1
   const isMgr = ['pemilik', 'manajer'].includes(user.role)
 
-  const pengajuAlias = db.$with('pengaju').as(
+  const _pengajuAlias = db.$with('pengaju').as(
     db.select({ id: karyawan.id, nama: karyawan.nama }).from(karyawan)
   )
-  const penerimaAlias = db.$with('penerima').as(
+  const _penerimaAlias = db.$with('penerima').as(
     db.select({ id: karyawan.id, nama: karyawan.nama }).from(karyawan)
   )
 
