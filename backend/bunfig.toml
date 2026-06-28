@@ -1,0 +1,3 @@
+[test]
+# Preload menyiapkan DB sqlite sementara + migrasi sebelum semua test jalan.
+preload = ["./test/setup.ts"]

@@ -10,6 +10,7 @@
     "db:migrate": "bun run src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "bun run src/db/seed.ts",
+    "test": "bun test",
     "lint": "biome check src",
     "lint:fix": "biome check --write src",
     "format": "biome format --write src",

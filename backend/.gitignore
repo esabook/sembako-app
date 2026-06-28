@@ -29,3 +29,6 @@ stokasir-be
 stokasir-be-win.exe
 *.tgz
 *.tsbuildinfo
+
+# Test temp DBs
+test/.tmp/
