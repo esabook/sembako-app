@@ -6,6 +6,7 @@
 	import { createProfilStore } from './profil.store.svelte';
 	import TabProfil from './components/TabProfil.svelte';
 	import TabToko from './components/TabToko.svelte';
+	import TabPerangkat from './components/TabPerangkat.svelte';
 	import TabBar from '$lib/components/ui/TabBar.svelte';
 
 	const store = createProfilStore();
@@ -14,6 +15,7 @@
 	const isPemilik = $derived($user?.role === 'pemilik');
 	const tabs = $derived([
 		{ key: 'profil', label: 'Profil & Akun' },
+		{ key: 'perangkat', label: 'Perangkat & Sesi' },
 		...(isPemilik ? [{ key: 'toko', label: 'Toko & Cabang' }] : [])
 	]);
 
@@ -37,6 +39,8 @@
 
 	{#if tab === 'toko' && isPemilik}
 		<TabToko />
+	{:else if tab === 'perangkat'}
+		<TabPerangkat />
 	{:else}
 		<TabProfil {store} />
 	{/if}
