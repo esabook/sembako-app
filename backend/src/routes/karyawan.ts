@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { eq, like, and, gte, lte, sql } from 'drizzle-orm'
 import { HTTPException } from 'hono/http-exception'
-import { db, query, isoNow } from '../db/index.ts'
+import { db, prodDb, query, isoNow } from '../db/index.ts'
 import { karyawan, shift_kasir, penjualan, absensi } from '../db/schema.ts'
+import { linkOrCreateBaUser } from '../db/backfill-ba.ts'
 import { authMiddleware, requirePermission } from '../middleware/auth.ts'
 import { tenantMiddleware } from '../middleware/tenant.ts'
 import type { JWTPayload } from './auth.ts'
@@ -393,6 +394,51 @@ karyawanRouter.put('/:id', requirePermission('karyawan.edit'), async (c) => {
   }
 
   return c.json({ success: true, data: row })
+})
+
+// Admin (pemilik/manajer) set email karyawan (Fase B) → dibuatkan identity
+// better-auth (hash existing). Verifikasi email ditunda sampai domain siap.
+karyawanRouter.patch('/:id/email', async (c) => {
+  const user = c.get('user') as JWTPayload
+  if (user.role !== 'pemilik' && user.role !== 'manajer') {
+    throw new HTTPException(403, { message: 'Hanya pemilik/manajer yang bisa set email karyawan' })
+  }
+  const id = Number(c.req.param('id'))
+  const tenantId = user.tenant_id ?? 1
+  const body = await c.req.json<{ email: string }>()
+  const email = body.email?.trim().toLowerCase()
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    throw new HTTPException(400, { message: 'Format email tidak valid' })
+  }
+
+  const existing = await query.find<{ id: number; nama: string; password_hash: string | null }>(
+    db
+      .select({ id: karyawan.id, nama: karyawan.nama, password_hash: karyawan.password_hash })
+      .from(karyawan)
+      .where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId)))
+  )
+  if (!existing) throw new HTTPException(404, { message: 'Karyawan tidak ditemukan' })
+
+  // Email unik lintas karyawan.
+  const dipakai = await query.find<{ id: number }>(
+    prodDb().select({ id: karyawan.id }).from(karyawan).where(eq(karyawan.email, email))
+  )
+  if (dipakai && dipakai.id !== id) {
+    throw new HTTPException(409, { message: 'Email sudah dipakai akun lain' })
+  }
+
+  await query.exec(
+    db.update(karyawan).set({ email, updated_at: isoNow() }).where(and(eq(karyawan.id, id), eq(karyawan.toko_id, tenantId)))
+  )
+  const link = await linkOrCreateBaUser(prodDb(), {
+    id: existing.id,
+    nama: existing.nama,
+    email,
+    password_hash: existing.password_hash,
+  })
+  if (!link) throw new HTTPException(500, { message: 'Gagal membuat identity better-auth' })
+
+  return c.json({ success: true, data: { id, email } })
 })
 
 karyawanRouter.post('/:id/foto', requirePermission('karyawan.edit'), async (c) => {
